@@ -9,13 +9,19 @@ import type { Locale } from "../../i18n/config";
 interface Props {
   lang: Locale;
   /** 計測の配置ラベル（GA4 cta_location に載る） */
-  ctaLocation: "hero" | "after_review" | "after_compare" | "footer_cta";
+  ctaLocation: "hero" | "after_review" | "after_compare" | "footer_cta" | "article_footer" | "after_summary";
   /** ★評価＋取得日の補助行を出すか（HERO用） */
   showRating?: boolean;
   /** 中央寄せ（レビュー/比較/末尾）か左寄せ（HERO）か */
   align?: "center" | "left";
+  /** 明るい背景に置く場合 true（rating行を暗色にする） */
+  onLight?: boolean;
+  /** ボタン文言の上書き（既定: "Airbnb — Kiyokawa" / "Airbnb — Takasago"） */
+  labels?: { kiyokawa: string; takasago: string };
 }
-const { lang, ctaLocation, showRating = false, align = "center" } = Astro.props;
+const { lang, ctaLocation, showRating = false, align = "center", onLight = false, labels } = Astro.props;
+const labelK = labels?.kiyokawa ?? "Airbnb — Kiyokawa";
+const labelT = labels?.takasago ?? "Airbnb — Takasago";
 
 const k = PROPERTIES.kiyokawa;
 const t = PROPERTIES.takasago;
@@ -34,7 +40,7 @@ const ratingLabel =
 const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.5 2 5.5 5.5 5.5 9.5c0 2.5 1.2 4.8 3.2 6.5L12 22l3.3-6c2-1.7 3.2-4 3.2-6.5C18.5 5.5 15.5 2 12 2zm0 10a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"></path></svg>`;
 ---
 
-<div class:list={["ibc", `ibc-${align}`]}>
+<div class:list={["ibc", `ibc-${align}`, onLight && "ibc-on-light"]}>
   <div class="ibc-pills">
     <a
       href={k.airbnbUrl}
@@ -44,7 +50,7 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
       data-cta-location={ctaLocation}
     >
       <Fragment set:html={AirbnbIcon} />
-      Airbnb — Kiyokawa
+      {labelK}
     </a>
     <a
       href={t.airbnbUrl}
@@ -54,7 +60,7 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
       data-cta-location={ctaLocation}
     >
       <Fragment set:html={AirbnbIcon} />
-      Airbnb — Takasago
+      {labelT}
     </a>
   </div>
   {showRating && <p class="ibc-rating">{ratingLabel}</p>}

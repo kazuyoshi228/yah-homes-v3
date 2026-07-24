@@ -10,6 +10,7 @@ import { localeParam, localizedPath, type Locale } from "../../../i18n/config";
 import { translations } from "../../../i18n/translations";
 import { getGuides, GUIDES_PREVIEW, type Guide, type GuideTranslation } from "../../../lib/guides";
 import { BASE_URL, breadcrumbJsonLd } from "../../../lib/seo";
+import InlineBookingCta from "../../../components/home/InlineBookingCta.astro";
 
 export async function getStaticPaths() {
   const guides = await getGuides();
@@ -123,19 +124,42 @@ bodyHtml = bodyHtml.replace(/<img\b([^>]*?)\s*\/?>/g, (_m, attrs: string) => {
   return `<img${a} />`;
 });
 
-// ── handoff → 物件カード ──
-const PROPERTY_HANDOFF: Record<string, { key: "kiyokawa" | "takasago" }> = {
-  "/booking/kiyokawa": { key: "kiyokawa" },
-  "/booking/takasago": { key: "takasago" },
+// handoff物件カードは廃止（2026-07-25）: 全記事一律で Airbnb直行の InlineBookingCta に置換。
+
+// ── Summary直下CTA（2026-07-25 発注者承認）──
+// 文言はhandoffの有無で出し分け: 物件が本文に登場する記事＝「この記事で紹介している物件」／
+// 登場しない汎用記事（Phase2の福岡ガイド60本想定）＝運営者開示型。ボタンは予約アクション文言。
+const hasPropertyHandoff = (guide.handoff ?? []).some((h) => h.startsWith("/booking/"));
+const MIDCTA_LEAD: Record<Locale, { featured: string; generic: string }> = {
+  ja: {
+    featured: "📍 この記事で紹介している物件に泊まれます",
+    generic: "📍 この記事の筆者は、福岡・都心で一棟貸し2棟を運営しています",
+  },
+  en: {
+    featured: "📍 You can stay at the houses featured in this article",
+    generic: "📍 The author runs two whole-house rentals in central Fukuoka",
+  },
+  zh: {
+    featured: "📍 可以入住本文介紹的包棟民宿",
+    generic: "📍 本文作者在福岡市中心經營兩棟包棟民宿",
+  },
+  ko: {
+    featured: "📍 이 글에서 소개한 독채 숙소에 묵을 수 있습니다",
+    generic: "📍 이 글의 필자는 후쿠오카 도심에서 독채 숙소 2곳을 운영합니다",
+  },
+  th: {
+    featured: "📍 คุณสามารถพักที่บ้านที่แนะนำในบทความนี้ได้",
+    generic: "📍 ผู้เขียนบทความนี้ดูแลบ้านเช่าทั้งหลัง 2 หลังในใจกลางฟุกุโอกะ",
+  },
 };
-const handoffProps = (guide.handoff ?? [])
-  .map((h) => PROPERTY_HANDOFF[h])
-  .filter(Boolean)
-  .map(({ key }) => ({
-    href: localizedPath(lang, `/booking/${key}`),
-    name: siteT.properties[key].name,
-    info: siteT.properties[key].info,
-  }));
+const MIDCTA_LABELS: Record<Locale, { kiyokawa: string; takasago: string }> = {
+  ja: { kiyokawa: "清川を予約する →", takasago: "高砂を予約する →" },
+  en: { kiyokawa: "Book Kiyokawa →", takasago: "Book Takasago →" },
+  zh: { kiyokawa: "預訂清川 →", takasago: "預訂高砂 →" },
+  ko: { kiyokawa: "기요카와 예약하기 →", takasago: "다카사고 예약하기 →" },
+  th: { kiyokawa: "จอง Kiyokawa →", takasago: "จอง Takasago →" },
+};
+const midctaLead = MIDCTA_LEAD[lang][hasPropertyHandoff ? "featured" : "generic"];
 
 // ── メタ・構造化データ ──
 const dateModified = new Date(guide.updatedAt).toISOString().split("T")[0];
@@ -279,6 +303,12 @@ const pageJsonLd = [jsonLd, breadcrumb].filter(Boolean); // faqJsonLd は本文�
         )
       }
 
+      <!-- Summary直下CTA: 答えを受け取った直後＝受容性最大の位置（cta_location=after_summary で分離計測） -->
+      <aside class="gd-midcta">
+        <p class="gd-midcta-lead">{midctaLead}</p>
+        <InlineBookingCta lang={lang} ctaLocation="after_summary" onLight align="center" labels={MIDCTA_LABELS[lang]} />
+      </aside>
+
       <!-- 本文 -->
       <div class="gd-body" set:html={bodyHtml} />
 
@@ -302,25 +332,11 @@ const pageJsonLd = [jsonLd, breadcrumb].filter(Boolean); // faqJsonLd は本文�
         )
       }
 
-      <!-- handoff: 物件カード -->
-      {
-        handoffProps.length > 0 && (
-          <section class="gd-handoff">
-            <h2 class="gd-h2">{lang === "ja" ? "福岡・都心の一棟貸しなら" : "Stay with yah.homes"}</h2>
-            <div class="gd-cards">
-              {handoffProps.map((p) => (
-                <a href={p.href} class="gd-card">
-                  <span class="gd-card-name">{p.name}</span>
-                  <span class="gd-card-info">{p.info}</span>
-                  <span class="gd-card-arrow" aria-hidden="true">
-                    →
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )
-      }
+      <!-- handoff: Airbnb直行CTA（全記事共通・HEROと同じ赤ピル部品。テンプレート一括変更 2026-07-25） -->
+      <section class="gd-handoff">
+        <h2 class="gd-h2">{lang === "ja" ? "福岡・都心の一棟貸しなら" : "Stay with yah.homes"}</h2>
+        <InlineBookingCta lang={lang} ctaLocation="article_footer" showRating onLight align="center" />
+      </section>
 
       {/* 関連ガイドは各記事の本文が持つ（ハブ&スポークで意図的にキュレーション済み）。
           ここで先頭3件を機械的に並べる自動セクションを出すと、同じ見出しで二重に出るため置かない。 */}
@@ -476,6 +492,19 @@ const pageJsonLd = [jsonLd, breadcrumb].filter(Boolean); // faqJsonLd は本文�
     border-left: 2px solid #e8e8e8;
     padding-left: 1rem;
     margin-bottom: 2.5rem;
+  }
+  .gd-midcta {
+    background: #fafafa;
+    border-radius: 12px;
+    padding: 1.5rem 1.25rem;
+    margin: 0 0 3rem;
+    text-align: center;
+  }
+  .gd-midcta-lead {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #333333;
+    margin: 0 0 1rem;
   }
   .gd-answer-label {
     font-size: 0.7rem;
