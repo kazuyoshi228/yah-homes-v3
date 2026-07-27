@@ -1,0 +1,57 @@
+{
+  "_comment": "夥伴頁面事實表（繁體中文）。正本=partners-facts.ja.json（canon準拠）。ja更新時はここも同期（design_partners_page.md §5）。",
+  "rows": [
+    {
+      "label": "類型",
+      "kiyokawa": "新建獨棟住宅 109㎡",
+      "takasago": "和風現代獨棟住宅 100㎡"
+    },
+    {
+      "label": "人數上限",
+      "kiyokawa": "最多7人（8人以上不可）",
+      "takasago": "最多6人（7人以上不可）"
+    },
+    {
+      "label": "臥室・床鋪",
+      "kiyokawa": "3間臥室・席夢思床墊（雙人床3＋單人床1）",
+      "takasago": "3間臥室・席夢思床墊（雙人床1＋單人床4）・可一人一床"
+    },
+    {
+      "label": "衛浴",
+      "kiyokawa": "浴室在1樓・洗手台1個",
+      "takasago": "浴室1間（2樓）・淋浴間1間・洗手台3個"
+    },
+    {
+      "label": "位置",
+      "kiyokawa": "開車8分鐘到天神・那珂川沿岸",
+      "takasago": "渡邊通站步行5〜10分鐘・天神步行圈"
+    },
+    {
+      "label": "停車",
+      "kiyokawa": "免費專用停車位",
+      "takasago": "可停大型車"
+    }
+  ],
+  "dontWrite": [
+    "泳池・溫泉・BBQ・三溫暖相關描述（無此類設施）",
+    "可能讓人誤以為可辦派對・活動的描述（不可辦派對・活動）",
+    "價格的斷定描述（價格依時期變動）"
+  ],
+  "links": {
+    "kiyokawa": {
+      "official": "https://yah.homes/zh/booking/kiyokawa/",
+      "airbnb": "https://www.airbnb.com/rooms/1427842426961787667"
+    },
+    "takasago": {
+      "official": "https://yah.homes/zh/booking/takasago/",
+      "airbnb": "https://www.airbnb.com/rooms/1497546315476018480"
+    }
+  },
+  "angles": [
+    "不用顧慮他人、盡情歡笑的「一日一組・整棟包棟」閨蜜旅・團體旅開箱",
+    "3個洗手台＝早上梳洗不塞車的親子旅行（高砂館）",
+    "住進天神步行圈的住宅區，邊逛在地小店、像當地人一樣的福岡之旅",
+    "開大型車以福岡為基地巡遊九州溫泉。三代同堂大家庭旅行也OK（高砂館）",
+    "新建設計宅與和風現代宅，兩棟連住徹底比較"
+  ]
+}

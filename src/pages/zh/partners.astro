@@ -1,0 +1,719 @@
+---
+/* 夥伴頁面（台灣・香港KOL/部落客向け・繁體字）— design_partners_page.md（zh版）
+   ja版(src/pages/ja/partners.astro)と構成同一。noindex・サイト内リンクなし・sitemap除外。
+   ファクト正本: src/data/partners-facts.zh.json（ja版と同期）。
+   フォームは lang:"zh" を送信 → partnersApply が繁体字の自動返信を発送。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { GALLERIES } from "../../data/properties";
+import facts from "../../data/partners-facts.zh.json";
+
+const APPLY_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/partnersApply";
+const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+
+const galleryOf = (key: "kiyokawa" | "takasago") => GALLERIES[key].slice(0, 6);
+const PROPS = [
+  { key: "kiyokawa" as const, name: "清川館（Kiyokawa）" },
+  { key: "takasago" as const, name: "高砂館（Takasago）" },
+];
+---
+
+<SiteLayout
+  lang="zh"
+  path="/partners"
+  title="Partner Activation 合作說明（KOL限定） | yah.homes"
+  description="yah.homes（福岡・整棟包棟2棟）合作夥伴說明。事實表・官方照片・可預約日期・提供條件。"
+  noindex={true}
+  solidNav
+>
+  <article class="pt">
+    <div class="pt-container">
+      <!-- ヒーロー -->
+      <header class="pt-header">
+        <p class="pt-eyebrow">Partners</p>
+        <h1 class="pt-title">yah.homes Partner Activation 合作說明<span class="pt-title-sub">（KOL・部落客限定）</span></h1>
+        <p class="pt-lead">
+          這是提供給願意協助採訪・撰寫開箱內容的創作者的資料頁，介紹福岡市中心的整棟包棟民宿「清川館」「高砂館」。
+        </p>
+      </header>
+
+      <!-- 切り口例 -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">推薦的內容切入點</h2>
+        <ul class="pt-angles">
+          {facts.angles.map((a) => <li>{a}</li>)}
+        </ul>
+        <p class="pt-note">以上僅為範例。內容完全自由，包括負面感想在內，請坦率撰寫。</p>
+      </section>
+
+      <!-- §1 ファクトシート -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">事實表（Fact Sheet）</h2>
+        <p class="pt-note">撰寫內容時的事實確認請以此表為準（2026年7月時點）。</p>
+        <div class="pt-tablewrap">
+          <table class="pt-table">
+            <thead>
+              <tr><th></th><th>清川館（Kiyokawa）</th><th>高砂館（Takasago）</th></tr>
+            </thead>
+            <tbody>
+              {facts.rows.map((r) => (
+                <tr><th>{r.label}</th><td>{r.kiyokawa}</td><td>{r.takasago}</td></tr>
+              ))}
+              <tr>
+                <th>連結</th>
+                <td>
+                  <a href={facts.links.kiyokawa.official}>官方詳細頁面</a>／
+                  <a href={facts.links.kiyokawa.airbnb} rel="noopener noreferrer" target="_blank">Airbnb</a>
+                </td>
+                <td>
+                  <a href={facts.links.takasago.official}>官方詳細頁面</a>／
+                  <a href={facts.links.takasago.airbnb} rel="noopener noreferrer" target="_blank">Airbnb</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pt-dontwrite">
+          <p class="pt-dw-label">請避免撰寫的內容</p>
+          <ul>
+            {facts.dontWrite.map((d) => <li>{d}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <!-- §2 公式写真 -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">官方照片</h2>
+        <p class="pt-note">
+          可自由用於內容製作（無需標註出處）。
+          建議以您自行拍攝的照片為主（官方照片供補充使用）。
+        </p>
+        {PROPS.map((p) => (
+          <div class="pt-gallery-block">
+            <h3 class="pt-h3">{p.name}</h3>
+            <div class="pt-gallery">
+              {galleryOf(p.key).map((src, i) => (
+                <img src={src} alt={`${p.name} ${i + 1}`} loading="lazy" width="400" height="267" />
+              ))}
+            </div>
+            <a class="pt-dl" href={`/partners-assets/photos-${p.key}.zip`} download>
+              下載{p.name.split("（")[0]}全部照片（ZIP・JPG）
+            </a>
+          </div>
+        ))}
+      </section>
+
+      <!-- §3 提供条件 -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">提供條件</h2>
+        <ul class="pt-terms">
+          <li>免費提供平日1〜2晚（含清潔費・由本公司負擔）。為了內容的豐富度，建議住2晚。<strong>也歡迎清川館・高砂館各住1晚的「兩棟連住」</strong>（最適合兩棟比較文）。<strong>入住日限週一・週二・週三</strong>。週末請另行洽詢。</li>
+          <li>內容完全自由。包括負面感想在內，請坦率撰寫。</li>
+          <li>行程變更・取消請於<strong>7天前</strong>告知。</li>
+        </ul>
+      </section>
+
+      <!-- §4 予約可能日（Beds24 API・API不達時はフォールバック） -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">可預約日期</h2>
+        <div id="pt-calendars">
+          <div class="pt-cal-block" data-prop="kiyokawa">
+            <h3 class="pt-h3">清川館（Kiyokawa）</h3>
+            <div class="pt-cal" data-cal="kiyokawa"></div>
+          </div>
+          <div class="pt-cal-block" data-prop="takasago">
+            <h3 class="pt-h3">高砂館（Takasago）</h3>
+            <div class="pt-cal" data-cal="takasago"></div>
+          </div>
+        </div>
+        <p class="pt-note" id="pt-cal-fallback" hidden>
+          即時空房顯示準備中（灰色＝非入住對象的週四〜週日・過去日期）。請透過下方申請表單告知希望日期，我們會連同空房狀況一併回覆。
+        </p>
+        <div class="pt-cal-legend" id="pt-cal-legend" hidden>
+          <span><i class="lg-open"></i> 有空房</span>
+          <span><i class="lg-closed"></i> 已預約・非入住對象（週四〜週日）</span>
+        </div>
+        <p class="pt-note">提供平日1〜2晚（週末除外）。空房狀況每隔數分鐘更新。</p>
+      </section>
+
+      <!-- §5 日程申請フォーム -->
+      <section class="pt-sec" id="apply">
+        <h2 class="pt-h2">日期申請表單</h2>
+        <form id="partners-form" class="pt-form" novalidate>
+          <div class="pt-field">
+            <label for="pf-name">姓名（可用暱稱）*</label>
+            <input id="pf-name" name="name" type="text" required maxlength="200" />
+          </div>
+          <div class="pt-field">
+            <label for="pf-email">電子郵件 *</label>
+            <input id="pf-email" name="email" type="email" required maxlength="320" />
+          </div>
+          <div class="pt-field">
+            <label for="pf-media">媒體連結（部落格・Instagram等）*</label>
+            <input id="pf-media" name="mediaUrl" type="url" required placeholder="https://" maxlength="500" />
+          </div>
+          <div class="pt-field">
+            <label for="pf-property">希望入住的棟 *</label>
+            <select id="pf-property" name="property" required>
+              <option value="either">兩棟皆可</option>
+              <option value="kiyokawa">清川館（最多7人）</option>
+              <option value="takasago">高砂館（最多6人）</option>
+              <option value="both">兩棟各住1晚（連住）</option>
+            </select>
+          </div>
+          <div class="pt-field-row">
+            <div class="pt-field">
+              <label for="pf-date1">第1希望入住日（週一・二・三）*</label>
+              <input id="pf-date1" name="date1" type="date" required />
+            </div>
+            <div class="pt-field">
+              <label for="pf-date2">第2希望入住日（週一・二・三）*</label>
+              <input id="pf-date2" name="date2" type="date" required />
+            </div>
+          </div>
+          <div class="pt-field">
+            <label for="pf-guests">人數 *</label>
+            <select id="pf-guests" name="guests" required>
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => <option value={String(n)}>{n}人</option>)}
+            </select>
+            <p class="pt-hint" id="pf-guests-hint">清川館最多7人・高砂館最多6人。</p>
+          </div>
+          <div class="pt-field">
+            <label for="pf-message">留言（選填）</label>
+            <textarea id="pf-message" name="message" rows="4" maxlength="5000"></textarea>
+          </div>
+          <input type="hidden" name="lang" value="zh" />
+          <!-- ハニーポット -->
+          <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;" aria-hidden="true" />
+          <button type="submit" class="pt-submit" id="pf-submit">送出申請</button>
+          <p class="pt-form-status" id="pf-status" role="status"></p>
+        </form>
+      </section>
+
+      <!-- §6 掲載時のお願い -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">發布時的請託事項（住宿確定者）</h2>
+        <ul class="pt-terms">
+          <li>請標註「合作: yah.homes」或「#合作」「#邀約」等字樣。<strong>依台灣公平交易委員會的薦證廣告規範及日本的隱形行銷規制，受招待的貼文須揭露合作關係。</strong></li>
+          <li>內容中的連結請以各棟的官方詳細頁面為主（見上方事實表）。Airbnb連結為選擇性。</li>
+          <li>發布時間以住宿後4週內為佳。</li>
+        </ul>
+        <div class="pt-utm">
+          <p class="pt-dw-label">產生內容專用連結（含成效追蹤參數）</p>
+          <p class="pt-note">輸入媒體名稱後按「複製」，即可產生要貼在內容裡的連結。</p>
+          <div class="pt-utm-row">
+            <input id="utm-name" type="text" placeholder="媒體名稱（例: 部落格名）" maxlength="60" />
+            <select id="utm-prop">
+              <option value="kiyokawa">清川館</option>
+              <option value="takasago">高砂館</option>
+            </select>
+            <button type="button" class="pt-utm-copy" id="utm-copy">複製連結</button>
+          </div>
+          <p class="pt-hint" id="utm-out"></p>
+        </div>
+      </section>
+
+      <!-- §7 連絡先 -->
+      <section class="pt-sec">
+        <h2 class="pt-h2">聯絡方式</h2>
+        <p>有任何問題請透過日期申請表單與我們聯繫（可用中文・英文・日文）。</p>
+      </section>
+    </div>
+  </article>
+</SiteLayout>
+
+<script define:vars={{ APPLY_ENDPOINT, AVAIL_ENDPOINT }}>
+  // ── 日付選択: 月・火・水のみ許可 ──
+  const CAPACITY = { kiyokawa: 7, takasago: 6, either: 7, both: 6 };
+  const isMonToWed = (v) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+    if (!m) return false;
+    const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay();
+    return day >= 1 && day <= 3;
+  };
+  const today = new Date();
+  const minDate = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10); // 受付は1ヶ月後から（カレンダー表示と整合）
+  for (const id of ["pf-date1", "pf-date2"]) {
+    const el = document.getElementById(id);
+    el.min = minDate;
+    el.addEventListener("change", () => {
+      if (el.value && !isMonToWed(el.value)) {
+        el.setCustomValidity("入住日請選擇週一・週二・週三");
+        el.reportValidity();
+      } else {
+        el.setCustomValidity("");
+      }
+    });
+  }
+
+  // 定員: 棟の選択に応じて人数を制限
+  const propSel = document.getElementById("pf-property");
+  const guestSel = document.getElementById("pf-guests");
+  const syncGuests = () => {
+    const cap = CAPACITY[propSel.value] ?? 7;
+    for (const opt of guestSel.options) opt.disabled = Number(opt.value) > cap;
+    if (Number(guestSel.value) > cap) guestSel.value = String(cap);
+  };
+  propSel.addEventListener("change", syncGuests);
+  syncGuests();
+
+  // 送信
+  const form = document.getElementById("partners-form");
+  const status = document.getElementById("pf-status");
+  const submitBtn = document.getElementById("pf-submit");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d1 = document.getElementById("pf-date1").value;
+    const d2 = document.getElementById("pf-date2").value;
+    if (!isMonToWed(d1) || !isMonToWed(d2)) {
+      status.textContent = "入住日請選擇週一・週二・週三。";
+      return;
+    }
+    if (!form.reportValidity()) return;
+    submitBtn.disabled = true;
+    status.textContent = "傳送中...";
+    try {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.guests = Number(data.guests);
+      const res = await fetch(APPLY_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        status.textContent = "已收到您的申請。確認信已寄出，請查收。";
+        form.reset();
+        syncGuests();
+      } else {
+        status.textContent = "傳送失敗。請確認輸入內容。";
+      }
+    } catch {
+      status.textContent = "傳送失敗。請稍後再試。";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  // ── 空き状況カレンダー（月表示×2ヶ月・週末はグレー） ──
+  (async () => {
+    const fallback = document.getElementById("pt-cal-fallback");
+    const legend = document.getElementById("pt-cal-legend");
+    const DOW = ["日", "一", "二", "三", "四", "五", "六"];
+    const renderMonth = (year, month, dates) => {
+      const first = new Date(Date.UTC(year, month, 1));
+      const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      const startDow = first.getUTCDay();
+      let cells = "";
+      for (let i = 0; i < startDow; i++) cells += '<span class="cal-cell cal-empty"></span>';
+      const todayKey = new Date().toISOString().slice(0, 10);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const dow = new Date(Date.UTC(year, month, d)).getUTCDay();
+        const checkinDay = dow >= 1 && dow <= 3; // チェックイン可=月・火・水のみ
+        const past = key < todayKey;
+        let cls;
+        if (!checkinDay || past) cls = "cal-closed";
+        else if (dates === null) cls = "cal-unknown"; // API未接続: 月火水は中立表示
+        else cls = dates[key] === true ? "cal-open" : "cal-closed";
+        cells += `<span class="cal-cell ${cls}">${d}</span>`;
+      }
+      const head = DOW.map((w) => `<span class="cal-dow">${w}</span>`).join("");
+      return `<div class="cal-month"><p class="cal-title">${year}年${month + 1}月</p><div class="cal-grid">${head}${cells}</div></div>`;
+    };
+    const draw = (datesByProp) => {
+      const now = new Date();
+      for (const prop of ["kiyokawa", "takasago"]) {
+        const el = document.querySelector(`[data-cal="${prop}"]`);
+        let html = "";
+        for (let i = 1; i <= 2; i++) { // 表示は1ヶ月後から2ヶ月分
+          const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
+          html += renderMonth(m.getFullYear(), m.getMonth(), datesByProp ? datesByProp[prop] : null);
+        }
+        el.innerHTML = html;
+      }
+    };
+    try {
+      const results = await Promise.all(
+        ["kiyokawa", "takasago"].map(async (prop) => {
+          const r = await fetch(`${AVAIL_ENDPOINT}?prop=${prop}`);
+          if (!r.ok) throw new Error("avail fetch failed");
+          const j = await r.json();
+          if (!j.ok) throw new Error("avail not ok");
+          return [prop, j.dates || {}];
+        })
+      );
+      draw(Object.fromEntries(results));
+      legend.hidden = false;
+    } catch {
+      // API未接続・障害時: カレンダーは常時表示
+      draw(null);
+      fallback.hidden = false;
+    }
+  })();
+
+  // ── UTMコピー ──
+  const utmBtn = document.getElementById("utm-copy");
+  const utmOut = document.getElementById("utm-out");
+  utmBtn.addEventListener("click", async () => {
+    const name = (document.getElementById("utm-name").value || "partner-generic")
+      .trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-ぁ-んァ-ン一-龠]/g, "").slice(0, 60) || "partner-generic";
+    const prop = document.getElementById("utm-prop").value;
+    const url = `https://yah.homes/zh/booking/${prop}/?utm_source=partner&utm_medium=referral&utm_campaign=${encodeURIComponent(name)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      utmOut.textContent = `已複製: ${url}`;
+    } catch {
+      utmOut.textContent = url;
+    }
+  });
+</script>
+
+<style>
+  .pt {
+    background: #ffffff;
+    padding: 7rem 1.5rem 5rem;
+  }
+  .pt-container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .pt-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #aaaaaa;
+    margin-bottom: 1rem;
+  }
+  .pt-title {
+    font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+    font-weight: 500;
+    line-height: 1.3;
+    color: #111111;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.9rem;
+  }
+  .pt-lead {
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.85;
+    color: #555555;
+  }
+  .pt-title-sub {
+    display: block;
+    font-size: 0.55em;
+    font-weight: 400;
+    color: #555555;
+    margin-top: 0.4rem;
+    letter-spacing: 0;
+  }
+  .pt-sec {
+    margin-top: 3.5rem;
+  }
+  .pt-h2 {
+    font-size: clamp(1.15rem, 2.6vw, 1.5rem);
+    font-weight: 500;
+    color: #111111;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #eeeeee;
+  }
+  .pt-h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #111111;
+    margin: 1.5rem 0 0.75rem;
+  }
+  .pt-note {
+    font-size: 0.8rem;
+    color: #888888;
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+  }
+  .pt-hint {
+    font-size: 0.75rem;
+    color: #999999;
+    margin-top: 0.3rem;
+    word-break: break-all;
+  }
+  .pt-angles {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+  }
+  .pt-angles li {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: #222222;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #eeeeee;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+  .pt-tablewrap {
+    overflow-x: auto;
+  }
+  .pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  .pt-table th,
+  .pt-table td {
+    border: 1px solid #e5e5e5;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    color: #222222;
+  }
+  .pt-table thead th {
+    background: #fafafa;
+    font-weight: 500;
+  }
+  .pt-table tbody th {
+    background: #fafafa;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pt-table a {
+    color: #111111;
+  }
+  .pt-dontwrite {
+    margin-top: 1.25rem;
+    border: 1px solid #111111;
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+  }
+  .pt-dw-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #111111;
+    margin-bottom: 0.5rem;
+  }
+  .pt-dontwrite ul {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+  .pt-dontwrite li {
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: #333333;
+  }
+  .pt-gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  @media (max-width: 560px) {
+    .pt-gallery {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .pt-gallery img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: 4px;
+    display: block;
+  }
+  .pt-dl {
+    display: inline-block;
+    margin-top: 0.75rem;
+    padding: 0.6rem 1.2rem;
+    background: #111111;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+  }
+  .pt-dl:hover {
+    opacity: 0.85;
+  }
+  .pt-terms {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pt-terms li {
+    font-size: 0.9rem;
+    line-height: 1.9;
+    color: #222222;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #f2f2f2;
+  }
+  .pt-cal-block {
+    margin-bottom: 1.5rem;
+  }
+  .pt-cal {
+    min-height: 120px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 560px) {
+    .pt-cal {
+      grid-template-columns: 1fr;
+    }
+  }
+  .pt-cal :global(.cal-month) {
+    border: 1px solid #eeeeee;
+    border-radius: 4px;
+    padding: 0.75rem;
+  }
+  .pt-cal :global(.cal-title) {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #111111;
+    margin: 0 0 0.5rem;
+  }
+  .pt-cal :global(.cal-grid) {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .pt-cal :global(.cal-dow) {
+    font-size: 0.6rem;
+    color: #aaaaaa;
+    text-align: center;
+    padding: 0.15rem 0;
+  }
+  .pt-cal :global(.cal-cell) {
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 0.3rem 0;
+    border-radius: 3px;
+    color: #111111;
+    background: #ffffff;
+    border: 1px solid #f0f0f0;
+  }
+  .pt-cal :global(.cal-open) {
+    font-weight: 600;
+  }
+  .pt-cal :global(.cal-closed) {
+    color: #c9c9c9;
+    background: #f7f7f7;
+    text-decoration: line-through;
+    border-color: transparent;
+  }
+  .pt-cal :global(.cal-unknown) {
+    color: #444444;
+  }
+  .pt-cal :global(.cal-empty) {
+    border: none;
+  }
+  .pt-cal-legend {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    color: #777777;
+  }
+  .pt-cal-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 0.3rem;
+  }
+  .pt-cal-legend .lg-open {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+  }
+  .pt-cal-legend .lg-closed {
+    background: #f0f0f0;
+  }
+  .pt-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .pt-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #333333;
+    margin-bottom: 0.35rem;
+  }
+  .pt-field input,
+  .pt-field select,
+  .pt-field textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #111111;
+  }
+  .pt-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 560px) {
+    .pt-field-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  .pt-submit {
+    align-self: flex-start;
+    padding: 0.75rem 2rem;
+    background: #111111;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pt-submit:hover {
+    opacity: 0.85;
+  }
+  .pt-submit:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+  .pt-form-status {
+    font-size: 0.85rem;
+    color: #333333;
+    min-height: 1.5em;
+    margin: 0;
+  }
+  .pt-utm {
+    margin-top: 1.5rem;
+    border: 1px solid #eeeeee;
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+  }
+  .pt-utm-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .pt-utm-row input,
+  .pt-utm-row select {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .pt-utm-row input {
+    flex: 1;
+    min-width: 180px;
+  }
+  .pt-utm-copy {
+    padding: 0.5rem 1rem;
+    background: #111111;
+    color: #ffffff;
+    font-size: 0.8rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>

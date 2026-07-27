@@ -207,7 +207,7 @@ export const partnersApply = onRequest(
     }
 
     const { name, email, mediaUrl, property, date1, date2, guests, message, lang, website } = (req.body ?? {}) as Record<string, unknown>;
-    const applyLang = lang === "ko" ? "ko" : "ja";
+    const applyLang = lang === "ko" ? "ko" : lang === "zh" ? "zh" : "ja";
 
     // ハニーポット
     if (typeof website === "string" && website.trim() !== "") {
@@ -282,13 +282,33 @@ export const partnersApply = onRequest(
 
     // 申請者への自動返信（ja/ko・replyToはオーナー直通）
     const PROPERTY_LABEL_KO: Record<string, string> = { kiyokawa: "기요카와", takasago: "다카사고", either: "어느 쪽이든", both: "두 동 연박" };
+    const PROPERTY_LABEL_ZH: Record<string, string> = { kiyokawa: "清川館", takasago: "高砂館", either: "兩棟皆可", both: "兩棟連住" };
     try {
       await transporter.sendMail({
         from: `"yah.homes" <${SMTP_USER.value()}>`,
         to: emailStr,
         replyTo: PARTNERS_NOTIFY_TO,
-        subject: applyLang === "ko" ? "[yah.homes] 파트너 숙박 신청이 접수되었습니다" : "【yah.homes】パートナー宿泊のお申し込みを受け付けました",
-        text: applyLang === "ko" ? [
+        subject: applyLang === "ko" ? "[yah.homes] 파트너 숙박 신청이 접수되었습니다"
+          : applyLang === "zh" ? "【yah.homes】已收到您的夥伴住宿申請"
+          : "【yah.homes】パートナー宿泊のお申し込みを受け付けました",
+        text: applyLang === "zh" ? [
+          `${nameStr} 您好`,
+          ``,
+          `感謝您申請 yah.homes 夥伴住宿。`,
+          `我們已收到以下申請內容，將於2〜3個工作天內與您聯繫。`,
+          ``,
+          `--- 申請內容 ---`,
+          `希望入住的棟: ${PROPERTY_LABEL_ZH[propStr] ?? propStr}`,
+          `第1希望入住日: ${date1Str}`,
+          `第2希望入住日: ${date2Str}`,
+          `人數: ${guestsNum}人`,
+          `---`,
+          ``,
+          `如有任何問題，直接回覆此郵件即可。`,
+          ``,
+          `yah.homes（營運: Bonfire Inc.）`,
+          `https://yah.homes/zh/`,
+        ].join("\n") : applyLang === "ko" ? [
           `${nameStr} 님`,
           ``,
           `yah.homes 파트너 숙박에 신청해 주셔서 감사합니다.`,
