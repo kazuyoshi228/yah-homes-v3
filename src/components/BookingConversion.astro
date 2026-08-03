@@ -58,11 +58,11 @@ const homeHref = localizedPath(lang, "/");
     </h1>
     <div class="bk-divider" aria-hidden="true"></div>
     <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
-      <a href={AIRBNB_LINKS.kiyokawa} target="_blank" rel="noopener noreferrer" class="bk-btn">
+      <a href={AIRBNB_LINKS.kiyokawa} target="_blank" rel="noopener noreferrer" class="bk-btn" data-cta-location="booking_page">
         Book Kiyokawa on Airbnb
         <Fragment set:html={lucide("externalLink", { size: 13, strokeWidth: 2.5 })} />
       </a>
-      <a href={AIRBNB_LINKS.takasago} target="_blank" rel="noopener noreferrer" class="bk-btn">
+      <a href={AIRBNB_LINKS.takasago} target="_blank" rel="noopener noreferrer" class="bk-btn" data-cta-location="booking_page">
         Book Takasago on Airbnb
         <Fragment set:html={lucide("externalLink", { size: 13, strokeWidth: 2.5 })} />
       </a>

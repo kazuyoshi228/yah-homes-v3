@@ -153,7 +153,7 @@ const htmlLang = HREFLANG[lang];
         if (href.indexOf("airbnb") > -1) {
           gtag("event", "click_airbnb", { property: property, page_path: path, cta_location: ctaLocation });
         } else if (href.indexOf("booking.com") > -1) {
-          gtag("event", "click_booking_com", { property: property, page_path: path });
+          gtag("event", "click_booking_com", { property: property, page_path: path, cta_location: ctaLocation });
         } else if (href === "#booking") {
           gtag("event", "click_booking_calendar", { property: property, page_path: path });
         } else if (href.indexOf("instagram.com") > -1) {

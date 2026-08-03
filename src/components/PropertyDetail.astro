@@ -115,7 +115,7 @@ const conditionRows: string[] = [
       }
     </div>
 
-    <a href={p.airbnbUrl} target="_blank" rel="noopener noreferrer" class="pd-review">
+    <a href={p.airbnbUrl} target="_blank" rel="noopener noreferrer" class="pd-review" data-cta-location="property_detail">
       <Fragment set:html={starRating(Number(d.review.rating), 14, `pd-${propertyKey}`)} />
       <span class="pd-review-num">{d.review.rating}</span>
       <span class="pd-review-count">{d.review.count}</span>

@@ -127,17 +127,17 @@ const PROPERTY_META = [
                 <h3 class="prop-name">{p.name}</h3>
                 <p class="prop-info">{p.info}</p>
 
-                <a href={p.airbnb} target="_blank" rel="noopener noreferrer" class="rating-badge">
+                <a href={p.airbnb} target="_blank" rel="noopener noreferrer" class="rating-badge" data-cta-location="property_card_rating">
                   <Fragment set:html={starRating(p.rating, 12, `star-${p.id}`)} />
                   <span class="rating-num">{p.rating}</span>
                   <span class="rating-count">({p.reviewCount} {t.properties.reviewsLabel})</span>
                 </a>
 
                 <div style="display:flex;flex-direction:column;gap:0.5rem;">
-                  <a href={p.airbnb} target="_blank" rel="noopener noreferrer" class="btn-booking">
+                  <a href={p.airbnb} target="_blank" rel="noopener noreferrer" class="btn-booking" data-cta-location="property_card">
                     {t.properties.airbnbBtn}
                   </a>
-                  <a href={p.booking} target="_blank" rel="noopener noreferrer" class="btn-booking">
+                  <a href={p.booking} target="_blank" rel="noopener noreferrer" class="btn-booking" data-cta-location="property_card">
                     {t.properties.bookingBtn}
                   </a>
                   <button class="gallery-btn js-open-gallery" data-property={p.id}>
