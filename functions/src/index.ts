@@ -8,6 +8,7 @@
  *   保存後、管理者通知＋送信者向け自動返信（英語）を送信。メール失敗は非致命（保存は成功扱い）。
  */
 import { onRequest } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { initializeApp } from "firebase-admin/app";
@@ -573,3 +574,159 @@ export const partnersAdmin = onRequest({ region: REGION, secrets: [SMTP_USER, SM
 
   res.status(405).json({ ok: false, error: "method_not_allowed" });
 });
+
+
+// ─── Beds24 クラウド定点観測（spec_beds24_cloud_observer.md v0.2） ───
+// 毎朝8:00 JST: 予約取得→前回スナップショット差分→定点シート記入→サマリメール→状態保存。
+// ロジックは scripts/beds24-daily.mjs と同一（数字の連続性維持）。トークンはread専用。
+const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
+const TEITEN_SHEET_ID = "1DxniZSvdzb5s4Zjt_6MYgWkkFq7q7HlCxyIUZn6hMfk";
+const TEITEN_PROPS: Record<number, string> = { 278158: "清川", 291238: "高砂" };
+
+type Beds24Booking = {
+  id: number; propertyId: number; status: string; arrival: string; departure: string;
+  firstName?: string; lastName?: string; referer?: string; apiSource?: string; country2?: string;
+};
+
+async function beds24FetchAll(url: string, token: string): Promise<Beds24Booking[]> {
+  const out: Beds24Booking[] = [];
+  let next: string | null = url;
+  while (next) {
+    const r: any = await fetch(next, { headers: { token } }).then((x) => x.json());
+    if (!r.success) throw new Error(`beds24: ${JSON.stringify(r).slice(0, 300)}`);
+    out.push(...r.data);
+    next = r.pages?.nextPageLink || null;
+  }
+  return out;
+}
+
+// Functionsのデフォルトサービスアカウントでシート認可（鍵なし・メタデータサーバー方式）
+async function sheetsAccessToken(): Promise<string> {
+  const r = await fetch(
+    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+    { headers: { "Metadata-Flavor": "Google" } }
+  ).then((x) => x.json());
+  if (!r.access_token) throw new Error("metadata token unavailable");
+  return r.access_token;
+}
+
+export const beds24DailyObserver = onSchedule(
+  { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300 },
+  async () => {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    const mail = (subject: string, text: string) =>
+      transporter.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: PARTNERS_NOTIFY_TO, subject, text });
+
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    try {
+      // ① 取得（過去90日到着〜18ヶ月先・キャンセル込み）
+      const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+      const to = new Date(Date.now() + 550 * 86400000).toISOString().slice(0, 10);
+      const bookings = await beds24FetchAll(
+        `https://beds24.com/api/v2/bookings?arrivalFrom=${from}&arrivalTo=${to}&pageSize=200&includeCancelled=true`,
+        BEDS24_TOKEN.value()
+      );
+
+      const nightsOf = (b: Beds24Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
+      const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";
+      const isGuest = (b: Beds24Booking) =>
+        b.status !== "black" && !/オーナー|yamada|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""}`);
+
+      // ② 差分（Firestoreスナップショットと照合）
+      const stateRef = db.collection("beds24_state").doc("latest");
+      const prevDoc = await stateRef.get();
+      const prev = (prevDoc.data() as { bookings: Record<string, { status: string; arrival: string; n: number; prop: string }>; date: string | null } | undefined)
+        ?? { bookings: {}, date: null };
+
+      const events: { new: string[]; cancelled: string[]; changed: string[] } = { new: [], cancelled: [], changed: [] };
+      for (const b of bookings) {
+        if (!isGuest(b)) continue;
+        const p = prev.bookings[String(b.id)];
+        const label = `${TEITEN_PROPS[b.propertyId]} ${b.arrival}〜${nightsOf(b)}泊 ${b.firstName ?? ""} ${b.lastName ?? ""} [${b.referer || b.apiSource || "?"}] ${b.country2 || ""}`;
+        if (!p && active(b)) events.new.push(label);
+        else if (p && p.status !== "cancelled" && b.status === "cancelled") events.cancelled.push(label);
+        else if (p && active(b) && (p.arrival !== b.arrival || p.n !== nightsOf(b)))
+          events.changed.push(`${label}（旧: ${p.arrival}〜${p.n}泊）`);
+      }
+
+      // 先付け残高（今日以降の泊数・棟別）
+      const fwd: Record<string, number> = { 清川: 0, 高砂: 0 };
+      for (const b of bookings) {
+        if (!active(b) || !isGuest(b)) continue;
+        const a = b.arrival >= today ? b.arrival : today;
+        const n = Math.max(0, Math.round((Date.parse(b.departure) - Date.parse(a)) / 86400000));
+        fwd[TEITEN_PROPS[b.propertyId]] += n;
+      }
+      const fwdTotal = fwd.清川 + fwd.高砂;
+      const fwdRate = Math.round((fwdTotal / 730) * 1000) / 10; // 分母=365日×2棟（databook: 204泊≈28%と整合）
+
+      const tally = (list: string[], prop: string) => {
+        const rows = list.filter((l) => l.startsWith(prop));
+        return { g: rows.length, n: rows.reduce((s2, l) => s2 + (Number(l.match(/〜(\d+)泊/)?.[1]) || 0), 0) };
+      };
+      const kNew = tally(events.new, "清川"), kCxl = tally(events.cancelled, "清川");
+      const tNew = tally(events.new, "高砂"), tCxl = tally(events.cancelled, "高砂");
+
+      // ③ シート記入（初回・同日再実行はスキップ＝冪等）
+      let sheetNote = "（初回 or 同日再実行につきシート記入スキップ）";
+      if (prev.date && prev.date !== today) {
+        const tok = await sheetsAccessToken();
+        const col: any = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values/A:A?valueRenderOption=FORMATTED_VALUE`,
+          { headers: { authorization: `Bearer ${tok}` } }
+        ).then((r) => r.json());
+        const dstr = `${+today.slice(5, 7)}/${+today.slice(8, 10)}`;
+        const row = ((col.values || []) as string[][]).findIndex((r) => (r[0] || "").trim() === dstr) + 1;
+        if (row > 0) {
+          const data = [
+            { range: `B${row}`, values: [[kNew.g - kCxl.g]] }, { range: `C${row}`, values: [[kNew.n - kCxl.n]] },
+            { range: `E${row}`, values: [[tNew.g - tCxl.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n]] },
+            { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
+          ];
+          const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values:batchUpdate`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },
+            body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
+          });
+          if (!w.ok) throw new Error(`sheets write ${w.status}: ${(await w.text()).slice(0, 200)}`);
+          sheetNote = `シート記入OK: ${dstr}行`;
+        } else sheetNote = `シートに ${dstr} 行が見つからず記入スキップ`;
+      }
+
+      // ④ サマリメール（特記: 適正帯28〜33%逸脱・3泊以上・キャンセル塊）
+      const notes: string[] = [];
+      if (fwdRate < 28) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を下回り`);
+      if (fwdRate > 33) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を上回り`);
+      for (const l of events.new) { const n = Number(l.match(/〜(\d+)泊/)?.[1]); if (n >= 3) notes.push(`大型: ${l}`); }
+      if (events.cancelled.length >= 3) notes.push(`キャンセル${events.cancelled.length}件（塊）`);
+
+      await mail(
+        `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 清川+${kNew.g}組${kNew.n}泊・高砂+${tNew.g}組${tNew.n}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
+        [
+          `=== Beds24 日次観測 ${today}（前回: ${prev.date ?? "初回"}）===`, ``,
+          `新規予約 ${events.new.length}件:`, ...events.new.map((l) => `  + ${l}`), ``,
+          `キャンセル ${events.cancelled.length}件:`, ...events.cancelled.map((l) => `  - ${l}`), ``,
+          ...(events.changed.length ? [`変更 ${events.changed.length}件:`, ...events.changed.map((l) => `  * ${l}`), ``] : []),
+          `先付け残高: 清川${fwd.清川}泊 / 高砂${fwd.高砂}泊 / 計${fwdTotal}泊（${fwdRate}%）`,
+          sheetNote, ``,
+          ...(notes.length ? [`--- 特記 ---`, ...notes.map((x) => `・${x}`)] : []),
+        ].join("\n")
+      );
+
+      // ⑤ 状態保存（latest＋日次履歴）
+      const snap: Record<string, { status: string; arrival: string; n: number; prop: string }> = {};
+      for (const b of bookings) snap[String(b.id)] = { status: b.status, arrival: b.arrival, n: nightsOf(b), prop: TEITEN_PROPS[b.propertyId] };
+      await stateRef.set({ bookings: snap, date: today, updatedAt: FieldValue.serverTimestamp() });
+      await db.collection("beds24_state").doc("daily").collection("snapshots").doc(today)
+        .set({ bookings: snap, date: today, createdAt: FieldValue.serverTimestamp() });
+      logger.info(`beds24DailyObserver done: new=${events.new.length} cxl=${events.cancelled.length} fwd=${fwdTotal}`);
+    } catch (err) {
+      logger.error("beds24DailyObserver failed", err);
+      await mail(`【定点エラー】${today}`, `日次観測が失敗しました。\n\n${String(err).slice(0, 2000)}`).catch(() => undefined);
+      throw err;
+    }
+  }
+);
