@@ -633,7 +633,8 @@ async function ga4ClickAirbnbYesterday(): Promise<number | null> {
 }
 
 export const beds24DailyObserver = onSchedule(
-  { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300 },
+  // serviceAccount: 第2世代の既定はcompute SAだが、シート/GA4の共有先=appspot SAに合わせて明示指定（spec §3）
+  { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async () => {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
