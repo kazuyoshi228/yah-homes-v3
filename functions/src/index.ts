@@ -600,14 +600,36 @@ async function beds24FetchAll(url: string, token: string): Promise<Beds24Booking
   return out;
 }
 
-// Functionsのデフォルトサービスアカウントでシート認可（鍵なし・メタデータサーバー方式）
-async function sheetsAccessToken(): Promise<string> {
-  const r = await fetch(
-    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-    { headers: { "Metadata-Flavor": "Google" } }
-  ).then((x) => x.json());
+// Functionsのデフォルトサービスアカウントで認可（鍵なし・メタデータサーバー方式・scope指定可）
+async function gcpAccessToken(scopes?: string): Promise<string> {
+  const url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    + (scopes ? `?scopes=${encodeURIComponent(scopes)}` : "");
+  const r: any = await fetch(url, { headers: { "Metadata-Flavor": "Google" } }).then((x) => x.json());
   if (!r.access_token) throw new Error("metadata token unavailable");
   return r.access_token;
+}
+
+// GA4 Data API: 前日のclick_airbnbイベント数（プロパティ=www.yah.homes/539535968・SAは閲覧者共有済み）
+const GA4_PROPERTY = "539535968";
+async function ga4ClickAirbnbYesterday(): Promise<number | null> {
+  try {
+    const tok = await gcpAccessToken("https://www.googleapis.com/auth/analytics.readonly");
+    const r: any = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        dimensions: [{ name: "eventName" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { value: "click_airbnb" } } },
+      }),
+    }).then((x) => x.json());
+    if (r.error) throw new Error(JSON.stringify(r.error).slice(0, 200));
+    return Number(r.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+  } catch (err) {
+    logger.warn("ga4 click_airbnb fetch failed", err);
+    return null; // GA4障害でも定点本体は止めない
+  }
 }
 
 export const beds24DailyObserver = onSchedule(
@@ -674,7 +696,7 @@ export const beds24DailyObserver = onSchedule(
       // ③ シート記入（初回・同日再実行はスキップ＝冪等）
       let sheetNote = "（初回 or 同日再実行につきシート記入スキップ）";
       if (prev.date && prev.date !== today) {
-        const tok = await sheetsAccessToken();
+        const tok = await gcpAccessToken();
         const col: any = await fetch(
           `https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values/A:A?valueRenderOption=FORMATTED_VALUE`,
           { headers: { authorization: `Bearer ${tok}` } }
@@ -697,6 +719,8 @@ export const beds24DailyObserver = onSchedule(
         } else sheetNote = `シートに ${dstr} 行が見つからず記入スキップ`;
       }
 
+      const clicks = await ga4ClickAirbnbYesterday();
+
       // ④ サマリメール（特記: 適正帯28〜33%逸脱・3泊以上・キャンセル塊）
       const notes: string[] = [];
       if (fwdRate < 28) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を下回り`);
@@ -711,6 +735,7 @@ export const beds24DailyObserver = onSchedule(
           `【サマリ（定点シート形式）】`,
           `清川　　　　: ${kNew.g - kCxl.g >= 0 ? "+" : ""}${kNew.g - kCxl.g}組 ${kNew.n - kCxl.n >= 0 ? "+" : ""}${kNew.n - kCxl.n}泊`,
           `高砂　　　　: ${tNew.g - tCxl.g >= 0 ? "+" : ""}${tNew.g - tCxl.g}組 ${tNew.n - tCxl.n >= 0 ? "+" : ""}${tNew.n - tCxl.n}泊`,
+          `click_airbnb: ${clicks ?? "取得失敗（GA4）"}（前日分）`,
           `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
           `先付け 高砂 : ${fwd.高砂}泊 (${pct(fwd.高砂, 365)})`,
           `先付け 合計 : ${fwdTotal}泊 (${fwdRate}%)`, ``,
