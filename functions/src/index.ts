@@ -708,15 +708,18 @@ export const beds24DailyObserver = onSchedule(
         `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 清川+${kNew.g}組${kNew.n}泊・高砂+${tNew.g}組${tNew.n}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
         [
           `=== Beds24 日次観測 ${today}（前回: ${prev.date ?? "初回"}）===`, ``,
-          `【サマリ（定点シート行）】`,
-          `清川: ${kNew.g - kCxl.g >= 0 ? "+" : ""}${kNew.g - kCxl.g}組 ${kNew.n - kCxl.n}泊 ／ 高砂: ${tNew.g - tCxl.g >= 0 ? "+" : ""}${tNew.g - tCxl.g}組 ${tNew.n - tCxl.n}泊`,
-          `先付け: 清川${fwd.清川}泊(${pct(fwd.清川, 365)}) ／ 高砂${fwd.高砂}泊(${pct(fwd.高砂, 365)}) ／ 計${fwdTotal}泊(${fwdRate}%)`, ``,
+          `【サマリ（定点シート形式）】`,
+          `清川　　　　: ${kNew.g - kCxl.g >= 0 ? "+" : ""}${kNew.g - kCxl.g}組 ${kNew.n - kCxl.n >= 0 ? "+" : ""}${kNew.n - kCxl.n}泊`,
+          `高砂　　　　: ${tNew.g - tCxl.g >= 0 ? "+" : ""}${tNew.g - tCxl.g}組 ${tNew.n - tCxl.n >= 0 ? "+" : ""}${tNew.n - tCxl.n}泊`,
+          `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
+          `先付け 高砂 : ${fwd.高砂}泊 (${pct(fwd.高砂, 365)})`,
+          `先付け 合計 : ${fwdTotal}泊 (${fwdRate}%)`, ``,
           `新規予約 ${events.new.length}件:`, ...events.new.map((l) => `  + ${l}`), ``,
           `キャンセル ${events.cancelled.length}件:`, ...events.cancelled.map((l) => `  - ${l}`), ``,
           ...(events.changed.length ? [`変更 ${events.changed.length}件:`, ...events.changed.map((l) => `  * ${l}`), ``] : []),
           `先付け残高: 清川${fwd.清川}泊 / 高砂${fwd.高砂}泊 / 計${fwdTotal}泊（${fwdRate}%）`,
           sheetNote, ``,
-          ...(notes.length ? [`--- 特記 ---`, ...notes.map((x) => `・${x}`)] : []),
+          ...(notes.length ? [`MEMO: ${notes.join("・")}`] : []),
         ].join("\n")
       );
 
