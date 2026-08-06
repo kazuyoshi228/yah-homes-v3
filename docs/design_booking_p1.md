@@ -198,6 +198,70 @@ FAQ・関連リンクは置かない（売り込みは全部②の仕事）。�
 
 ⚠️ MS4 の Done 定義に「**noindex 除去の確認**」を追加（§4の表と併せて読む）。
 
+### 7-4. Firebase / Cloud Functions 技術仕様（2026-08-07追記）
+
+すべて既存プロジェクト yah-homes / asia-northeast1 に同居。partnersApply/partnersAdmin/beds24DailyObserver で実証済みのパターンを流用する。
+
+#### 構成図
+
+```
+Astro（Hosting・静的） ─ Firebase Auth（Google / メールリンク・Client SDK）
+   │ fetch（IDトークン Bearer）
+   ▼
+Cloud Functions v2（asia-northeast1・実行SA=yah-homes@appspot 明示 ※gen2既定のcompute SAは共有物と不一致になる罠・2026-08-05実証）
+   ├ bookingApi      [MS2・既存拡張] GET availability / quote（read専用token・5分キャッシュ・直販-2%チャネル）
+   ├ beds24Webhook   [MS1] Beds24→全チャネル予約をFirestoreへミラー
+   ├ bookCreate      [MS3] 予約作成の中核（下記シーケンス）
+   ├ stripeWebhook   [MS3] Stripe イベント受信（署名検証・補償処理）
+   ├ accountApi      [MS3.5] 自分の予約一覧・キャンセル実行
+   └ 既存: partnersApply / partnersAdmin / beds24DailyObserver
+   ▼
+Firestore（クライアント直書き禁止）＋ Beds24 API ＋ Stripe API ＋ SMTP（既存基盤）
+```
+
+#### Functions 詳細
+
+| 関数 | trigger | 認証 | secrets | 概要 |
+|---|---|---|---|---|
+| bookingApi | HTTPS GET | 不要（公開・CORS自社のみ） | BEDS24_TOKEN | 空室・総額。5分メモリキャッシュ・429指数バックオフ |
+| beds24Webhook | HTTPS POST | Beds24共有シークレット（URLトークン） | WEBHOOK_KEY | 予約イベント→ `bookings_mirror/{beds24Id}` upsert。チャネル・国・金額を正規化 |
+| bookCreate | HTTPS POST | **verifyIdToken 必須** | BEDS24_TOKEN_WRITE, STRIPE_SECRET_KEY, SMTP_* | 下記シーケンス |
+| stripeWebhook | HTTPS POST | Stripe署名検証 | STRIPE_WEBHOOK_SECRET, STRIPE_SECRET_KEY | payment_intent.* を受けて `bookings` の決済状態を確定・孤児オーソリの自動解放 |
+| accountApi | HTTPS GET/POST | **verifyIdToken 必須**（本人UIDの予約のみ） | STRIPE_SECRET_KEY, BEDS24_TOKEN_WRITE, SMTP_* | GET=一覧／POST cancel=7日前判定→refund→Beds24取消→メール（§7-2b） |
+
+#### bookCreate シーケンス（決済と予約の整合性・MS3の核心）
+
+1. verifyIdToken → 入力検証（日付・人数・定員・quote再計算で金額改ざん防止）
+2. Firestore `bookings` に `status:"pending"` で先行作成（Idempotency-Key=クライアント生成UUID・二重送信防止）
+3. Stripe PaymentIntent 作成（**manual capture**・金額はサーバ側quote）
+4. Beds24 `POST /bookings` → 成功で `beds24Id` 保存
+5. **Beds24成功を確認してから capture** → `status:"confirmed"` → 確認メール（ゲスト+bookings@）
+6. 失敗系: Beds24失敗→PIキャンセル（オーソリ解放）→`status:"failed"`／capture失敗→Beds24取消→同上。タイムアウト等の取りこぼしは stripeWebhook が7日以内の孤児オーソリを検出して解放（沈黙事故ゼロ）
+
+#### Firestore コレクションとルール
+
+| collection | 書き込み | 読み取り | 内容 |
+|---|---|---|---|
+| bookings | Functionsのみ | **本人のみ** `resource.data.uid == request.auth.uid` | 直販予約（uid・棟・日付・金額・stripe/beds24 ID・status） |
+| bookings_mirror | Functionsのみ | 禁止（admin経由） | 全チャネルミラー（§5-2） |
+| guests | Functionsのみ | 禁止 | 名簿事項（§9-4・チェックイン前メールで追補） |
+| partner_applications / beds24_state | 既存どおり | 禁止 | — |
+
+#### Secrets（Secret Manager・コードに書かない）
+
+- 既存: BEDS24_TOKEN（read・定点と共用）・SMTP_USER/PASS
+- 新規: BEDS24_TOKEN_WRITE（MS3で発行・最小権限分離）・STRIPE_SECRET_KEY・STRIPE_WEBHOOK_SECRET・WEBHOOK_KEY
+
+#### 計測（§10と接続）
+
+GA4 ファネルイベント: `book_form_reach` → `book_auth_done` → `book_payment_start` → `purchase`（value=総額・通貨JPY）。cta_location 体系はそのまま流用。
+
+#### 非機能
+
+- 費用: 全関数の合計でも無料枠内（日次件数規模）。Stripe手数料3.6%のみ
+- 冪等性: bookCreate=Idempotency-Key／webhook=イベントID記録で再配送吸収／シート・メールは既存パターン
+- 監視: 失敗時は必ずメール（【予約エラー】・定点と同型）。沈黙障害を作らない
+
 ## 8. 【統合済み】旧段3
 
 旧段3（Stripe決済・POST /bookings）は §7-2 の手順3〜5（MS3）に統合した。「着手条件」も撤廃 — 最初から実装する。
