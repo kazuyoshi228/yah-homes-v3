@@ -621,13 +621,18 @@ async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | nul
       body: JSON.stringify({
         dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
         dimensions: [{ name: "eventName" }],
-        metrics: [{ name: "eventCount" }],
-        dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: ["click_airbnb", "click_booking_com", "click_booking_calendar"] } } },
+        metrics: [{ name: "keyEvents" }],
+        // 全キーイベント（CV）をイベント名別に取得。合計がCV数(日次)＝H列
+        keepEmptyRows: false,
       }),
     }).then((x) => x.json());
     if (r.error) throw new Error(JSON.stringify(r.error).slice(0, 200));
-    const out: Record<string, number> = { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0 };
-    for (const row of r.rows ?? []) out[row.dimensionValues[0].value] = Number(row.metricValues[0].value);
+    const out: Record<string, number> = { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, total: 0 };
+    for (const row of r.rows ?? []) {
+      const v = Number(row.metricValues[0].value);
+      out[row.dimensionValues[0].value] = v;
+      out.total += v;
+    }
     return out;
   } catch (err) {
     logger.warn("ga4 handoff clicks fetch failed", err);
@@ -714,8 +719,8 @@ export const beds24DailyObserver = onSchedule(
             { range: `B${row}`, values: [[kNew.g - kCxl.g]] }, { range: `C${row}`, values: [[kNew.n - kCxl.n]] },
             { range: `E${row}`, values: [[tNew.g - tCxl.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n]] },
             { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
-            // H列 = click_airbnb（前日分・GA4取得失敗時は書かない）
-            ...(clicks == null ? [] : [{ range: `H${row}`, values: [[clicks]] }]),
+            // H列 = CV数(日次)＝前日の全キーイベント合計（GA4取得失敗時は書かない）
+            ...(handoff == null ? [] : [{ range: `H${row}`, values: [[handoff.total]] }]),
           ];
           const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values:batchUpdate`, {
             method: "POST",
@@ -742,8 +747,8 @@ export const beds24DailyObserver = onSchedule(
           `【サマリ（定点シート形式）】`,
           `清川　　　　: ${kNew.g - kCxl.g >= 0 ? "+" : ""}${kNew.g - kCxl.g}組 ${kNew.n - kCxl.n >= 0 ? "+" : ""}${kNew.n - kCxl.n}泊`,
           `高砂　　　　: ${tNew.g - tCxl.g >= 0 ? "+" : ""}${tNew.g - tCxl.g}組 ${tNew.n - tCxl.n >= 0 ? "+" : ""}${tNew.n - tCxl.n}泊`,
-          `click_airbnb: ${clicks ?? "取得失敗（GA4）"}（前日分）`,
-          `click_booking_com: ${handoff?.click_booking_com ?? "—"} / click_booking_calendar: ${handoff?.click_booking_calendar ?? "—"}（前日分）`,
+          `CV数(日次): ${handoff?.total ?? "取得失敗（GA4）"}（前日の全キーイベント合計）`,
+          `  内訳 click_airbnb: ${clicks ?? "—"} / click_booking_com: ${handoff?.click_booking_com ?? "—"} / click_booking_calendar: ${handoff?.click_booking_calendar ?? "—"}`,
           `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
           `先付け 高砂 : ${fwd.高砂}泊 (${pct(fwd.高砂, 365)})`,
           `先付け 合計 : ${fwdTotal}泊 (${fwdRate}%)`, ``,
