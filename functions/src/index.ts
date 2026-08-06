@@ -763,3 +763,6 @@ export const beds24DailyObserver = onSchedule(
     }
   }
 );
+
+// 週次スコアカード（spec v0.3）— 日次は上記の beds24DailyObserver（v0.2実装）を正とする
+export { beds24WeeklyReport } from "./beds24.js";
