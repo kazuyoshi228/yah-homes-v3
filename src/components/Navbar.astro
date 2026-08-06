@@ -26,6 +26,13 @@ const localsHref = localizedPath(lang, "/locals");
 const guidesHref = localizedPath(lang, "/guides");
 const contactHref = `${homeHref}#contact`;
 
+// Book Now ドロップダウン（右上ピル・Airbnb直行・cta_location=nav で計測）
+import { PROPERTIES } from "../data/properties";
+const bookNowItems = [
+  { label: "Kiyokawa", href: PROPERTIES.kiyokawa.airbnbUrl },
+  { label: "Takasago", href: PROPERTIES.takasago.airbnbUrl },
+];
+
 // Booking ドロップダウン（旧 Navbar が構想していた物件直行リンク）
 const bookingItems = [
   { label: "Kiyokawa", href: localizedPath(lang, "/properties/kiyokawa") },
@@ -93,11 +100,24 @@ const langList = LOCALES.map((code) => ({
         </div>
       </div>
 
-      <!-- Contact pill -->
-      <a href={contactHref} class="contact-pill">
-        <Fragment set:html={lucide("mail", { size: 13, strokeWidth: 1.8 })} />
-        {t.nav.contact}
-      </a>
+      <a href={contactHref} class="nav-btn">{t.nav.contact}</a>
+
+      <!-- Book Now pill（ドロップダウン: 清川/高砂 → Airbnb直行） -->
+      <div class="booknow-wrap" id="booknow-wrap">
+        <button class="contact-pill booknow-toggle" id="booknow-toggle" aria-haspopup="true" aria-expanded="false">
+          {t.nav.bookNow}
+          <span class="chev"><Fragment set:html={lucide("chevronDown", { size: 10, strokeWidth: 2 })} /></span>
+        </button>
+        <div class="booknow-menu" role="menu">
+          {
+            bookNowItems.map((item) => (
+              <a href={item.href} role="menuitem" class="booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">
+                {item.label}
+              </a>
+            ))
+          }
+        </div>
+      </div>
     </div>
 
     <!-- Mobile hamburger -->
@@ -122,6 +142,14 @@ const langList = LOCALES.map((code) => ({
       {
         bookingItems.map((item) => (
           <a href={item.href} class="mm-booking-item">— {item.label}</a>
+        ))
+      }
+    </div>
+    <div class="mm-booking">
+      <p class="mm-booking-label">{t.nav.bookNow}</p>
+      {
+        bookNowItems.map((item) => (
+          <a href={item.href} class="mm-booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">— {item.label}</a>
         ))
       }
     </div>
@@ -320,6 +348,34 @@ const langList = LOCALES.map((code) => ({
   }
   #site-nav.hero-visible .contact-pill:hover {
     background: rgba(255, 255, 255, 0.15);
+  }
+
+  .booknow-wrap {
+    position: relative;
+  }
+  .booknow-toggle {
+    cursor: pointer;
+    background: transparent;
+  }
+  .booknow-wrap.open .chev :global(svg) {
+    transform: rotate(180deg);
+  }
+  .booknow-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    min-width: 160px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    z-index: 100;
+  }
+  .booknow-wrap.open .booknow-menu {
+    display: block;
+    animation: navDropIn 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
   }
 
   /* Hamburger */
@@ -540,6 +596,17 @@ const langList = LOCALES.map((code) => ({
     langWrap?.classList.remove("open");
   });
 
+  // Book Now ドロップダウン
+  const booknowWrap = document.getElementById("booknow-wrap");
+  const booknowToggle = document.getElementById("booknow-toggle");
+  booknowToggle?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = booknowWrap?.classList.toggle("open");
+    booknowToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    langWrap?.classList.remove("open");
+    bookingWrap?.classList.remove("open");
+  });
+
   // 外側クリックで両ドロップダウンを閉じる
   document.addEventListener("mousedown", (e) => {
     if (langWrap && !langWrap.contains(e.target as Node)) {
@@ -549,6 +616,10 @@ const langList = LOCALES.map((code) => ({
     if (bookingWrap && !bookingWrap.contains(e.target as Node)) {
       bookingWrap.classList.remove("open");
       bookingToggle?.setAttribute("aria-expanded", "false");
+    }
+    if (booknowWrap && !booknowWrap.contains(e.target as Node)) {
+      booknowWrap.classList.remove("open");
+      booknowToggle?.setAttribute("aria-expanded", "false");
     }
   });
 

@@ -719,9 +719,14 @@ export const beds24DailyObserver = onSchedule(
             { range: `B${row}`, values: [[kNew.g - kCxl.g]] }, { range: `C${row}`, values: [[kNew.n - kCxl.n]] },
             { range: `E${row}`, values: [[tNew.g - tCxl.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n]] },
             { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
-            // H列 = CV数(日次)＝前日の全キーイベント合計（GA4取得失敗時は書かない）
-            ...(handoff == null ? [] : [{ range: `H${row}`, values: [[handoff.total]] }]),
           ];
+          // H列 = CV数(日次)＝前日の全キーイベント合計 → 前日の行に記入（GA4取得失敗時は書かない）
+          if (handoff != null) {
+            const y = new Date(Date.now() - 24 * 3600 * 1000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+            const ystr = `${+y.slice(5, 7)}/${+y.slice(8, 10)}`;
+            const yrow = ((col.values || []) as string[][]).findIndex((r) => (r[0] || "").trim() === ystr) + 1;
+            if (yrow > 0) data.push({ range: `H${yrow}`, values: [[handoff.total]] });
+          }
           const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values:batchUpdate`, {
             method: "POST",
             headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },

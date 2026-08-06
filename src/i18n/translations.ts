@@ -14,6 +14,7 @@ export interface Translations {
     contact: string;
     about: string;
     properties: string;
+    bookNow: string;
     locals: string;
     guides: string;
     language: string;
@@ -169,6 +170,7 @@ const en: Translations = {
     contact: "Contact",
     about: "About",
     properties: "Properties",
+    bookNow: "Book Now",
     locals: "Locals",
     guides: "Guide",
     language: "Language",
@@ -344,6 +346,7 @@ const ko: Translations = {
     contact: "문의하기",
     about: "소개",
     properties: "숙소",
+    bookNow: "예약하기",
     locals: "로컬",
     guides: "가이드",
     language: "언어",
@@ -518,6 +521,7 @@ const zh: Translations = {
     contact: "聯絡我們",
     about: "關於我們",
     properties: "房源",
+    bookNow: "立即預訂",
     locals: "居民指南",
     guides: "指南",
     language: "語言",
@@ -692,6 +696,7 @@ const th: Translations = {
     contact: "ติดต่อเรา",
     about: "เกี่ยวกับเรา",
     properties: "ที่พัก",
+    bookNow: "จองเลย",
     locals: "คู่มือท้องถิ่น",
     guides: "คู่มือ",
     language: "ภาษา",
@@ -866,6 +871,7 @@ const ja: Translations = {
     contact: "お問い合わせ",
     about: "yah.homesについて",
     properties: "施設",
+    bookNow: "予約する",
     locals: "ローカル",
     guides: "ガイド",
     language: "言語",
