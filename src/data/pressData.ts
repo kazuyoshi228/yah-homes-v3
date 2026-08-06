@@ -62,7 +62,7 @@ export function pressJsonLd(items: PressItem[]) {
         about: {
           "@type": "LodgingBusiness",
           name: p.property === "kiyokawa" ? "yah.homes Kiyokawa" : "yah.homes Takasago",
-          url: `https://yah.homes/booking/${p.property}/`,
+          url: `https://yah.homes/properties/${p.property}/`,
         },
       },
     })),

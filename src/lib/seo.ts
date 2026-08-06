@@ -353,7 +353,7 @@ function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
     case "kiyokawa":
       return lodgingJsonLd({
         name: "yah.homes Kiyokawa",
-        url: `${BASE_URL}/booking/kiyokawa/`,
+        url: `${BASE_URL}/properties/kiyokawa/`,
         description:
           "Newly built whole-house villa for up to 7 guests in Kiyokawa, Chuo-ku, Fukuoka. 3 bedrooms, SIMMONS PREMIUM mattresses, full kitchen, private parking.",
         streetAddress: "Kiyokawa 3-3-1",
@@ -387,7 +387,7 @@ function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
     case "takasago":
       return lodgingJsonLd({
         name: "yah.homes Takasago",
-        url: `${BASE_URL}/booking/takasago/`,
+        url: `${BASE_URL}/properties/takasago/`,
         description:
           "Whole-house rental for up to 6 guests in Fukuoka. 3 bedrooms, SIMMONS mattresses, full kitchen, high-speed Wi-Fi.",
         // 住所は Google ビジネスプロフィール登録値（2026-07-13 確認）

@@ -1,6 +1,6 @@
 // =============================================================
 // yah.homes — Kiyokawa Property Data
-// Direct booking page: /booking/kiyokawa
+// Direct booking page: /properties/kiyokawa
 // Languages: en, ja, ko, zh, th
 // =============================================================
 

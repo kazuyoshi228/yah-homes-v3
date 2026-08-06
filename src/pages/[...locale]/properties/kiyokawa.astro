@@ -19,11 +19,11 @@ const { lang } = Astro.props as { lang: Locale };
 const meta = getPageMeta("kiyokawa", lang);
 const breadcrumb = breadcrumbJsonLd([
   { name: translations[lang].nav.home, url: `${BASE_URL}${localizedPath(lang, "/")}` },
-  { name: "yah.homes Kiyokawa", url: `${BASE_URL}${localizedPath(lang, "/booking/kiyokawa")}` },
+  { name: "yah.homes Kiyokawa", url: `${BASE_URL}${localizedPath(lang, "/properties/kiyokawa")}` },
 ]);
 ---
 
-<SiteLayout lang={lang} path="/booking/kiyokawa" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
+<SiteLayout lang={lang} path="/properties/kiyokawa" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
   <PropertyDetail
     lang={lang}
     propertyKey="kiyokawa"

@@ -63,9 +63,9 @@ const cleanedBody = stripNotes(t.body).replace(/\n{3,}/g, "\n\n")
 const cleanFaq = (t.faq ?? []).map((f) => ({ q: stripNotes(f.q), a: stripNotes(f.a) }));
 const cleanDirectAnswer = t.directAnswer ? stripNotes(t.directAnswer) : t.directAnswer;
 let bodyHtml = await marked.parse(cleanedBody, { gfm: true });
-// 物件写真の自動リンク（テンプレート機能）: handoff の /booking/{key} に対応する
+// 物件写真の自動リンク（テンプレート機能）: handoff の /properties/{key} に対応する
 // 画像（src に key を含む・アンカー外のもの）を予約ページへのリンクで包む
-const bookingTargets = (guide.handoff ?? []).filter((h) => h.startsWith("/booking/"));
+const bookingTargets = (guide.handoff ?? []).filter((h) => h.startsWith("/properties/"));
 if (bookingTargets.length) {
   bodyHtml = bodyHtml
     .split(/(<a\b[\s\S]*?<\/a>)/g)
@@ -129,7 +129,7 @@ bodyHtml = bodyHtml.replace(/<img\b([^>]*?)\s*\/?>/g, (_m, attrs: string) => {
 // ── Summary直下CTA（2026-07-25 発注者承認）──
 // 文言はhandoffの有無で出し分け: 物件が本文に登場する記事＝「この記事で紹介している物件」／
 // 登場しない汎用記事（Phase2の福岡ガイド60本想定）＝運営者開示型。ボタンは予約アクション文言。
-const hasPropertyHandoff = (guide.handoff ?? []).some((h) => h.startsWith("/booking/"));
+const hasPropertyHandoff = (guide.handoff ?? []).some((h) => h.startsWith("/properties/"));
 const MIDCTA_LEAD: Record<Locale, { featured: string; generic: string }> = {
   ja: {
     featured: "📍 この記事で紹介している物件に泊まれます",

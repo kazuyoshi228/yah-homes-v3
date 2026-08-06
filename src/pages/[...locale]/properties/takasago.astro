@@ -19,11 +19,11 @@ const { lang } = Astro.props as { lang: Locale };
 const meta = getPageMeta("takasago", lang);
 const breadcrumb = breadcrumbJsonLd([
   { name: translations[lang].nav.home, url: `${BASE_URL}${localizedPath(lang, "/")}` },
-  { name: "yah.homes Takasago", url: `${BASE_URL}${localizedPath(lang, "/booking/takasago")}` },
+  { name: "yah.homes Takasago", url: `${BASE_URL}${localizedPath(lang, "/properties/takasago")}` },
 ]);
 ---
 
-<SiteLayout lang={lang} path="/booking/takasago" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
+<SiteLayout lang={lang} path="/properties/takasago" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
   <PropertyDetail
     lang={lang}
     propertyKey="takasago"

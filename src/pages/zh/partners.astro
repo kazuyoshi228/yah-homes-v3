@@ -358,7 +358,7 @@ const PROPS = [
     const name = (document.getElementById("utm-name").value || "partner-generic")
       .trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-ぁ-んァ-ン一-龠]/g, "").slice(0, 60) || "partner-generic";
     const prop = document.getElementById("utm-prop").value;
-    const url = `https://yah.homes/zh/booking/${prop}/?utm_source=partner&utm_medium=referral&utm_campaign=${encodeURIComponent(name)}`;
+    const url = `https://yah.homes/zh/properties/${prop}/?utm_source=partner&utm_medium=referral&utm_campaign=${encodeURIComponent(name)}`;
     try {
       await navigator.clipboard.writeText(url);
       utmOut.textContent = `已複製: ${url}`;

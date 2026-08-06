@@ -1,6 +1,6 @@
 // =============================================================
 // yah.homes — Takasago Property Data
-// Direct booking page: /booking/takasago
+// Direct booking page: /properties/takasago
 // Languages: en, ja, ko, zh, th
 // =============================================================
 

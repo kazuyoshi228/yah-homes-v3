@@ -9,6 +9,26 @@
     ],
     "redirects": [
       {
+        "source": "/booking",
+        "destination": "/properties",
+        "type": 301
+      },
+      {
+        "source": "/booking/:rest*",
+        "destination": "/properties/:rest*",
+        "type": 301
+      },
+      {
+        "source": "/:locale/booking",
+        "destination": "/:locale/properties",
+        "type": 301
+      },
+      {
+        "source": "/:locale/booking/:rest*",
+        "destination": "/:locale/properties/:rest*",
+        "type": 301
+      },
+      {
         "source": "/sitemap.xml",
         "destination": "/sitemap-index.xml",
         "type": 301

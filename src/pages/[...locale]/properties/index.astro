@@ -17,6 +17,6 @@ const { lang } = Astro.props as { lang: Locale };
 const meta = getPageMeta("booking", lang);
 ---
 
-<SiteLayout lang={lang} path="/booking" title={meta.title} description={meta.description} preloadImage={BK_HERO_PRELOAD}>
+<SiteLayout lang={lang} path="/properties" title={meta.title} description={meta.description} preloadImage={BK_HERO_PRELOAD}>
   <BookingConversion lang={lang} />
 </SiteLayout>
