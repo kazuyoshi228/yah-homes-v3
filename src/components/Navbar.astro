@@ -353,9 +353,25 @@ const langList = LOCALES.map((code) => ({
   .booknow-wrap {
     position: relative;
   }
+  /* Book Nowピルは赤（サイト共通のAirbnb CTA色 #ff5a5f）。ヒーロー上でも赤のまま視認させる */
   .booknow-toggle {
     cursor: pointer;
-    background: transparent;
+    background: #ff5a5f;
+    border-color: #ff5a5f;
+    color: #ffffff;
+  }
+  .booknow-toggle:hover {
+    background: #e04a4f;
+    border-color: #e04a4f;
+    color: #ffffff;
+  }
+  #site-nav.hero-visible .booknow-toggle {
+    background: #ff5a5f;
+    border-color: #ff5a5f;
+    color: #ffffff;
+  }
+  #site-nav.hero-visible .booknow-toggle:hover {
+    background: #e04a4f;
   }
   .booknow-wrap.open .chev :global(svg) {
     transform: rotate(180deg);
