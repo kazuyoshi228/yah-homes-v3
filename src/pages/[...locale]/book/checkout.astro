@@ -23,6 +23,9 @@ const t = BOOK_STRINGS[lang];
 
 const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
 const BOOK_PATH = localizedPath(lang, "/book");
+const BOOK_CREATE_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookCreate";
+// Stripe 公開可能キー（公開値・サンドボックス）。本番切替時に pk_live_ へ差し替える。
+const STRIPE_PK = "pk_test_51U1ezXCR3mSNjUnaxifg4YIA8iE0tZxdjgTR3m4rpzmTKeFbomvmKMKffQG6VaQL5x8JHG8QWdnkpUrcnIVBQ6Ec001T7tpweI";
 const FB_CONFIG = {
   apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
   authDomain: "yah-homes.firebaseapp.com",
@@ -139,6 +142,10 @@ const uiStrings = {
   approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
   total: C.total, missing: C.missing, authDone: C.authDone,
   nightsGuests: C.nightsGuests(-1, -2).replace("-1", "{n}").replace("-2", "{g}"),
+  preparing: { en: "Preparing payment…", ja: "決済を準備しています…", ko: "결제를 준비하고 있습니다…", zh: "正在準備付款…", th: "กำลังเตรียมการชำระเงิน…" }[lang],
+  paying: { en: "Processing…", ja: "処理しています…", ko: "처리 중입니다…", zh: "處理中…", th: "กำลังดำเนินการ…" }[lang],
+  paid: { en: "Payment authorized. We are confirming your booking.", ja: "お支払いを受け付けました。予約を確定しています。", ko: "결제가 접수되었습니다. 예약을 확정하고 있습니다.", zh: "已受理付款，正在確認您的預訂。", th: "รับชำระเงินแล้ว กำลังยืนยันการจอง" }[lang],
+  payFailed: { en: "Payment could not be completed. Please try again.", ja: "決済を完了できませんでした。もう一度お試しください。", ko: "결제를 완료하지 못했습니다. 다시 시도해 주세요.", zh: "付款未能完成，請再試一次。", th: "ชำระเงินไม่สำเร็จ กรุณาลองใหม่" }[lang],
   freeUntil: C.freeUntil("{d}"),
   soldOut: t.soldOut,
 };
@@ -269,8 +276,9 @@ const uiStrings = {
               <span id="co-trust-cancel">—</span>
             </div>
             <div class="co-final" id="co-final"></div>
+            <div class="co-payment" id="co-payment-element" hidden></div>
             <button type="button" class="co-pay-btn" id="co-pay-btn" disabled>{C.payBtn}</button>
-            <p class="co-status" id="co-pay-status">{C.paySoon}</p>
+            <p class="co-status" id="co-pay-status"></p>
           </section>
 
         </div>
@@ -279,7 +287,7 @@ const uiStrings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang }}>
+<script define:vars={{ AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang }}>
   const $ = (id) => document.getElementById(id);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
   const p = new URLSearchParams(location.search);
@@ -345,20 +353,99 @@ const uiStrings = {
       if (!user) return;
       $("co-auth").hidden = true;
       ["co-details", "co-rules", "co-pay"].forEach((id) => ($(id).hidden = false));
+      currentUser = user;
       $("cf-name").value = user.displayName || "";
       $("cf-email").value = user.email || "";
+      sync();
     });
   });
 
-  // 同意チェックで決済ボタンの活性を制御（MS3でStripeに結線）
+  // ── 決済（Stripe Payment Element・v4 §8-1） ──
+  // 入力が揃うまでボタンは無効。押下時に bookCreate → PaymentIntent → 決済フォーム表示 → 確定。
+  let idempotencyKey = sessionStorage.getItem("yah_book_key");
+  if (!idempotencyKey) {
+    idempotencyKey = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
+    sessionStorage.setItem("yah_book_key", idempotencyKey);
+  }
+  let stripe = null, elements = null, clientSecret = null, currentUser = null;
+
   const sync = () => {
-    const ok = $("cf-rules").checked && $("cf-name").value && $("cf-phone").value;
-    $("co-pay-btn").disabled = true; // MS3までは常に無効
-    $("co-pay-btn").dataset.ready = ok ? "1" : "";
+    const ok = $("cf-rules").checked && $("cf-name").value.trim() && $("cf-phone").value.trim();
+    $("co-pay-btn").disabled = !ok;
   };
   ["cf-rules", "cf-name", "cf-phone"].forEach((id) => {
     $(id).addEventListener("input", sync);
     $(id).addEventListener("change", sync);
+  });
+
+  async function loadStripe() {
+    if (window.Stripe) return window.Stripe(STRIPE_PK);
+    await new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = "https://js.stripe.com/v3/";
+      el.onload = resolve;
+      el.onerror = reject;
+      document.head.appendChild(el);
+    });
+    return window.Stripe(STRIPE_PK);
+  }
+
+  $("co-pay-btn").addEventListener("click", async () => {
+    const btn = $("co-pay-btn");
+    btn.disabled = true;
+
+    // 2回目以降のクリック=決済確定
+    if (clientSecret && elements) {
+      $("co-pay-status").textContent = uiStrings.paying;
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: `${location.origin}${BOOK_PATH}complete/` },
+        redirect: "if_required",
+      });
+      if (error) {
+        $("co-pay-status").textContent = error.message || uiStrings.payFailed;
+        btn.disabled = false;
+      } else {
+        sessionStorage.removeItem("yah_book_key");
+        $("co-pay-status").textContent = uiStrings.paid;
+      }
+      return;
+    }
+
+    // 初回=予約作成 + PaymentIntent
+    $("co-pay-status").textContent = uiStrings.preparing;
+    try {
+      const token = await currentUser.getIdToken();
+      const r = await fetch(BOOK_CREATE_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          prop, checkin, checkout, guests, lang, idempotencyKey,
+          name: $("cf-name").value.trim(),
+          phone: `${$("cf-cc").value}${$("cf-phone").value.trim().replace(/^0/, "")}`,
+          leadGuest: $("cf-lead").value.trim(),
+          arrival: $("cf-arrival").value,
+          rulesAccepted: $("cf-rules").checked,
+          marketingOptIn: $("cf-marketing").checked,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok || !j.clientSecret) {
+        $("co-pay-status").textContent = j.error === "unavailable" ? uiStrings.soldOut : uiStrings.payFailed;
+        btn.disabled = false;
+        return;
+      }
+      clientSecret = j.clientSecret;
+      stripe = await loadStripe();
+      elements = stripe.elements({ clientSecret, appearance: { theme: "stripe", variables: { colorPrimary: "#111111", borderRadius: "4px" } } });
+      elements.create("payment").mount("#co-payment-element");
+      $("co-payment-element").hidden = false;
+      $("co-pay-status").textContent = "";
+      btn.disabled = false;
+    } catch (err) {
+      $("co-pay-status").textContent = uiStrings.payFailed;
+      btn.disabled = false;
+    }
   });
 </script>
 
@@ -444,6 +531,12 @@ const uiStrings = {
   .co-sec-final .co-final { color: #ffffff; }
   .co-sec-final .co-status { color: rgba(255, 255, 255, 0.65); }
   /* 黒面上のCTAは白ボタン+黒文字（ブランドガイドライン） */
+  .co-payment {
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
   .co-sec-final .co-pay-btn {
     background: #ffffff;
     color: #111111;
