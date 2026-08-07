@@ -77,6 +77,8 @@ const langList = LOCALES.map((code) => ({
         </div>
       </div>
 
+      <a href={contactHref} class="nav-btn">{t.nav.contact}</a>
+
       <!-- Language dropdown -->
       <div class="lang-wrap" id="lang-wrap">
         <button class="nav-btn lang-toggle" id="lang-toggle" aria-haspopup="true" aria-expanded="false">
@@ -99,8 +101,6 @@ const langList = LOCALES.map((code) => ({
           }
         </div>
       </div>
-
-      <a href={contactHref} class="nav-btn">{t.nav.contact}</a>
 
       <!-- Book Now pill（ドロップダウン: 清川/高砂 → Airbnb直行） -->
       <div class="booknow-wrap" id="booknow-wrap">
