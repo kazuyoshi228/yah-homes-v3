@@ -26,23 +26,40 @@ const CHECKOUT_PATH = localizedPath(lang, "/book/checkout");
 
 // カード表示用スペック（2026-08-08 発注者提供・表示のみ。properties.ts/Beds24の正本は未変更）
 const SPEC_LABELS = {
-  en: { rooms: "bedrooms", single: "single", double: "double", bath: "bath", sink: "washbasin", max: (n: number) => `up to ${n} guests` },
-  ja: { rooms: "寝室", single: "シングル", double: "ダブル", bath: "浴室", sink: "洗面台", max: (n: number) => `最大${n}名` },
-  ko: { rooms: "침실", single: "싱글", double: "더블", bath: "욕실", sink: "세면대", max: (n: number) => `최대 ${n}명` },
-  zh: { rooms: "臥室", single: "單人床", double: "雙人床", bath: "浴室", sink: "洗手台", max: (n: number) => `最多${n}人` },
-  th: { rooms: "ห้องนอน", single: "เตียงเดี่ยว", double: "เตียงคู่", bath: "ห้องน้ำ", sink: "อ่างล้างหน้า", max: (n: number) => `สูงสุด ${n} ท่าน` },
+  en: { cap: "Capacity", rooms: "Bedrooms", beds: "Beds", water: "Bath",
+        guests: (n: number) => `Up to ${n}`, room: (n: number) => `${n} rooms`,
+        bed: (s: number, d: number) => `${d} double / ${s} single`,
+        wet: (b: number, w: number) => `${b} bath / ${w} washbasin` },
+  ja: { cap: "定員", rooms: "寝室", beds: "ベッド", water: "水回り",
+        guests: (n: number) => `最大${n}名`, room: (n: number) => `${n}室`,
+        bed: (s: number, d: number) => `ダブル${d}・シングル${s}`,
+        wet: (b: number, w: number) => `浴室${b}・洗面台${w}` },
+  ko: { cap: "정원", rooms: "침실", beds: "침대", water: "욕실",
+        guests: (n: number) => `최대 ${n}명`, room: (n: number) => `${n}개`,
+        bed: (s: number, d: number) => `더블 ${d}・싱글 ${s}`,
+        wet: (b: number, w: number) => `욕실 ${b}・세면대 ${w}` },
+  zh: { cap: "人數", rooms: "臥室", beds: "床鋪", water: "衛浴",
+        guests: (n: number) => `最多${n}人`, room: (n: number) => `${n}間`,
+        bed: (s: number, d: number) => `雙人床${d}・單人床${s}`,
+        wet: (b: number, w: number) => `浴室${b}・洗手台${w}` },
+  th: { cap: "จำนวน", rooms: "ห้องนอน", beds: "เตียง", water: "ห้องน้ำ",
+        guests: (n: number) => `สูงสุด ${n} ท่าน`, room: (n: number) => `${n} ห้อง`,
+        bed: (s: number, d: number) => `เตียงคู่ ${d} / เดี่ยว ${s}`,
+        wet: (b: number, w: number) => `ห้องน้ำ ${b} / อ่างล้างหน้า ${w}` },
 }[lang];
 
 const SPECS = {
   kiyokawa: { max: 8, rooms: 3, single: 2, double: 3, bath: 1, sink: 1 },
   takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, sink: 3 },
 };
-const specLines = (k: "kiyokawa" | "takasago") => {
+const specRows = (k: "kiyokawa" | "takasago") => {
   const v = SPECS[k];
+  const L = SPEC_LABELS;
   return [
-    `${SPEC_LABELS.max(v.max)}　/　${SPEC_LABELS.rooms} ${v.rooms}`,
-    `${SPEC_LABELS.single} ${v.single}　/　${SPEC_LABELS.double} ${v.double}`,
-    `${SPEC_LABELS.bath} ${v.bath}　/　${SPEC_LABELS.sink} ${v.sink}`,
+    [L.cap, L.guests(v.max)],
+    [L.rooms, L.room(v.rooms)],
+    [L.beds, L.bed(v.single, v.double)],
+    [L.water, L.wet(v.bath, v.sink)],
   ];
 };
 
@@ -53,8 +70,6 @@ const HOUSES = [
     area: { en: "Kiyokawa · 8 min to Tenjin", ja: "清川・天神まで車で8分", ko: "기요카와・텐진까지 차로 8분", zh: "清川・開車8分鐘到天神", th: "คิโยคาวะ・8 นาทีถึงเทนจิน" }[lang],
     capacity: PROPERTIES.kiyokawa.capacity,
     image: PROPERTIES.kiyokawa.exterior,
-    rating: PROPERTIES.kiyokawa.rating,
-    reviews: PROPERTIES.kiyokawa.reviewCount,
     detail: localizedPath(lang, "/properties/kiyokawa"),
   },
   {
@@ -63,8 +78,6 @@ const HOUSES = [
     area: { en: "Takasago · walk to Tenjin", ja: "高砂・天神徒歩圏", ko: "다카사고・텐진 도보권", zh: "高砂・步行可達天神", th: "ทาคาซาโกะ・เดินถึงเทนจิน" }[lang],
     capacity: PROPERTIES.takasago.capacity,
     image: PROPERTIES.takasago.exterior,
-    rating: PROPERTIES.takasago.rating,
-    reviews: PROPERTIES.takasago.reviewCount,
     detail: localizedPath(lang, "/properties/takasago"),
   },
 ];
@@ -155,10 +168,13 @@ const strings = {
               <div class="bk-house-head">
                 <h2 class="bk-house-name">{h.name}</h2>
                 <p class="bk-house-meta">{h.area}</p>
-                <ul class="bk-house-spec">
-                  {specLines(h.key).map((line) => <li>{line}</li>)}
-                </ul>
-                <p class="bk-house-rating">★ {h.rating}（{h.reviews}）</p>
+                <table class="bk-house-spec">
+                  <tbody>
+                    {specRows(h.key).map(([label, value]) => (
+                      <tr><th>{label}</th><td>{value}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
               <div class="bk-quote" data-quote={h.key}>
                 <p class="bk-quote-idle">{t.selectDates}</p>
@@ -541,17 +557,22 @@ const strings = {
     line-height: 1.7;
   }
   .bk-house-spec {
-    list-style: none;
-    padding: 0;
-    margin: 0.5rem 0 0;
+    margin: 0.6rem 0 0;
+    border-collapse: collapse;
     font-size: 0.8rem;
-    line-height: 1.85;
-    color: #555555;
+    line-height: 1.7;
   }
-  .bk-house-rating {
-    font-size: 0.78rem;
-    color: #555555;
-    margin-top: 0.3rem;
+  .bk-house-spec th {
+    text-align: left;
+    font-weight: 400;
+    color: #888888;
+    padding: 0.15rem 1.25rem 0.15rem 0;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+  .bk-house-spec td {
+    color: #222222;
+    padding: 0.15rem 0;
   }
   .bk-quote {
     text-align: right;
