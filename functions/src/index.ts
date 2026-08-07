@@ -360,7 +360,8 @@ const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
 const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
-const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN"); // read専用（bookingApi・定点観測で共用）
+const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN");
+const GA4_API_SECRET = defineSecret("GA4_API_SECRET"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
@@ -1011,6 +1012,11 @@ export const bookCreate = onRequest(
     const rulesAccepted = b.rulesAccepted === true;
     const marketingOptIn = b.marketingOptIn === true;
     const idempotencyKey = typeof b.idempotencyKey === "string" ? b.idempotencyKey.slice(0, 100) : "";
+    // GA4のclient_id・広告のgclid/UTM（購買行動の突合用・個人情報ではない）
+    const clientId = typeof b.clientId === "string" ? b.clientId.slice(0, 64) : "";
+    const gclid = typeof b.gclid === "string" ? b.gclid.slice(0, 200) : "";
+    const utm = typeof b.utm === "object" && b.utm ? b.utm : null;
+    const authProvider = typeof b.authProvider === "string" ? b.authProvider.slice(0, 20) : "";
 
     const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
     if (!(prop in PROPERTY_CAPACITY) || !isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
@@ -1051,6 +1057,7 @@ export const bookCreate = onRequest(
         status: "PAYMENT_PENDING", stateVersion: 0, operationId, idempotencyKey,
         roomId: q.data?.[0]?.roomId ?? null,
         policyVersion: "2026-08-08", freeCancelUntilAt,
+        clientId: clientId || null, gclid: gclid || null, utm, authProvider: authProvider || null,
         createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
       });
 
@@ -1087,7 +1094,7 @@ export const bookCreate = onRequest(
 
 /** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
 export const stripeWebhook = onRequest(
-  { region: REGION, secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) { res.status(400).send("missing_signature"); return; }
@@ -1173,11 +1180,57 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
       `[要対応] オーソリ済みですが Beds24 書込は未実装のため保留中です。\n` +
       `予約ID: ${bookingId}／PaymentIntent: ${pi.id}／${cur.prop} ${cur.checkin}〜${cur.checkout} ${cur.guests}名 ¥${cur.total}`,
     );
-    const c2 = (await ref.get()).data() as BookingDoc;
+    const c2 = (await ref.get()).data() as BookingDoc & Record<string, unknown>;
     await transition(ref, { status: ["AUTHORIZED"], stateVersion: c2.stateVersion }, { status: "MANUAL_REVIEW", note: "beds24_write_pending" });
+    // Beds24書込が有効になったら、この位置を CONFIRMED 遷移に置き換え、下の purchase を確定後に送る
+    await sendPurchaseEvent({
+      id: bookingId, uid: cur.uid, prop: cur.prop, total: cur.total, guests: cur.guests,
+      nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
+      lang: String(c2.lang ?? ""), authProvider: String(c2.authProvider ?? ""), clientId: String(c2.clientId ?? ""),
+    });
   } catch (err) {
     logger.error("fulfillBooking failed", err);
     await fail(String(err).slice(0, 200), "MANUAL_REVIEW");
+  }
+}
+
+/**
+ * GA4 purchase をサーバー確定後に送信（v4 §10）。
+ * クライアントから送らない理由: 離脱・広告ブロック・重複でCVが歪むため。
+ * 個人情報（氏名・メール・電話）は送らない。
+ */
+const GA4_MEASUREMENT_ID = "G-VJ5DDRML79";
+async function sendPurchaseEvent(booking: {
+  id: string; uid: string; prop: string; total: number; nights?: number; guests: number;
+  lang?: string; authProvider?: string; clientId?: string;
+}): Promise<void> {
+  const secret = GA4_API_SECRET.value();
+  if (!secret || secret.startsWith("placeholder")) return; // 未設定時は送らない（障害にしない）
+  try {
+    await fetch(
+      `https://www.google-analytics.com/mp/collect?measurement_id=${GA4_MEASUREMENT_ID}&api_secret=${secret}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          client_id: booking.clientId || `srv.${booking.uid.slice(0, 16)}`,
+          events: [{
+            name: "purchase",
+            params: {
+              transaction_id: booking.id,
+              currency: "JPY",
+              value: booking.total,
+              lang: booking.lang ?? null,
+              auth_provider: booking.authProvider ?? null,
+              guests: booking.guests,
+              nights: booking.nights ?? null,
+              items: [{ item_id: booking.prop, item_name: `yah.homes ${booking.prop}`, price: booking.total, quantity: 1 }],
+            },
+          }],
+        }),
+      },
+    );
+  } catch (err) {
+    logger.warn("GA4 purchase send failed", err);
   }
 }
 

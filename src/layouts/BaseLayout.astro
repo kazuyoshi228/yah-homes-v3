@@ -135,6 +135,17 @@ const htmlLang = HREFLANG[lang];
       gtag("js", new Date());
       gtag("config", "G-VJ5DDRML79");
 
+      // 流入情報を滞在中は保持（予約時にサーバーへ渡し、広告→予約を突合する）
+      (function () {
+        var q = new URLSearchParams(location.search);
+        ["utm_source", "utm_medium", "utm_campaign"].forEach(function (k) {
+          var v = q.get(k);
+          if (v) sessionStorage.setItem("yah_" + k, v);
+        });
+        var g = q.get("gclid");
+        if (g) sessionStorage.setItem("yah_gclid", g);
+      })();
+
       // GA4 イベント計測（クリック委譲・リンク先ドメインで自動判定）
       document.addEventListener("click", function (e) {
         var a = e.target && e.target.closest ? e.target.closest("a") : null;

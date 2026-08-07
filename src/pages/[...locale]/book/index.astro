@@ -354,6 +354,11 @@ const strings = {
   $("bk-prev").addEventListener("click", () => { if (state.monthOffset > 0) { state.monthOffset--; renderCal(); } });
   $("bk-next").addEventListener("click", () => { if (state.monthOffset < MAX_OFFSET) { state.monthOffset++; renderCal(); } });
 
+  // GA4送信のラッパー。氏名・メール・電話・カード情報は絶対に含めない（v4 §10）
+  function track(name, params) {
+    window.gtag?.("event", name, { ...params, lang });
+  }
+
   function pickDate(k) {
     if (!state.checkin || state.checkout || k <= state.checkin) {
       state.checkin = k;
@@ -364,6 +369,10 @@ const strings = {
         if (!anyAvail(d)) { state.checkin = k; state.checkout = null; renderAll(); return; }
       }
       state.checkout = k;
+      track("dates_selected", {
+        checkin: state.checkin, checkout: state.checkout,
+        nights: nightsBetween(state.checkin, state.checkout), guests: state.guests,
+      });
     }
     renderAll();
   }
@@ -401,12 +410,16 @@ const strings = {
         const j = await fetch(url).then((r) => r.json());
         if (!j.ok) throw new Error("quote");
         if (!j.available) {
+          track("availability_sold_out", { prop: h.key, checkin: state.checkin, nights, guests: state.guests });
           box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
           return;
         }
         const fx = strings.fxCode === "JPY" ? "" :
           `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(j.total * strings.fxRate).toLocaleString("en-US")}</p>`;
         const href = `${CHECKOUT_PATH}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+        track("availability_result_viewed", {
+          prop: h.key, checkin: state.checkin, nights, guests: state.guests, total: j.total, currency: "JPY",
+        });
         box.innerHTML = `
           <p class="bk-quote-label">${strings.totalLabel}</p>
           <p class="bk-quote-total">${yen(j.total)}</p>
@@ -415,6 +428,12 @@ const strings = {
           <p class="bk-quote-note">${strings.noExtra}</p>
           <a class="bk-cta" href="${href}">${strings.proceed}</a>
           <p class="bk-quote-direct">${strings.directNote}</p>`;
+        box.querySelector(".bk-cta")?.addEventListener("click", () => {
+          window.gtag?.("event", "begin_checkout", {
+            currency: "JPY", value: j.total, lang,
+            items: [{ item_id: h.key, item_name: `yah.homes ${h.key}`, price: j.total, quantity: 1 }],
+          });
+        });
       } catch {
         box.innerHTML = `<p class="bk-quote-hint">${strings.errorFetch}</p>`;
       }
@@ -437,6 +456,7 @@ const strings = {
 
   $("bk-guests").addEventListener("change", (e) => {
     state.guests = Number(e.target.value);
+    track("guests_changed", { guests: state.guests });
     syncUrl();
     if (state.checkin && state.checkout) loadQuotes();
   });
@@ -449,6 +469,7 @@ const strings = {
     const ctx = state.checkin && state.checkout
       ? `${HOST_COPY.ctx}: ${state.checkin} 〜 ${state.checkout}（${state.guests}）`
       : "";
+    track("inquiry_opened", { hasDates: Boolean(state.checkin && state.checkout) });
     $("bk-ask-ctx").textContent = ctx;
     $("ask-status").textContent = "";
     dlg.showModal();

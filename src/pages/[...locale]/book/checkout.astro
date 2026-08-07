@@ -316,6 +316,29 @@ const uiStrings = {
 <script define:vars={{ AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang }}>
   const $ = (id) => document.getElementById(id);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
+
+  // GA4送信のラッパー。氏名・メール・電話・カード情報は絶対に含めない（v4 §10）
+  const isWebViewUA = /(FBAN|FBAV|Instagram|Line\/|NAVER|KAKAOTALK)/i.test(navigator.userAgent || "");
+  const device = /Mobi|Android|iPhone/i.test(navigator.userAgent || "") ? "mobile" : "desktop";
+  function track(name, params) {
+    window.gtag?.("event", name, { ...params, lang, device, webview: isWebViewUA });
+  }
+  // GA4のclient_idを取得（サーバー送信のpurchaseとクライアントのイベントを同一ユーザーとして結合するため）
+  function gaClientId() {
+    return new Promise((resolve) => {
+      if (!window.gtag) return resolve("");
+      let done = false;
+      const t = setTimeout(() => { if (!done) { done = true; resolve(""); } }, 800);
+      window.gtag("get", "G-VJ5DDRML79", "client_id", (id) => {
+        if (done) return;
+        done = true; clearTimeout(t); resolve(id || "");
+      });
+    });
+  }
+
+  const startedAt = Date.now();
+  const elapsed = () => Math.round((Date.now() - startedAt) / 1000);
+
   const p = new URLSearchParams(location.search);
   const prop = p.get("prop");
   const checkin = p.get("checkin");
@@ -341,6 +364,8 @@ const uiStrings = {
     const fcStr = new Date(fc.getTime() + 9 * 3600000).toISOString().slice(0, 10);
     $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
     $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
+
+    track("checkout_viewed", { prop, checkin, nights, guests });
 
     // 総額（サーバー側の見積りを再取得）
     fetch(`${AVAIL_ENDPOINT}?prop=${prop}&checkin=${checkin}&checkout=${checkout}&guests=${guests}`)
@@ -373,8 +398,12 @@ const uiStrings = {
     }
 
     $("co-google").addEventListener("click", async () => {
+      track("auth_started", { auth_provider: "google", seconds: elapsed() });
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-      catch { $("co-auth-status").textContent = "ログインに失敗しました"; }
+      catch (err) {
+        track("auth_failed", { auth_provider: "google", error_type: String(err?.code ?? "unknown") });
+        $("co-auth-status").textContent = "ログインに失敗しました";
+      }
     });
 
     // メールリンク認証（パスワードなし）。戻り先URLに予約条件を保持するため状態は失われない。
@@ -382,11 +411,15 @@ const uiStrings = {
       const addr = $("co-email").value.trim();
       if (!/^\S+@\S+\.\S+$/.test(addr)) { $("co-auth-status").textContent = uiStrings.authEmailFail; return; }
       $("co-email-send").disabled = true;
+      track("email_link_started", { prop, seconds: elapsed() });
       try {
         await sendSignInLinkToEmail(auth, addr, { url: location.href, handleCodeInApp: true });
         window.localStorage.setItem("yah_email_for_signin", addr);
+        window.localStorage.setItem("yah_email_sent_at", String(Date.now()));
+        track("email_link_sent", { result: "ok" });
         $("co-auth-status").textContent = uiStrings.authEmailSent;
-      } catch {
+      } catch (err) {
+        track("email_link_sent", { result: "error", error_type: String(err?.code ?? "unknown") });
         $("co-auth-status").textContent = uiStrings.authEmailFail;
       }
       $("co-email-send").disabled = false;
@@ -399,7 +432,13 @@ const uiStrings = {
       if (saved) {
         try {
           await signInWithEmailLink(auth, saved, location.href);
+          const sentAt = Number(window.localStorage.getItem("yah_email_sent_at") || 0);
+          track("email_link_completed", {
+            same_device: Boolean(window.localStorage.getItem("yah_email_for_signin")),
+            wait_seconds: sentAt ? Math.round((Date.now() - sentAt) / 1000) : null,
+          });
           window.localStorage.removeItem("yah_email_for_signin");
+          window.localStorage.removeItem("yah_email_sent_at");
           history.replaceState(null, "", location.pathname + location.search.replace(/[?&](apiKey|oobCode|mode|lang)=[^&]*/g, "").replace(/^&/, "?"));
         } catch {
           $("co-auth-status").textContent = uiStrings.authEmailFail;
@@ -412,6 +451,9 @@ const uiStrings = {
       $("co-auth").hidden = true;
       ["co-details", "co-rules", "co-pay"].forEach((id) => ($(id).hidden = false));
       currentUser = user;
+      const provider = user.providerData?.[0]?.providerId === "google.com" ? "google" : "email_link";
+      window.gtag?.("event", "login", { method: provider, lang });
+      track("auth_completed", { auth_provider: provider, seconds: elapsed() });
       $("cf-name").value = user.displayName || "";
       $("cf-email").value = user.email || "";
       sync();
@@ -448,6 +490,14 @@ const uiStrings = {
     return window.Stripe(STRIPE_PK);
   }
 
+  // 決済まで到達せずに離脱した場合を記録（保留時間の把握・v4 §10）
+  let reachedPayment = false;
+  window.addEventListener("pagehide", () => {
+    if (!reachedPayment && clientSecret) {
+      track("booking_draft_abandoned", { prop, seconds: elapsed() });
+    }
+  });
+
   $("co-pay-btn").addEventListener("click", async () => {
     const btn = $("co-pay-btn");
     btn.disabled = true;
@@ -455,15 +505,23 @@ const uiStrings = {
     // 2回目以降のクリック=決済確定
     if (clientSecret && elements) {
       $("co-pay-status").textContent = uiStrings.paying;
+      track("payment_started", { prop, seconds: elapsed() });
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: { return_url: `${location.origin}${BOOK_PATH}complete/` },
         redirect: "if_required",
       });
       if (error) {
+        track("payment_failed", { prop, error_type: String(error.code ?? error.type ?? "unknown"), seconds: elapsed() });
         $("co-pay-status").textContent = error.message || uiStrings.payFailed;
         btn.disabled = false;
       } else {
+        // 予約の確定はサーバー側（Webhook起点）。ここは「オーソリ完了」の到達点として計測する。
+        reachedPayment = true;
+        track("payment_authorized", {
+          prop, seconds: elapsed(),
+          auth_provider: currentUser?.providerData?.[0]?.providerId === "google.com" ? "google" : "email_link",
+        });
         sessionStorage.removeItem("yah_book_key");
         $("co-pay-status").textContent = uiStrings.paid;
       }
@@ -472,6 +530,7 @@ const uiStrings = {
 
     // 初回=予約作成 + PaymentIntent
     $("co-pay-status").textContent = uiStrings.preparing;
+    track("booking_draft_started", { prop, seconds: elapsed() });
     try {
       const token = await currentUser.getIdToken();
       const r = await fetch(BOOK_CREATE_ENDPOINT, {
@@ -479,6 +538,15 @@ const uiStrings = {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           prop, checkin, checkout, guests, lang, idempotencyKey,
+          // 購買行動の突合用（個人情報ではない）
+          clientId: await gaClientId(),
+          gclid: new URLSearchParams(location.search).get("gclid") || sessionStorage.getItem("yah_gclid") || "",
+          utm: {
+            source: sessionStorage.getItem("yah_utm_source") || "",
+            medium: sessionStorage.getItem("yah_utm_medium") || "",
+            campaign: sessionStorage.getItem("yah_utm_campaign") || "",
+          },
+          authProvider: currentUser?.providerData?.[0]?.providerId === "google.com" ? "google" : "email_link",
           name: $("cf-name").value.trim(),
           phone: `${$("cf-cc").value}${$("cf-phone").value.trim().replace(/^0/, "")}`,
           leadGuest: $("cf-lead").value.trim(),
@@ -489,6 +557,7 @@ const uiStrings = {
       });
       const j = await r.json();
       if (!j.ok || !j.clientSecret) {
+        track("booking_draft_failed", { prop, error_type: String(j.error ?? "unknown"), seconds: elapsed() });
         $("co-pay-status").textContent = j.error === "unavailable" ? uiStrings.soldOut : uiStrings.payFailed;
         btn.disabled = false;
         return;
@@ -497,6 +566,11 @@ const uiStrings = {
       stripe = await loadStripe();
       elements = stripe.elements({ clientSecret, appearance: { theme: "stripe", variables: { colorPrimary: "#111111", borderRadius: "4px" } } });
       elements.create("payment").mount("#co-payment-element");
+      window.gtag?.("event", "add_payment_info", {
+        currency: "JPY", value: j.total, lang,
+        items: [{ item_id: prop, item_name: `yah.homes ${prop}`, price: j.total, quantity: 1 }],
+      });
+      track("payment_form_shown", { prop, seconds: elapsed() });
       $("co-payment-element").hidden = false;
       $("co-pay-status").textContent = "";
       btn.disabled = false;
