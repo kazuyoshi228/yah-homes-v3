@@ -1,0 +1,192 @@
+---
+/* /admin/bookings — 直販予約の管理（design_booking_p1_v4.md §8-5）
+   一覧・状態・ゲスト連絡先・対応メモ＝台帳メンバー／返金＝rootオーナーのみ。
+   全金銭操作は audit_logs に記録される（Function側）。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const BOOKINGS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminBookings";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+---
+
+<SiteLayout
+  lang="ja"
+  path="/admin/bookings"
+  title="直販予約 管理 | yah.homes"
+  description="直販予約の管理画面"
+  noindex={true}
+  solidNav
+>
+  <section class="ab">
+    <div class="ab-container">
+      <p class="ab-eyebrow">Admin</p>
+      <h1 class="ab-title">直販予約 管理</h1>
+
+      <div id="ab-login" class="ab-login">
+        <p class="ab-note">管理者アカウントでログインしてください。</p>
+        <button id="ab-login-btn" class="ab-btn">Googleでログイン</button>
+        <p class="ab-status" id="ab-login-status"></p>
+      </div>
+
+      <div id="ab-app" hidden>
+        <div class="ab-toolbar">
+          <span class="ab-note" id="ab-count"></span>
+          <div class="ab-tools">
+            <label class="ab-filter"><input type="checkbox" id="ab-only-review" /> 要対応のみ</label>
+            <button id="ab-reload" class="ab-btn-sub">再読み込み</button>
+          </div>
+        </div>
+        <div class="ab-tablewrap">
+          <table class="ab-table">
+            <thead>
+              <tr>
+                <th>予約日</th><th>状態</th><th>棟</th><th>日程</th><th>人数</th><th>金額</th>
+                <th>ゲスト</th><th>到着</th><th>備考</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="ab-tbody"></tbody>
+          </table>
+        </div>
+        <p class="ab-status" id="ab-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ BOOKINGS_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const yen = (n) => (n == null ? "—" : `¥${Number(n).toLocaleString("en-US")}`);
+    const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) : "—");
+    const PROP = { kiyokawa: "清川", takasago: "高砂" };
+    const LABEL = {
+      PAYMENT_PENDING: "決済待ち", AUTHORIZED: "オーソリ済", RESERVATION_PENDING: "予約処理中",
+      CONFIRMED: "確定", CANCELLED: "キャンセル", VOIDED: "解放済", PAYMENT_FAILED: "決済失敗",
+      CAPTURE_RETRY: "再試行中", MANUAL_REVIEW: "要対応",
+    };
+    let cache = [];
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(BOOKINGS_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) throw new Error("unauthorized");
+      return res.json();
+    }
+
+    function render(isRoot) {
+      const onlyReview = $("ab-only-review").checked;
+      const items = onlyReview ? cache.filter((b) => b.status === "MANUAL_REVIEW" || b.status === "CAPTURE_RETRY") : cache;
+      $("ab-count").textContent = `${items.length}件${onlyReview ? `（全${cache.length}件中）` : ""}`;
+      $("ab-tbody").innerHTML = items.map((b) => `
+        <tr data-id="${esc(b.id)}">
+          <td>${fmt(b.createdAt)}</td>
+          <td><span class="ab-badge" data-s="${esc(b.status)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
+          <td>${esc(PROP[b.prop] ?? b.prop)}</td>
+          <td class="ab-nowrap">${esc(b.checkin)}<br>〜${esc(b.checkout)}</td>
+          <td>${esc(b.guests)}名</td>
+          <td class="ab-num">${yen(b.total)}</td>
+          <td>${esc(b.name ?? "")}<br><span class="ab-sub">${esc(b.email ?? "")}</span><br><span class="ab-sub">${esc(b.phone ?? "")}</span></td>
+          <td>${esc(b.arrival ?? "—")}</td>
+          <td class="ab-memo">${esc(b.failureReason ?? b.note ?? "")}</td>
+          <td class="ab-nowrap">
+            <button class="ab-btn-sub ab-memo-btn" data-id="${esc(b.id)}">メモ</button>
+            ${isRoot && b.paymentIntentId && b.status !== "CANCELLED"
+              ? `<button class="ab-btn-sub ab-refund" data-id="${esc(b.id)}" data-total="${esc(b.total)}">返金</button>` : ""}
+          </td>
+        </tr>`).join("") || `<tr><td colspan="10" class="ab-note">該当する予約はありません</td></tr>`;
+
+      document.querySelectorAll(".ab-memo-btn").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const memo = prompt("対応メモ");
+          if (memo === null) return;
+          const r = await api("POST", { action: "memo", bookingId: btn.dataset.id, memo });
+          $("ab-status").textContent = r.ok ? "保存しました" : "保存に失敗しました";
+        })
+      );
+
+      // 返金: ¥10,000 超は確認ダイアログ必須（v4 §8-5）
+      document.querySelectorAll(".ab-refund").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const total = Number(btn.dataset.total);
+          const input = prompt(`返金額（空欄で全額 ${yen(total)}）`, String(total));
+          if (input === null) return;
+          const amount = input.trim() === "" ? total : Number(input);
+          if (!Number.isInteger(amount) || amount <= 0 || amount > total) { alert("金額が正しくありません"); return; }
+          if (amount > 10000 && !confirm(`${yen(amount)} を返金します。この操作は取り消せません。実行しますか？`)) return;
+          btn.disabled = true;
+          $("ab-status").textContent = "返金処理中...";
+          const r = await api("POST", { action: "refund", bookingId: btn.dataset.id, amount });
+          $("ab-status").textContent = r.ok ? `返金しました（${yen(r.refunded)}）` : `返金に失敗しました（${r.error ?? ""}）`;
+          btn.disabled = false;
+          if (r.ok) load();
+        })
+      );
+    }
+
+    async function load() {
+      $("ab-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        cache = j.items || [];
+        render(j.isRoot);
+        $("ab-status").textContent = "";
+      } catch (e) {
+        $("ab-status").textContent = e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    $("ab-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("ab-login-status").textContent = "ログインに失敗しました。"; }
+    });
+    $("ab-reload").addEventListener("click", load);
+    $("ab-only-review").addEventListener("change", load);
+
+    onAuthStateChanged(auth, (user) => {
+      $("ab-login").hidden = !!user;
+      $("ab-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .ab { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .ab-container { max-width: 1200px; margin: 0 auto; }
+  .ab-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .ab-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 1.5rem; }
+  .ab-note { font-size: 0.8rem; color: #888888; }
+  .ab-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
+  .ab-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .ab-btn { margin-top: 1rem; padding: 0.7rem 1.6rem; background: #111111; color: #ffffff; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer; }
+  .ab-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; margin-right: 0.3rem; }
+  .ab-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; flex-wrap: wrap; }
+  .ab-tools { display: flex; align-items: center; gap: 0.75rem; }
+  .ab-filter { font-size: 0.78rem; color: #555555; display: flex; align-items: center; gap: 0.35rem; }
+  .ab-tablewrap { overflow-x: auto; }
+  .ab-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; line-height: 1.6; }
+  .ab-table th, .ab-table td { border: 1px solid #e5e5e5; padding: 0.5rem 0.6rem; text-align: left; vertical-align: top; color: #222222; }
+  .ab-table thead th { background: #fafafa; font-weight: 500; white-space: nowrap; }
+  .ab-table :global(.ab-nowrap) { white-space: nowrap; }
+  .ab-table :global(.ab-num) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ab-table :global(.ab-sub) { font-size: 0.7rem; color: #888888; }
+  .ab-table :global(.ab-memo) { max-width: 220px; }
+  .ab-table :global(.ab-badge) { display: inline-block; font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f7f7f7; color: #555555; white-space: nowrap; }
+  .ab-table :global(.ab-badge[data-s="CONFIRMED"]) { background: #111111; color: #ffffff; }
+  .ab-table :global(.ab-badge[data-s="MANUAL_REVIEW"]),
+  .ab-table :global(.ab-badge[data-s="CAPTURE_RETRY"]) { background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; }
+</style>

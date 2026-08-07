@@ -1,0 +1,195 @@
+---
+/* 管理者台帳 — administrators / Airstarメンバーの登録・更新・通知宛先の管理
+   認証: Firebase Auth（Google）。閲覧=台帳メンバー・編集=rootオーナーのみ（Function側で検証）。
+   通知フラグ: パートナー申請 / 定点観測 / 直販予約（該当メールの宛先に追加される） */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const USERS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminUsers";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+---
+
+<SiteLayout
+  lang="ja"
+  path="/admin/users"
+  title="管理者台帳 | yah.homes"
+  description="管理者・通知宛先の管理"
+  noindex={true}
+  solidNav
+>
+  <section class="au">
+    <div class="au-container">
+      <p class="au-eyebrow">Admin</p>
+      <h1 class="au-title">管理者台帳</h1>
+      <p class="au-note">管理画面へアクセスできるメンバーと、各通知メールの宛先を管理します。編集はオーナーのみ。</p>
+
+      <div id="au-login" class="au-login">
+        <button id="au-login-btn" class="au-btn">Googleでログイン</button>
+        <p class="au-status" id="au-login-status"></p>
+      </div>
+
+      <div id="au-app" hidden>
+        <div class="au-tablewrap">
+          <table class="au-table">
+            <thead>
+              <tr><th>メール</th><th>名前</th><th>役割</th><th>申請通知</th><th>定点通知</th><th>予約通知</th><th></th></tr>
+            </thead>
+            <tbody id="au-tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="au-editor" hidden>
+          <h2 class="au-h2">メンバーを追加・更新</h2>
+          <form id="au-form" class="au-form">
+            <div class="au-row">
+              <input id="af-email" type="email" placeholder="メールアドレス（Googleアカウント）" required />
+              <input id="af-name" type="text" placeholder="名前（例: Airstar 原田様）" maxlength="100" />
+              <select id="af-role">
+                <option value="operator">operator（閲覧・対応）</option>
+                <option value="owner">owner（全操作）</option>
+              </select>
+            </div>
+            <div class="au-row au-checks">
+              <label><input type="checkbox" id="af-partners" /> パートナー申請の通知を受け取る</label>
+              <label><input type="checkbox" id="af-teiten" /> 定点観測メールを受け取る</label>
+              <label><input type="checkbox" id="af-bookings" /> 直販予約の通知を受け取る（P1稼働後）</label>
+            </div>
+            <button type="submit" class="au-btn" id="af-submit">保存</button>
+          </form>
+        </div>
+        <p class="au-status" id="au-app-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ USERS_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(USERS_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) throw new Error("unauthorized");
+      return res.json();
+    }
+
+    const check = (v) => (v ? "✓" : "—");
+
+    async function load() {
+      $("au-app-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        $("au-editor").hidden = !j.isRoot;
+        const rootRows = j.root.map(
+          (e) => `<tr><td>${esc(e)}</td><td>オーナー（root）</td><td>owner</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>`
+        );
+        const rows = j.items.map(
+          (it) => `<tr>
+            <td>${esc(it.email)}</td><td>${esc(it.name || "-")}</td><td>${esc(it.role)}</td>
+            <td>${check(it.notifyPartners)}</td><td>${check(it.notifyTeiten)}</td><td>${check(it.notifyBookings)}</td>
+            <td>${j.isRoot ? `<button class="au-btn-sub au-edit" data-e="${esc(it.email)}">編集</button> <button class="au-btn-sub au-del" data-e="${esc(it.email)}">削除</button>` : ""}</td>
+          </tr>`
+        );
+        $("au-tbody").innerHTML = rootRows.concat(rows).join("");
+        $("au-app-status").textContent = "";
+
+        document.querySelectorAll(".au-edit").forEach((b) =>
+          b.addEventListener("click", () => {
+            const it = j.items.find((x) => x.email === b.dataset.e);
+            $("af-email").value = it.email;
+            $("af-name").value = it.name || "";
+            $("af-role").value = it.role;
+            $("af-partners").checked = !!it.notifyPartners;
+            $("af-teiten").checked = !!it.notifyTeiten;
+            $("af-bookings").checked = !!it.notifyBookings;
+            $("af-email").scrollIntoView({ behavior: "smooth", block: "center" });
+          })
+        );
+        document.querySelectorAll(".au-del").forEach((b) =>
+          b.addEventListener("click", async () => {
+            if (!confirm(`${b.dataset.e} を台帳から削除します。管理画面へのアクセスと通知が止まります。`)) return;
+            const r = await api("POST", { action: "delete", email: b.dataset.e });
+            $("au-app-status").textContent = r.ok ? "削除しました" : "削除に失敗しました";
+            load();
+          })
+        );
+      } catch (e) {
+        $("au-app-status").textContent = e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    $("au-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("af-submit").disabled = true;
+      $("au-app-status").textContent = "保存中...";
+      try {
+        const r = await api("POST", {
+          action: "upsert",
+          email: $("af-email").value,
+          name: $("af-name").value,
+          role: $("af-role").value,
+          notifyPartners: $("af-partners").checked,
+          notifyTeiten: $("af-teiten").checked,
+          notifyBookings: $("af-bookings").checked,
+        });
+        $("au-app-status").textContent = r.ok ? "保存しました" : `保存に失敗しました（${r.error || ""}）`;
+        if (r.ok) { $("au-form").reset(); load(); }
+      } catch {
+        $("au-app-status").textContent = "保存に失敗しました";
+      } finally {
+        $("af-submit").disabled = false;
+      }
+    });
+
+    $("au-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("au-login-status").textContent = "ログインに失敗しました。"; }
+    });
+    onAuthStateChanged(auth, (user) => {
+      $("au-login").hidden = !!user;
+      $("au-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .au { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .au-container { max-width: 900px; margin: 0 auto; }
+  .au-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .au-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .au-h2 { font-size: 1.05rem; font-weight: 500; color: #111111; margin: 2.5rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eeeeee; }
+  .au-note { font-size: 0.8rem; color: #888888; margin-bottom: 1.5rem; }
+  .au-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
+  .au-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .au-btn { padding: 0.7rem 1.6rem; background: #111111; color: #ffffff; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer; }
+  .au-btn:disabled { opacity: 0.5; }
+  .au-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; }
+  .au-tablewrap { overflow-x: auto; }
+  .au-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; line-height: 1.6; }
+  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 0.5rem 0.6rem; text-align: left; color: #222222; white-space: nowrap; }
+  .au-table thead th { background: #fafafa; font-weight: 500; }
+  .au-form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .au-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .au-row input[type="email"], .au-row input[type="text"], .au-row select {
+    padding: 0.55rem 0.7rem; font-size: 0.85rem; border: 1px solid #d7d7d7; border-radius: 4px; font-family: inherit; flex: 1; min-width: 200px;
+  }
+  .au-checks { flex-direction: column; gap: 0.4rem; }
+  .au-checks label { font-size: 0.82rem; color: #333333; display: flex; align-items: center; gap: 0.4rem; }
+  .au-btn { align-self: flex-start; }
+</style>

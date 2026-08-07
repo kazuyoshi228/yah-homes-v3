@@ -259,7 +259,7 @@ export const partnersApply = onRequest(
     try {
       await transporter.sendMail({
         from: `"yah.homes Partners" <${SMTP_USER.value()}>`,
-        to: PARTNERS_NOTIFY_TO,
+        to: await notifyRecipients("notifyPartners"),
         replyTo: emailStr,
         subject: `【パートナー申請】${PROPERTY_LABEL[propStr]} ${date1Str}〜 ${guestsNum}名`,
         text: [
@@ -485,7 +485,25 @@ export const bookingApi = onRequest(
 
 // ─── パートナー申請 管理API（/admin/partners・design_partners_page.md §4.6） ───
 // 認証: Firebase Auth（Google）IDトークン検証＋許可メール限定。個人情報を扱うためFunction経由のみ。
-const PARTNERS_ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"];
+const PARTNERS_ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"]; // rootオーナー（削除不可・台帳に依らず常に有効）
+
+// 管理者台帳（/admin/users）: { name, role: "owner"|"operator", notifyPartners, notifyTeiten, notifyBookings }
+async function getAdminUser(email: string): Promise<{ role: string } | null> {
+  const doc = await db.collection("admin_users").doc(email).get();
+  return doc.exists ? (doc.data() as { role: string }) : null;
+}
+
+/** 通知宛先: root ＋ 該当フラグONの台帳メンバー（ハードコード宛先を廃止・v4 §8-5b） */
+async function notifyRecipients(kind: "notifyPartners" | "notifyTeiten" | "notifyBookings"): Promise<string> {
+  const set = new Set<string>(PARTNERS_ADMIN_EMAILS);
+  try {
+    const snap = await db.collection("admin_users").where(kind, "==", true).get();
+    snap.forEach((d) => set.add(d.id));
+  } catch (err) {
+    logger.warn("notifyRecipients fallback", err);
+  }
+  return [...set].join(", ");
+}
 const PARTNER_STATUSES = ["new", "contacted", "confirmed", "stayed", "published", "declined"];
 
 async function verifyAdmin(req: { headers: Record<string, unknown> }): Promise<string | null> {
@@ -495,7 +513,9 @@ async function verifyAdmin(req: { headers: Record<string, unknown> }): Promise<s
   try {
     const decoded = await getAuth().verifyIdToken(m[1]);
     const email = (decoded.email ?? "").toLowerCase();
-    if (decoded.email_verified && PARTNERS_ADMIN_EMAILS.includes(email)) return email;
+    if (!decoded.email_verified) return null;
+    if (PARTNERS_ADMIN_EMAILS.includes(email)) return email;
+    if (await getAdminUser(email)) return email; // 台帳メンバー（operator以上）
     return null;
   } catch {
     return null;
@@ -696,8 +716,9 @@ export const beds24DailyObserver = onSchedule(
       host: "smtp.gmail.com", port: 465, secure: true,
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
     });
+    const teitenTo = await notifyRecipients("notifyTeiten");
     const mail = (subject: string, text: string) =>
-      transporter.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: PARTNERS_NOTIFY_TO, subject, text });
+      transporter.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: teitenTo, subject, text });
 
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
     try {
@@ -1168,7 +1189,7 @@ async function notifyError(text: string): Promise<void> {
     });
     await transporter.sendMail({
       from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
-      to: PARTNERS_NOTIFY_TO,
+      to: await notifyRecipients("notifyBookings"),
       subject: "【予約エラー】直販予約の処理でエラーが発生しました",
       text,
     });
@@ -1235,7 +1256,7 @@ export const accountApi = onRequest(
           });
           await transporter.sendMail({
             from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
-            to: PARTNERS_NOTIFY_TO,
+            to: await notifyRecipients("notifyBookings"),
             subject: `【到着予定】${v.prop} ${v.checkin} — ${arrStr || "未定"}`,
             text: `到着予定時刻が更新されました。\n\n棟: ${v.prop}\nチェックイン: ${v.checkin}\n到着予定: ${arrStr || "未定"}\n予約ID: ${idStr}`,
           });
@@ -1249,6 +1270,166 @@ export const accountApi = onRequest(
       res.status(405).json({ ok: false, error: "method_not_allowed" });
     } catch (err) {
       logger.error("accountApi failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+// ─── 管理者台帳API（/admin/users・編集はrootオーナーのみ・v4 §8-5b） ───
+export const adminUsers = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    const isRoot = PARTNERS_ADMIN_EMAILS.includes(email);
+
+    try {
+      if (req.method === "GET") {
+        const snap = await db.collection("admin_users").get();
+        const items = snap.docs.map((d) => {
+          const v = d.data();
+          return { email: d.id, name: v.name ?? "", role: v.role ?? "operator",
+            notifyPartners: v.notifyPartners === true, notifyTeiten: v.notifyTeiten === true,
+            notifyBookings: v.notifyBookings === true };
+        });
+        res.status(200).json({ ok: true, root: PARTNERS_ADMIN_EMAILS, isRoot, items });
+        return;
+      }
+
+      if (req.method === "POST") {
+        if (!isRoot) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+        const { action, email: target, name, role, notifyPartners, notifyTeiten, notifyBookings } =
+          (req.body ?? {}) as Record<string, unknown>;
+        const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
+        if (!/^\S+@\S+\.\S+$/.test(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
+        if (PARTNERS_ADMIN_EMAILS.includes(targetStr)) { res.status(400).json({ ok: false, error: "root_protected" }); return; }
+
+        const ref = db.collection("admin_users").doc(targetStr);
+        if (action === "delete") {
+          await ref.delete();
+          await db.collection("audit_logs").add({ actor: email, action: "admin_user_delete", target: targetStr, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true });
+          return;
+        }
+        const exists = (await ref.get()).exists;
+        await ref.set({
+          name: typeof name === "string" ? name.trim().slice(0, 100) : "",
+          role: role === "owner" ? "owner" : "operator",
+          notifyPartners: notifyPartners === true,
+          notifyTeiten: notifyTeiten === true,
+          notifyBookings: notifyBookings === true,
+          updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
+          ...(exists ? {} : { addedAt: FieldValue.serverTimestamp(), addedBy: email }),
+        }, { merge: true });
+        await db.collection("audit_logs").add({ actor: email, action: exists ? "admin_user_update" : "admin_user_add", target: targetStr, at: FieldValue.serverTimestamp() });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminUsers failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+// ─── 直販予約の管理API（/admin/bookings・v4 §8-5） ───
+// 一覧＝台帳メンバー、返金＝rootオーナーのみ。全金銭操作を audit_logs に記録。
+export const adminBookings = onRequest(
+  { region: REGION, secrets: [STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    const isRoot = PARTNERS_ADMIN_EMAILS.includes(email);
+
+    try {
+      if (req.method === "GET") {
+        const snap = await db.collection("bookings").orderBy("createdAt", "desc").limit(200).get();
+        const items = snap.docs.map((d) => {
+          const v = d.data();
+          return {
+            id: d.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
+            total: v.total, status: v.status, name: v.name ?? null, email: v.email ?? null,
+            phone: v.phone ?? null, leadGuest: v.leadGuest ?? null, arrival: v.arrival ?? null,
+            lang: v.lang ?? null, beds24Id: v.beds24Id ?? null, paymentIntentId: v.paymentIntentId ?? null,
+            failureReason: v.failureReason ?? null, note: v.note ?? null,
+            freeCancelUntilAt: v.freeCancelUntilAt ?? null,
+            createdAt: v.createdAt?.toMillis?.() ?? null,
+          };
+        });
+        res.status(200).json({ ok: true, isRoot, items });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { action, bookingId, memo, amount } = (req.body ?? {}) as Record<string, unknown>;
+        const idStr = typeof bookingId === "string" ? bookingId : "";
+        if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+        const ref = db.collection("bookings").doc(idStr);
+        const snap = await ref.get();
+        const v = snap.data();
+        if (!v) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+
+        // 対応メモ（台帳メンバー可）
+        if (action === "memo") {
+          await ref.update({ adminMemo: typeof memo === "string" ? memo.slice(0, 2000) : "", updatedAt: FieldValue.serverTimestamp() });
+          await db.collection("audit_logs").add({ actor: email, action: "booking_memo", target: idStr, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
+        // 返金（rootオーナーのみ・v4 §8-5）
+        if (action === "refund") {
+          if (!isRoot) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+          if (!v.paymentIntentId) { res.status(400).json({ ok: false, error: "no_payment" }); return; }
+          const amt = Number(amount);
+          const refundAmount = Number.isInteger(amt) && amt > 0 && amt <= v.total ? amt : v.total;
+          const stripe = stripeClient();
+          const pi = await stripe.paymentIntents.retrieve(String(v.paymentIntentId));
+          if (pi.status === "requires_capture") {
+            await stripe.paymentIntents.cancel(pi.id); // オーソリのみ＝解放
+          } else {
+            await stripe.refunds.create({ payment_intent: pi.id, amount: refundAmount });
+          }
+          const cur = (await ref.get()).data() as { status: string; stateVersion: number };
+          await transition(ref, { status: [cur.status], stateVersion: cur.stateVersion },
+            { status: "CANCELLED", refundedAmount: refundAmount, refundedBy: email });
+          await db.collection("audit_logs").add({
+            actor: email, action: "booking_refund", target: idStr,
+            amount: refundAmount, paymentIntentId: v.paymentIntentId, at: FieldValue.serverTimestamp(),
+          });
+          res.status(200).json({ ok: true, refunded: refundAmount });
+          return;
+        }
+
+        res.status(400).json({ ok: false, error: "invalid_action" });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminBookings failed", err);
       res.status(500).json({ ok: false, error: "internal" });
     }
   }
