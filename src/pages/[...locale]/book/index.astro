@@ -81,8 +81,10 @@ const HOUSES = [
 ];
 
 // 信頼ブロック: 運営者の顔と「聞けば人が答える」約束（写真は差し替え用スロット）
-const OWNER_PHOTO = ""; // 例: "/manus-storage/owner.webp"（未設定なら写真なしで表示）
+const OWNER_PHOTO = "/manus-storage/director-photo_def5f1a6-480.webp"; // /about と同じ代表写真
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
+const HOST_NAME = { en: "Kazuyoshi Yamada", ja: "山田一慶", ko: "야마다 카즈요시", zh: "山田一慶", th: "Kazuyoshi Yamada" }[lang];
+const HOST_ROLE = { en: "Director, yah.homes", ja: "yah.homes ディレクター", ko: "yah.homes 디렉터", zh: "yah.homes 總監", th: "ผู้อำนวยการ yah.homes" }[lang];
 const HOST_COPY = {
   en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 2–3 business days.", cta: "Contact us" },
   ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。2〜3営業日以内にご連絡いたします。", cta: "ご質問・ご相談はこちら" },
@@ -197,6 +199,7 @@ const strings = {
       <aside class="bk-host">
         {OWNER_PHOTO && <img class="bk-host-photo" src={OWNER_PHOTO} alt="" width="80" height="80" loading="lazy" />}
         <div class="bk-host-body">
+          <p class="bk-host-name">{HOST_NAME}<span class="bk-host-role">{HOST_ROLE}</span></p>
           <p class="bk-host-text">{HOST_COPY.lead}</p>
           <a class="bk-host-link" href={CONTACT_HREF}>{HOST_COPY.cta}</a>
         </div>
@@ -660,8 +663,21 @@ const strings = {
     height: 80px;
     border-radius: 50%;
     object-fit: cover;
+    object-position: center 25%; /* 縦長ポートレートの顔が中心に来るよう上寄せ */
     flex-shrink: 0;
     background: #f7f7f7;
+  }
+  .bk-host-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111111;
+    margin-bottom: 0.25rem;
+  }
+  .bk-host-role {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #888888;
+    margin-left: 0.6rem;
   }
   .bk-host-text {
     font-size: 0.85rem;
