@@ -26,6 +26,11 @@ export interface BookStrings {
   proceed: string;
   capacityMax: (n: number) => string;
   errorFetch: string;
+  /** 取得の進行・失敗まわり（design_booking_p1_v4.md §3.4） */
+  loadingSlow: string;
+  loadingTooLong: string;
+  retry: string;
+  conditionsChanged: string;
   changedPrice: string;
   altDates: string;
   monthLabel: (y: number, m: number) => string;
@@ -62,6 +67,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "Book now",
     capacityMax: (n) => `Up to ${n} guests`,
     errorFetch: "Could not load availability. Please try again shortly.",
+    loadingSlow: "Still checking availability. This will only take a moment.",
+    loadingTooLong: "This is taking longer than usual. Please try again.",
+    retry: "Try again",
+    conditionsChanged: "Your search changed. Checking the latest availability…",
     changedPrice: "Prices or availability have changed. Please review the updated total.",
     altDates: "Nearest available dates",
     monthLabel: (y, m) => `${["January","February","March","April","May","June","July","August","September","October","November","December"][m]} ${y}`,
@@ -93,6 +102,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "予約する",
     capacityMax: (n) => `最大${n}名`,
     errorFetch: "空室情報を取得できませんでした。時間をおいてお試しください。",
+    loadingSlow: "空室状況を確認中です。まもなく表示します。",
+    loadingTooLong: "確認に時間がかかっています。もう一度お試しください。",
+    retry: "再試行する",
+    conditionsChanged: "条件が変わりました。最新の空室を確認しています。",
     changedPrice: "料金または空室状況が変わりました。最新の総額をご確認ください。",
     altDates: "空きのある近い日程",
     monthLabel: (y, m) => `${y}年${m + 1}月`,
@@ -124,6 +137,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "예약하기",
     capacityMax: (n) => `최대 ${n}명`,
     errorFetch: "빈방 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    loadingSlow: "빈방 상황을 확인하고 있습니다. 곧 표시됩니다.",
+    loadingTooLong: "확인에 시간이 걸리고 있습니다. 다시 시도해 주세요.",
+    retry: "다시 시도",
+    conditionsChanged: "조건이 변경되었습니다. 최신 빈방을 확인하고 있습니다…",
     changedPrice: "요금 또는 예약 가능 상황이 변경되었습니다. 최신 총액을 확인해 주세요.",
     altDates: "예약 가능한 가까운 날짜",
     monthLabel: (y, m) => `${y}년 ${m + 1}월`,
@@ -155,6 +172,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "立即預訂",
     capacityMax: (n) => `最多 ${n} 人`,
     errorFetch: "無法取得空房資訊，請稍後再試。",
+    loadingSlow: "正在確認空房狀況，即將顯示。",
+    loadingTooLong: "確認需要較長時間，請再試一次。",
+    retry: "重新查詢",
+    conditionsChanged: "查詢條件已變更，正在確認最新空房…",
     changedPrice: "價格或空房狀況已變更，請確認最新總金額。",
     altDates: "最近的可訂日期",
     monthLabel: (y, m) => `${y}年${m + 1}月`,
@@ -186,6 +207,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "จองเลย",
     capacityMax: (n) => `สูงสุด ${n} ท่าน`,
     errorFetch: "ไม่สามารถโหลดข้อมูลห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
+    loadingSlow: "กำลังตรวจสอบห้องว่าง อีกสักครู่จะแสดงผล",
+    loadingTooLong: "ใช้เวลานานกว่าปกติ กรุณาลองใหม่อีกครั้ง",
+    retry: "ลองใหม่",
+    conditionsChanged: "เงื่อนไขเปลี่ยนแปลง กำลังตรวจสอบห้องว่างล่าสุด…",
     changedPrice: "ราคาหรือสถานะห้องว่างมีการเปลี่ยนแปลง กรุณาตรวจสอบราคารวมล่าสุด",
     altDates: "วันที่ว่างที่ใกล้ที่สุด",
     monthLabel: (y, m) => `${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][m]} ${y}`,

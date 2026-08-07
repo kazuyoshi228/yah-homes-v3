@@ -162,6 +162,7 @@ const uiStrings = {
   paying: { en: "Processing…", ja: "処理しています…", ko: "처리 중입니다…", zh: "處理中…", th: "กำลังดำเนินการ…" }[lang],
   paid: { en: "Payment authorized. We are confirming your booking.", ja: "お支払いを受け付けました。予約を確定しています。", ko: "결제가 접수되었습니다. 예약을 확정하고 있습니다.", zh: "已受理付款，正在確認您的預訂。", th: "รับชำระเงินแล้ว กำลังยืนยันการจอง" }[lang],
   payFailed: { en: "Payment could not be completed. Please try again.", ja: "決済を完了できませんでした。もう一度お試しください。", ko: "결제를 완료하지 못했습니다. 다시 시도해 주세요.", zh: "付款未能完成，請再試一次。", th: "ชำระเงินไม่สำเร็จ กรุณาลองใหม่" }[lang],
+  priceChanged: { en: "The total has been updated to the latest price. Please review it and continue.", ja: "最新の料金に更新しました。金額をご確認のうえ、もう一度お進みください。", ko: "최신 요금으로 업데이트했습니다. 금액을 확인하신 후 다시 진행해 주세요.", zh: "已更新為最新金額，請確認後再繼續。", th: "อัปเดตเป็นราคาล่าสุดแล้ว กรุณาตรวจสอบแล้วดำเนินการต่อ" }[lang],
   freeUntil: C.freeUntil("{d}"),
   soldOut: t.soldOut,
 };
@@ -344,14 +345,15 @@ const uiStrings = {
   const checkin = p.get("checkin");
   const checkout = p.get("checkout");
   const guests = Number(p.get("guests")) || 0;
+  // 決済処理からも参照するためモジュール直下に置く
+  const meta = HOUSE_META[prop] || null;
+  const nights = checkin && checkout ? Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000) : 0;
 
   // 日程が無ければ選択ページへ戻す
-  if (!prop || !HOUSE_META[prop] || !checkin || !checkout || !guests) {
+  if (!prop || !meta || !checkin || !checkout || !guests) {
     $("co-house").textContent = uiStrings.missing;
     $("co-pay-status").textContent = "";
   } else {
-    const meta = HOUSE_META[prop];
-    const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
     $("co-photo").src = meta.image;
     $("co-house").textContent = meta.name;
     $("co-in").firstChild.textContent = checkin;
@@ -372,6 +374,7 @@ const uiStrings = {
       .then((r) => r.json())
       .then((j) => {
         if (!j.ok || !j.available) { $("co-total").textContent = uiStrings.soldOut; return; }
+        displayedTotal = j.total;
         $("co-total").textContent = yen(j.total);
         if (uiStrings.fxCode !== "JPY") {
           $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
@@ -468,6 +471,8 @@ const uiStrings = {
     sessionStorage.setItem("yah_book_key", idempotencyKey);
   }
   let stripe = null, elements = null, clientSecret = null, currentUser = null;
+  // 予約開始時のサーバー再検証で金額が動いた場合、一度提示して再同意を得る（v4 §4）
+  let displayedTotal = null, priceAcknowledged = false;
 
   const sync = () => {
     const ok = $("cf-rules").checked && $("cf-name").value.trim() && $("cf-phone").value.trim();
@@ -557,8 +562,26 @@ const uiStrings = {
       });
       const j = await r.json();
       if (!j.ok || !j.clientSecret) {
+        track("inventory_revalidated", {
+          success: false, price_changed: false, availability_changed: j.error === "unavailable",
+        });
         track("booking_draft_failed", { prop, error_type: String(j.error ?? "unknown"), seconds: elapsed() });
         $("co-pay-status").textContent = j.error === "unavailable" ? uiStrings.soldOut : uiStrings.payFailed;
+        btn.disabled = false;
+        return;
+      }
+      const priceChanged = typeof j.total === "number" && displayedTotal !== null && j.total !== displayedTotal;
+      track("inventory_revalidated", { success: true, price_changed: priceChanged, availability_changed: false });
+      if (priceChanged && !priceAcknowledged) {
+        // 表示と違う金額で決済に進ませない。更新して提示し、もう一度押してもらう。
+        priceAcknowledged = true;
+        displayedTotal = j.total;
+        $("co-total").textContent = yen(j.total);
+        if (uiStrings.fxCode !== "JPY") {
+          $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
+        }
+        $("co-final").textContent = `${meta.name}　${checkin} 〜 ${checkout}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
+        $("co-pay-status").textContent = uiStrings.priceChanged;
         btn.disabled = false;
         return;
       }

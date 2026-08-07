@@ -161,6 +161,10 @@ const strings = {
   totalLabel: t.totalLabel,
   approx: t.approx,
   errorFetch: t.errorFetch,
+  loadingSlow: t.loadingSlow,
+  loadingTooLong: t.loadingTooLong,
+  retry: t.retry,
+  conditionsChanged: t.conditionsChanged,
   proceed: t.proceed,
   monthLabels,
   noteTemplate,
@@ -409,54 +413,148 @@ const strings = {
     });
   }
 
-  // ── 見積り（両棟並列） ──
-  async function loadQuotes() {
+  // ── 空室・見積りの取得（統合API・重複排除・中断・stale応答の破棄） ──
+  // 検索条件は checkin:checkout:guests[:prop] で一意に扱う。
+  const keyOf = (ci, co, g, prop) => `${ci}:${co}:${g}${prop ? `:${prop}` : ""}`;
+  const inflight = new Map();   // searchKey -> { promise, abort }
+  let activeQuoteKey = null;    // 画面が待っている最新の検索キー（これ以外の応答は捨てる）
+  let settledQuoteKey = null;   // 取得中 or 描画済みのキー（同一条件の二重発火を止める）
+
+  function availUrl(ci, co, g, prop) {
+    return prop
+      ? `${AVAIL_ENDPOINT}?prop=${prop}&checkin=${ci}&checkout=${co}&guests=${g}`
+      : `${AVAIL_ENDPOINT}?props=all&checkin=${ci}&checkout=${co}&guests=${g}`;
+  }
+
+  // 同じ検索が進行中なら既存のPromiseを共有し、二重に発行しない。
+  function fetchAvailability(ci, co, g, prop) {
+    const key = keyOf(ci, co, g, prop);
+    const running = inflight.get(key);
+    if (running) {
+      track("availability_request_deduped", { search_key: key });
+      return running.promise;
+    }
+    const abort = new AbortController();
+    const t0 = performance.now();
+    track("availability_requested", { search_key: key, properties_count: prop ? 1 : 2 });
+    const promise = fetch(availUrl(ci, co, g, prop), { signal: abort.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const list = j.properties ?? (j.ok ? [j] : []);
+        track("availability_response", {
+          duration_ms: Math.round(performance.now() - t0),
+          cache_status: j.cacheStatus ?? "unknown",
+          result_summary: list.map((x) => `${x.id}:${x.available ? "open" : "full"}`).join(","),
+        });
+        return j;
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") track("availability_request_aborted", { reason: "superseded" });
+        else track("availability_failed", { error_type: err?.name || "network", duration_ms: Math.round(performance.now() - t0) });
+        throw err;
+      })
+      .finally(() => { if (inflight.get(key)?.abort === abort) inflight.delete(key); });
+    inflight.set(key, { promise, abort });
+    return promise;
+  }
+
+  // 条件が変わったら、前回の通信を中断して最新だけを有効にする。
+  function abortOthers(exceptKey) {
+    inflight.forEach((v, k) => { if (k !== exceptKey) v.abort.abort(); });
+  }
+
+  let quoteTimers = [];
+  const clearQuoteTimers = () => { quoteTimers.forEach(clearTimeout); quoteTimers = []; };
+
+  const SKELETON = `<div class="bk-skel"><span class="bk-skel-line bk-skel-sm"></span><span class="bk-skel-line bk-skel-lg"></span><span class="bk-skel-line"></span></div>`;
+
+  // 失敗・遅延時。古い料金で予約できないよう、CTAは出さず再試行だけを出す。
+  function showRetry(house, message) {
+    const box = document.querySelector(`[data-quote="${house.key}"]`);
+    if (!box) return;
+    box.innerHTML = `<p class="bk-quote-hint">${message}</p>
+      <button type="button" class="bk-retry" data-retry="${house.key}">${strings.retry}</button>`;
+    box.querySelector("[data-retry]")?.addEventListener("click", () => { settledQuoteKey = null; loadQuotes(true); });
+  }
+
+  function renderQuote(house, p, nights, byId) {
+    const box = document.querySelector(`[data-quote="${house.key}"]`);
+    if (!box) return;
+    if (state.guests > house.capacity) {
+      box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
+      return;
+    }
+    if (!p || !p.available) {
+      track("sold_out_viewed", { prop: house.key, checkin: state.checkin, nights, guests: state.guests });
+      box.innerHTML = `<p class="bk-quote-out">${strings.recovery.soldOutTitle}</p>
+        <p class="bk-quote-hint" data-recovery="${house.key}">…</p>`;
+      const other = HOUSES.find((h) => h.key !== house.key);
+      renderRecovery(house, nights, other ? byId[other.key] : null);
+      return;
+    }
+    const fx = strings.fxCode === "JPY" ? "" :
+      `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(p.total * strings.fxRate).toLocaleString("en-US")}</p>`;
+    const href = `${CHECKOUT_PATH}?prop=${house.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+    track("availability_result_viewed", {
+      prop: house.key, checkin: state.checkin, nights, guests: state.guests, total: p.total, currency: "JPY",
+    });
+    box.innerHTML = `
+      <p class="bk-quote-label">${strings.totalLabel}</p>
+      <p class="bk-quote-total">${yen(p.total)}</p>
+      ${fx}
+      <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
+      <p class="bk-quote-note">${strings.noExtra}</p>
+      <p class="bk-quote-direct">${strings.directNote}</p>
+      <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
+    track("official_value_viewed", { screen: "availability_result", prop: house.key, checkin: state.checkin });
+    box.querySelector(".bk-cta")?.addEventListener("click", () => {
+      window.gtag?.("event", "begin_checkout", {
+        currency: "JPY", value: p.total, lang,
+        items: [{ item_id: house.key, item_name: `yah.homes ${house.key}`, price: p.total, quantity: 1 }],
+      });
+    });
+  }
+
+  // 2棟ぶんを統合APIから1回で取得する。
+  async function loadQuotes(force = false) {
+    if (!state.checkin || !state.checkout) return;
+    const key = keyOf(state.checkin, state.checkout, state.guests);
+    if (!force && key === settledQuoteKey) return; // 同一条件では再発行しない
+    const changed = settledQuoteKey !== null && settledQuoteKey !== key;
+    settledQuoteKey = key;
+    activeQuoteKey = key;
+    abortOthers(key);
+    clearQuoteTimers();
+
     const nights = nightsBetween(state.checkin, state.checkout);
     HOUSES.forEach((h) => {
-      document.querySelector(`[data-quote="${h.key}"]`).innerHTML = `<p class="bk-quote-idle">${strings.searching}</p>`;
-    });
-    await Promise.all(HOUSES.map(async (h) => {
       const box = document.querySelector(`[data-quote="${h.key}"]`);
-      if (state.guests > h.capacity) {
-        box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
-        return;
-      }
-      try {
-        const url = `${AVAIL_ENDPOINT}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
-        const j = await fetch(url).then((r) => r.json());
-        if (!j.ok) throw new Error("quote");
-        if (!j.available) {
-          track("sold_out_viewed", { prop: h.key, checkin: state.checkin, nights, guests: state.guests });
-          box.innerHTML = `<p class="bk-quote-out">${strings.recovery.soldOutTitle}</p>
-            <p class="bk-quote-hint" data-recovery="${h.key}">…</p>`;
-          renderRecovery(h, nights);
-          return;
-        }
-        const fx = strings.fxCode === "JPY" ? "" :
-          `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(j.total * strings.fxRate).toLocaleString("en-US")}</p>`;
-        const href = `${CHECKOUT_PATH}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
-        track("availability_result_viewed", {
-          prop: h.key, checkin: state.checkin, nights, guests: state.guests, total: j.total, currency: "JPY",
-        });
-        box.innerHTML = `
-          <p class="bk-quote-label">${strings.totalLabel}</p>
-          <p class="bk-quote-total">${yen(j.total)}</p>
-          ${fx}
-          <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
-          <p class="bk-quote-note">${strings.noExtra}</p>
-          <p class="bk-quote-direct">${strings.directNote}</p>
-          <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
-        track("official_value_viewed", { screen: "availability_result", prop: h.key, checkin: state.checkin });
-        box.querySelector(".bk-cta")?.addEventListener("click", () => {
-          window.gtag?.("event", "begin_checkout", {
-            currency: "JPY", value: j.total, lang,
-            items: [{ item_id: h.key, item_name: `yah.homes ${h.key}`, price: j.total, quantity: 1 }],
-          });
-        });
-      } catch {
-        box.innerHTML = `<p class="bk-quote-hint">${strings.errorFetch}</p>`;
-      }
-    }));
+      if (box) box.innerHTML = `${SKELETON}<p class="bk-quote-hint" data-progress="${h.key}">${changed ? strings.conditionsChanged : strings.searching}</p>`;
+    });
+    // 1.5秒で進捗を説明、4秒で再試行を提示（自動連打はしない）
+    quoteTimers.push(setTimeout(() => {
+      if (activeQuoteKey !== key) return;
+      document.querySelectorAll("[data-progress]").forEach((el) => { el.textContent = strings.loadingSlow; });
+    }, 1500));
+    quoteTimers.push(setTimeout(() => {
+      if (activeQuoteKey !== key) return;
+      HOUSES.forEach((h) => showRetry(h, strings.loadingTooLong));
+    }, 4000));
+
+    try {
+      const j = await fetchAvailability(state.checkin, state.checkout, state.guests, null);
+      if (activeQuoteKey !== key) return; // 古い応答は画面へ反映しない
+      clearQuoteTimers();
+      if (!j.ok) throw new Error("quote");
+      const byId = Object.fromEntries((j.properties ?? []).map((x) => [x.id, x]));
+      HOUSES.forEach((h) => renderQuote(h, byId[h.key], nights, byId));
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (activeQuoteKey !== key) return;
+      clearQuoteTimers();
+      settledQuoteKey = null; // 再試行できるようにする
+      HOUSES.forEach((h) => showRetry(h, strings.errorFetch));
+    }
   }
 
   // ── 満室時の回復導線: ①同日程で別棟が空いていれば具体提案 ②なければ近い空室日を最大3件 ──
@@ -485,16 +583,16 @@ const strings = {
     return out.slice(0, max);
   }
 
-  async function renderRecovery(house, nights) {
+  async function renderRecovery(house, nights, otherQuote) {
     const box = document.querySelector(`[data-recovery="${house.key}"]`);
     if (!box) return;
     const other = HOUSES.find((h) => h.key !== house.key);
 
-    // ① 同日程で別棟が空いているか（定員も満たすこと）
-    if (other && state.guests <= other.capacity && availFor(other.key, state.checkin, nights)) {
+    // ① 同日程で別棟が空いているか — 統合レスポンスに入っているので追加通信は不要
+    if (other && state.guests <= other.capacity) {
       try {
-        const q = await fetch(`${AVAIL_ENDPOINT}?prop=${other.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`).then((r) => r.json());
-        if (q.ok && q.available) {
+        const q = otherQuote ?? {};
+        if (q.available) {
           const href = `${CHECKOUT_PATH}?prop=${other.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
           box.outerHTML = `
             <div class="bk-recovery">
@@ -521,7 +619,7 @@ const strings = {
     }
     const quotes = await Promise.all(opts.map(async (o) => {
       try {
-        const q = await fetch(`${AVAIL_ENDPOINT}?prop=${o.prop}&checkin=${o.checkin}&checkout=${o.checkout}&guests=${state.guests}`).then((r) => r.json());
+        const q = await fetchAvailability(o.checkin, o.checkout, state.guests, o.prop);
         return q.ok && q.available ? { ...o, total: q.total } : null;
       } catch { return null; }
     }));
@@ -550,18 +648,16 @@ const strings = {
     );
   }
 
-  // ── 空室先読み（表示中の2ヶ月分・両棟） ──
+  // ── 空室先読み（2棟を統合APIで1回・約13ヶ月分） ──
+  // 完了後は renderCal() のみ。renderAll() を呼ぶと loadQuotes が二重発火する。
   (async () => {
     try {
-      const results = await Promise.all(HOUSES.map(async (h) => {
-        const j = await fetch(`${AVAIL_ENDPOINT}?prop=${h.key}`).then((r) => r.json());
-        return [h.key, j.ok ? j.dates || {} : {}];
-      }));
-      state.avail = Object.fromEntries(results);
+      const j = await fetch(`${AVAIL_ENDPOINT}?props=all`).then((r) => r.json());
+      state.avail = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.dates || {}])) : null;
     } catch {
       state.avail = null;
     }
-    renderAll();
+    renderCal();
   })();
 
   $("bk-guests").addEventListener("change", (e) => {
@@ -936,6 +1032,23 @@ const strings = {
     text-align: center;
   }
   .bk-quote :global(.bk-cta:hover) { opacity: 0.85; }
+  /* 待機中は料金部分だけを骨格表示にする（写真・定員・設備は即表示のまま） */
+  .bk-quote :global(.bk-skel) { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; margin-bottom: 0.6rem; }
+  .bk-quote :global(.bk-skel-line) {
+    display: block; height: 0.85rem; width: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #f2f2f2 25%, #e8e8e8 37%, #f2f2f2 63%);
+    background-size: 400% 100%; animation: bk-skel 1.4s ease infinite;
+  }
+  .bk-quote :global(.bk-skel-sm) { width: 40%; height: 0.6rem; }
+  .bk-quote :global(.bk-skel-lg) { height: 1.6rem; width: 70%; }
+  @keyframes bk-skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  @media (prefers-reduced-motion: reduce) {
+    .bk-quote :global(.bk-skel-line) { animation: none; }
+  }
+  .bk-quote :global(.bk-retry) {
+    margin-top: 0.7rem; padding: 0.5rem 1.1rem; background: #ffffff; color: #111111;
+    font-family: inherit; font-size: 0.78rem; border: 1px solid #111111; border-radius: 4px; cursor: pointer;
+  }
   .bk-quote :global(.bk-recovery) {
     text-align: left;
     border-top: 1px solid #f0f0f0;

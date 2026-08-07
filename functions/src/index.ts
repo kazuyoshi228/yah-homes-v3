@@ -369,8 +369,105 @@ const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 2
 type AvailCache = { data: Record<string, boolean>; expires: number };
 const availCache: Record<string, AvailCache> = {};
 
+// 見積りの短時間キャッシュ（表示用のみ・15〜30秒）。予約確定時の再検証はこれを経由しない。
+const quoteCache: Record<string, { data: Record<string, unknown>; expires: number }> = {};
+const QUOTE_TTL_MS = 20_000;
+
+/** 1棟ぶんの見積り。Beds24 offers を叩き、表示用に20秒だけキャッシュする。 */
+async function quoteFor(
+  slug: "kiyokawa" | "takasago",
+  checkin: string,
+  checkout: string,
+  guests: number,
+): Promise<{ data: Record<string, unknown>; cached: boolean }> {
+  const key = `${slug}_${checkin}_${checkout}_${guests}`;
+  const hit = quoteCache[key];
+  if (hit && hit.expires > Date.now()) return { data: hit.data, cached: true };
+
+  const r = await fetch(
+    `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[slug]}` +
+      `&arrival=${checkin}&departure=${checkout}&numAdults=${guests}`,
+    { headers: { token: BEDS24_TOKEN.value() } },
+  );
+  const j = (await r.json()) as {
+    success?: boolean;
+    data?: Array<{ roomId?: number; offers?: Array<{ offerId?: number; price?: number; unitsAvailable?: number }> }>;
+  };
+  const room = j.data?.[0];
+  const offer = room?.offers?.[0];
+
+  let data: Record<string, unknown>;
+  if (!j.success || !offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
+    data = { id: slug, prop: slug, available: false };
+  } else {
+    const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
+    const now = Date.now();
+    data = {
+      id: slug,
+      prop: slug,
+      available: true,
+      total: offer.price,
+      currency: "JPY",
+      nights,
+      guests,
+      checkin,
+      checkout,
+      // 確定直前にサーバー側で再見積りするための参照値（v4 §8-1）
+      quote: {
+        id: `${slug}_${checkin}_${checkout}_${guests}_${offer.price}_${now}`,
+        roomId: room?.roomId ?? null,
+        offerId: offer.offerId ?? null,
+        fetchedAt: now,
+        expiresAt: now + 15 * 60 * 1000,
+      },
+    };
+  }
+  quoteCache[key] = { data, expires: Date.now() + QUOTE_TTL_MS };
+  return { data, cached: false };
+}
+
+/** 1棟ぶんの空室カレンダー（約13ヶ月）。サーバー側で5分キャッシュ。 */
+async function calendarFor(slug: "kiyokawa" | "takasago"): Promise<{ dates: Record<string, boolean>; cached: boolean }> {
+  const cached = availCache[slug];
+  if (cached && cached.expires > Date.now()) return { dates: cached.data, cached: true };
+
+  const start = new Date();
+  const end = new Date(start.getTime() + 400 * 86400000); // 1年先まで月送りできるよう13ヶ月分を先読み
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）
+  const r = await fetch(
+    `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}&startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true`,
+    { headers: { token: BEDS24_TOKEN.value() } },
+  );
+  const j = (await r.json()) as { success?: boolean; data?: Array<{ roomId?: number; calendar?: Array<{ from: string; to: string; numAvail?: number }> }> };
+  if (!j.success || !j.data) throw new Error("beds24 calendar fetch failed");
+
+  // 日別: いずれかのroomでnumAvail>=1なら空き
+  const dates: Record<string, boolean> = {};
+  for (const room of j.data) {
+    for (const seg of room.calendar ?? []) {
+      const from = new Date(`${seg.from}T00:00:00Z`);
+      const to = new Date(`${seg.to}T00:00:00Z`);
+      for (let d = new Date(from); d <= to; d = new Date(d.getTime() + 86400000)) {
+        const key = d.toISOString().slice(0, 10);
+        const avail = (seg.numAvail ?? 0) >= 1;
+        dates[key] = dates[key] || avail;
+      }
+    }
+  }
+  availCache[slug] = { data: dates, expires: Date.now() + 5 * 60 * 1000 };
+  return { dates, cached: false };
+}
+
+const ALL_PROPS: Array<"kiyokawa" | "takasago"> = ["kiyokawa", "takasago"];
+
+// 空室・見積りAPI。
+//   ?props=all                                  → 2棟のカレンダーを1レスポンスで
+//   ?props=all&checkin=&checkout=&guests=       → 2棟の見積りを1レスポンスで（Beds24は並列）
+//   ?prop=kiyokawa[&checkin=...]                → 従来の1棟モード（代替日の照会などで使用）
+// minInstances: 1 — コールドスタート（実測で+0.77秒）が p95 の主因のため常時1台を温める。
 export const bookingApi = onRequest(
-  { region: REGION, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com", minInstances: 1 },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -379,62 +476,51 @@ export const bookingApi = onRequest(
     }
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
+    const all = String(req.query.props ?? "") === "all";
     const slug = String(req.query.prop ?? "");
-    if (slug !== "kiyokawa" && slug !== "takasago") {
+    if (!all && slug !== "kiyokawa" && slug !== "takasago") {
       res.status(400).json({ ok: false, error: "invalid_prop" });
       return;
     }
+    const props = all ? ALL_PROPS : [slug as "kiyokawa" | "takasago"];
 
-    // ── quote: checkin/checkout/guests があれば見積り（直販チャネル料金・v4 §8） ──
     const checkin = String(req.query.checkin ?? "");
     const checkout = String(req.query.checkout ?? "");
+
+    // ── 見積り（直販チャネル料金・v4 §8） ──
     if (checkin || checkout) {
       const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
       const guests = Number(req.query.guests ?? 0);
-      const cap = PROPERTY_CAPACITY[slug];
+      const maxCap = Math.max(...props.map((k) => PROPERTY_CAPACITY[k]));
       if (!isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
-          !Number.isInteger(guests) || guests < 1 || guests > cap) {
+          !Number.isInteger(guests) || guests < 1 || guests > maxCap) {
         res.status(400).json({ ok: false, error: "invalid_quote_params" });
         return;
       }
       try {
-        const r = await fetch(
-          `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[slug]}` +
-            `&arrival=${checkin}&departure=${checkout}&numAdults=${guests}`,
-          { headers: { token: BEDS24_TOKEN.value() } },
+        // 複数棟でも直列に待たない（各棟のBeds24呼び出しを並列化）
+        const results = await Promise.all(
+          props.map(async (k) => {
+            // 定員超過の棟はBeds24を叩かずに満室扱い
+            if (guests > PROPERTY_CAPACITY[k]) {
+              return { data: { id: k, prop: k, available: false, reason: "over_capacity" }, cached: true };
+            }
+            return quoteFor(k, checkin, checkout, guests);
+          }),
         );
-        const j = (await r.json()) as {
-          success?: boolean;
-          data?: Array<{ roomId?: number; offers?: Array<{ offerId?: number; price?: number; unitsAvailable?: number }> }>;
-        };
-        const room = j.data?.[0];
-        const offer = room?.offers?.[0];
-        if (!j.success || !offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
-          res.status(200).json({ ok: true, prop: slug, available: false });
-          return;
-        }
         const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
-        const now = Date.now();
-        res.set("Cache-Control", "private, max-age=60");
-        res.status(200).json({
-          ok: true,
-          prop: slug,
-          available: true,
-          total: offer.price,
-          currency: "JPY",
-          nights,
-          guests,
-          checkin,
-          checkout,
-          // 確定直前にサーバー側で再見積りするための参照値（v4 §8-1）
-          quote: {
-            id: `${slug}_${checkin}_${checkout}_${guests}_${offer.price}_${now}`,
-            roomId: room?.roomId ?? null,
-            offerId: offer.offerId ?? null,
-            fetchedAt: now,
-            expiresAt: now + 15 * 60 * 1000,
-          },
-        });
+        res.set("Cache-Control", "private, max-age=20");
+        if (all) {
+          res.status(200).json({
+            ok: true,
+            query: { checkin, checkout, guests, nights },
+            generatedAt: new Date().toISOString(),
+            cacheStatus: results.every((r) => r.cached) ? "hit" : "miss",
+            properties: results.map((r) => r.data),
+          });
+        } else {
+          res.status(200).json({ ok: true, cacheStatus: results[0].cached ? "hit" : "miss", ...results[0].data });
+        }
       } catch (err) {
         logger.error("bookingApi quote failed", err);
         res.status(502).json({ ok: false, error: "upstream_failed" });
@@ -442,42 +528,20 @@ export const bookingApi = onRequest(
       return;
     }
 
-    // 5分キャッシュ（表示用途に十分・Beds24負荷も抑制）
-    const cached = availCache[slug];
-    if (cached && cached.expires > Date.now()) {
-      res.set("Cache-Control", "public, max-age=300");
-      res.status(200).json({ ok: true, prop: slug, dates: cached.data, cached: true });
-      return;
-    }
-
+    // ── 空室カレンダー ──
     try {
-      const start = new Date();
-      const end = new Date(start.getTime() + 400 * 86400000); // 1年先まで月送りできるよう13ヶ月分を先読み
-      const fmt = (d: Date) => d.toISOString().slice(0, 10);
-      // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）
-      const r = await fetch(
-        `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}&startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true`,
-        { headers: { token: BEDS24_TOKEN.value() } },
-      );
-      const j = (await r.json()) as { success?: boolean; data?: Array<{ roomId?: number; calendar?: Array<{ from: string; to: string; numAvail?: number }> }> };
-      if (!j.success || !j.data) throw new Error("beds24 calendar fetch failed");
-
-      // 日別: いずれかのroomでnumAvail>=1なら空き
-      const dates: Record<string, boolean> = {};
-      for (const room of j.data) {
-        for (const seg of room.calendar ?? []) {
-          const from = new Date(`${seg.from}T00:00:00Z`);
-          const to = new Date(`${seg.to}T00:00:00Z`);
-          for (let d = new Date(from); d <= to; d = new Date(d.getTime() + 86400000)) {
-            const key = d.toISOString().slice(0, 10);
-            const avail = (seg.numAvail ?? 0) >= 1;
-            dates[key] = dates[key] || avail;
-          }
-        }
-      }
-      availCache[slug] = { data: dates, expires: Date.now() + 5 * 60 * 1000 };
+      const results = await Promise.all(props.map((k) => calendarFor(k)));
       res.set("Cache-Control", "public, max-age=300");
-      res.status(200).json({ ok: true, prop: slug, dates });
+      if (all) {
+        res.status(200).json({
+          ok: true,
+          generatedAt: new Date().toISOString(),
+          cacheStatus: results.every((r) => r.cached) ? "hit" : "miss",
+          properties: props.map((k, i) => ({ id: k, dates: results[i].dates })),
+        });
+      } else {
+        res.status(200).json({ ok: true, prop: props[0], dates: results[0].dates, cached: results[0].cached });
+      }
     } catch (err) {
       logger.error("bookingApi availability failed", err);
       res.status(502).json({ ok: false, error: "upstream_failed" });
