@@ -54,10 +54,6 @@ const C = {
     marketing: "Send me occasional offers and coupons",
     trustReply: "We reply within 2–3 business days", operator: "Operated by Bonfire Inc.",
     confirmTitle: "Final confirmation", payBtn: "Confirm and pay", paySoon: "Card payment is being set up. It will be enabled shortly.",
-    faqTitle: "Before you book",
-    faq: [["Is there parking?", "Kiyokawa has a free private parking space. Takasago can accommodate a large vehicle."],
-          ["What time can we check in?", "From 15:00. Check-out is by 10:00. Self check-in, no front desk."],
-          ["Is there a charge for extra guests?", "The rate covers up to 5 guests. Each additional guest is ¥5,000 per night."]],
     back: "Change dates or house", missing: "Please choose your dates first.",
   },
   ja: {
@@ -77,10 +73,6 @@ const C = {
     marketing: "お得な情報・クーポンを受け取る",
     trustReply: "2〜3営業日以内にご連絡いたします", operator: "運営: ボンファイア株式会社",
     confirmTitle: "最終確認", payBtn: "同意してお支払いへ", paySoon: "カード決済は準備中です。まもなく有効になります。",
-    faqTitle: "ご予約の前に",
-    faq: [["駐車場はありますか？", "清川は無料の専用駐車場があります。高砂は大型車の駐車が可能です。"],
-          ["チェックインは何時からですか？", "15:00からご利用いただけます。チェックアウトは10:00までです。フロントのないセルフチェックインです。"],
-          ["人数が増えると料金は変わりますか？", "5名まで同一料金です。6名目以降はお一人につき1泊¥5,000を申し受けます。"]],
     back: "日程・棟を変更する", missing: "先に日程をお選びください。",
   },
   ko: {
@@ -100,10 +92,6 @@ const C = {
     marketing: "혜택・쿠폰 정보를 받아보기",
     trustReply: "2~3영업일 이내에 연락드립니다", operator: "운영: Bonfire Inc.",
     confirmTitle: "최종 확인", payBtn: "동의하고 결제로", paySoon: "카드 결제는 준비 중입니다. 곧 이용하실 수 있습니다.",
-    faqTitle: "예약 전 안내",
-    faq: [["주차장이 있나요?", "기요카와는 무료 전용 주차장이 있습니다. 다카사고는 대형차 주차가 가능합니다."],
-          ["체크인은 몇 시부터인가요?", "15:00부터 이용 가능하며 체크아웃은 10:00까지입니다. 프런트 없는 셀프 체크인입니다."],
-          ["인원이 늘면 요금이 달라지나요?", "5명까지 동일 요금이며, 6명째부터 1인당 1박 ¥5,000이 추가됩니다."]],
     back: "날짜・동 변경", missing: "먼저 날짜를 선택해 주세요.",
   },
   zh: {
@@ -123,10 +111,6 @@ const C = {
     marketing: "接收優惠與折扣資訊",
     trustReply: "我們將於2〜3個工作天內回覆", operator: "營運: Bonfire Inc.",
     confirmTitle: "最終確認", payBtn: "同意並前往付款", paySoon: "信用卡付款準備中，即將開放。",
-    faqTitle: "預訂前須知",
-    faq: [["有停車位嗎？", "清川館附免費專用停車位；高砂館可停大型車。"],
-          ["幾點可以入住？", "15:00 起可入住，退房時間為 10:00 前。無櫃檯，自助入住。"],
-          ["人數增加費用會變嗎？", "5人以內同一價格，第6人起每人每晚加收 ¥5,000。"]],
     back: "變更日期或房源", missing: "請先選擇日期。",
   },
   th: {
@@ -146,10 +130,6 @@ const C = {
     marketing: "รับข้อเสนอและคูปองพิเศษ",
     trustReply: "เราจะติดต่อกลับภายใน 2–3 วันทำการ", operator: "ดำเนินการโดย Bonfire Inc.",
     confirmTitle: "ยืนยันครั้งสุดท้าย", payBtn: "ยอมรับและชำระเงิน", paySoon: "ระบบชำระเงินกำลังเตรียมการ จะเปิดให้ใช้งานเร็ว ๆ นี้",
-    faqTitle: "ก่อนจอง",
-    faq: [["มีที่จอดรถไหม", "คิโยคาวะมีที่จอดรถส่วนตัวฟรี ทาคาซาโกะจอดรถขนาดใหญ่ได้"],
-          ["เช็คอินได้กี่โมง", "ตั้งแต่ 15:00 และเช็คเอาท์ก่อน 10:00 เป็นแบบเช็คอินด้วยตนเอง"],
-          ["ถ้าคนเพิ่มราคาจะเปลี่ยนไหม", "ราคาเดียวกันสูงสุด 5 ท่าน ตั้งแต่ท่านที่ 6 คิดเพิ่มท่านละ ¥5,000 ต่อคืน"]],
     back: "เปลี่ยนวันที่หรือบ้าน", missing: "กรุณาเลือกวันที่ก่อน",
   },
 }[lang];
@@ -283,7 +263,7 @@ const uiStrings = {
           </section>
 
           <!-- 最終確認・決済 -->
-          <section class="co-sec" id="co-pay" hidden>
+          <section class="co-sec co-sec-final" id="co-pay" hidden>
             <h2 class="co-sec-title">{C.confirmTitle}</h2>
             <div class="co-trust">
               <span id="co-trust-cancel">—</span>
@@ -293,13 +273,6 @@ const uiStrings = {
             <p class="co-status" id="co-pay-status">{C.paySoon}</p>
           </section>
 
-          <!-- FAQ -->
-          <section class="co-sec co-faq">
-            <h2 class="co-sec-title">{C.faqTitle}</h2>
-            {C.faq.map(([q, a]) => (
-              <details class="co-faq-item"><summary>{q}</summary><p>{a}</p></details>
-            ))}
-          </section>
         </div>
       </div>
     </div>
@@ -463,9 +436,13 @@ const uiStrings = {
   .co-hint { font-size: 0.72rem; color: #aaaaaa; margin-top: 0.3rem; }
   .co-rules { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.9; color: #333333; }
   .co-check { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: #333333; margin-bottom: 0.6rem; line-height: 1.6; }
+  .co-sec-final {
+    background: #f7f7f7;
+    border-color: #d7d7d7;
+  }
   .co-trust {
     display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem;
-    padding: 0.75rem 1rem; background: #f7f7f7; border-radius: 4px;
+    padding: 0.75rem 1rem; background: #ffffff; border-radius: 4px;
     font-size: 0.76rem; color: #555555; margin-bottom: 1rem;
   }
   .co-final { font-size: 0.85rem; color: #111111; line-height: 1.9; margin-bottom: 1rem; }
@@ -474,8 +451,4 @@ const uiStrings = {
     font-family: inherit; font-size: 0.95rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
   }
   .co-pay-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .co-faq { border: none; padding: 0; }
-  .co-faq-item { border-bottom: 1px solid #f0f0f0; padding: 0.7rem 0; }
-  .co-faq-item summary { font-size: 0.85rem; color: #111111; cursor: pointer; }
-  .co-faq-item p { font-size: 0.82rem; color: #555555; line-height: 1.85; margin-top: 0.5rem; }
 </style>
