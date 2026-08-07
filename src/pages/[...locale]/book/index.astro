@@ -479,7 +479,7 @@ const strings = {
   }
   .bk-house-img {
     display: block;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 8 / 9; /* 旧4/3比で高さ1.5倍。縦長の外観写真の全容を見せる */
     overflow: hidden;
     background: #f7f7f7;
   }
@@ -490,7 +490,7 @@ const strings = {
     display: block;
   }
   @media (max-width: 640px) {
-    .bk-house-img { aspect-ratio: 16 / 9; }
+    .bk-house-img { aspect-ratio: 32 / 27; } /* SPも同じく高さ1.5倍 */
   }
   .bk-house-body {
     padding: 1.5rem;
