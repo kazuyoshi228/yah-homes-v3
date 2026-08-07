@@ -836,15 +836,13 @@ const strings = {
   }
   .bk-house-body {
     padding: 1.5rem;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    align-items: start;
     gap: 1.5rem;
-    flex-wrap: wrap;
   }
-  @media (max-width: 640px) {
-    .bk-house-body { align-items: stretch; }
-    .bk-quote { text-align: left; }
+  @media (max-width: 860px) {
+    .bk-house-body { grid-template-columns: 1fr; }
   }
   .bk-house-name {
     font-size: 1.1rem;
@@ -859,6 +857,8 @@ const strings = {
   }
   .bk-house-spec {
     margin: 0.6rem 0 0;
+    width: 100%;
+    max-width: 320px;
     border-collapse: collapse;
     font-size: 0.8rem;
     line-height: 1.7;
@@ -877,10 +877,18 @@ const strings = {
   }
   .bk-quote {
     text-align: right;
-    min-width: 190px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+  }
+  /* 1カラムに折り返したら、上のスペック表と同じ左端に揃える */
+  @media (max-width: 860px) {
+    .bk-quote {
+      text-align: left;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 1.1rem;
+      margin-top: 0.2rem;
+    }
   }
   .bk-quote :global(.bk-quote-label) {
     font-size: 0.68rem;
@@ -916,7 +924,8 @@ const strings = {
     color: #888888;
   }
   .bk-quote :global(.bk-cta) {
-    display: inline-block;
+    display: block;
+    width: 100%;
     margin-top: 0.9rem;
     padding: 0.7rem 1.4rem;
     background: #111111;
@@ -932,7 +941,7 @@ const strings = {
     text-align: left;
     border-top: 1px solid #f0f0f0;
     padding-top: 0.9rem;
-    margin-top: 0.3rem;
+    margin-top: 0.6rem;
   }
   .bk-quote :global(.bk-rec-lead) {
     font-size: 0.78rem;

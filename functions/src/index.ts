@@ -130,7 +130,7 @@ export const contact = onRequest(
         ``,
         `--- メタ ---`,
         `Referer: ${req.headers.referer ?? "-"}`,
-        `確認: https://console.firebase.google.com/u/0/project/yah-homes/firestore/databases/-default-/data/~2Fcontacts`,
+        `確認: https://yah.homes/admin/inbox/`,
       ].join("\n"),
     });
   } catch (err) {
@@ -1604,6 +1604,62 @@ export const adminRebuild = onRequest(
     } catch (err) {
       logger.error("adminRebuild failed", err);
       res.status(500).json({ ok: false, error: "dispatch_failed" });
+    }
+  }
+);
+
+
+// ─── 問い合わせ台帳API（/admin/inbox・オーナー限定） ───
+// 本文に個人情報を含むため、閲覧・操作は root オーナーのみに限定する（2026-08-08 発注者指示）。
+export const adminInbox = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+
+    try {
+      if (req.method === "GET") {
+        const snap = await db.collection("contacts").orderBy("createdAt", "desc").limit(200).get();
+        const items = snap.docs.map((d) => {
+          const v = d.data();
+          return {
+            id: d.id, name: v.name ?? "", email: v.email ?? "", message: v.message ?? "",
+            lang: v.lang ?? "", status: v.status ?? "new", memo: v.memo ?? "",
+            referer: v.referer ?? null,
+            createdAt: v.createdAt?.toMillis?.() ?? null,
+          };
+        });
+        res.status(200).json({ ok: true, items });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { id, status, memo } = (req.body ?? {}) as Record<string, unknown>;
+        const idStr = typeof id === "string" ? id : "";
+        if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+        const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), updatedBy: email };
+        if (typeof status === "string" && ["new", "in_progress", "done"].includes(status)) update.status = status;
+        if (typeof memo === "string") update.memo = memo.slice(0, 2000);
+        await db.collection("contacts").doc(idStr).update(update);
+        await db.collection("audit_logs").add({ actor: email, action: "contact_update", target: idStr, at: FieldValue.serverTimestamp() });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminInbox failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
     }
   }
 );

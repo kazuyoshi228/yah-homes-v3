@@ -1,6 +1,212 @@
 ---
-import AdminLayout from "../../layouts/AdminLayout.astro";
+/* /admin/inbox — お問い合わせ受信箱（オーナー限定）
+   本文に個人情報（氏名・メール・相談内容）を含むため、閲覧は root オーナーのみ。
+   保存先は contact Function が書き込む Firestore `contacts`。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const INBOX_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminInbox";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
 ---
-<AdminLayout title="Inbox" active="inbox">
-  <p>問い合わせ受信箱（今後実装）。</p>
-</AdminLayout>
+
+<SiteLayout
+  lang="ja"
+  path="/admin/inbox"
+  title="お問い合わせ受信箱 | yah.homes"
+  description="お問い合わせの管理画面"
+  noindex={true}
+  solidNav
+>
+  <section class="ai">
+    <div class="ai-container">
+      <p class="ai-eyebrow">Admin</p>
+      <h1 class="ai-title">お問い合わせ受信箱</h1>
+      <p class="ai-lead">
+        サイトのお問い合わせフォームから届いたご相談の一覧です。個人情報を含むため、この画面はオーナーのみが開けます。
+        返信はメールソフトで行い、ここでは対応状況とメモを記録します。
+      </p>
+
+      <div id="ai-login" class="ai-login">
+        <p class="ai-note">オーナーアカウントでログインしてください。</p>
+        <button id="ai-login-btn" class="ai-btn">Googleでログイン</button>
+        <p class="ai-status" id="ai-login-status"></p>
+      </div>
+
+      <div id="ai-app" hidden>
+        <div class="ai-toolbar">
+          <span class="ai-note" id="ai-count"></span>
+          <div class="ai-tools">
+            <label class="ai-filter"><input type="checkbox" id="ai-only-open" /> 未対応のみ</label>
+            <button id="ai-reload" class="ai-btn-sub">再読み込み</button>
+          </div>
+        </div>
+        <div id="ai-list" class="ai-list"></div>
+        <p class="ai-status" id="ai-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ INBOX_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (ms) =>
+      ms ? new Date(ms).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+    const STATUS = { new: "未対応", in_progress: "対応中", done: "対応済み" };
+    const LANG = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
+    let cache = [];
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(INBOX_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) throw new Error("unauthorized");
+      if (res.status === 403) throw new Error("owner_only");
+      return res.json();
+    }
+
+    function render() {
+      const onlyOpen = $("ai-only-open").checked;
+      const items = onlyOpen ? cache.filter((c) => c.status !== "done") : cache;
+      $("ai-count").textContent = `${items.length}件${onlyOpen ? `（全${cache.length}件中）` : ""}`;
+
+      $("ai-list").innerHTML =
+        items
+          .map((c) => {
+            const subject = encodeURIComponent("Re: yah.homes へのお問い合わせ");
+            return `
+        <article class="ai-item" data-s="${esc(c.status)}">
+          <header class="ai-item-head">
+            <div>
+              <p class="ai-from">${esc(c.name)} <span class="ai-mail">${esc(c.email)}</span></p>
+              <p class="ai-meta">${fmt(c.createdAt)}・${esc(LANG[c.lang] ?? c.lang)}${c.referer ? `・${esc(c.referer)}` : ""}</p>
+            </div>
+            <span class="ai-badge" data-s="${esc(c.status)}">${STATUS[c.status] ?? esc(c.status)}</span>
+          </header>
+          <p class="ai-body">${esc(c.message)}</p>
+          ${c.memo ? `<p class="ai-memo">メモ：${esc(c.memo)}</p>` : ""}
+          <div class="ai-actions">
+            <a class="ai-btn-sub" href="mailto:${esc(c.email)}?subject=${subject}">メールで返信</a>
+            <button class="ai-btn-sub ai-memo-btn" data-id="${esc(c.id)}">メモ</button>
+            <select class="ai-select" data-id="${esc(c.id)}">
+              ${Object.entries(STATUS)
+                .map(([k, v]) => `<option value="${k}"${k === c.status ? " selected" : ""}>${v}</option>`)
+                .join("")}
+            </select>
+          </div>
+        </article>`;
+          })
+          .join("") || `<p class="ai-note">該当するお問い合わせはありません。</p>`;
+
+      document.querySelectorAll(".ai-select").forEach((sel) =>
+        sel.addEventListener("change", async () => {
+          const r = await api("POST", { id: sel.dataset.id, status: sel.value });
+          $("ai-status").textContent = r.ok ? "保存しました" : "保存に失敗しました";
+          if (r.ok) load();
+        })
+      );
+
+      document.querySelectorAll(".ai-memo-btn").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const current = cache.find((c) => c.id === btn.dataset.id)?.memo ?? "";
+          const memo = prompt("対応メモ", current);
+          if (memo === null) return;
+          const r = await api("POST", { id: btn.dataset.id, memo });
+          $("ai-status").textContent = r.ok ? "保存しました" : "保存に失敗しました";
+          if (r.ok) load();
+        })
+      );
+    }
+
+    async function load() {
+      $("ai-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        cache = j.items || [];
+        render();
+        $("ai-status").textContent = "";
+      } catch (e) {
+        $("ai-status").textContent =
+          e.message === "owner_only"
+            ? "この画面はオーナーのみが閲覧できます。"
+            : e.message === "unauthorized"
+              ? "ログインが必要です。"
+              : "読み込みに失敗しました。";
+      }
+    }
+
+    $("ai-login-btn").addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch {
+        $("ai-login-status").textContent = "ログインに失敗しました。";
+      }
+    });
+    $("ai-reload").addEventListener("click", load);
+    $("ai-only-open").addEventListener("change", render);
+
+    onAuthStateChanged(auth, (user) => {
+      $("ai-login").hidden = !!user;
+      $("ai-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .ai { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .ai-container { max-width: 880px; margin: 0 auto; }
+  .ai-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .ai-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .ai-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .ai-note { font-size: 0.8rem; color: #888888; }
+  .ai-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
+  .ai-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .ai-btn {
+    margin-top: 1rem; padding: 0.7rem 1.6rem; background: #111111; color: #ffffff;
+    font-family: inherit; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .ai-btn-sub {
+    display: inline-block; padding: 0.4rem 0.85rem; background: #ffffff; color: #111111;
+    font-family: inherit; font-size: 0.75rem; text-decoration: none;
+    border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer;
+  }
+  .ai-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .ai-tools { display: flex; align-items: center; gap: 0.75rem; }
+  .ai-filter { font-size: 0.78rem; color: #555555; display: flex; align-items: center; gap: 0.35rem; }
+  .ai-list { display: flex; flex-direction: column; gap: 1rem; }
+  .ai-list :global(.ai-item) { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.4rem; }
+  .ai-list :global(.ai-item[data-s="done"]) { background: #fafafa; border-color: #f0f0f0; }
+  .ai-list :global(.ai-item-head) { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.9rem; }
+  .ai-list :global(.ai-from) { font-size: 0.9rem; font-weight: 500; color: #111111; }
+  .ai-list :global(.ai-mail) { font-size: 0.78rem; font-weight: 400; color: #888888; margin-left: 0.4rem; word-break: break-all; }
+  .ai-list :global(.ai-meta) { font-size: 0.72rem; color: #aaaaaa; margin-top: 0.25rem; word-break: break-all; }
+  .ai-list :global(.ai-badge) {
+    flex-shrink: 0; font-size: 0.68rem; padding: 0.2rem 0.6rem; border-radius: 999px;
+    background: #f7f7f7; color: #555555; white-space: nowrap;
+  }
+  .ai-list :global(.ai-badge[data-s="new"]) { background: #111111; color: #ffffff; }
+  .ai-list :global(.ai-body) { font-size: 0.84rem; color: #333333; line-height: 1.9; white-space: pre-wrap; word-break: break-word; }
+  .ai-list :global(.ai-memo) {
+    margin-top: 0.9rem; padding: 0.7rem 0.9rem; background: #f7f7f7; border-radius: 4px;
+    font-size: 0.78rem; color: #555555; line-height: 1.7; white-space: pre-wrap;
+  }
+  .ai-list :global(.ai-actions) { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1.1rem; }
+  .ai-list :global(.ai-select) {
+    padding: 0.4rem 0.6rem; font-family: inherit; font-size: 0.75rem; color: #111111;
+    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff;
+  }
+</style>
