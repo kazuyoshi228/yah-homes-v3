@@ -5,6 +5,7 @@
    公開ガード: BOOK_PREVIEW=1 のときのみ生成・noindex。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../i18n/config";
+import { PROPERTIES } from "../../data/properties";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -116,7 +117,16 @@ const A = {
   },
 }[lang];
 
-const HOUSE_NAMES = { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" };
+const HOUSE_NAMES = {
+  kiyokawa: "yah.homes kiyokawa",
+  takasago: "yah.homes takasago",
+  test: "yah.homes test1（検証用）",
+};
+const HOUSE_IMAGES = {
+  kiyokawa: PROPERTIES.kiyokawa.exterior,
+  takasago: PROPERTIES.takasago.exterior,
+  test: PROPERTIES.kiyokawa.exterior,
+};
 const uiA = {
   loading: A.loading, empty: A.empty, error: A.error,
   upcoming: A.upcoming, past: A.past,
@@ -129,7 +139,12 @@ const uiA = {
   cancel: A.cancel, cancelSoon: A.cancelSoon, contact: A.contact,
   emailSent: A.emailSent, emailFail: A.emailFail,
   statusPending: A.statusPending, statusConfirmed: A.statusConfirmed, statusCancelled: A.statusCancelled,
-  houses: HOUSE_NAMES, contactHref: CONTACT_HREF,
+  houses: HOUSE_NAMES, images: HOUSE_IMAGES, contactHref: CONTACT_HREF,
+  nightsUnit: { en: "{n} nights", ja: "{n}泊", ko: "{n}박", zh: "{n}晚", th: "{n} คืน" }[lang],
+  guestsUnit: { en: "{g} guests", ja: "{g}名", ko: "{g}명", zh: "{g}人", th: "{g} ท่าน" }[lang],
+  details: { en: "Arrival, check-in and cancellation", ja: "ご到着・入室・キャンセルについて", ko: "도착・입실・취소 안내", zh: "抵達・入住・取消說明", th: "การมาถึง เช็คอิน และการยกเลิก" }[lang],
+  statusProcessing: { en: "In progress", ja: "手続き中", ko: "처리 중", zh: "處理中", th: "กำลังดำเนินการ" }[lang],
+  statusUnpaid: { en: "Payment not completed", ja: "決済未完了", ko: "결제 미완료", zh: "尚未完成付款", th: "ยังไม่ได้ชำระเงิน" }[lang],
 };
 ---
 
@@ -180,13 +195,20 @@ const uiA = {
   let auth = null;
 
   const statusLabel = (s) =>
-    s === "CONFIRMED" ? uiA.statusConfirmed : s === "CANCELLED" ? uiA.statusCancelled : uiA.statusPending;
+    s === "CONFIRMED" ? uiA.statusConfirmed
+    : s === "CANCELLED" ? uiA.statusCancelled
+    : s === "PAYMENT_PENDING" ? uiA.statusUnpaid
+    : uiA.statusProcessing;
 
   const ARRIVALS = ["15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
+  const LOC = { en: "en-US", ja: "ja-JP", ko: "ko-KR", zh: "zh-TW", th: "th-TH" }[lang];
+  const shortDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(LOC, { month: "short", day: "numeric" });
+  const nightsOf = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
   function card(b) {
     const house = uiA.houses[b.prop] ?? b.prop;
-    const canCancel = b.freeCancelUntilAt && new Date(b.freeCancelUntilAt) > new Date() && b.status !== "CANCELLED";
+    const image = uiA.images[b.prop] ?? "";
+    const nights = nightsOf(b.checkin, b.checkout);
     const freeUntil = b.freeCancelUntilAt
       ? uiA.freeUntil.replace("{d}", String(b.freeCancelUntilAt).slice(0, 10))
       : "";
@@ -195,41 +217,46 @@ const uiA = {
       .concat([`<option value="24:00+"${b.arrival === "24:00+" ? " selected" : ""}>${uiA.arrivalLate}</option>`])
       .join("");
     return `
-      <article class="ac-card">
-        <div class="ac-card-head">
-          <h3 class="ac-house">${esc(house)}</h3>
-          <span class="ac-badge" data-s="${esc(b.status)}">${statusLabel(b.status)}</span>
-        </div>
-        <dl class="ac-dl">
-          <div><dt>${uiA.checkin}</dt><dd>${esc(b.checkin)}<span>15:00〜</span></dd></div>
-          <div><dt>${uiA.checkout}</dt><dd>${esc(b.checkout)}<span>〜10:00</span></dd></div>
-          <div><dt>${uiA.guests}</dt><dd>${esc(b.guests)}</dd></div>
-          <div><dt>${uiA.total}</dt><dd>${yen(b.total)}</dd></div>
-          <div><dt>${uiA.bookingNo}</dt><dd class="ac-no">${esc(b.id).slice(0, 8).toUpperCase()}</dd></div>
-        </dl>
-        ${freeUntil ? `<p class="ac-cancelinfo">${freeUntil}</p>` : ""}
-
-        <div class="ac-block">
-          <p class="ac-block-title">${uiA.arrival}</p>
-          <div class="ac-arrival">
-            <select data-arrival="${esc(b.id)}">${opts}</select>
-            <button type="button" class="ac-btn-sub" data-savearrival="${esc(b.id)}">${uiA.arrivalSave}</button>
-            <span class="ac-saved" data-saved="${esc(b.id)}"></span>
+      <article class="ac-card" data-s="${esc(b.status)}">
+        <div class="ac-top">
+          ${image ? `<img class="ac-thumb" src="${esc(image)}" alt="" loading="lazy" />` : ""}
+          <div class="ac-main">
+            <div class="ac-head">
+              <h3 class="ac-house">${esc(house)}</h3>
+              <span class="ac-badge" data-s="${esc(b.status)}">${statusLabel(b.status)}</span>
+            </div>
+            <p class="ac-when">${shortDate(b.checkin)} <span>→</span> ${shortDate(b.checkout)}</p>
+            <p class="ac-meta">${uiA.nightsUnit.replace("{n}", nights)}・${uiA.guestsUnit.replace("{g}", esc(b.guests))}</p>
+            <p class="ac-total">${yen(b.total)}</p>
+            <p class="ac-no">${uiA.bookingNo} ${esc(b.id).slice(0, 8).toUpperCase()}</p>
+            ${freeUntil ? `<p class="ac-cancelinfo">${freeUntil}</p>` : ""}
           </div>
-          <p class="ac-note">${uiA.arrivalNote}</p>
         </div>
 
-        <div class="ac-block">
-          <p class="ac-block-title">${uiA.checkinInfo}</p>
-          <p class="ac-note">${uiA.checkinSoon}</p>
-        </div>
-
-        ${b.status !== "CANCELLED" ? `
-        <div class="ac-block">
-          <p class="ac-block-title">${uiA.cancel}</p>
-          <p class="ac-note">${uiA.cancelSoon}</p>
-          <a class="ac-link" href="${uiA.contactHref}">${uiA.contact}</a>
-        </div>` : ""}
+        <details class="ac-details">
+          <summary>${uiA.details}</summary>
+          <div class="ac-details-body">
+            <div class="ac-block">
+              <p class="ac-block-title">${uiA.arrival}</p>
+              <div class="ac-arrival">
+                <select data-arrival="${esc(b.id)}">${opts}</select>
+                <button type="button" class="ac-btn-sub" data-savearrival="${esc(b.id)}">${uiA.arrivalSave}</button>
+                <span class="ac-saved" data-saved="${esc(b.id)}"></span>
+              </div>
+              <p class="ac-note">${uiA.arrivalNote}</p>
+            </div>
+            <div class="ac-block">
+              <p class="ac-block-title">${uiA.checkinInfo}</p>
+              <p class="ac-note">${uiA.checkinSoon}</p>
+            </div>
+            ${b.status !== "CANCELLED" ? `
+            <div class="ac-block">
+              <p class="ac-block-title">${uiA.cancel}</p>
+              <p class="ac-note">${uiA.cancelSoon}</p>
+              <a class="ac-link" href="${uiA.contactHref}">${uiA.contact}</a>
+            </div>` : ""}
+          </div>
+        </details>
       </article>`;
   }
 
@@ -351,22 +378,47 @@ const uiA = {
     color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
   }
   .ac-h2 { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin: 2rem 0 0.75rem; }
-  .ac-card { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.5rem; margin-bottom: 1.25rem; }
-  .ac-card :global(.ac-card-head) { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
-  .ac-card :global(.ac-house) { font-size: 1rem; font-weight: 500; color: #111111; }
-  .ac-card :global(.ac-badge) { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: #f7f7f7; color: #555555; white-space: nowrap; }
+  .ac-card { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.25rem; margin-bottom: 1rem; }
+  .ac-card[data-s="CANCELLED"] { background: #fafafa; border-color: #f0f0f0; }
+  .ac-card :global(.ac-top) { display: flex; gap: 1.1rem; align-items: flex-start; }
+  .ac-card :global(.ac-thumb) {
+    width: 104px; flex-shrink: 0; aspect-ratio: 3 / 4; object-fit: cover;
+    border-radius: 4px; background: #f5f5f5; display: block;
+  }
+  .ac-card :global(.ac-main) { flex: 1; min-width: 0; }
+  .ac-card :global(.ac-head) { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+  .ac-card :global(.ac-house) { font-size: 0.95rem; font-weight: 500; color: #111111; }
+  .ac-card :global(.ac-badge) {
+    flex-shrink: 0; font-size: 0.68rem; padding: 0.2rem 0.6rem; border-radius: 999px;
+    background: #f2f2f2; color: #666666; white-space: nowrap;
+  }
   .ac-card :global(.ac-badge[data-s="CONFIRMED"]) { background: #111111; color: #ffffff; }
-  .ac-card :global(.ac-dl) { display: flex; flex-direction: column; gap: 0.5rem; margin: 0 0 0.9rem; }
-  .ac-card :global(.ac-dl div) { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-  .ac-card :global(.ac-dl dt) { font-size: 0.78rem; color: #888888; }
-  .ac-card :global(.ac-dl dd) { font-size: 0.88rem; font-weight: 500; color: #111111; margin: 0; text-align: right; }
-  .ac-card :global(.ac-dl dd span) { display: block; font-size: 0.7rem; font-weight: 400; color: #aaaaaa; }
-  .ac-card :global(.ac-no) { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
-  .ac-card :global(.ac-cancelinfo) { font-size: 0.82rem; font-weight: 500; color: #111111; padding: 0.6rem 0.8rem; background: #f7f7f7; border-radius: 4px; }
-  .ac-card :global(.ac-block) { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid #f0f0f0; }
-  .ac-card :global(.ac-block-title) { font-size: 0.8rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
-  .ac-card :global(.ac-note) { font-size: 0.76rem; color: #888888; line-height: 1.7; }
+  .ac-card :global(.ac-badge[data-s="PAYMENT_PENDING"]) { background: #ffffff; color: #888888; border: 1px solid #dddddd; }
+  .ac-card :global(.ac-when) { margin-top: 0.6rem; font-size: 1rem; font-weight: 500; color: #111111; }
+  .ac-card :global(.ac-when span) { color: #bbbbbb; margin: 0 0.15rem; }
+  .ac-card :global(.ac-meta) { margin-top: 0.15rem; font-size: 0.78rem; color: #888888; }
+  .ac-card :global(.ac-total) { margin-top: 0.5rem; font-size: 1.05rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
+  .ac-card :global(.ac-no) { margin-top: 0.3rem; font-size: 0.7rem; color: #aaaaaa; letter-spacing: 0.04em; }
+  .ac-card :global(.ac-cancelinfo) { margin-top: 0.7rem; font-size: 0.76rem; color: #555555; }
+  .ac-card :global(.ac-details) { margin-top: 1rem; border-top: 1px solid #f0f0f0; padding-top: 0.6rem; }
+  .ac-card :global(.ac-details summary) {
+    font-size: 0.78rem; color: #555555; cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0;
+  }
+  .ac-card :global(.ac-details summary::-webkit-details-marker) { display: none; }
+  .ac-card :global(.ac-details summary::before) {
+    content: "›"; display: inline-block; color: #aaaaaa; transition: transform 0.15s;
+  }
+  .ac-card :global(.ac-details[open] summary::before) { transform: rotate(90deg); }
+  .ac-card :global(.ac-details-body) { padding-top: 0.4rem; }
+  .ac-card :global(.ac-block) { margin-top: 1rem; }
+  .ac-card :global(.ac-block-title) { font-size: 0.78rem; font-weight: 500; color: #111111; margin-bottom: 0.4rem; }
+  .ac-card :global(.ac-note) { font-size: 0.74rem; color: #888888; line-height: 1.7; }
   .ac-card :global(.ac-arrival) { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
   .ac-card :global(.ac-arrival select) { padding: 0.45rem 0.6rem; font-family: inherit; font-size: 0.85rem; border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff; color: #111111; }
   .ac-card :global(.ac-saved) { font-size: 0.76rem; color: #888888; }
+  @media (max-width: 520px) {
+    .ac-card :global(.ac-thumb) { width: 76px; }
+    .ac-card :global(.ac-head) { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+  }
 </style>

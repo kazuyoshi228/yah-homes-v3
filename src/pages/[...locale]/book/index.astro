@@ -51,6 +51,8 @@ const SPECS = {
               bath: facts.kiyokawa.bath, shower: facts.kiyokawa.shower, sink: facts.kiyokawa.sink, toilet: facts.kiyokawa.toilet },
   takasago: { max: facts.takasago.capacity, rooms: facts.takasago.bedrooms, single: facts.takasago.bedSingle, double: facts.takasago.bedDouble,
               bath: facts.takasago.bath, shower: facts.takasago.shower, sink: facts.takasago.sink, toilet: facts.takasago.toilet },
+  // 検証用物件（Beds24 yah.homes test1 / propertyId 346442）。デモ面にのみ出す。
+  test: { max: 7, rooms: 1, single: 0, double: 0, bath: 1, shower: 0, sink: 1, toilet: 1 },
 };
 const specRows = (k: "kiyokawa" | "takasago") => {
   const v = SPECS[k];
@@ -83,9 +85,22 @@ const HOUSES = [
     image: PROPERTIES.takasago.exterior,
     detail: localizedPath(lang, "/properties/takasago"),
   },
+  // 決済〜Beds24書込〜二重予約防止を通しで検証するための棟。
+  // BOOK_PREVIEW でしか生成されないページなので、本番の利用者には見えない。
+  {
+    key: "test" as const,
+    name: "yah.homes test1（検証用・実際には泊まれません）",
+    area: { en: "Test property for end-to-end verification", ja: "動作検証用の物件です。ご予約はできません。", ko: "동작 검증용 숙소입니다.", zh: "測試用房源，無法實際入住。", th: "ที่พักสำหรับทดสอบระบบ" }[lang],
+    capacity: 7,
+    image: PROPERTIES.kiyokawa.exterior,
+    detail: localizedPath(lang, "/properties/kiyokawa"),
+  },
 ];
 
 // 信頼ブロック: 運営者の顔と「聞けば人が答える」約束（写真は差し替え用スロット）
+// 空室APIに要求する棟（カード構成と一致させる）
+const PROPS_PARAM = HOUSES.map((h) => h.key).join(",");
+
 const OWNER_PHOTO = "/manus-storage/director-photo_def5f1a6-480.webp"; // /about と同じ代表写真
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
 const HOST_NAME = { en: "Kazuyoshi Yamada", ja: "山田一慶", ko: "야마다 카즈요시", zh: "山田一慶", th: "Kazuyoshi Yamada" }[lang];
@@ -289,7 +304,7 @@ const strings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
+<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -423,7 +438,7 @@ const strings = {
   function availUrl(ci, co, g, prop) {
     return prop
       ? `${AVAIL_ENDPOINT}?prop=${prop}&checkin=${ci}&checkout=${co}&guests=${g}`
-      : `${AVAIL_ENDPOINT}?props=all&checkin=${ci}&checkout=${co}&guests=${g}`;
+      : `${AVAIL_ENDPOINT}?props=${PROPS_PARAM}&checkin=${ci}&checkout=${co}&guests=${g}`;
   }
 
   // 同じ検索が進行中なら既存のPromiseを共有し、二重に発行しない。
@@ -652,7 +667,7 @@ const strings = {
   // 完了後は renderCal() のみ。renderAll() を呼ぶと loadQuotes が二重発火する。
   (async () => {
     try {
-      const j = await fetch(`${AVAIL_ENDPOINT}?props=all`).then((r) => r.json());
+      const j = await fetch(`${AVAIL_ENDPOINT}?props=${PROPS_PARAM}`).then((r) => r.json());
       state.avail = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.dates || {}])) : null;
     } catch {
       state.avail = null;

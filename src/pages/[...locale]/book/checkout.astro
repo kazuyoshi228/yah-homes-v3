@@ -36,6 +36,8 @@ const FB_CONFIG = {
 const HOUSE_META = {
   kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: 8 },
   takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: 6 },
+  // 検証用物件（デモ面のみ・Beds24 yah.homes test1）
+  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7 },
 };
 
 // 画面文言（5言語）
@@ -191,7 +193,7 @@ const uiStrings = {
         <!-- 左: 予約サマリ（PCは追従） -->
         <aside class="co-summary">
           <div class="co-card">
-            <img class="co-photo" id="co-photo" src={HOUSE_META.kiyokawa.image} alt="" width="360" height="240" />
+            <img class="co-photo" id="co-photo" src={HOUSE_META.kiyokawa.image} alt="" width="902" height="1280" />
             <div class="co-card-body">
               <h2 class="co-house" id="co-house">—</h2>
               <a class="co-back" href={BOOK_PATH}>{C.back}</a>
@@ -473,6 +475,7 @@ const uiStrings = {
   let stripe = null, elements = null, clientSecret = null, currentUser = null;
   // 予約開始時のサーバー再検証で金額が動いた場合、一度提示して再同意を得る（v4 §4）
   let displayedTotal = null, priceAcknowledged = false;
+  let bookingIdForComplete = "";
 
   const sync = () => {
     const ok = $("cf-rules").checked && $("cf-name").value.trim() && $("cf-phone").value.trim();
@@ -513,7 +516,7 @@ const uiStrings = {
       track("payment_started", { prop, seconds: elapsed() });
       const { error } = await stripe.confirmPayment({
         elements,
-        confirmParams: { return_url: `${location.origin}${BOOK_PATH}complete/` },
+        confirmParams: { return_url: `${location.origin}${BOOK_PATH}complete/?id=${encodeURIComponent(bookingIdForComplete)}` },
         redirect: "if_required",
       });
       if (error) {
@@ -529,6 +532,8 @@ const uiStrings = {
         });
         sessionStorage.removeItem("yah_book_key");
         $("co-pay-status").textContent = uiStrings.paid;
+        // 確定待ちは完了ページで行う（離脱防止のため戻れないよう replace）
+        location.replace(`${BOOK_PATH}complete/?id=${encodeURIComponent(bookingIdForComplete)}`);
       }
       return;
     }
@@ -586,6 +591,7 @@ const uiStrings = {
         return;
       }
       clientSecret = j.clientSecret;
+      bookingIdForComplete = j.bookingId || "";
       stripe = await loadStripe();
       elements = stripe.elements({ clientSecret, appearance: { theme: "stripe", variables: { colorPrimary: "#111111", borderRadius: "4px" } } });
       elements.create("payment").mount("#co-payment-element");
@@ -638,7 +644,9 @@ const uiStrings = {
   .co-summary { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 1.25rem; }
   @media (max-width: 800px) { .co-summary { position: static; } }
   .co-card { border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden; }
-  .co-photo { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: #f7f7f7; }
+  /* 戸建ての全景を切らずに見せる。元画像が縦長（清川902x1280・高砂882x1280）のため
+     比率を固定せず自然比で表示する。 */
+  .co-photo { width: 100%; height: auto; display: block; background: #f7f7f7; }
   .co-card-body { padding: 0.9rem 1rem; }
   .co-house { font-size: 0.95rem; font-weight: 500; color: #111111; }
   .co-back { font-size: 0.75rem; color: #888888; text-decoration: underline; text-underline-offset: 3px; }

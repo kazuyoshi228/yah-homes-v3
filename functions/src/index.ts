@@ -177,8 +177,8 @@ export const contact = onRequest(
 // ─── パートナー日程申請フォーム（/ja/partners/・design_partners_page.md §4.5-1） ───
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
 const PARTNERS_NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp";
-const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, either: 7, both: 6 };
-const PROPERTY_LABEL: Record<string, string> = { kiyokawa: "清川", takasago: "高砂", either: "どちらでも", both: "両棟はしご泊" };
+const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, either: 7, both: 6, test: 7 };
+const PROPERTY_LABEL: Record<string, string> = { kiyokawa: "清川", takasago: "高砂", either: "どちらでも", both: "両棟はしご泊", test: "検証用" };
 
 /** チェックイン可能は月・火・水のみ（2泊とも平日で完結・§4-1確定文言）。
     暦日の曜日はタイムゾーン非依存で判定する（サーバーTZに影響されない） */
@@ -357,6 +357,7 @@ export const partnersApply = onRequest(
 // ─── Beds24 空き状況API（design_partners_page.md §7 / P1 §7-1 前倒し） ───
 // 読み取り専用。refresh token は Secret（M2で保存）。propId/roomId は初回に /properties から自動発見してキャッシュ。
 const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
+const BEDS24_WRITE_REFRESH = defineSecret("BEDS24_WRITE_REFRESH");
 const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -364,7 +365,146 @@ const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN");
 const GA4_API_SECRET = defineSecret("GA4_API_SECRET"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
-const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
+// test = 検証用物件 yah.homes test1（デモ面にのみカードを出す）
+const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238, test: 346442 };
+// 書き込みに使う roomId。清川・高砂は未設定＝書込が成立しない（共有物件を含む
+// 書込トークンを運営会社と合意のうえ発行するまで、意図的に空のままにする）。
+const BOOKING_ROOM_IDS: Record<string, number> = { test: 715198 };
+
+// ─── Beds24 書き込み（予約作成）───
+// 書込を許可する物件の許可リスト。ここに無いIDへは書き込まない。
+// roomId 未設定（清川・高砂）と合わせて二重の防御になっている。
+const BEDS24_WRITE_ALLOWED = new Set<number>([346442]);
+
+let beds24WriteTokenCache: { token: string; expires: number } | null = null;
+
+/** リフレッシュトークンからアクセストークンを取得する（24時間有効・23時間キャッシュ）。 */
+async function beds24WriteToken(): Promise<string> {
+  if (beds24WriteTokenCache && beds24WriteTokenCache.expires > Date.now()) return beds24WriteTokenCache.token;
+  const r = await fetch(`${BEDS24_API}/authentication/token`, {
+    headers: { refreshToken: BEDS24_WRITE_REFRESH.value() },
+  });
+  const j = (await r.json()) as { token?: string; expiresIn?: number };
+  if (!j.token) throw new Error("beds24 write token refresh failed");
+  const ttl = Math.max(600, Math.min((j.expiresIn ?? 86400) - 3600, 82800));
+  beds24WriteTokenCache = { token: j.token, expires: Date.now() + ttl * 1000 };
+  return j.token;
+}
+
+/** 書込先の解決。許可リストに無い、または roomId が未設定なら null（＝書き込まない）。 */
+function beds24WriteTarget(prop: string): { propertyId: number; roomId: number } | null {
+  const propertyId = BOOKING_PROP_IDS[prop];
+  const roomId = BOOKING_ROOM_IDS[prop];
+  if (!propertyId || !roomId || !BEDS24_WRITE_ALLOWED.has(propertyId)) return null;
+  return { propertyId, roomId };
+}
+
+// ─── 在庫の排他ロック（二重予約の防止）───
+// Beds24 は在庫0でも API 経由の書き込みを受け付ける（実測: 在庫が -1 になる）ため、
+// 「在庫確認 → 書込」の間に別の予約が割り込む余地を、こちら側で塞ぐ必要がある。
+// 宿泊する各日について inventory_locks/{prop}_{date} を1つのトランザクションで確保し、
+// 1つでも取れなければ予約を成立させない（オーソリは解放する）。
+
+/** 宿泊日（チェックイン〜チェックアウト前日）の一覧 */
+function stayNights(checkin: string, checkout: string): string[] {
+  const out: string[] = [];
+  for (let d = new Date(`${checkin}T00:00:00Z`); d < new Date(`${checkout}T00:00:00Z`); d = new Date(d.getTime() + 86400000)) {
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+/** 全日を確保できたら true。1日でも他の予約が押さえていたら false（何も書かない）。 */
+async function acquireInventoryLocks(prop: string, checkin: string, checkout: string, bookingId: string): Promise<boolean> {
+  const nights = stayNights(checkin, checkout);
+  if (!nights.length) return false;
+  const refs = nights.map((d) => db.collection("inventory_locks").doc(`${prop}_${d}`));
+  try {
+    await db.runTransaction(async (tx) => {
+      const snaps = await tx.getAll(...refs);
+      for (const snap of snaps) {
+        const held = snap.data()?.bookingId as string | undefined;
+        if (snap.exists && held && held !== bookingId) throw new Error("locked");
+      }
+      snaps.forEach((snap, i) => {
+        tx.set(refs[i], { prop, date: nights[i], bookingId, at: FieldValue.serverTimestamp() });
+      });
+    });
+    return true;
+  } catch (err) {
+    if (String(err).includes("locked")) return false;
+    throw err;
+  }
+}
+
+/** 自分が押さえた日のロックだけを解放する（他人のロックは触らない）。 */
+async function releaseInventoryLocks(prop: string, checkin: string, checkout: string, bookingId: string): Promise<void> {
+  try {
+    const nights = stayNights(checkin, checkout);
+    const batch = db.batch();
+    const snaps = await db.getAll(...nights.map((d) => db.collection("inventory_locks").doc(`${prop}_${d}`)));
+    let n = 0;
+    for (const snap of snaps) {
+      if (snap.exists && snap.data()?.bookingId === bookingId) { batch.delete(snap.ref); n++; }
+    }
+    if (n) await batch.commit();
+  } catch (err) {
+    logger.error("releaseInventoryLocks failed", err);
+  }
+}
+
+/** Beds24 に予約を作成し、Beds24側の予約IDを返す。 */
+async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<number> {
+  const target = beds24WriteTarget(b.prop);
+  if (!target) throw new Error(`beds24 write not permitted for ${b.prop}`);
+  if (!BEDS24_WRITE_ALLOWED.has(target.propertyId)) throw new Error(`beds24 write blocked: ${target.propertyId}`);
+
+  const full = String(b.name ?? "").trim();
+  const sp = full.indexOf(" ");
+  const firstName = sp > 0 ? full.slice(0, sp) : full || "Guest";
+  const lastName = sp > 0 ? full.slice(sp + 1) : "";
+  const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
+  const arrival = String(b.arrival ?? "").trim();
+
+  const payload = [{
+    roomId: target.roomId,
+    status: "confirmed",
+    arrival: b.checkin,
+    departure: b.checkout,
+    numAdult: b.guests,
+    numChild: 0,
+    firstName,
+    lastName,
+    email: b.email,
+    phone: String(b.phone ?? ""),
+    price: b.total,
+    // Beds24 は referer を "API" に上書きするため、直販の識別は custom1 / reference で行う
+    custom1: `yah.homes direct / ${bookingId}`,
+    reference: bookingId,
+    notes: [
+      "yah.homes 公式サイトからの直接予約",
+      `予約ID: ${bookingId}`,
+      arrival ? `到着予定: ${arrival}` : "",
+      b.leadGuest ? `代表者: ${String(b.leadGuest)}` : "",
+    ].filter(Boolean).join("\n"),
+    invoiceItems: [{
+      type: "charge",
+      description: `${nights}泊${b.guests}名 宿泊料・宿泊税・清掃料込み`,
+      qty: 1,
+      amount: b.total,
+    }],
+  }];
+
+  const r = await fetch(`${BEDS24_API}/bookings`, {
+    method: "POST",
+    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const j = (await r.json()) as Array<{ success?: boolean; new?: { id?: number }; errors?: unknown }>;
+  const row = j?.[0];
+  if (!row?.success || !row.new?.id) throw new Error(`beds24 create failed: ${JSON.stringify(row?.errors ?? j).slice(0, 200)}`);
+  return row.new.id;
+}
 
 type AvailCache = { data: Record<string, boolean>; expires: number };
 const availCache: Record<string, AvailCache> = {};
@@ -375,7 +515,7 @@ const QUOTE_TTL_MS = 20_000;
 
 /** 1棟ぶんの見積り。Beds24 offers を叩き、表示用に20秒だけキャッシュする。 */
 async function quoteFor(
-  slug: "kiyokawa" | "takasago",
+  slug: PropSlug,
   checkin: string,
   checkout: string,
   guests: number,
@@ -427,7 +567,7 @@ async function quoteFor(
 }
 
 /** 1棟ぶんの空室カレンダー（約13ヶ月）。サーバー側で5分キャッシュ。 */
-async function calendarFor(slug: "kiyokawa" | "takasago"): Promise<{ dates: Record<string, boolean>; cached: boolean }> {
+async function calendarFor(slug: PropSlug): Promise<{ dates: Record<string, boolean>; cached: boolean }> {
   const cached = availCache[slug];
   if (cached && cached.expires > Date.now()) return { dates: cached.data, cached: true };
 
@@ -459,7 +599,8 @@ async function calendarFor(slug: "kiyokawa" | "takasago"): Promise<{ dates: Reco
   return { dates, cached: false };
 }
 
-const ALL_PROPS: Array<"kiyokawa" | "takasago"> = ["kiyokawa", "takasago"];
+type PropSlug = keyof typeof BOOKING_PROP_IDS & string;
+const ALL_PROPS: PropSlug[] = ["kiyokawa", "takasago"];
 
 // 空室・見積りAPI。
 //   ?props=all                                  → 2棟のカレンダーを1レスポンスで
@@ -476,13 +617,19 @@ export const bookingApi = onRequest(
     }
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
-    const all = String(req.query.props ?? "") === "all";
+    // props= は "all"（本番2棟）またはカンマ区切りの棟リスト（デモは検証用物件を足す）
+    const propsParam = String(req.query.props ?? "");
+    const all = propsParam !== "";
     const slug = String(req.query.prop ?? "");
-    if (!all && slug !== "kiyokawa" && slug !== "takasago") {
-      res.status(400).json({ ok: false, error: "invalid_prop" });
-      return;
+    const known = (k: string): k is PropSlug => k in BOOKING_PROP_IDS;
+    let props: PropSlug[];
+    if (all) {
+      props = propsParam === "all" ? [...ALL_PROPS] : propsParam.split(",").map((x) => x.trim()).filter(known);
+      if (!props.length) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+    } else {
+      if (!known(slug)) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+      props = [slug];
     }
-    const props = all ? ALL_PROPS : [slug as "kiyokawa" | "takasago"];
 
     const checkin = String(req.query.checkin ?? "");
     const checkout = String(req.query.checkout ?? "");
@@ -1158,7 +1305,7 @@ export const bookCreate = onRequest(
 
 /** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
 export const stripeWebhook = onRequest(
-  { region: REGION, secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) { res.status(400).send("missing_signature"); return; }
@@ -1223,13 +1370,14 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
 
   const fail = async (reason: string, status: string) => {
     await stripe.paymentIntents.cancel(pi.id).catch(() => undefined); // オーソリ解放
+    await releaseInventoryLocks(cur.prop, cur.checkin, cur.checkout, bookingId);
     const c = (await ref.get()).data() as BookingDoc;
     await transition(ref, { status: [c.status], stateVersion: c.stateVersion }, { status, failureReason: reason });
     await notifyError(`予約の履行に失敗しました（${reason}）\n予約ID: ${bookingId}\nPaymentIntent: ${pi.id}`);
   };
 
   try {
-    // 確定直前の再在庫確認（v4 §8-1）
+    // 確定直前の再在庫確認（v4 §8-1）。参照するのは常に実棟（書込先が検証物件でも本番の在庫で判定する）
     const q = await fetch(
       `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[cur.prop]}&arrival=${cur.checkin}&departure=${cur.checkout}&numAdults=${cur.guests}`,
       { headers: { token: BEDS24_TOKEN.value() } },
@@ -1238,15 +1386,45 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
     if (!offer || (offer.unitsAvailable ?? 0) < 1) { await fail("在庫が埋まりました", "VOIDED"); return; }
     if (offer.price !== cur.total) { await fail(`料金が変動しました（${cur.total}→${offer.price}）`, "VOIDED"); return; }
 
-    // TODO(MS3.9): Beds24 への書き込み（POST /bookings）。書込トークン発行後に有効化する。
-    // 現段階は検証用物件が未作成のため書込を行わず、CONFIRMED まで進めない。
-    await notifyError(
-      `[要対応] オーソリ済みですが Beds24 書込は未実装のため保留中です。\n` +
-      `予約ID: ${bookingId}／PaymentIntent: ${pi.id}／${cur.prop} ${cur.checkin}〜${cur.checkout} ${cur.guests}名 ¥${cur.total}`,
-    );
     const c2 = (await ref.get()).data() as BookingDoc & Record<string, unknown>;
-    await transition(ref, { status: ["AUTHORIZED"], stateVersion: c2.stateVersion }, { status: "MANUAL_REVIEW", note: "beds24_write_pending" });
-    // Beds24書込が有効になったら、この位置を CONFIRMED 遷移に置き換え、下の purchase を確定後に送る
+
+    await transition(ref, { status: ["AUTHORIZED"], stateVersion: c2.stateVersion }, { status: "RESERVATION_PENDING" });
+
+    // ① 宿泊日を排他ロック。取れなければ他の予約が先に確定しているので成立させない。
+    if (!(await acquireInventoryLocks(cur.prop, cur.checkin, cur.checkout, bookingId))) {
+      await fail("同じ日程で先に確定した予約があります", "VOIDED");
+      return;
+    }
+
+    // ② Beds24 へ予約を作成（失敗したらロックを解放し、オーソリも解放する）
+    let beds24Id: number;
+    try {
+      beds24Id = await createBeds24Booking(bookingId, c2);
+    } catch (e) {
+      await releaseInventoryLocks(cur.prop, cur.checkin, cur.checkout, bookingId);
+      await fail(`Beds24書込に失敗しました: ${String(e).slice(0, 160)}`, "VOIDED");
+      return;
+    }
+
+    // ③ 書込成功を確認してからキャプチャ（この順序は動かさない・v4 §4）
+    try {
+      await stripe.paymentIntents.capture(pi.id);
+    } catch (e) {
+      // 決済は取れていないが Beds24 に予約が残る。人が消す必要があるため要対応で止める。
+      await notifyError(
+        `[要対応] Beds24に予約を作成後、キャプチャに失敗しました。Beds24側の予約を取り消してください。\n` +
+        `予約ID: ${bookingId}／Beds24予約ID: ${beds24Id}／PaymentIntent: ${pi.id}／${String(e).slice(0, 160)}`,
+      );
+      const c3 = (await ref.get()).data() as BookingDoc;
+      await transition(ref, { status: [c3.status], stateVersion: c3.stateVersion },
+        { status: "MANUAL_REVIEW", failureReason: "capture_failed_after_beds24_write", beds24Id });
+      return;
+    }
+
+    const c4 = (await ref.get()).data() as BookingDoc;
+    await transition(ref, { status: ["RESERVATION_PENDING"], stateVersion: c4.stateVersion },
+      { status: "CONFIRMED", beds24Id, confirmedAt: FieldValue.serverTimestamp() });
+    await sendConfirmationMail(bookingId, c2);
     await sendPurchaseEvent({
       id: bookingId, uid: cur.uid, prop: cur.prop, total: cur.total, guests: cur.guests,
       nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
@@ -1299,6 +1477,305 @@ async function sendPurchaseEvent(booking: {
 }
 
 /** 障害通知（沈黙禁止・v4 §8-6） */
+/* ─── 予約確定メール（お客様宛・予約言語・HTML＋テキスト） ───
+   Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
+   メールクライアント制約: table レイアウト＋インラインCSS。外部CSS/JS/画像は使わない。 */
+
+const SITE_URL = "https://yah.homes";
+
+// 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
+const MAIL_PROP = {
+  kiyokawa: {
+    name: "yah.homes kiyokawa",
+    address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
+    map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
+  },
+  takasago: {
+    name: "yah.homes takasago",
+    address: "",
+    map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778",
+  },
+  test: {
+    name: "yah.homes test1（検証用）",
+    address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
+    map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
+  },
+} as Record<string, { name: string; address: string; map: string }>;
+
+const MAIL_L10N: Record<string, Record<string, string>> = {
+  ja: {
+    subject: "【yah.homes】ご予約が確定しました", greetSuffix: " 様",
+    lead: "yah.homes をご予約いただきありがとうございます。ご予約が確定しました。",
+    bookingNo: "予約番号", checkTitle: "ご予約内容",
+    checkin: "チェックイン", checkout: "チェックアウト", stay: "お客様のご予約", guestsRow: "宿泊者の内訳",
+    house: "お部屋", arrival: "到着予定時刻", checkinWindow: "15:00〜（時間の制限はありません）", checkoutWindow: "〜10:00",
+    nights: "{n}泊", guests: "大人{g}名",
+    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。",
+    payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
+    payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
+    ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "お問い合わせ",
+    ctaNote: "ご予約時のアカウントでログインすると、到着予定時刻の登録やご予約の確認ができます。",
+    entryTitle: "入室について",
+    entryBody: "玄関のキーボックスでの受け渡しです。暗証番号と詳しい入室手順は、ご到着の3日前を目安にメールでお送りします。深夜のご到着でも問題ありません。",
+    placeTitle: "場所", placeBtn: "地図を開く",
+    placeNote: "正確な住所は入室のご案内とあわせてお送りします。",
+    safetyTitle: "安全のために",
+    safetyBody: "当社からメールやお電話で、カード情報の再入力や追加のお支払いをお願いすることはありません。そのようなご連絡を受け取られた場合は、リンクを開かずに下記までご連絡ください。",
+    contactTitle: "ご不明な点", contactBody: "このメールにご返信いただくか、contact@mail.yah.homes までご連絡ください。2〜3営業日以内にご連絡いたします。",
+    footer: "yah.homes ／ ボンファイア株式会社",
+  },
+  en: {
+    subject: "[yah.homes] Your booking is confirmed", greetSuffix: "",
+    lead: "Thank you for booking with yah.homes. Your reservation is confirmed.",
+    bookingNo: "Booking ID", checkTitle: "Booking details",
+    checkin: "Check-in", checkout: "Check-out", stay: "Your reservation", guestsRow: "Guests",
+    house: "House", arrival: "Estimated arrival", checkinWindow: "from 15:00 (no time limit)", checkoutWindow: "until 10:00",
+    nights: "{n} nights", guests: "{g} adults",
+    cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).",
+    payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
+    payNote: "Room rate, lodging tax and cleaning fee are included. There is nothing more to pay.",
+    ctaTitle: "Manage your booking", cta: "Change or cancel your booking", cta2: "Contact us",
+    ctaNote: "Sign in with the account you used to book to add your arrival time or review the booking.",
+    entryTitle: "Getting in",
+    entryBody: "Self check-in with a key box at the entrance. We will email the code and full instructions about 3 days before arrival. Late-night arrivals are fine.",
+    placeTitle: "Location", placeBtn: "Open in Maps",
+    placeNote: "The exact address is sent together with the check-in instructions.",
+    safetyTitle: "Staying safe",
+    safetyBody: "We will never email or call you to re-enter your card details or ask for an extra payment. If you receive such a message, do not open the link and contact us below.",
+    contactTitle: "Questions?", contactBody: "Reply to this email or write to contact@mail.yah.homes. We answer within 2–3 business days.",
+    footer: "yah.homes / Bonfire Inc.",
+  },
+  ko: {
+    subject: "[yah.homes] 예약이 확정되었습니다", greetSuffix: " 님",
+    lead: "yah.homes를 예약해 주셔서 감사합니다. 예약이 확정되었습니다.",
+    bookingNo: "예약번호", checkTitle: "예약 내용",
+    checkin: "체크인", checkout: "체크아웃", stay: "예약 내용", guestsRow: "인원",
+    house: "숙소", arrival: "도착 예정 시각", checkinWindow: "15:00~ (시간 제한 없음)", checkoutWindow: "~10:00",
+    nights: "{n}박", guests: "성인 {g}명",
+    cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.",
+    payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
+    payNote: "숙박료・숙박세・청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
+    ctaTitle: "예약 확인・변경", cta: "예약 변경・취소", cta2: "문의하기",
+    ctaNote: "예약하신 계정으로 로그인하면 도착 예정 시각 등록과 예약 확인이 가능합니다.",
+    entryTitle: "입실 안내",
+    entryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호와 자세한 안내는 도착 3일 전을 기준으로 메일로 보내드립니다. 늦은 시간 도착도 괜찮습니다.",
+    placeTitle: "위치", placeBtn: "지도 열기",
+    placeNote: "정확한 주소는 입실 안내와 함께 보내드립니다.",
+    safetyTitle: "안전 안내",
+    safetyBody: "당사는 메일이나 전화로 카드 정보 재입력이나 추가 결제를 요청하지 않습니다. 그런 연락을 받으시면 링크를 열지 마시고 아래로 연락해 주세요.",
+    contactTitle: "문의", contactBody: "이 메일에 회신하시거나 contact@mail.yah.homes로 연락해 주세요. 2~3영업일 이내에 답변드립니다.",
+    footer: "yah.homes / Bonfire Inc.",
+  },
+  zh: {
+    subject: "【yah.homes】您的預訂已確認", greetSuffix: " 您好",
+    lead: "感謝您預訂 yah.homes，您的預訂已確認。",
+    bookingNo: "預訂編號", checkTitle: "預訂內容",
+    checkin: "入住", checkout: "退房", stay: "您的預訂", guestsRow: "人數",
+    house: "房源", arrival: "預計抵達時間", checkinWindow: "15:00 起（無時間限制）", checkoutWindow: "10:00 前",
+    nights: "{n}晚", guests: "成人{g}人",
+    cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。",
+    payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
+    payNote: "已含住宿費・住宿稅・清潔費，不會另外收費。",
+    ctaTitle: "查看・變更預訂", cta: "變更・取消預訂", cta2: "聯絡我們",
+    ctaNote: "以預訂時使用的帳號登入，即可登記抵達時間或查看預訂。",
+    entryTitle: "入住方式",
+    entryBody: "以門口密碼鎖自助入住。密碼與詳細說明將於抵達3天前以電子郵件寄送。深夜抵達也沒問題。",
+    placeTitle: "位置", placeBtn: "開啟地圖",
+    placeNote: "詳細地址將與入住說明一併寄送。",
+    safetyTitle: "安全提醒",
+    safetyBody: "本公司不會以郵件或電話要求您重新輸入信用卡資訊或額外付款。若收到此類訊息，請勿開啟連結並與我們聯繫。",
+    contactTitle: "有任何問題", contactBody: "請回覆這封郵件，或來信 contact@mail.yah.homes。我們會在2〜3個工作天內回覆。",
+    footer: "yah.homes / Bonfire Inc.",
+  },
+  th: {
+    subject: "[yah.homes] ยืนยันการจองของคุณแล้ว", greetSuffix: "",
+    lead: "ขอบคุณที่จองที่พักกับ yah.homes การจองของคุณได้รับการยืนยันแล้ว",
+    bookingNo: "หมายเลขการจอง", checkTitle: "รายละเอียดการจอง",
+    checkin: "เช็คอิน", checkout: "เช็คเอาท์", stay: "การจองของคุณ", guestsRow: "ผู้เข้าพัก",
+    house: "ที่พัก", arrival: "เวลาที่คาดว่าจะถึง", checkinWindow: "ตั้งแต่ 15:00 (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน 10:00",
+    nights: "{n} คืน", guests: "ผู้ใหญ่ {g} ท่าน",
+    cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)",
+    payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
+    payNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาดแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม",
+    ctaTitle: "จัดการการจอง", cta: "เปลี่ยนแปลงหรือยกเลิกการจอง", cta2: "ติดต่อเรา",
+    ctaNote: "เข้าสู่ระบบด้วยบัญชีที่ใช้จอง เพื่อระบุเวลาที่จะมาถึงหรือตรวจสอบการจอง",
+    entryTitle: "การเข้าที่พัก",
+    entryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู เราจะส่งรหัสและคำแนะนำโดยละเอียดทางอีเมลประมาณ 3 วันก่อนวันเข้าพัก มาถึงดึกก็ไม่มีปัญหา",
+    placeTitle: "สถานที่", placeBtn: "เปิดแผนที่",
+    placeNote: "ที่อยู่โดยละเอียดจะส่งพร้อมกับคำแนะนำการเช็คอิน",
+    safetyTitle: "เพื่อความปลอดภัย",
+    safetyBody: "เราจะไม่ส่งอีเมลหรือโทรขอให้คุณกรอกข้อมูลบัตรใหม่หรือชำระเงินเพิ่ม หากได้รับข้อความลักษณะนี้ กรุณาอย่าเปิดลิงก์และติดต่อเราตามด้านล่าง",
+    contactTitle: "มีคำถาม", contactBody: "ตอบกลับอีเมลฉบับนี้ หรือเขียนถึงเราที่ contact@mail.yah.homes เราจะตอบภายใน 2–3 วันทำการ",
+    footer: "yah.homes / Bonfire Inc.",
+  },
+};
+
+const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+function buildConfirmationMail(
+  lang: string,
+  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string },
+): { subject: string; text: string; html: string } {
+  const L = MAIL_L10N[lang] ?? MAIL_L10N.en;
+  const P = MAIL_PROP[d.prop] ?? { name: d.prop, address: "", map: "" };
+  const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
+  const no = d.id.slice(0, 8).toUpperCase();
+  const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
+
+  // ── 行・カードの部品（メールクライアント互換のため table + インラインCSS） ──
+  const row = (k: string, v: string, sub = "") =>
+    `<tr>
+       <td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;vertical-align:top;">${k}</td>
+       <td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#111111;text-align:right;font-weight:500;">
+         ${v}${sub ? `<div style="font-size:12px;color:#aaaaaa;font-weight:400;margin-top:2px;">${sub}</div>` : ""}
+       </td>
+     </tr>`;
+  const cardOpen = (title: string) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:6px;margin:0 0 16px;">
+       <tr><td style="padding:18px 20px;">
+         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#999999;margin-bottom:10px;">${title}</div>
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">`;
+  const cardClose = (note = "") =>
+    `</table>${note ? `<div style="font-size:12px;color:#999999;line-height:1.7;margin-top:12px;">${note}</div>` : ""}</td></tr></table>`;
+  const block = (title: string, body: string, extra = "") =>
+    `<div style="border-top:1px solid #f0f0f0;padding:16px 0 0;margin-top:4px;">
+       <div style="font-size:13px;font-weight:600;color:#111111;margin-bottom:6px;">${title}</div>
+       <div style="font-size:13px;color:#666666;line-height:1.8;">${body}</div>${extra}
+     </div>`;
+
+  const html = `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(L.subject)}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f4;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',Helvetica,Arial,sans-serif;">
+
+  <tr><td style="background:#111111;padding:20px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-size:17px;font-weight:600;color:#ffffff;letter-spacing:.02em;">yah.homes</td>
+      <td style="text-align:right;font-size:11px;color:#bbbbbb;line-height:1.6;">${esc(L.bookingNo)}<br><span style="color:#ffffff;font-size:14px;font-weight:600;letter-spacing:.06em;">${esc(no)}</span></td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td style="padding:28px 24px 0;">
+    <div style="font-size:15px;color:#111111;margin-bottom:6px;">${esc(d.name)}${esc(L.greetSuffix)}</div>
+    <div style="font-size:21px;font-weight:600;color:#111111;line-height:1.5;margin-bottom:12px;">${esc(L.lead)}</div>
+    <div style="font-size:13px;color:#111111;line-height:2;padding:12px 14px;background:#f7f7f7;border-radius:6px;margin-bottom:22px;">
+      ✓&nbsp; ${esc(L.checkin)}: <strong>${esc(d.checkin)}</strong> ${esc(L.checkinWindow)}<br>
+      ✓&nbsp; ${esc(L.cancelFree.replace("{d}", d.freeCancel))} ${yen(0)}
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:0 24px;">
+    ${cardOpen(esc(L.checkTitle))}
+      ${row(esc(L.house), esc(P.name))}
+      ${row(esc(L.checkin), esc(d.checkin), esc(L.checkinWindow))}
+      ${row(esc(L.checkout), esc(d.checkout), esc(L.checkoutWindow))}
+      ${row(esc(L.stay), esc(L.nights.replace("{n}", String(d.nights))))}
+      ${row(esc(L.guestsRow), esc(L.guests.replace("{g}", String(d.guests))))}
+      ${d.arrival ? row(esc(L.arrival), esc(d.arrival)) : ""}
+    ${cardClose()}
+
+    ${cardOpen(esc(L.cancelTitle))}
+      ${row(esc(L.cancelFree.replace("{d}", d.freeCancel)), yen(0))}
+      ${row(esc(L.cancelAfter.replace("{d}", d.freeCancel)), yen(d.total))}
+    ${cardClose(esc(L.cancelNote))}
+
+    ${cardOpen(esc(L.payTitle))}
+      ${row(esc(L.payTotal), yen(d.total))}
+      ${row(esc(L.payPaid), `<span style="color:#111111;">${yen(d.total)}</span>`)}
+      ${row(esc(L.payOnSite), `<span style="color:#111111;">${yen(0)}</span>`)}
+    ${cardClose(esc(L.payNote))}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 20px;">
+      <tr><td align="center" style="border-radius:6px;background:#111111;">
+        <a href="${esc(myPage)}" style="display:block;padding:15px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(L.cta)}</a>
+      </td></tr>
+      <tr><td align="center" style="padding-top:10px;">
+        <a href="mailto:contact@mail.yah.homes?subject=${encodeURIComponent(`${L.bookingNo} ${no}`)}" style="display:block;padding:13px 24px;border:1px solid #d7d7d7;border-radius:6px;font-size:14px;font-weight:500;color:#111111;text-decoration:none;">${esc(L.cta2)}</a>
+      </td></tr>
+      <tr><td style="padding-top:10px;font-size:12px;color:#999999;line-height:1.7;text-align:center;">${esc(L.ctaNote)}</td></tr>
+    </table>
+
+    ${block(esc(L.entryTitle), esc(L.entryBody))}
+    ${P.map ? block(esc(L.placeTitle),
+      P.address ? `<span style="color:#111111;font-weight:500;">${esc(P.address)}</span>` : esc(L.placeNote),
+      `<div style="margin-top:10px;"><a href="${esc(P.map)}" style="display:inline-block;padding:9px 16px;border:1px solid #d7d7d7;border-radius:5px;font-size:13px;color:#111111;text-decoration:none;">${esc(L.placeBtn)}</a></div>`) : ""}
+    ${block(esc(L.safetyTitle), esc(L.safetyBody))}
+    ${block(esc(L.contactTitle), esc(L.contactBody))}
+  </td></tr>
+
+  <tr><td style="padding:22px 24px 26px;">
+    <div style="border-top:1px solid #f0f0f0;padding-top:16px;font-size:12px;color:#aaaaaa;line-height:1.8;">${esc(L.footer)}</div>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  const text = [
+    `${d.name}${L.greetSuffix}`, "",
+    L.lead, "",
+    `${L.bookingNo}: ${no}`, "",
+    `--- ${L.checkTitle} ---`,
+    `${L.house}: ${P.name}`,
+    `${L.checkin}: ${d.checkin} ${L.checkinWindow}`,
+    `${L.checkout}: ${d.checkout} ${L.checkoutWindow}`,
+    `${L.stay}: ${L.nights.replace("{n}", String(d.nights))}`,
+    `${L.guestsRow}: ${L.guests.replace("{g}", String(d.guests))}`,
+    d.arrival ? `${L.arrival}: ${d.arrival}` : "",
+    "", `--- ${L.cancelTitle} ---`,
+    `${L.cancelFree.replace("{d}", d.freeCancel)}: ${yen(0)}`,
+    `${L.cancelAfter.replace("{d}", d.freeCancel)}: ${yen(d.total)}`,
+    L.cancelNote,
+    "", `--- ${L.payTitle} ---`,
+    `${L.payTotal}: ${yen(d.total)}`,
+    `${L.payPaid}: ${yen(d.total)}`,
+    `${L.payOnSite}: ${yen(0)}`,
+    L.payNote,
+    "", `${L.cta}: ${myPage}`, `${L.cta2}: contact@mail.yah.homes`,
+    "", `--- ${L.entryTitle} ---`, L.entryBody,
+    P.map ? `\n--- ${L.placeTitle} ---\n${P.address || L.placeNote}\n${P.map}` : "",
+    "", `--- ${L.safetyTitle} ---`, L.safetyBody,
+    "", L.contactBody, "", L.footer,
+  ].filter((x) => x !== "").join("\n");
+
+  return { subject: `${L.subject}（${d.checkin}〜${d.checkout}）`, text, html };
+}
+
+/** 予約確定メール（お客様宛・予約言語で送る）。失敗しても確定は取り消さない。 */
+async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
+  try {
+    const lang = String(b.lang ?? "en");
+    const free = b.freeCancelUntilAt
+      ? new Date(String(b.freeCancelUntilAt)).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "long", timeStyle: "short" })
+      : "-";
+    const { subject, text, html } = buildConfirmationMail(lang, {
+      id: bookingId,
+      name: String(b.name ?? ""),
+      prop: b.prop,
+      checkin: b.checkin,
+      checkout: b.checkout,
+      nights: Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000),
+      guests: Number(b.guests),
+      total: Number(b.total),
+      arrival: String(b.arrival ?? ""),
+      freeCancel: free,
+    });
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    await transporter.sendMail({
+      from: `"yah.homes" <${SMTP_USER.value()}>`,
+      to: String(b.email),
+      replyTo: SMTP_USER.value(),
+      subject, text, html,
+    });
+  } catch (err) {
+    logger.error("sendConfirmationMail failed", err); // 送信失敗で予約は取り消さない
+  }
+}
+
 async function notifyError(text: string): Promise<void> {
   try {
     const transporter = nodemailer.createTransport({
@@ -1340,9 +1817,40 @@ export const accountApi = onRequest(
 
     try {
       if (req.method === "GET") {
+        // 確定待ちのポーリング用: 1件だけ返す（本人のUIDに限る）
+        const one = String(req.query.bookingId ?? "");
+        if (one) {
+          const d = await db.collection("bookings").doc(one).get();
+          const v = d.data();
+          if (!d.exists || !v || v.uid !== uid) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+          res.status(200).json({
+            ok: true,
+            item: {
+              id: d.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
+              total: v.total, status: v.status, arrival: v.arrival ?? null, name: v.name ?? "",
+              freeCancelUntilAt: v.freeCancelUntilAt ?? null, beds24Id: v.beds24Id ?? null,
+            },
+          });
+          return;
+        }
         // 本人のUIDの予約のみ（v4 §8-4）
         const snap = await db.collection("bookings").where("uid", "==", uid).orderBy("checkin", "desc").limit(50).get();
-        const items = snap.docs.map((d) => {
+        // 表示対象: 確定・キャンセル・手続き中（＝決済済み）。
+        // PAYMENT_PENDING は「決済に進まず離脱した下書き」なので、進行中の1時間だけ見せる。
+        // VOIDED / PAYMENT_FAILED は課金が無く、お客様にとって予約ではないので出さない。
+        const HIDDEN = new Set(["VOIDED", "PAYMENT_FAILED"]);
+        const DRAFT_TTL_MS = 60 * 60 * 1000;
+        const items = snap.docs
+          .filter((d) => {
+            const v = d.data();
+            if (HIDDEN.has(String(v.status))) return false;
+            if (v.status === "PAYMENT_PENDING") {
+              const created = v.createdAt?.toMillis?.() ?? 0;
+              return created > 0 && Date.now() - created < DRAFT_TTL_MS;
+            }
+            return true;
+          })
+          .map((d) => {
           const v = d.data();
           return {
             id: d.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
