@@ -1,7 +1,7 @@
 ---
 /* yah.homes ComparisonTable — 旧 ComparisonTable.tsx の忠実移植 */
 import { translations } from "../../i18n/translations";
-import type { Locale } from "../../i18n/config";
+import { localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
 import { nearbyData } from "../../data/nearbyData";
 
@@ -61,6 +61,21 @@ const ROWS: Row[] = [
   ...nearby.rows.map((r) => ({ type: "row" as const, label: r.name, kiyokawa: r.kiyokawa, takasago: r.takasago })),
 ];
 
+// 予約行（表の最終行に各棟の予約導線を格納）
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const BOOK_PATH = localizedPath(lang, "/book");
+const BOOK_LABELS = {
+  en: { head: "Book", direct: "Book on our site (best rate)" },
+  ja: { head: "ご予約", direct: "自社ウェブサイトで予約（最安）" },
+  ko: { head: "예약", direct: "공식 사이트에서 예약(최저가)" },
+  zh: { head: "預訂", direct: "官網預訂（最優惠）" },
+  th: { head: "จอง", direct: "จองผ่านเว็บทางการ (ราคาดีที่สุด)" },
+}[lang];
+const BOOK_LINKS = {
+  kiyokawa: { airbnb: PROPERTIES.kiyokawa.airbnbUrl, booking: PROPERTIES.kiyokawa.bookingUrl, direct: `${BOOK_PATH}?prop=kiyokawa` },
+  takasago: { airbnb: PROPERTIES.takasago.airbnbUrl, booking: PROPERTIES.takasago.bookingUrl, direct: `${BOOK_PATH}?prop=takasago` },
+};
+
 function cellClass(v: string): string {
   if (v === "—") return "val dash";
   if (v === ct.values.available) return "val avail";
@@ -98,12 +113,60 @@ function cellClass(v: string): string {
             )
           )
         }
+        <tr>
+          <td colspan="3" class="cat-head">{BOOK_LABELS.head}</td>
+        </tr>
+        <tr class="data-row">
+          <td class="row-label"></td>
+          {(["kiyokawa", "takasago"] as const).map((k) => (
+            <td class="val book-cell">
+              <a class="cmp-btn" href={BOOK_LINKS[k].airbnb} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
+                {t.properties.airbnbBtn}
+              </a>
+              <a class="cmp-btn" href={BOOK_LINKS[k].booking} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
+                {t.properties.bookingBtn}
+              </a>
+              {BOOK_PREVIEW && (
+                <a class="cmp-btn cmp-btn-direct" href={BOOK_LINKS[k].direct} data-cta-location="compare_table_direct">
+                  {BOOK_LABELS.direct}
+                </a>
+              )}
+            </td>
+          ))}
+        </tr>
       </tbody>
     </table>
   </div>
 </div>
 
 <style>
+  .book-cell {
+    padding-top: 0.9rem !important;
+    padding-bottom: 0.9rem !important;
+  }
+  .cmp-btn {
+    display: block;
+    padding: 0.55rem 0.6rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-decoration: none;
+    color: #111111;
+    background: #ffffff;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+  .cmp-btn:hover { background: #f7f7f7; }
+  .cmp-btn-direct {
+    color: #ffffff;
+    background: #111111;
+    border-color: #111111;
+    margin-bottom: 0;
+  }
+  .cmp-btn-direct:hover { background: #111111; opacity: 0.85; }
   .cmp-title {
     font-size: clamp(1.5rem, 4vw, 2.5rem);
     font-weight: 500;

@@ -1,9 +1,10 @@
 ---
-/* yah.homes BookingCTASection — 旧 BookingCTASection.tsx の忠実移植
-   「Ready To Explore Fukuoka?」— ダーク背景の締めCTA
-   （Direct Booking ドロップダウンは旧サイトでも display:none のため出さない） */
+/* yah.homes BookingCTASection — 締めCTA
+   2026-08-08: Airbnbボタン2つ → ヒーローと同じ空室検索ボックスに変更（自社予約への導線）
+   BOOK_PREVIEW=false の本番では従来のAirbnbボタンを表示（切替は下記フラグ1つ） */
 import { translations } from "../../i18n/translations";
-import type { Locale } from "../../i18n/config";
+import { localizedPath, type Locale } from "../../i18n/config";
+import { BOOK_STRINGS } from "../../i18n/bookStrings";
 import InlineBookingCta from "./InlineBookingCta.astro";
 
 interface Props {
@@ -11,14 +12,42 @@ interface Props {
 }
 const { lang } = Astro.props;
 const t = translations[lang];
+
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const bt = BOOK_STRINGS[lang];
+const BOOK_PATH = localizedPath(lang, "/book");
+const SEARCH_CTA = { en: "See availability", ja: "空室を見る", ko: "예약 가능일 보기", zh: "查詢空房", th: "ดูห้องว่าง" }[lang];
+const MAX_GUESTS = 8;
 ---
 
 <section style="background:#111111;padding:5rem 1.5rem;text-align:center;">
-  <div style="max-width:600px;margin:0 auto;">
+  <div style="max-width:680px;margin:0 auto;">
     <h2 class="cta-heading">{t.bookingCta.heading}</h2>
-    <div style="margin-top:2rem;">
-      <InlineBookingCta lang={lang} ctaLocation="footer_cta" />
-    </div>
+    {BOOK_PREVIEW ? (
+      <form class="cta-search" id="cta-search" action={BOOK_PATH} method="get">
+        <div class="cs-field">
+          <label class="cs-label" for="cs-in">{bt.checkin}</label>
+          <input class="cs-input" id="cs-in" name="checkin" type="date" required />
+        </div>
+        <div class="cs-field">
+          <label class="cs-label" for="cs-out">{bt.checkout}</label>
+          <input class="cs-input" id="cs-out" name="checkout" type="date" required />
+        </div>
+        <div class="cs-field">
+          <label class="cs-label" for="cs-guests">{bt.guests}</label>
+          <select class="cs-input" id="cs-guests" name="guests">
+            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
+              <option value={String(n)} selected={n === 4}>{bt.guestsUnit(n)}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" class="cs-submit">{SEARCH_CTA}</button>
+      </form>
+    ) : (
+      <div style="margin-top:2rem;">
+        <InlineBookingCta lang={lang} ctaLocation="footer_cta" />
+      </div>
+    )}
   </div>
 </section>
 
@@ -31,4 +60,84 @@ const t = translations[lang];
     line-height: 1.3;
     margin-bottom: 0;
   }
+
+  /* 空室検索ボックス（ダーク背景・ヒーローと同構成） */
+  .cta-search {
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 1px;
+    background: #d7d7d7;
+    border-radius: 4px;
+    overflow: hidden;
+    text-align: left;
+  }
+  @media (max-width: 640px) {
+    .cta-search { grid-template-columns: 1fr 1fr; }
+    .cta-search .cs-field:nth-child(3) { grid-column: 1 / -1; }
+    .cta-search .cs-submit { grid-column: 1 / -1; padding: 0.85rem; }
+  }
+  .cs-field {
+    background: #ffffff;
+    padding: 0.6rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .cs-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888888;
+  }
+  .cs-input {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111111;
+    border: none;
+    background: transparent;
+    padding: 0;
+    width: 100%;
+    cursor: pointer;
+  }
+  /* ダーク背景上のCTAは白ボタン+黒文字（ブランドガイドライン） */
+  .cs-submit {
+    background: #ffffff;
+    color: #111111;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    padding: 0 1.6rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .cs-submit:hover { opacity: 0.85; }
 </style>
+
+<script>
+  const f = document.getElementById("cta-search") as HTMLFormElement | null;
+  const i = document.getElementById("cs-in") as HTMLInputElement | null;
+  const o = document.getElementById("cs-out") as HTMLInputElement | null;
+  if (f && i && o) {
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    i.min = today;
+    o.min = today;
+    i.addEventListener("change", () => {
+      if (!i.value) return;
+      const d = new Date(`${i.value}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 1);
+      const min = d.toISOString().slice(0, 10);
+      o.min = min;
+      if (!o.value || o.value <= i.value) o.value = min;
+    });
+    f.addEventListener("submit", () => {
+      const g = (document.getElementById("cs-guests") as HTMLSelectElement | null)?.value;
+      (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag?.("event", "search", {
+        cta_location: "footer_search", checkin: i.value, guests: g ? Number(g) : null,
+      });
+    });
+  }
+</script>
