@@ -65,11 +65,11 @@ const ROWS: Row[] = [
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const BOOK_PATH = localizedPath(lang, "/book");
 const BOOK_LABELS = {
-  en: { head: "Book", direct: "Book on our site (best rate)" },
-  ja: { head: "ご予約", direct: "自社ウェブサイトで予約（最安）" },
-  ko: { head: "예약", direct: "공식 사이트에서 예약(최저가)" },
-  zh: { head: "預訂", direct: "官網預訂（最優惠）" },
-  th: { head: "จอง", direct: "จองผ่านเว็บทางการ (ราคาดีที่สุด)" },
+  en: { head: "Book", btn: "Book now", direct: "Our site (best rate)" },
+  ja: { head: "ご予約", btn: "予約する", direct: "自社ウェブサイト（最安）" },
+  ko: { head: "예약", btn: "예약하기", direct: "공식 사이트(최저가)" },
+  zh: { head: "預訂", btn: "立即預訂", direct: "官網（最優惠）" },
+  th: { head: "จอง", btn: "จองเลย", direct: "เว็บทางการ (ถูกที่สุด)" },
 }[lang];
 const BOOK_LINKS = {
   kiyokawa: { airbnb: PROPERTIES.kiyokawa.airbnbUrl, booking: PROPERTIES.kiyokawa.bookingUrl, direct: `${BOOK_PATH}?prop=kiyokawa` },
@@ -117,23 +117,37 @@ function cellClass(v: string): string {
           <td colspan="3" class="cat-head">{BOOK_LABELS.head}</td>
         </tr>
         <tr class="data-row">
-          <td class="row-label"></td>
+          <td class="row-label">Airbnb</td>
           {(["kiyokawa", "takasago"] as const).map((k) => (
             <td class="val book-cell">
               <a class="cmp-btn" href={BOOK_LINKS[k].airbnb} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
-                {t.properties.airbnbBtn}
+                {BOOK_LABELS.btn}
               </a>
-              <a class="cmp-btn" href={BOOK_LINKS[k].booking} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
-                {t.properties.bookingBtn}
-              </a>
-              {BOOK_PREVIEW && (
-                <a class="cmp-btn cmp-btn-direct" href={BOOK_LINKS[k].direct} data-cta-location="compare_table_direct">
-                  {BOOK_LABELS.direct}
-                </a>
-              )}
             </td>
           ))}
         </tr>
+        <tr class="data-row">
+          <td class="row-label">Booking.com</td>
+          {(["kiyokawa", "takasago"] as const).map((k) => (
+            <td class="val book-cell">
+              <a class="cmp-btn" href={BOOK_LINKS[k].booking} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
+                {BOOK_LABELS.btn}
+              </a>
+            </td>
+          ))}
+        </tr>
+        {BOOK_PREVIEW && (
+          <tr class="data-row">
+            <td class="row-label">{BOOK_LABELS.direct}</td>
+            {(["kiyokawa", "takasago"] as const).map((k) => (
+              <td class="val book-cell">
+                <a class="cmp-btn cmp-btn-direct" href={BOOK_LINKS[k].direct} data-cta-location="compare_table_direct">
+                  {BOOK_LABELS.btn}
+                </a>
+              </td>
+            ))}
+          </tr>
+        )}
       </tbody>
     </table>
   </div>
@@ -141,13 +155,14 @@ function cellClass(v: string): string {
 
 <style>
   .book-cell {
-    padding-top: 0.9rem !important;
-    padding-bottom: 0.9rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
   }
   .cmp-btn {
     display: block;
-    padding: 0.55rem 0.6rem;
-    margin-bottom: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    margin: 0 auto;
+    max-width: 200px;
     font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.02em;
@@ -164,7 +179,6 @@ function cellClass(v: string): string {
     color: #ffffff;
     background: #111111;
     border-color: #111111;
-    margin-bottom: 0;
   }
   .cmp-btn-direct:hover { background: #111111; opacity: 0.85; }
   .cmp-title {
