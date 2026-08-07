@@ -220,6 +220,17 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
 - 実施タイミング: MS1=層3スパイク／MS2=層1+2＋選択ページE2E／MS3=層1〜5フル（テストファースト）／**デプロイ前に必ずE2E一式**（10分以内の規模を維持）／MS3.9=人間＋実カード最終通し。
 - CIで毎コミット全実行はしない（2棟規模に過剰）。「デプロイ前一式」をルール化。
 
+## 11.6 セキュリティ実装チェックリスト（2026-08-08レビューM/L項・実装時に必須）
+
+- [ ] **M1 stripeWebhookの所有権照合**: 署名検証に加え、イベントのPaymentIntent IDが自社の pending 予約（operations台帳）と**金額まで一致**することを確認してから履行する。
+- [ ] **M2 権限失効の即時性**: adminApi の役割判定は**リクエスト毎に admin_users 台帳をFirestore照合**（Custom Claimsは補助。Claimsのみだと剥奪後も最大1時間旧権限が残る）。
+- [ ] **M3 メールのなりすまし耐性**: mail.yah.homes と Beds24 Auto Actions の送信元について SPF/DKIM アラインメント＋**DMARC（まず p=quarantine）**を確認（MS3チェックリスト）。
+- [ ] **M4 CORS正規表現のアンカー**: corsOrigin のプレビューチャンネル判定が `^https://...\.web\.app$` と先頭末尾アンカー付きであることを確認（受け入れ基準に含める）。
+- [ ] **L1 kill switch の操作権限**: `config/killSwitch` の変更は root のみ・audit_logs 記録。
+- [ ] **L2 beds24Webhook URLトークン**: 権限は「再取得のトリガーのみ」を維持・ローテーション手順をRunbookに記載。
+- [ ] **L3 clickjacking**: /admin/* に `X-Frame-Options: DENY`（firebase.json headers）。
+- [ ] **L4 管理者台帳のtypo防止**: メンバー登録の保存前に登録先メールを確認表示。
+
 ## 12. 運用・監視
 
 - 毎朝の定点観測（稼働中）に直販件数・整合差異件数を追加（beds24DailyObserver拡張）。
