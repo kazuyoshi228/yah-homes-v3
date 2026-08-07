@@ -20,8 +20,13 @@ const bt = BOOK_STRINGS[lang];
 const BOOK_PATH = localizedPath(lang, "/book");
 const SEARCH_CTA = { en: "See availability", ja: "空室を見る", ko: "예약 가능일 보기", zh: "查詢空房", th: "ดูห้องว่าง" }[lang];
 const MAX_GUESTS = 8;
-// ヒーローのAirbnbボタン: 検索ボックス優先のため一旦非表示。true に戻せば即復帰（2026-08-08）
-const SHOW_HERO_AIRBNB = false;
+// 本番は /book/ が未公開（BOOK_PREVIEW ゲートで生成されない）ため、検索ボックスを出すと
+// 「空室を見る」が404になる。Footer/Navbar/PropertyDetail と同じゲートを掛ける。
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const SHOW_HERO_SEARCH = BOOK_PREVIEW;
+// Airbnbボタン2つ（清川・高砂）は常時表示。P1公開後は検索ボックスと併存させ、
+// GA4 でどちらが押されるかを比較する（発注者指示・2026-08-07）。
+const SHOW_HERO_AIRBNB = true;
 
 const HERO_IMAGE = "/manus-storage/hero-dining-006-opt_1d801c69.webp";
 const HERO_IMAGE_768 = "/manus-storage/hero-dining-768_41dc6825.webp";
@@ -76,7 +81,8 @@ export const HOME_HERO_PRELOAD = {
       }
     </ul>
 
-    <!-- 空室検索ボックス: 日付×人数 → /book/ へ引き継ぐ -->
+    <!-- 空室検索ボックス: 日付×人数 → /book/ へ引き継ぐ（P1公開前は非表示） -->
+    {SHOW_HERO_SEARCH && (
     <form class="hero-search" id="hero-search" action={BOOK_PATH} method="get">
       <div class="hs-field">
         <label class="hs-label" for="hs-in">{bt.checkin}</label>
@@ -96,6 +102,7 @@ export const HOME_HERO_PRELOAD = {
       </div>
       <button type="submit" class="hs-submit">{SEARCH_CTA}</button>
     </form>
+    )}
 
     {SHOW_HERO_AIRBNB && (
       <div class="hero-ctas">
