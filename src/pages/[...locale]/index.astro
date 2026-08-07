@@ -5,7 +5,6 @@
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, type Locale } from "../../i18n/config";
 import { getPageMeta } from "../../lib/seo";
-import InlineBookingCta from "../../components/home/InlineBookingCta.astro";
 import HeroSection, { HOME_HERO_PRELOAD } from "../../components/home/HeroSection.astro";
 import PropertiesSection from "../../components/home/PropertiesSection.astro";
 import FeaturesSection from "../../components/home/FeaturesSection.astro";
@@ -37,7 +36,6 @@ const meta = getPageMeta("home", lang);
   <AccessSection lang={lang} />
   <OurReviewSection lang={lang} />
   <ComparisonTable lang={lang} />
-  <section class="home-cta-band"><InlineBookingCta lang={lang} ctaLocation="after_compare" /></section>
   <StorySection />
   <LocalsCTASection lang={lang} />
   <FAQSection lang={lang} />
@@ -47,11 +45,4 @@ const meta = getPageMeta("home", lang);
 </SiteLayout>
 
 <style>
-  /* セクション区切りの予約CTA帯（レビュー直後・比較表直後）。読み物を割らない控えめな余白 */
-  .home-cta-band {
-    background: #ffffff;
-    padding: 2.5rem 1.5rem;
-    display: flex;
-    justify-content: center;
-  }
 </style>
