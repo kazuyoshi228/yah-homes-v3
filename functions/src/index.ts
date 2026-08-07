@@ -359,7 +359,8 @@ export const partnersApply = onRequest(
 const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
 const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
-const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET"); // read専用（bookingApi・定点観測で共用）
+const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
@@ -1431,6 +1432,123 @@ export const adminBookings = onRequest(
     } catch (err) {
       logger.error("adminBookings failed", err);
       res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+// ─── 物件ファクトSSoT API（/admin/properties・v4 §8-4） ───
+// 保存後はサイト再ビルドが必要（ページはビルド時にFirestoreを読み、HTMLに焼き込むため）。
+const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "shower", "sink", "toilet"] as const;
+
+export const adminProperties = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    try {
+      if (req.method === "GET") {
+        const snap = await db.collection("property_facts").get();
+        const items: Record<string, unknown> = {};
+        snap.forEach((d) => { items[d.id] = d.data(); });
+        res.status(200).json({ ok: true, items });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { prop, values, ratingAsOf } = (req.body ?? {}) as Record<string, unknown>;
+
+        // 取得日のみの更新
+        if (typeof ratingAsOf === "string" && !prop) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(ratingAsOf)) { res.status(400).json({ ok: false, error: "invalid_date" }); return; }
+          await db.collection("property_facts").doc("meta").set({ ratingAsOf, updatedAt: FieldValue.serverTimestamp(), updatedBy: email }, { merge: true });
+          await db.collection("audit_logs").add({ actor: email, action: "facts_rating_as_of", value: ratingAsOf, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
+        const propStr = typeof prop === "string" ? prop : "";
+        if (propStr !== "kiyokawa" && propStr !== "takasago") { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+        const v = (values ?? {}) as Record<string, unknown>;
+
+        const doc: Record<string, unknown> = {};
+        for (const f of FACT_FIELDS) {
+          const n = Number(v[f]);
+          if (!Number.isInteger(n) || n < 0 || n > 99) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
+          doc[f] = n;
+        }
+        // 評価は表示用の文字列（例 "4.77" / "47"）
+        const rating = String(v.rating ?? "").trim();
+        const reviewCount = String(v.reviewCount ?? "").trim();
+        if (!/^\d(\.\d{1,2})?$/.test(rating) || !/^\d{1,5}$/.test(reviewCount)) {
+          res.status(400).json({ ok: false, error: "invalid_rating" });
+          return;
+        }
+        doc.rating = rating;
+        doc.reviewCount = reviewCount;
+        doc.updatedAt = FieldValue.serverTimestamp();
+        doc.updatedBy = email;
+
+        await db.collection("property_facts").doc(propStr).set(doc, { merge: true });
+        await db.collection("audit_logs").add({ actor: email, action: "facts_update", target: propStr, at: FieldValue.serverTimestamp() });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminProperties failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+// ─── 再ビルド発火（/admin/properties の「サイトに反映」・v4 §8-4） ───
+// 静的サイトのため、Firestoreの変更をページへ反映するにはビルドが必要。
+// GitHub Actions の repository_dispatch を叩き、deploy.yml が本番へデプロイする。
+export const adminRebuild = onRequest(
+  { region: REGION, secrets: [GITHUB_DISPATCH_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ ok: false, error: "method_not_allowed" }); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    try {
+      const r = await fetch("https://api.github.com/repos/kazuyoshi228/yah-homes-v2/dispatches", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITHUB_DISPATCH_TOKEN.value()}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ event_type: "rebuild", client_payload: { by: email } }),
+      });
+      if (!r.ok) throw new Error(`github ${r.status}`);
+      await db.collection("audit_logs").add({ actor: email, action: "site_rebuild", at: FieldValue.serverTimestamp() });
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      logger.error("adminRebuild failed", err);
+      res.status(500).json({ ok: false, error: "dispatch_failed" });
     }
   }
 );

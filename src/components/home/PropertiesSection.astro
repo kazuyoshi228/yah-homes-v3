@@ -6,13 +6,16 @@
 import { translations } from "../../i18n/translations";
 import { localizedPath, type Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
-import { GALLERIES, PROPERTIES, RATING_AS_OF } from "../../data/properties";
+import { GALLERIES, PROPERTIES } from "../../data/properties";
+import { getPropertyFacts } from "../../lib/propertyFacts";
 import { uiStrings } from "../../i18n/uiStrings";
 
 interface Props {
   lang: Locale;
 }
 const { lang } = Astro.props;
+// 評価・スペックは Firestore の SSoT から（ビルド時に焼き込む）
+const { facts, ratingAsOf } = await getPropertyFacts();
 // 直販ボタン: /book/ が生成されるプレビュー時のみ表示（本番は従来どおりOTAのみ）
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const BOOK_PATH = localizedPath(lang, "/book");
@@ -21,11 +24,11 @@ const t = translations[lang];
 
 // GEO: 直接回答ブロック（定義文+数値 — 引用エンジン向けの抽出可能な一文）
 const directAnswer = uiStrings[lang].directAnswer
-  .replace("{kr}", PROPERTIES.kiyokawa.rating)
-  .replace("{kc}", PROPERTIES.kiyokawa.reviewCount)
-  .replace("{tr}", PROPERTIES.takasago.rating)
-  .replace("{tc}", PROPERTIES.takasago.reviewCount);
-const asOfLabel = uiStrings[lang].ratingAsOf.replace("{date}", RATING_AS_OF);
+  .replace("{kr}", facts.kiyokawa.rating)
+  .replace("{kc}", facts.kiyokawa.reviewCount)
+  .replace("{tr}", facts.takasago.rating)
+  .replace("{tc}", facts.takasago.reviewCount);
+const asOfLabel = uiStrings[lang].ratingAsOf.replace("{date}", ratingAsOf);
 
 // 評価・リンクは data/properties.ts を単一ソースに（不整合の再発防止）
 const PROPERTY_META = [
@@ -38,8 +41,8 @@ const PROPERTY_META = [
     image768: "/manus-storage/kiyokawa-exterior_18a3409b-768.webp",
     imageMobile: "/manus-storage/kiyokawa-exterior-480_cbb57d9a.webp",
     gallery: GALLERIES.kiyokawa,
-    rating: Number(PROPERTIES.kiyokawa.rating),
-    reviewCount: Number(PROPERTIES.kiyokawa.reviewCount),
+    rating: Number(facts.kiyokawa.rating),
+    reviewCount: Number(facts.kiyokawa.reviewCount),
     name: t.properties.kiyokawa.name,
     info: t.properties.kiyokawa.info,
   },
@@ -52,8 +55,8 @@ const PROPERTY_META = [
     image768: "/manus-storage/takasago-exterior_d4f7ccff-768.webp",
     imageMobile: "/manus-storage/takasago-exterior-480_0292d3a7.webp",
     gallery: GALLERIES.takasago,
-    rating: Number(PROPERTIES.takasago.rating),
-    reviewCount: Number(PROPERTIES.takasago.reviewCount),
+    rating: Number(facts.takasago.rating),
+    reviewCount: Number(facts.takasago.reviewCount),
     name: t.properties.takasago.name,
     info: t.properties.takasago.info,
   },

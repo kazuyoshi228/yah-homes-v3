@@ -7,6 +7,7 @@ import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
 import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
 import { PROPERTIES } from "../../../data/properties";
+import { getPropertyFacts } from "../../../lib/propertyFacts";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -43,9 +44,13 @@ const SPEC_LABELS = {
         bed: (s: number, d: number) => `เตียงคู่ ${d} / เดี่ยว ${s}`, unit: (n: number) => `${n}` },
 }[lang];
 
+// スペックは Firestore の SSoT から（/admin/properties で編集・ビルド時に焼き込む）
+const { facts } = await getPropertyFacts();
 const SPECS = {
-  kiyokawa: { max: 7, rooms: 3, single: 1, double: 3, bath: 1, shower: 0, sink: 1, toilet: 2 },
-  takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, shower: 1, sink: 3, toilet: 2 },
+  kiyokawa: { max: facts.kiyokawa.capacity, rooms: facts.kiyokawa.bedrooms, single: facts.kiyokawa.bedSingle, double: facts.kiyokawa.bedDouble,
+              bath: facts.kiyokawa.bath, shower: facts.kiyokawa.shower, sink: facts.kiyokawa.sink, toilet: facts.kiyokawa.toilet },
+  takasago: { max: facts.takasago.capacity, rooms: facts.takasago.bedrooms, single: facts.takasago.bedSingle, double: facts.takasago.bedDouble,
+              bath: facts.takasago.bath, shower: facts.takasago.shower, sink: facts.takasago.sink, toilet: facts.takasago.toilet },
 };
 const specRows = (k: "kiyokawa" | "takasago") => {
   const v = SPECS[k];
@@ -66,7 +71,7 @@ const HOUSES = [
     key: "kiyokawa" as const,
     name: "yah.homes kiyokawa",
     area: { en: "Kiyokawa · 8 min to Tenjin", ja: "清川・天神まで車で8分", ko: "기요카와・텐진까지 차로 8분", zh: "清川・開車8分鐘到天神", th: "คิโยคาวะ・8 นาทีถึงเทนจิน" }[lang],
-    capacity: PROPERTIES.kiyokawa.capacity,
+    capacity: facts.kiyokawa.capacity,
     image: PROPERTIES.kiyokawa.exterior,
     detail: localizedPath(lang, "/properties/kiyokawa"),
   },
@@ -74,7 +79,7 @@ const HOUSES = [
     key: "takasago" as const,
     name: "yah.homes takasago",
     area: { en: "Takasago · walk to Tenjin", ja: "高砂・天神徒歩圏", ko: "다카사고・텐진 도보권", zh: "高砂・步行可達天神", th: "ทาคาซาโกะ・เดินถึงเทนจิน" }[lang],
-    capacity: PROPERTIES.takasago.capacity,
+    capacity: facts.takasago.capacity,
     image: PROPERTIES.takasago.exterior,
     detail: localizedPath(lang, "/properties/takasago"),
   },

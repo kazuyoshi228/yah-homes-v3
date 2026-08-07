@@ -1,0 +1,40 @@
+# 本番デプロイ（/admin/properties の「サイトに反映」から repository_dispatch で発火）
+name: Deploy to Firebase Hosting
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rebuild]
+
+concurrency:
+  group: deploy-hosting
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # ページはビルド時に Firestore の property_facts を読み、HTMLへ焼き込む
+      - run: pnpm exec astro build
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: yah-homes
+          channelId: live

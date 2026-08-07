@@ -1,0 +1,231 @@
+---
+/* /admin/properties — 物件ファクトの単一ソース（SSoT・design_booking_p1_v4.md §8-4）
+   ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
+   ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { DEFAULTS, DEFAULT_RATING_AS_OF } from "../../lib/propertyFacts";
+
+const PROPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminProperties";
+const REBUILD_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminRebuild";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+const FIELDS = [
+  { key: "capacity", label: "定員（最大人数）" },
+  { key: "bedrooms", label: "寝室数" },
+  { key: "bedDouble", label: "ダブルベッド" },
+  { key: "bedSingle", label: "シングルベッド" },
+  { key: "bath", label: "浴室" },
+  { key: "shower", label: "シャワーブース" },
+  { key: "sink", label: "洗面台" },
+  { key: "toilet", label: "トイレ" },
+];
+const HOUSES = [
+  { key: "kiyokawa", name: "yah.homes kiyokawa（清川）" },
+  { key: "takasago", name: "yah.homes takasago（高砂）" },
+];
+---
+
+<SiteLayout
+  lang="ja"
+  path="/admin/properties"
+  title="物件ファクト管理 | yah.homes"
+  description="物件スペック・評価の単一ソース"
+  noindex={true}
+  solidNav
+>
+  <section class="ap">
+    <div class="ap-container">
+      <p class="ap-eyebrow">Admin</p>
+      <h1 class="ap-title">物件ファクト管理</h1>
+      <p class="ap-lead">
+        ここが物件情報の<strong>唯一の正</strong>です。保存した内容は、トップページ・予約ページ・物件詳細ページのすべてに反映されます。
+        サイトは静的に生成しているため、保存したあとに<strong>「サイトに反映」</strong>を押してください（反映まで数分かかります）。
+      </p>
+
+      <div id="ap-login" class="ap-login">
+        <button id="ap-login-btn" class="ap-btn">Googleでログイン</button>
+        <p class="ap-status" id="ap-login-status"></p>
+      </div>
+
+      <div id="ap-app" hidden>
+        {HOUSES.map((h) => (
+          <section class="ap-card" data-prop={h.key}>
+            <h2 class="ap-house">{h.name}</h2>
+            <div class="ap-grid">
+              {FIELDS.map((f) => (
+                <label class="ap-field">
+                  <span>{f.label}</span>
+                  <input type="number" min="0" max="99" step="1" data-prop={h.key} data-field={f.key} />
+                </label>
+              ))}
+              <label class="ap-field">
+                <span>Airbnb 評価</span>
+                <input type="text" inputmode="decimal" placeholder="4.77" data-prop={h.key} data-field="rating" />
+              </label>
+              <label class="ap-field">
+                <span>レビュー件数</span>
+                <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field="reviewCount" />
+              </label>
+            </div>
+            <div class="ap-actions">
+              <button class="ap-btn ap-save" data-prop={h.key}>保存する</button>
+              <span class="ap-saved" data-saved={h.key}></span>
+            </div>
+          </section>
+        ))}
+
+        <section class="ap-card">
+          <h2 class="ap-house">評価の取得日</h2>
+          <p class="ap-note">サイト上に「評価は◯◯時点」と表示される日付です。評価を更新したら合わせて直してください。</p>
+          <div class="ap-actions">
+            <input type="date" id="ap-asof" />
+            <button class="ap-btn" id="ap-save-asof">保存する</button>
+            <span class="ap-saved" id="ap-asof-saved"></span>
+          </div>
+        </section>
+
+        <section class="ap-card ap-deploy">
+          <h2 class="ap-house">サイトに反映</h2>
+          <p class="ap-note">
+            保存した内容をサイトへ反映します。押してから表示が切り替わるまで数分かかります。
+            反映しなくてもデータは保存されているので、まとめて編集してから最後に1回押せば十分です。
+          </p>
+          <div class="ap-actions">
+            <button class="ap-btn" id="ap-rebuild">サイトに反映する</button>
+            <span class="ap-saved" id="ap-rebuild-status"></span>
+          </div>
+        </section>
+
+        <p class="ap-status" id="ap-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ PROPS_ENDPOINT, REBUILD_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const FIELD_KEYS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "shower", "sink", "toilet", "rating", "reviewCount"];
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(PROPS_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) throw new Error("unauthorized");
+      return res.json();
+    }
+
+    function fill(prop, data) {
+      FIELD_KEYS.forEach((f) => {
+        const el = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`);
+        if (el) el.value = data[f] ?? DEFAULTS[prop][f] ?? "";
+      });
+    }
+
+    async function load() {
+      $("ap-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        fill("kiyokawa", j.items.kiyokawa ?? {});
+        fill("takasago", j.items.takasago ?? {});
+        $("ap-asof").value = j.items.meta?.ratingAsOf ?? DEFAULT_RATING_AS_OF;
+        $("ap-status").textContent = "";
+      } catch (e) {
+        $("ap-status").textContent = e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    document.querySelectorAll(".ap-save").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const prop = btn.dataset.prop;
+        const values = {};
+        FIELD_KEYS.forEach((f) => {
+          values[f] = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`).value;
+        });
+        btn.disabled = true;
+        const r = await api("POST", { prop, values });
+        document.querySelector(`[data-saved="${prop}"]`).textContent =
+          r.ok ? "保存しました（反映には「サイトに反映」が必要です）" : `保存に失敗しました（${r.error ?? ""}）`;
+        btn.disabled = false;
+      })
+    );
+
+    $("ap-save-asof").addEventListener("click", async () => {
+      const r = await api("POST", { ratingAsOf: $("ap-asof").value });
+      $("ap-asof-saved").textContent = r.ok ? "保存しました" : "保存に失敗しました";
+    });
+
+    $("ap-rebuild").addEventListener("click", async () => {
+      if (!confirm("サイトを再ビルドして、保存した内容を反映します。数分かかります。実行しますか？")) return;
+      $("ap-rebuild").disabled = true;
+      $("ap-rebuild-status").textContent = "反映を開始しています...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const res = await fetch(REBUILD_ENDPOINT, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        const j = await res.json();
+        $("ap-rebuild-status").textContent = j.ok
+          ? "反映を開始しました。数分後にサイトへ反映されます。"
+          : `反映を開始できませんでした（${j.error ?? ""}）`;
+      } catch {
+        $("ap-rebuild-status").textContent = "反映を開始できませんでした。";
+      }
+      $("ap-rebuild").disabled = false;
+    });
+
+    $("ap-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("ap-login-status").textContent = "ログインに失敗しました。"; }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      $("ap-login").hidden = !!user;
+      $("ap-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .ap { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .ap-container { max-width: 880px; margin: 0 auto; }
+  .ap-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .ap-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .ap-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .ap-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .ap-card { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.75rem; margin-bottom: 1.5rem; }
+  .ap-deploy { background: #f7f7f7; border-color: #d7d7d7; }
+  .ap-house { font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 1rem; }
+  .ap-note { font-size: 0.8rem; color: #888888; line-height: 1.8; margin-bottom: 1rem; }
+  .ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.9rem; margin-bottom: 1.25rem; }
+  .ap-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .ap-field span { font-size: 0.75rem; color: #555555; }
+  .ap-field input {
+    padding: 0.55rem 0.7rem; font-family: inherit; font-size: 0.9rem; color: #111111;
+    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff;
+  }
+  .ap-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .ap-actions input[type="date"] {
+    padding: 0.55rem 0.7rem; font-family: inherit; font-size: 0.9rem;
+    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff; color: #111111;
+  }
+  .ap-btn {
+    padding: 0.65rem 1.5rem; background: #111111; color: #ffffff; font-family: inherit;
+    font-size: 0.85rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .ap-btn:disabled { opacity: 0.5; }
+  .ap-saved { font-size: 0.78rem; color: #555555; }
+  .ap-status { font-size: 0.82rem; color: #333333; min-height: 1.4em; }
+</style>

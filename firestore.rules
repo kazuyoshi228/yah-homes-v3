@@ -4,6 +4,13 @@ rules_version = '2';
 // 機能追加時にコレクション単位で明示的に許可する（無断変更禁止・要承認）。
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 物件ファクト（定員・ベッド構成・水回り・評価）はサイト表示用の公開情報。
+    // ビルド時に REST で読むため公開読み取りを許可。書き込みは adminProperties 関数のみ。
+    match /property_facts/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // デフォルト: すべて拒否
     match /{document=**} {
       allow read, write: if false;
