@@ -177,6 +177,32 @@
     transform: scale(0.98);
   }
 
+  /* ── Direct booking button（自社予約への主CTA・黒） ── */
+  .btn-direct {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border: 1px solid #111111;
+    background: #111111;
+    color: #ffffff;
+    text-decoration: none;
+    transition:
+      opacity 0.2s ease,
+      transform 0.15s ease;
+  }
+  .btn-direct:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+  .btn-direct:active {
+    transform: scale(0.98);
+  }
+
   /* ── Vertical section label ── */
   .section-label-vertical {
     writing-mode: vertical-rl;

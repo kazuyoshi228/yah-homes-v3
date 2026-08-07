@@ -4,7 +4,7 @@
    （3/4画像・photos バッジ・星評価・Airbnb / Booking.com / Gallery ボタン）
    ギャラリーはバニラJSのライトボックスで再現 */
 import { translations } from "../../i18n/translations";
-import type { Locale } from "../../i18n/config";
+import { localizedPath, type Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
 import { GALLERIES, PROPERTIES, RATING_AS_OF } from "../../data/properties";
 import { uiStrings } from "../../i18n/uiStrings";
@@ -13,6 +13,10 @@ interface Props {
   lang: Locale;
 }
 const { lang } = Astro.props;
+// 直販ボタン: /book/ が生成されるプレビュー時のみ表示（本番は従来どおりOTAのみ）
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const BOOK_PATH = localizedPath(lang, "/book");
+const DIRECT_LABEL = { en: "Book direct — best rate", ja: "公式サイトで予約（最安）", ko: "공식 사이트에서 예약(최저가)", zh: "官網預訂（最優惠）", th: "จองผ่านเว็บทางการ (ราคาดีที่สุด)" }[lang];
 const t = translations[lang];
 
 // GEO: 直接回答ブロック（定義文+数値 — 引用エンジン向けの抽出可能な一文）
@@ -134,6 +138,11 @@ const PROPERTY_META = [
                 </a>
 
                 <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                  {BOOK_PREVIEW && (
+                    <a href={`${BOOK_PATH}?prop=${p.id}`} class="btn-direct" data-cta-location="property_card_direct">
+                      {DIRECT_LABEL}
+                    </a>
+                  )}
                   <a href={p.airbnb} target="_blank" rel="noopener noreferrer" class="btn-booking" data-cta-location="property_card">
                     {t.properties.airbnbBtn}
                   </a>
