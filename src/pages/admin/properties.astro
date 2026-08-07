@@ -6,7 +6,6 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { DEFAULTS, DEFAULT_RATING_AS_OF } from "../../lib/propertyFacts";
 
 const PROPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminProperties";
-const REBUILD_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminRebuild";
 const FB_CONFIG = {
   apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
   authDomain: "yah-homes.firebaseapp.com",
@@ -44,7 +43,7 @@ const HOUSES = [
       <h1 class="ap-title">物件ファクト管理</h1>
       <p class="ap-lead">
         ここが物件情報の<strong>唯一の正</strong>です。保存した内容は、トップページ・予約ページ・物件詳細ページのすべてに反映されます。
-        サイトは静的に生成しているため、保存したあとに<strong>「サイトに反映」</strong>を押してください（反映まで数分かかります）。
+        サイトは静的に生成しているため、保存したあとに<strong>再ビルド</strong>が必要です（下記参照）。
       </p>
 
       <div id="ap-login" class="ap-login">
@@ -90,15 +89,12 @@ const HOUSES = [
         </section>
 
         <section class="ap-card ap-deploy">
-          <h2 class="ap-house">サイトに反映</h2>
+          <h2 class="ap-house">サイトへの反映について</h2>
           <p class="ap-note">
-            保存した内容をサイトへ反映します。押してから表示が切り替わるまで数分かかります。
-            反映しなくてもデータは保存されているので、まとめて編集してから最後に1回押せば十分です。
+            保存した内容は安全に記録されていますが、サイトの表示に反映するには再ビルドが必要です（静的サイトのため）。
+            編集が終わったら、開発担当へ「物件ファクトを更新したので反映してください」とご連絡ください。反映は数分で完了します。<br />
+            自動反映の仕組みは、編集者が増えた段階で追加する予定です。
           </p>
-          <div class="ap-actions">
-            <button class="ap-btn" id="ap-rebuild">サイトに反映する</button>
-            <span class="ap-saved" id="ap-rebuild-status"></span>
-          </div>
         </section>
 
         <p class="ap-status" id="ap-status" role="status"></p>
@@ -107,7 +103,7 @@ const HOUSES = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ PROPS_ENDPOINT, REBUILD_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF }}>
+<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -158,7 +154,7 @@ const HOUSES = [
         btn.disabled = true;
         const r = await api("POST", { prop, values });
         document.querySelector(`[data-saved="${prop}"]`).textContent =
-          r.ok ? "保存しました（反映には「サイトに反映」が必要です）" : `保存に失敗しました（${r.error ?? ""}）`;
+          r.ok ? "保存しました（サイトの表示に反映するには再ビルドが必要です）" : `保存に失敗しました（${r.error ?? ""}）`;
         btn.disabled = false;
       })
     );
@@ -168,22 +164,6 @@ const HOUSES = [
       $("ap-asof-saved").textContent = r.ok ? "保存しました" : "保存に失敗しました";
     });
 
-    $("ap-rebuild").addEventListener("click", async () => {
-      if (!confirm("サイトを再ビルドして、保存した内容を反映します。数分かかります。実行しますか？")) return;
-      $("ap-rebuild").disabled = true;
-      $("ap-rebuild-status").textContent = "反映を開始しています...";
-      try {
-        const token = await auth.currentUser.getIdToken();
-        const res = await fetch(REBUILD_ENDPOINT, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-        const j = await res.json();
-        $("ap-rebuild-status").textContent = j.ok
-          ? "反映を開始しました。数分後にサイトへ反映されます。"
-          : `反映を開始できませんでした（${j.error ?? ""}）`;
-      } catch {
-        $("ap-rebuild-status").textContent = "反映を開始できませんでした。";
-      }
-      $("ap-rebuild").disabled = false;
-    });
 
     $("ap-login-btn").addEventListener("click", async () => {
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
