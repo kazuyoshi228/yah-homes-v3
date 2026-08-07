@@ -70,6 +70,7 @@
 - Googleログイン → 予約一覧・詳細（棟・日付・総額・freeCancelUntilAt・policyVersion）。
 - **キャンセルセルフサービス**: 期限内=ボタン1つ → §8のキャンセルSagaを起動（同期処理にしない）。期限後は「メールで相談」。
 - 日程変更は変更依頼フォーム（当面人力）。到着予定時刻の選択→運営会社通知。
+- **入室案内の再表示**: チェックイン案内（住所・鍵・手順）を /account でいつでも再表示できる（3日前メール不達時の救済・当日トラブルの最多原因対策）。
 
 ## 7. マイルストーン（v3改訂）
 
@@ -111,7 +112,9 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
                                  MANUAL_REVIEW（有人キュー・SLA付き）
 ```
 
-- 各状態遷移は永続化した **operation ID** を持ち、外部API呼び出し（Beds24/Stripe）は同IDをIdempotency-Keyとして渡す。
+- 各状態遷移は永続化した **operation ID** を持ち、外部API呼び出し（Beds24/Stripe）は同IDをIdempotency-Keyとして渡す。`operations` 台帳は**append-only**（訂正は訂正イベントで積む・書き換えない）。
+- **stateVersion（古いタスク対策・2026-08-08追補）**: 予約docに単調増加の `stateVersion` を持ち、状態遷移はFirestoreトランザクションで「想定バージョン一致時のみ」実行（CAS）。遅延再配信された古いタスクが最新状態（例: 取消済み）を上書きできない。
+- **Beds24側の手作業変更は自動追随しない**: 運営会社がBeds24画面で直販予約を変更/取消した場合、ミラー差分で検知（既存の日次定点観測が検知網を兼ねる）→ **MANUAL_REVIEW に止める**。自社からStripeを自動返金しない。
 - **フロー**: ①bookCreate=検証・pending・PI作成 ②クライアントが3DS含む決済確認 ③`amount_capturable_updated` Webhook→bookingWorkerが**確定直前の再見積り・再在庫確認**→Beds24 POST（外部参照=operation ID）→成功でcapture→CONFIRMED→メール ④各段の失敗は表の補償（オーソリ解放/Beds24取消/再試行上限→MANUAL_REVIEW＋【予約エラー】メール）。
 - **Beds24タイムアウト（作成済みか不明）**: 再POST禁止。外部参照で照会→見つかれば続行・見つからなければ解放。照合手段はMS1実機検証で確定（§13-3）。
 - **キャンセルSaga**: CANCEL_REQUESTED→refund実行→Beds24取消→カレンダー解放→通知、の各段を追跡。片方失敗は再試行（間隔・上限定義）→超過でMANUAL_REVIEW（当番通知・顧客へ「処理中」定型連絡・解決SLA）。
@@ -148,7 +151,17 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
 
 - **App Check**（reCAPTCHA Enterprise）: bookingApi・bookCreate 必須。＋IP/UID単位の簡易レート制限・Beds24 API利用量アラート。
 - Secrets: BEDS24_TOKEN（read）・BEDS24_REFRESH_TOKEN_WRITE・STRIPE_SECRET_KEY・STRIPE_WEBHOOK_SECRET・WEBHOOK_KEY・SMTP_*。関数単位で限定付与。
+- **kill switch**: Firestore `config/killSwitch` フラグで外部副作用ジョブ（Beds24書込・capture・返金・メール）を一斉停止できる。障害復旧・DB復元時は必ず有効化してから作業する。
 - 障害時は必ず【予約エラー】メール（沈黙禁止）。
+
+### 8-7. 属性別SSOT（差異時にどちらを正とするか）
+
+| 属性 | 正 | 同期方向 | 差異時 |
+|---|---|---|---|
+| 在庫・料金・予約日程 | Beds24 | Beds24→自社ミラー | 自社は上書きしない。補正はBeds24側で人が行う |
+| 支払・返金・紛争 | Stripe | Stripe→自社台帳 | Stripeイベント＋管理画面で確定 |
+| 同意・操作履歴・購入意図 | 自社（append-only） | 自社→必要最小限のみ外部 | 訂正イベントで積む・書換禁止 |
+| 宿泊者名簿・旅券写し | 分離保管領域（registry/Storage） | 必要範囲のみ運営会社へ | 予約DB・分析へ複製しない |
 
 ## 9. 運営会社まわり
 
@@ -192,3 +205,15 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
 | 7 | 障害通知の確認者・確認SLA・夜間休日の対応範囲 | 運営・Tech |
 | 8 | 特商法・規約・キャンセル規約・プライバシー通知の整合（専門家レビュー） | 法務確認 |
 | 9 | KPIの分母・期間・ベースライン・¥15,000/予約の限界利益再計算 | 経営 |
+
+## 14. 深層リスク・バックログ（規模トリガー付き・2026-08-08追補レビューより）
+
+P1では実装せず、トリガー到達時に着手する:
+
+| 項目 | トリガー |
+|---|---|
+| 金銭サブレジャー（不変イベント台帳）・日次/月次照合の厳格化 | 直販 月10件超 |
+| 設定ドリフト検知（Beds24/Stripe設定の日次スナップショット）・契約テスト・障害注入演習 | 5棟化 or 直販比率35% |
+| break-glass権限・四半期のDB復元演習 | 運用人員2人超 |
+| 不正利用の多層防御（クーポン多重・在庫拘束Bot・返金二者承認） | クーポン施策開始時 |
+| Firestore復旧Runbook（kill switch→外部再照合→差分append取込。PITR=7日/分粒度・バックアップは別DB復元でTTL非復元、の制約前提） | MS3.9までに文書化のみ（演習は上記トリガー） |
