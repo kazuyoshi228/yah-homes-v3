@@ -7,6 +7,7 @@ import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
 import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
 import { PROPERTIES } from "../../../data/properties";
+import { getPropertyFacts } from "../../../lib/propertyFacts";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -33,11 +34,15 @@ const FB_CONFIG = {
   appId: "1:18500698213:web:8b4cf08b97d916c216068c",
 };
 
+const { facts } = await getPropertyFacts();
 const HOUSE_META = {
-  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: 8 },
-  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: 6 },
+  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: facts.kiyokawa.capacity,
+              checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime },
+  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: facts.takasago.capacity,
+              checkinTime: facts.takasago.checkinTime, checkoutTime: facts.takasago.checkoutTime },
   // 検証用物件（デモ面のみ・Beds24 yah.homes test1）
-  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7 },
+  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7,
+          checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime },
 };
 
 // 画面文言（5言語）
@@ -45,7 +50,7 @@ const C = {
   en: {
     title: "Complete your booking", steps: ["Dates & house", "Your details", "Payment"],
     summary: "Your booking", checkin: "Check-in", checkout: "Check-out", guests: "Guests",
-    checkinTime: "From 15:00", checkoutTime: "Until 10:00", nightsGuests: (n: number, g: number) => `${n} nights · ${g} guests`,
+    checkinTime: "{t}〜", checkoutTime: "〜{t}", nightsGuests: (n: number, g: number) => `${n} nights · ${g} guests`,
     priceTitle: "Price details", total: "Total", taxNote: "Room, lodging tax and cleaning fee included",
     cancelTitle: "Cancellation", freeUntil: (d: string) => `Free cancellation until ${d} 23:59 (JST)`,
     cancelAfter: "After that, the full amount is charged.",
@@ -67,7 +72,7 @@ const C = {
   ja: {
     title: "ご予約の確定", steps: ["日程・棟の選択", "お客様情報", "お支払い"],
     summary: "ご予約内容", checkin: "チェックイン", checkout: "チェックアウト", guests: "人数",
-    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}泊 ${g}名`,
+    checkinTime: "{t}〜", checkoutTime: "〜{t}", nightsGuests: (n: number, g: number) => `${n}泊 ${g}名`,
     priceTitle: "料金内訳", total: "合計", taxNote: "宿泊料・宿泊税・清掃料込み",
     cancelTitle: "キャンセルについて", freeUntil: (d: string) => `${d} 23:59（日本時間）まで無料キャンセル`,
     cancelAfter: "以降は全額が発生します。",
@@ -89,7 +94,7 @@ const C = {
   ko: {
     title: "예약 확정", steps: ["날짜・동 선택", "고객 정보", "결제"],
     summary: "예약 내용", checkin: "체크인", checkout: "체크아웃", guests: "인원",
-    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}박 ${g}명`,
+    checkinTime: "{t}〜", checkoutTime: "〜{t}", nightsGuests: (n: number, g: number) => `${n}박 ${g}명`,
     priceTitle: "요금 내역", total: "합계", taxNote: "숙박료・숙박세・청소비 포함",
     cancelTitle: "취소 안내", freeUntil: (d: string) => `${d} 23:59(일본 시간)까지 무료 취소`,
     cancelAfter: "이후에는 전액이 부과됩니다.",
@@ -111,7 +116,7 @@ const C = {
   zh: {
     title: "完成預訂", steps: ["日期・房源", "顧客資料", "付款"],
     summary: "預訂內容", checkin: "入住", checkout: "退房", guests: "人數",
-    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}晚 ${g}人`,
+    checkinTime: "{t}〜", checkoutTime: "〜{t}", nightsGuests: (n: number, g: number) => `${n}晚 ${g}人`,
     priceTitle: "費用明細", total: "總金額", taxNote: "含住宿費・住宿稅・清潔費",
     cancelTitle: "取消說明", freeUntil: (d: string) => `${d} 23:59（日本時間）前可免費取消`,
     cancelAfter: "之後將收取全額費用。",
@@ -133,7 +138,7 @@ const C = {
   th: {
     title: "ยืนยันการจอง", steps: ["วันที่・บ้าน", "ข้อมูลผู้เข้าพัก", "ชำระเงิน"],
     summary: "รายละเอียดการจอง", checkin: "เช็คอิน", checkout: "เช็คเอาท์", guests: "ผู้เข้าพัก",
-    checkinTime: "15:00 เป็นต้นไป", checkoutTime: "ก่อน 10:00", nightsGuests: (n: number, g: number) => `${n} คืน ${g} ท่าน`,
+    checkinTime: "{t}〜", checkoutTime: "〜{t}", nightsGuests: (n: number, g: number) => `${n} คืน ${g} ท่าน`,
     priceTitle: "รายละเอียดราคา", total: "ราคารวม", taxNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด",
     cancelTitle: "การยกเลิก", freeUntil: (d: string) => `ยกเลิกฟรีถึง ${d} 23:59 (เวลาญี่ปุ่น)`,
     cancelAfter: "หลังจากนั้นจะเรียกเก็บเต็มจำนวน",
@@ -158,6 +163,7 @@ const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
 const uiStrings = {
   approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
   total: C.total, missing: C.missing, authDone: C.authDone,
+  checkinTime: C.checkinTime, checkoutTime: C.checkoutTime,
   authEmailSent: C.authEmailSent, authEmailFail: C.authEmailFail,
   nightsGuests: C.nightsGuests(-1, -2).replace("-1", "{n}").replace("-2", "{g}"),
   preparing: { en: "Preparing payment…", ja: "決済を準備しています…", ko: "결제를 준비하고 있습니다…", zh: "正在準備付款…", th: "กำลังเตรียมการชำระเงิน…" }[lang],
@@ -203,8 +209,8 @@ const uiStrings = {
           <div class="co-block">
             <h3 class="co-block-title">{C.summary}</h3>
             <dl class="co-dl">
-              <div><dt>{C.checkin}</dt><dd id="co-in">—<span class="co-time">{C.checkinTime}</span></dd></div>
-              <div><dt>{C.checkout}</dt><dd id="co-out">—<span class="co-time">{C.checkoutTime}</span></dd></div>
+              <div><dt>{C.checkin}</dt><dd id="co-in">—<span class="co-time" id="co-in-time">{C.checkinTime.replace("{t}", facts.kiyokawa.checkinTime)}</span></dd></div>
+              <div><dt>{C.checkout}</dt><dd id="co-out">—<span class="co-time" id="co-out-time">{C.checkoutTime.replace("{t}", facts.kiyokawa.checkoutTime)}</span></dd></div>
               <div><dt>{C.guests}</dt><dd id="co-guests">—</dd></div>
             </dl>
           </div>
@@ -357,6 +363,9 @@ const uiStrings = {
     $("co-pay-status").textContent = "";
   } else {
     $("co-photo").src = meta.image;
+    // 時刻は棟ごとに持つ（物件ファクト管理の値）
+    if (meta.checkinTime) $("co-in-time").textContent = uiStrings.checkinTime.replace("{t}", meta.checkinTime);
+    if (meta.checkoutTime) $("co-out-time").textContent = uiStrings.checkoutTime.replace("{t}", meta.checkoutTime);
     $("co-house").textContent = meta.name;
     $("co-in").firstChild.textContent = checkin;
     $("co-out").firstChild.textContent = checkout;

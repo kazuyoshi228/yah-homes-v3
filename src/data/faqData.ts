@@ -84,7 +84,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "セルフチェックインはできますか？",
-            a: "はい。どちらもセキュリティロックを採用しています。チェックイン前にAirbnbまたはBooking.comのメッセージで解錠コードをお送りするので、対面での受け渡しは不要です。",
+            a: "はい。どちらもセキュリティロックを採用しています。解錠コードは、公式サイトからのご予約ならメールで、Airbnb・Booking.com からのご予約なら各サービスのメッセージで、ご到着の3日前を目安にお送りします。対面での受け渡しはありません。到着時刻の制限もないため、深夜のご到着でも問題ありません。",
           },
           {
             q: "福岡空港から宿までのアクセスは？",
@@ -129,7 +129,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "キャンセルポリシーは？",
-            a: "キャンセルポリシーは予約プラットフォームにより異なります。AirbnbまたはBooking.comの予約時に表示されるポリシーをご確認ください。直接のご予約はお問い合わせください。",
+            a: "公式サイトからのご予約は、チェックイン日の8日前まで無料でキャンセルいただけます。期限を過ぎた場合と無連絡不泊の場合は宿泊料金の全額を申し受けます。具体的な期限（日本時間）は、ご予約時と確定メールに表示します。Airbnb・Booking.com 経由のご予約は、各サービスで表示されるポリシーが適用されます。",
           },
         ],
       },
@@ -204,7 +204,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "Is self check-in available?",
-            a: "Yes. Both properties use a security lock system. You will receive the security code via Airbnb or Booking.com message before check-in. No need to meet anyone in person.",
+            a: "Yes. Both properties use a security lock system. If you book on this site we email the code; if you book via Airbnb or Booking.com it arrives in that platform\u2019s messages — about 3 days before arrival. Nobody needs to meet you, and there is no arrival time limit, so late-night arrivals are fine.",
           },
           {
             q: "How do I get from Fukuoka Airport to the properties?",
@@ -249,7 +249,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "What is your cancellation policy?",
-            a: "Cancellation policies vary by booking platform. Please refer to the policy shown on Airbnb or Booking.com at the time of booking. For direct bookings, please contact us directly.",
+            a: "Booking on this site: free cancellation until 8 days before check-in. After that, and for no-shows, the full amount applies. The exact deadline (Japan time) is shown when you book and in your confirmation email. Bookings made through Airbnb or Booking.com follow the policy shown on that platform.",
           },
         ],
       },
@@ -324,7 +324,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "셀프 체크인이 가능한가요?",
-            a: "네. 보안 잠금 시스템을 사용합니다. 체크인 24시간 전에 Airbnb 또는 Booking.com 메시지로 도어 코드를 받으실 수 있습니다.",
+            a: "네. 보안 잠금 시스템을 사용합니다. 공식 사이트에서 예약하신 경우에는 메일로, Airbnb・Booking.com 예약은 각 서비스 메시지로, 도착 3일 전을 기준으로 도어 코드를 보내드립니다. 대면 절차는 없으며 도착 시간 제한도 없어 늦은 밤 도착도 괜찮습니다.",
           },
           {
             q: "후쿠오카 공항에서 숙소까지 어떻게 가나요?",
@@ -369,7 +369,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "취소 정책은 어떻게 되나요?",
-            a: "취소 정책은 예약 플랫폼에 따라 다릅니다. Airbnb 또는 Booking.com 예약 시 표시되는 정책을 확인해 주세요.",
+            a: "공식 사이트 예약은 체크인 8일 전까지 무료로 취소하실 수 있습니다. 기한이 지난 취소와 무단 불투숙의 경우 숙박 요금 전액이 부과됩니다. 정확한 기한(일본 시간)은 예약 시와 확정 메일에 표시됩니다. Airbnb・Booking.com 예약은 각 플랫폼에 표시되는 정책이 적용됩니다.",
           },
         ],
       },
@@ -448,7 +448,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "可以自助入住嗎？",
-            a: "可以。兩處住宿均使用密碼鎖系統。入住前24小時將通過Airbnb或Booking.com訊息發送門鎖密碼。",
+            a: "可以。兩棟皆採用密碼鎖。官網預訂將以電子郵件寄送密碼，Airbnb・Booking.com 預訂則透過各平台訊息發送，時間約在抵達3天前。無需與人碰面，也沒有抵達時間限制，深夜抵達也沒問題。",
           },
           {
             q: "從福岡機場如何到達住宿？",
@@ -493,7 +493,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "取消政策是什麼？",
-            a: "取消政策因預訂平台而異。請參閱Airbnb或Booking.com預訂時顯示的政策。",
+            a: "官網預訂可於入住日8天前免費取消。逾期取消及未入住者將收取全額住宿費。確切期限（日本時間）會於預訂時與確認郵件中顯示。透過 Airbnb・Booking.com 的預訂，適用各平台顯示的政策。",
           },
         ],
       },
@@ -568,7 +568,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "สามารถเช็คอินด้วยตนเองได้หรือไม่?",
-            a: "ได้ ทั้งสองแห่งใช้ระบบล็อคอัจฉริยะ คุณจะได้รับรหัสประตูผ่านข้อความ Airbnb หรือ Booking.com 24 ชั่วโมงก่อนเช็คอิน",
+            a: "ได้ ทั้งสองหลังใช้ระบบล็อคนิรภัย หากจองผ่านเว็บไซต์ทางการเราจะส่งรหัสทางอีเมล หากจองผ่าน Airbnb หรือ Booking.com จะส่งผ่านข้อความของแพลตฟอร์มนั้น โดยประมาณ 3 วันก่อนวันเข้าพัก ไม่ต้องพบเจอใคร และไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
           },
           {
             q: "เดินทางจากสนามบินฟุกุโอกะไปที่พักอย่างไร?",
@@ -613,7 +613,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "นโยบายการยกเลิกคืออะไร?",
-            a: "นโยบายการยกเลิกแตกต่างกันตามแพลตฟอร์มการจอง กรุณาดูนโยบายที่แสดงใน Airbnb หรือ Booking.com ในขณะที่จอง",
+            a: "จองผ่านเว็บไซต์ทางการ: ยกเลิกฟรีได้ถึง 8 วันก่อนวันเช็คอิน หลังจากนั้นและกรณีไม่มาพักโดยไม่แจ้ง จะคิดค่าที่พักเต็มจำนวน กำหนดเวลาที่แน่นอน (เวลาญี่ปุ่น) จะแสดงตอนจองและในอีเมลยืนยัน ส่วนการจองผ่าน Airbnb หรือ Booking.com เป็นไปตามนโยบายของแพลตฟอร์มนั้น",
           },
         ],
       },

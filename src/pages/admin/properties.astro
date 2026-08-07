@@ -13,19 +13,83 @@ const FB_CONFIG = {
   appId: "1:18500698213:web:8b4cf08b97d916c216068c",
 };
 
-const FIELDS = [
-  { key: "capacity", label: "定員（最大人数）" },
-  { key: "bedrooms", label: "寝室数" },
-  { key: "bedDouble", label: "ダブルベッド" },
-  { key: "bedSingle", label: "シングルベッド" },
-  { key: "bath", label: "浴室" },
-  { key: "shower", label: "シャワーブース" },
-  { key: "sink", label: "洗面台" },
-  { key: "toilet", label: "トイレ" },
+// 比較表の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
+interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean }
+const SECTIONS: { label: string; rows: FactRow[] }[] = [
+  {
+    label: "定員",
+    rows: [
+      { key: "capacity", label: "最大宿泊人数", unit: "名", type: "num" },
+      { key: "rating", label: "Airbnb評価", type: "text", placeholder: "4.77" },
+      { key: "reviewCount", label: "レビュー件数", unit: "件", type: "num" },
+    ],
+  },
+  {
+    label: "客室",
+    rows: [
+      { key: "bedrooms", label: "寝室", type: "num" },
+      { key: "bedDouble", label: "・ダブルベッド", type: "num", indent: true },
+      { key: "bedSingle", label: "・シングルベッド", type: "num", indent: true },
+    ],
+  },
+  {
+    label: "水回り",
+    rows: [
+      { key: "bath", label: "バスルーム", type: "num" },
+      { key: "shower", label: "シャワーブース", type: "num" },
+      { key: "sink", label: "洗面台", type: "num" },
+      { key: "toilet", label: "トイレ", type: "num" },
+    ],
+  },
+  {
+    label: "設備",
+    rows: [
+      { key: "washer", label: "洗濯機", type: "bool" },
+      { key: "dryer", label: "乾燥機能付きドラム式洗濯機", type: "bool" },
+      { key: "audio", label: "TV用スピーカー", type: "bool" },
+      { key: "tvInch", label: "大型テレビ", type: "num", unit: "インチ" },
+      { key: "studyDesk", label: "スタディデスク", type: "bool" },
+      { key: "parking", label: "専用駐車場", type: "bool" },
+      { key: "theater", label: "シアタールーム", type: "bool" },
+    ],
+  },
+  {
+    label: "アクセス",
+    rows: [
+      { key: "fromAirportCarMin", label: "空港から（車・分）", type: "num", unit: "分" },
+      { key: "fromStationWalkMin", label: "駅から（徒歩・分）", type: "num", unit: "分" },
+      { key: "nearestStation", label: "最寄り駅", type: "text", placeholder: "渡辺通" },
+      { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
+      { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
+    ],
+  },
+  {
+    label: "人気スポットまでの距離",
+    rows: [
+      { key: "spotMarketMin", label: "柳橋連合市場（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotMarketM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotSumiyoshiMin", label: "住吉神社（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotSumiyoshiM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotCanalMin", label: "キャナルシティ博多（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotCanalM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotNakasuWalkMin", label: "中洲・屋台街（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotNakasuTaxiMin", label: "　同・タクシー", type: "num", unit: "分", indent: true },
+      { key: "spotOhoriCarMin", label: "大濠公園（車・分）", type: "num", unit: "分" },
+      { key: "spotOhoriM", label: "　同・距離", type: "num", unit: "m", indent: true },
+    ],
+  },
+  {
+    label: "チェックイン・アウト",
+    rows: [
+      { key: "checkinTime", label: "チェックイン時刻", type: "time" },
+      { key: "checkoutTime", label: "チェックアウト時刻", type: "time" },
+    ],
+  },
 ];
+const FIELD_KEYS = SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
 const HOUSES = [
-  { key: "kiyokawa", name: "yah.homes kiyokawa（清川）" },
-  { key: "takasago", name: "yah.homes takasago（高砂）" },
+  { key: "kiyokawa", name: "清川" },
+  { key: "takasago", name: "高砂" },
 ];
 ---
 
@@ -52,31 +116,50 @@ const HOUSES = [
       </div>
 
       <div id="ap-app" hidden>
-        {HOUSES.map((h) => (
-          <section class="ap-card" data-prop={h.key}>
-            <h2 class="ap-house">{h.name}</h2>
-            <div class="ap-grid">
-              {FIELDS.map((f) => (
-                <label class="ap-field">
-                  <span>{f.label}</span>
-                  <input type="number" min="0" max="99" step="1" data-prop={h.key} data-field={f.key} />
-                </label>
+        <div class="ap-tablewrap">
+          <table class="ap-table">
+            <thead>
+              <tr>
+                <th class="ap-th-label"></th>
+                {HOUSES.map((h) => <th class="ap-th-house">{h.name}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {SECTIONS.map((sec) => (
+                <>
+                  <tr class="ap-section"><th colspan={HOUSES.length + 1}>{sec.label}</th></tr>
+                  {sec.rows.map((r) => (
+                    <tr>
+                      <th class={r.indent ? "ap-row-label ap-indent" : "ap-row-label"}>{r.label}</th>
+                      {HOUSES.map((h) => (
+                        <td>
+                          {r.type === "bool" ? (
+                            <select data-prop={h.key} data-field={r.key}>
+                              <option value="1">あり</option>
+                              <option value="0">—</option>
+                            </select>
+                          ) : r.type === "time" ? (
+                            <input type="time" data-prop={h.key} data-field={r.key} />
+                          ) : r.type === "text" ? (
+                            <input type="text" inputmode="decimal" placeholder={r.placeholder} data-prop={h.key} data-field={r.key} />
+                          ) : (
+                            <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field={r.key} />
+                          )}
+                          {r.unit && <span class="ap-unit">{r.unit}</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </>
               ))}
-              <label class="ap-field">
-                <span>Airbnb 評価</span>
-                <input type="text" inputmode="decimal" placeholder="4.77" data-prop={h.key} data-field="rating" />
-              </label>
-              <label class="ap-field">
-                <span>レビュー件数</span>
-                <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field="reviewCount" />
-              </label>
-            </div>
-            <div class="ap-actions">
-              <button class="ap-btn ap-save" data-prop={h.key}>保存する</button>
-              <span class="ap-saved" data-saved={h.key}></span>
-            </div>
-          </section>
-        ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="ap-actions ap-save-bar">
+          <button class="ap-btn ap-save-all" id="ap-save-all">すべて保存する</button>
+          <span class="ap-saved" id="ap-saved-all"></span>
+        </div>
 
         <section class="ap-card">
           <h2 class="ap-house">評価の取得日</h2>
@@ -103,14 +186,14 @@ const HOUSES = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF }}>
+<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF, FIELD_KEYS }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);
-    const FIELD_KEYS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "shower", "sink", "toilet", "rating", "reviewCount"];
+
 
     async function api(method, body) {
       const token = await auth.currentUser.getIdToken();
@@ -144,20 +227,26 @@ const HOUSES = [
       }
     }
 
-    document.querySelectorAll(".ap-save").forEach((btn) =>
-      btn.addEventListener("click", async () => {
-        const prop = btn.dataset.prop;
+    $("ap-save-all").addEventListener("click", async () => {
+      const btn = $("ap-save-all");
+      btn.disabled = true;
+      $("ap-saved-all").textContent = "保存しています…";
+      const results = [];
+      for (const prop of ["kiyokawa", "takasago"]) {
         const values = {};
         FIELD_KEYS.forEach((f) => {
-          values[f] = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`).value;
+          const el = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`);
+          if (el) values[f] = el.value;
         });
-        btn.disabled = true;
         const r = await api("POST", { prop, values });
-        document.querySelector(`[data-saved="${prop}"]`).textContent =
-          r.ok ? "保存しました（サイトの表示に反映するには再ビルドが必要です）" : `保存に失敗しました（${r.error ?? ""}）`;
-        btn.disabled = false;
-      })
-    );
+        results.push(r.ok ? null : `${prop}: ${r.error ?? "失敗"}`);
+      }
+      const errs = results.filter(Boolean);
+      $("ap-saved-all").textContent = errs.length
+        ? `保存に失敗しました（${errs.join(" / ")}）`
+        : "保存しました（サイトの表示に反映するには再ビルドが必要です）";
+      btn.disabled = false;
+    });
 
     $("ap-save-asof").addEventListener("click", async () => {
       const r = await api("POST", { ratingAsOf: $("ap-asof").value });
@@ -189,18 +278,28 @@ const HOUSES = [
   .ap-deploy { background: #f7f7f7; border-color: #d7d7d7; }
   .ap-house { font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 1rem; }
   .ap-note { font-size: 0.8rem; color: #888888; line-height: 1.8; margin-bottom: 1rem; }
-  .ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.9rem; margin-bottom: 1.25rem; }
-  .ap-field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .ap-field span { font-size: 0.75rem; color: #555555; }
-  .ap-field input {
-    padding: 0.55rem 0.7rem; font-family: inherit; font-size: 0.9rem; color: #111111;
-    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff;
+  .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
+  .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .ap-table thead th { padding: 0.6rem 0.75rem; border-bottom: 2px solid #111111; font-weight: 500; color: #111111; }
+  .ap-th-label { width: 42%; text-align: left; }
+  .ap-th-house { text-align: center; min-width: 150px; }
+  .ap-table :global(.ap-section) th {
+    padding: 1.4rem 0 0.5rem; font-size: 0.7rem; letter-spacing: 0.08em; color: #999999;
+    font-weight: 400; text-align: left; border-bottom: none;
   }
-  .ap-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-  .ap-actions input[type="date"] {
-    padding: 0.55rem 0.7rem; font-family: inherit; font-size: 0.9rem;
-    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff; color: #111111;
+  .ap-table :global(.ap-row-label) {
+    padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid #f0f0f0;
+    font-weight: 400; color: #333333; text-align: left; white-space: nowrap;
   }
+  .ap-table :global(.ap-indent) { padding-left: 1rem; color: #777777; font-size: 0.8rem; }
+  .ap-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f0f0f0; text-align: center; white-space: nowrap; }
+  .ap-table td input, .ap-table td select {
+    width: 100%; max-width: 110px; padding: 0.4rem 0.5rem; font-family: inherit; font-size: 0.85rem;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px; text-align: center;
+  }
+  .ap-table td select { text-align: left; }
+  .ap-unit { font-size: 0.72rem; color: #aaaaaa; margin-left: 0.3rem; }
+  .ap-save-bar { position: sticky; bottom: 0; background: #ffffff; padding: 1rem 0; border-top: 1px solid #eeeeee; }
   .ap-btn {
     padding: 0.65rem 1.5rem; background: #111111; color: #ffffff; font-family: inherit;
     font-size: 0.85rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;

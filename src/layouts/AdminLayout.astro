@@ -8,13 +8,13 @@ interface Props {
 }
 const { title, active } = Astro.props;
 
+// 稼働中の画面のみ。枠だけのページは削除済み（2026-08-08）
 const items = [
-  { key: "menu", href: "/admin/", label: "Menu" },
-  { key: "dashboard", href: "/admin/dashboard/", label: "Dashboard" },
-  { key: "inbox", href: "/admin/inbox/", label: "Inbox" },
-  { key: "instagram", href: "/admin/instagram/", label: "Instagram" },
-  { key: "analytics", href: "/admin/analytics/", label: "Analytics" },
-  { key: "docs", href: "/admin/docs/", label: "Docs" },
+  { key: "menu", href: "/admin/menu/", label: "Menu" },
+  { key: "bookings", href: "/admin/bookings/", label: "予約" },
+  { key: "inbox", href: "/admin/inbox/", label: "受信箱" },
+  { key: "properties", href: "/admin/properties/", label: "物件" },
+  { key: "users", href: "/admin/users/", label: "管理者" },
 ];
 ---
 

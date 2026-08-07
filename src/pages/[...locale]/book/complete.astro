@@ -6,6 +6,7 @@
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
 import { PROPERTIES } from "../../../data/properties";
+import { getPropertyFacts } from "../../../lib/propertyFacts";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -28,9 +29,11 @@ const FB_CONFIG = {
   projectId: "yah-homes",
   appId: "1:18500698213:web:8b4cf08b97d916c216068c",
 };
+const { facts } = await getPropertyFacts();
 const HOUSE_META = {
-  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior },
-  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior },
+  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
+  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, ci: facts.takasago.checkinTime, co: facts.takasago.checkoutTime },
+  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
 };
 
 const C = {
@@ -227,8 +230,8 @@ const ui = {
       $("cp-photo").alt = meta.name;
       $("cp-id").textContent = b.id;
       $("cp-house").textContent = meta.name;
-      $("cp-checkin").textContent = `${b.checkin}　15:00〜`;
-      $("cp-checkout").textContent = `${b.checkout}　〜10:00`;
+      $("cp-checkin").textContent = `${b.checkin}　${meta.ci ?? ""}〜`;
+      $("cp-checkout").textContent = `${b.checkout}　〜${meta.co ?? ""}`;
       $("cp-guests").textContent = String(b.guests);
       $("cp-total").textContent = yen(b.total);
       if (b.arrival) { $("cp-arrival").textContent = b.arrival; $("cp-arrival-row").hidden = false; }

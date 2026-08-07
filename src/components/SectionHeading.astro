@@ -1,0 +1,96 @@
+---
+/* セクション見出し（共通部品）
+   3層で構造を伝える: 罫線＋番号/英字ラベル → 主見出し → 副見出し。
+   ブランドがモノクローム＋写真主体のため、アイコンや絵文字は使わず、文字と線だけで立たせる。 */
+interface Props {
+  /** 通し番号（"01" など）。省略可 */
+  num?: string;
+  /** 小さい英字ラベル（"FEATURES" など） */
+  label: string;
+  /** 主見出し（省略時はラベルのみ表示） */
+  title?: string;
+  /** 副見出し（省略可） */
+  subtitle?: string;
+  /** 中央寄せにするか（既定は左寄せ） */
+  align?: "left" | "center";
+  /** 暗い背景に置く場合 */
+  onDark?: boolean;
+}
+const { num, label, title, subtitle, align = "left", onDark = false } = Astro.props;
+---
+
+<div class:list={["sh", `sh-${align}`, onDark && "sh-dark", !title && "sh-no-title"]}>
+  <p class="sh-eyebrow">
+    <span class="sh-rule" aria-hidden="true"></span>
+    {num && <span class="sh-num">{num}</span>}
+    <span class="sh-label">{label}</span>
+  </p>
+  {title && <h2 class="sh-title">{title}</h2>}
+  {subtitle && <p class="sh-sub">{subtitle}</p>}
+</div>
+
+<style>
+  .sh { margin-bottom: 2.5rem; }
+  .sh-center { text-align: center; }
+
+  .sh-no-title .sh-eyebrow { margin-bottom: 0; }
+  .sh-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+  }
+  .sh-center .sh-eyebrow { justify-content: center; }
+
+  /* 見出しの位置を余白の中で定める短い罫線 */
+  .sh-rule {
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: #111111;
+    flex-shrink: 0;
+  }
+  .sh-num {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: #111111;
+    font-variant-numeric: tabular-nums;
+  }
+  .sh-label {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #999999;
+  }
+
+  .sh-title {
+    font-size: clamp(1.5rem, 3.6vw, 2.15rem);
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: #111111;
+    margin: 0;
+  }
+  .sh-sub {
+    margin-top: 0.7rem;
+    font-size: 0.9rem;
+    line-height: 1.9;
+    color: #666666;
+    max-width: 46em;
+  }
+  .sh-center .sh-sub { margin-left: auto; margin-right: auto; }
+
+  /* 暗い背景（レビュー欄など） */
+  .sh-dark .sh-rule { background: #ffffff; }
+  .sh-dark .sh-num { color: #ffffff; }
+  .sh-dark .sh-label { color: rgba(255, 255, 255, 0.55); }
+  .sh-dark .sh-title { color: #ffffff; }
+  .sh-dark .sh-sub { color: rgba(255, 255, 255, 0.7); }
+
+  @media (max-width: 640px) {
+    .sh { margin-bottom: 1.75rem; }
+    .sh-sub { font-size: 0.85rem; }
+  }
+</style>

@@ -3,6 +3,7 @@
    見出し → 評価バッジ → Pickup Reviews（横スクロール・言語トグル・Review JSON-LD）
    → 改善リスト → クロージング */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
 import { REVIEWS } from "../../data/reviewsData";
@@ -65,13 +66,14 @@ function fullStars(rating: number): string {
     )
     .join("");
 }
+const REV_TITLE = { en: "Reviews", ja: "レビュー", ko: "리뷰", zh: "評價", th: "รีวิว" }[lang];
 ---
 
 <script is:inline type="application/ld+json" set:html={JSON.stringify(reviewJsonLd)} />
 
 <section style="background:#ffffff;padding:0 1.5rem 6rem;">
-  <div style="max-width:900px;margin:0 auto;">
-    <h2 class="rev-heading">{r.heading}</h2>
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
+    <SectionHeading num="05" label="Reviews" title={REV_TITLE} />
     <p class="rev-lead">{r.leadText}</p>
 
     <!-- Airbnb rating badges -->
@@ -135,10 +137,10 @@ function fullStars(rating: number): string {
       <p class="scroll-hint">← scroll →</p>
     </div>
 
-    <div style="width:2rem;height:1px;background:#cccccc;margin-bottom:3rem;"></div>
-
     <!-- Improvement -->
-    <h3 class="imp-heading">{r.improvementHeading}</h3>
+    <div style="margin-top:4rem;">
+      <SectionHeading num="06" label="Improvements" title={r.improvementHeading} />
+    </div>
     <p class="imp-intro">{r.improvementIntro}</p>
     <ul class="imp-list">
       {r.improvements.map((item) => <li>{item}</li>)}

@@ -453,6 +453,17 @@ async function releaseInventoryLocks(prop: string, checkin: string, checkout: st
   }
 }
 
+/** Beds24 の予約を取り消す（status を cancelled に更新する。削除はしない）。 */
+async function cancelBeds24Booking(beds24Id: number): Promise<void> {
+  const r = await fetch(`${BEDS24_API}/bookings`, {
+    method: "POST",
+    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+    body: JSON.stringify([{ id: beds24Id, status: "cancelled" }]),
+  });
+  const j = (await r.json()) as Array<{ success?: boolean; errors?: unknown }>;
+  if (!j?.[0]?.success) throw new Error(`beds24 cancel failed: ${JSON.stringify(j?.[0]?.errors ?? j).slice(0, 200)}`);
+}
+
 /** Beds24 に予約を作成し、Beds24側の予約IDを返す。 */
 async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<number> {
   const target = beds24WriteTarget(b.prop);
@@ -1257,8 +1268,9 @@ export const bookCreate = onRequest(
       }
       const total = offer.price;
 
-      // 無料キャンセル期限 = チェックイン7日前 00:00 JST（v4 §4）
-      const freeCancelUntilAt = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 7 * 86400000).toISOString();
+      // 無料キャンセル期限 = チェックイン日の8日前 23:59 JST（v5 §5-1）
+      // 特商法・FAQ・決済画面の「8日前まで無料」という表記と一致させる。
+      const freeCancelUntilAt = new Date(Date.parse(`${checkin}T23:59:59+09:00`) - 8 * 86400000).toISOString();
       const operationId = `op_${idempotencyKey}`;
 
       const ref = db.collection("bookings").doc();
@@ -1364,6 +1376,28 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
   const cur = (await ref.get()).data() as BookingDoc | undefined;
   if (!cur) return;
   if (cur.status === "CONFIRMED") return; // 既に確定（重複配信）
+
+  // 所有権照合（v5 §8-1①）: この PaymentIntent が本当にこの予約のものか、
+  // 金額・通貨・PI ID の3点まで突き合わせてから履行する。
+  // 署名検証を通過しても、metadata だけを信じて金額の異なる履行を行わない。
+  const piAmount = typeof pi.amount === "number" ? pi.amount : -1;
+  const piCurrency = String(pi.currency ?? "").toLowerCase();
+  const mismatch =
+    piAmount !== Number(cur.total) ? `amount ${piAmount} != ${cur.total}`
+    : piCurrency !== "jpy" ? `currency ${piCurrency}`
+    : cur.paymentIntentId && cur.paymentIntentId !== pi.id ? `pi ${pi.id} != ${cur.paymentIntentId}`
+    : "";
+  if (mismatch) {
+    logger.error("fulfillBooking ownership mismatch", { bookingId, pi: pi.id, mismatch });
+    await notifyError(
+      `[要対応] 決済と予約の内容が一致しません。履行を中止しました。\n` +
+      `予約ID: ${bookingId}／PaymentIntent: ${pi.id}／不一致: ${mismatch}`,
+    );
+    const c = (await ref.get()).data() as BookingDoc;
+    await transition(ref, { status: [c.status], stateVersion: c.stateVersion },
+      { status: "MANUAL_REVIEW", failureReason: `ownership_mismatch: ${mismatch}` });
+    return;
+  }
 
   const ok = await transition(ref, { status: ["PAYMENT_PENDING"], stateVersion: cur.stateVersion }, { status: "AUTHORIZED" });
   if (!ok) return; // 別タスクが処理済み or 状態不一致（stateVersion CAS）
@@ -1487,20 +1521,23 @@ const SITE_URL = "https://yah.homes";
 const MAIL_PROP = {
   kiyokawa: {
     name: "yah.homes kiyokawa",
+    image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
   },
   takasago: {
     name: "yah.homes takasago",
+    image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
     address: "",
     map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778",
   },
   test: {
     name: "yah.homes test1（検証用）",
+    image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
   },
-} as Record<string, { name: string; address: string; map: string }>;
+} as Record<string, { name: string; image: string; address: string; map: string }>;
 
 const MAIL_L10N: Record<string, Record<string, string>> = {
   ja: {
@@ -1508,9 +1545,9 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "yah.homes をご予約いただきありがとうございます。ご予約が確定しました。",
     bookingNo: "予約番号", checkTitle: "ご予約内容",
     checkin: "チェックイン", checkout: "チェックアウト", stay: "お客様のご予約", guestsRow: "宿泊者の内訳",
-    house: "お部屋", arrival: "到着予定時刻", checkinWindow: "15:00〜（時間の制限はありません）", checkoutWindow: "〜10:00",
+    house: "お部屋", arrival: "到着予定時刻", checkinWindow: "{ci}〜（時間の制限はありません）", checkoutWindow: "〜{co}",
     nights: "{n}泊", guests: "大人{g}名",
-    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。",
+    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、一度キャンセルのうえ、あらためてご予約ください。無料キャンセル期間内であれば追加のご負担はありません。",
     payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
     payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
     ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "お問い合わせ",
@@ -1529,9 +1566,9 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "Thank you for booking with yah.homes. Your reservation is confirmed.",
     bookingNo: "Booking ID", checkTitle: "Booking details",
     checkin: "Check-in", checkout: "Check-out", stay: "Your reservation", guestsRow: "Guests",
-    house: "House", arrival: "Estimated arrival", checkinWindow: "from 15:00 (no time limit)", checkoutWindow: "until 10:00",
+    house: "House", arrival: "Estimated arrival", checkinWindow: "from {ci} (no time limit)", checkoutWindow: "until {co}",
     nights: "{n} nights", guests: "{g} adults",
-    cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).",
+    cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).", changeNote: "To change your dates or party size, please cancel this booking and make a new one. Within the free cancellation period there is no extra cost.",
     payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
     payNote: "Room rate, lodging tax and cleaning fee are included. There is nothing more to pay.",
     ctaTitle: "Manage your booking", cta: "Change or cancel your booking", cta2: "Contact us",
@@ -1550,9 +1587,9 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "yah.homes를 예약해 주셔서 감사합니다. 예약이 확정되었습니다.",
     bookingNo: "예약번호", checkTitle: "예약 내용",
     checkin: "체크인", checkout: "체크아웃", stay: "예약 내용", guestsRow: "인원",
-    house: "숙소", arrival: "도착 예정 시각", checkinWindow: "15:00~ (시간 제한 없음)", checkoutWindow: "~10:00",
+    house: "숙소", arrival: "도착 예정 시각", checkinWindow: "{ci}~ (시간 제한 없음)", checkoutWindow: "~{co}",
     nights: "{n}박", guests: "성인 {g}명",
-    cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.",
+    cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.", changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요. 무료 취소 기간 내라면 추가 부담은 없습니다.",
     payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
     payNote: "숙박료・숙박세・청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
     ctaTitle: "예약 확인・변경", cta: "예약 변경・취소", cta2: "문의하기",
@@ -1571,9 +1608,9 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "感謝您預訂 yah.homes，您的預訂已確認。",
     bookingNo: "預訂編號", checkTitle: "預訂內容",
     checkin: "入住", checkout: "退房", stay: "您的預訂", guestsRow: "人數",
-    house: "房源", arrival: "預計抵達時間", checkinWindow: "15:00 起（無時間限制）", checkoutWindow: "10:00 前",
+    house: "房源", arrival: "預計抵達時間", checkinWindow: "{ci} 起（無時間限制）", checkoutWindow: "{co} 前",
     nights: "{n}晚", guests: "成人{g}人",
-    cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。",
+    cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。", changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂。在免費取消期限內不會產生額外費用。",
     payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
     payNote: "已含住宿費・住宿稅・清潔費，不會另外收費。",
     ctaTitle: "查看・變更預訂", cta: "變更・取消預訂", cta2: "聯絡我們",
@@ -1592,9 +1629,9 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "ขอบคุณที่จองที่พักกับ yah.homes การจองของคุณได้รับการยืนยันแล้ว",
     bookingNo: "หมายเลขการจอง", checkTitle: "รายละเอียดการจอง",
     checkin: "เช็คอิน", checkout: "เช็คเอาท์", stay: "การจองของคุณ", guestsRow: "ผู้เข้าพัก",
-    house: "ที่พัก", arrival: "เวลาที่คาดว่าจะถึง", checkinWindow: "ตั้งแต่ 15:00 (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน 10:00",
+    house: "ที่พัก", arrival: "เวลาที่คาดว่าจะถึง", checkinWindow: "ตั้งแต่ {ci} (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน {co}",
     nights: "{n} คืน", guests: "ผู้ใหญ่ {g} ท่าน",
-    cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)",
+    cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)", changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม",
     payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
     payNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาดแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม",
     ctaTitle: "จัดการการจอง", cta: "เปลี่ยนแปลงหรือยกเลิกการจอง", cta2: "ติดต่อเรา",
@@ -1614,12 +1651,14 @@ const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&
 
 function buildConfirmationMail(
   lang: string,
-  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string },
+  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string },
 ): { subject: string; text: string; html: string } {
   const L = MAIL_L10N[lang] ?? MAIL_L10N.en;
-  const P = MAIL_PROP[d.prop] ?? { name: d.prop, address: "", map: "" };
+  const P = MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
   const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
   const no = d.id.slice(0, 8).toUpperCase();
+  const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
+  const coWin = L.checkoutWindow.replace("{co}", d.checkoutTime);
   const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
 
   // ── 行・カードの部品（メールクライアント互換のため table + インラインCSS） ──
@@ -1660,16 +1699,22 @@ function buildConfirmationMail(
     <div style="font-size:15px;color:#111111;margin-bottom:6px;">${esc(d.name)}${esc(L.greetSuffix)}</div>
     <div style="font-size:21px;font-weight:600;color:#111111;line-height:1.5;margin-bottom:12px;">${esc(L.lead)}</div>
     <div style="font-size:13px;color:#111111;line-height:2;padding:12px 14px;background:#f7f7f7;border-radius:6px;margin-bottom:22px;">
-      ✓&nbsp; ${esc(L.checkin)}: <strong>${esc(d.checkin)}</strong> ${esc(L.checkinWindow)}<br>
+      ✓&nbsp; ${esc(L.checkin)}: <strong>${esc(d.checkin)}</strong> ${esc(ciWin)}<br>
       ✓&nbsp; ${esc(L.cancelFree.replace("{d}", d.freeCancel))} ${yen(0)}
     </div>
   </td></tr>
 
+  ${P.image ? `<tr><td style="padding:0 24px 22px;">
+    <img src="${esc(P.image)}" width="552" alt="${esc(P.name)}" style="display:block;width:100%;max-width:552px;height:auto;border-radius:8px;border:0;outline:none;text-decoration:none;" />
+    <div style="font-size:15px;font-weight:600;color:#111111;margin-top:12px;">${esc(P.name)}</div>
+    ${P.address ? `<div style="font-size:12px;color:#888888;margin-top:3px;">${esc(P.address)}</div>` : ""}
+  </td></tr>` : ""}
+
   <tr><td style="padding:0 24px;">
     ${cardOpen(esc(L.checkTitle))}
       ${row(esc(L.house), esc(P.name))}
-      ${row(esc(L.checkin), esc(d.checkin), esc(L.checkinWindow))}
-      ${row(esc(L.checkout), esc(d.checkout), esc(L.checkoutWindow))}
+      ${row(esc(L.checkin), esc(d.checkin), esc(ciWin))}
+      ${row(esc(L.checkout), esc(d.checkout), esc(coWin))}
       ${row(esc(L.stay), esc(L.nights.replace("{n}", String(d.nights))))}
       ${row(esc(L.guestsRow), esc(L.guests.replace("{g}", String(d.guests))))}
       ${d.arrival ? row(esc(L.arrival), esc(d.arrival)) : ""}
@@ -1678,7 +1723,7 @@ function buildConfirmationMail(
     ${cardOpen(esc(L.cancelTitle))}
       ${row(esc(L.cancelFree.replace("{d}", d.freeCancel)), yen(0))}
       ${row(esc(L.cancelAfter.replace("{d}", d.freeCancel)), yen(d.total))}
-    ${cardClose(esc(L.cancelNote))}
+    ${cardClose(`${esc(L.cancelNote)}<br>${esc(L.changeNote)}`)}
 
     ${cardOpen(esc(L.payTitle))}
       ${row(esc(L.payTotal), yen(d.total))}
@@ -1718,8 +1763,8 @@ function buildConfirmationMail(
     `${L.bookingNo}: ${no}`, "",
     `--- ${L.checkTitle} ---`,
     `${L.house}: ${P.name}`,
-    `${L.checkin}: ${d.checkin} ${L.checkinWindow}`,
-    `${L.checkout}: ${d.checkout} ${L.checkoutWindow}`,
+    `${L.checkin}: ${d.checkin} ${ciWin}`,
+    `${L.checkout}: ${d.checkout} ${coWin}`,
     `${L.stay}: ${L.nights.replace("{n}", String(d.nights))}`,
     `${L.guestsRow}: ${L.guests.replace("{g}", String(d.guests))}`,
     d.arrival ? `${L.arrival}: ${d.arrival}` : "",
@@ -1727,6 +1772,7 @@ function buildConfirmationMail(
     `${L.cancelFree.replace("{d}", d.freeCancel)}: ${yen(0)}`,
     `${L.cancelAfter.replace("{d}", d.freeCancel)}: ${yen(d.total)}`,
     L.cancelNote,
+    L.changeNote,
     "", `--- ${L.payTitle} ---`,
     `${L.payTotal}: ${yen(d.total)}`,
     `${L.payPaid}: ${yen(d.total)}`,
@@ -1749,7 +1795,14 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
     const free = b.freeCancelUntilAt
       ? new Date(String(b.freeCancelUntilAt)).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "long", timeStyle: "short" })
       : "-";
+    // チェックイン/アウト時刻は物件ファクト（Firestore）を正とする
+    let ci = "16:00", co = "10:00";
+    try {
+      const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
+      ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
+    } catch { /* 既定値のまま送る */ }
     const { subject, text, html } = buildConfirmationMail(lang, {
+      checkinTime: ci, checkoutTime: co,
       id: bookingId,
       name: String(b.name ?? ""),
       prop: b.prop,
@@ -1776,6 +1829,119 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
   }
 }
 
+const CANCEL_L10N: Record<string, Record<string, string>> = {
+  ja: { subject: "【yah.homes】ご予約をキャンセルしました", greetSuffix: " 様",
+    lead: "ご予約のキャンセルを承りました。", refundTitle: "ご返金",
+    paid: "お支払い済み金額", fee: "キャンセル料", refund: "ご返金額",
+    refundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。",
+    noRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。",
+    again: "またのご利用をお待ちしております。日程を改めてのご予約はこちらから承ります。",
+    cta: "空室を見る", contact: "ご不明な点は、このメールにご返信ください。", footer: "yah.homes ／ ボンファイア株式会社" },
+  en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "",
+    lead: "We have cancelled your booking.", refundTitle: "Refund",
+    paid: "Paid", fee: "Cancellation fee", refund: "Refund",
+    refundNote: "We are refunding to the card you used. Depending on your card issuer, it can take from a few days to about a month to appear.",
+    noRefundNote: "The free cancellation deadline had passed, so no refund applies.",
+    again: "We hope to welcome you another time. You can book new dates any time.",
+    cta: "See availability", contact: "Just reply to this email if you have any questions.", footer: "yah.homes / Bonfire Inc." },
+  ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님",
+    lead: "예약 취소를 접수했습니다.", refundTitle: "환불",
+    paid: "결제 완료 금액", fee: "취소 수수료", refund: "환불 금액",
+    refundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 반영까지 며칠에서 한 달 정도 걸릴 수 있습니다.",
+    noRefundNote: "무료 취소 기한이 지나 환불은 없습니다.",
+    again: "다음 기회에 다시 모시겠습니다. 새로운 날짜로 언제든지 예약하실 수 있습니다.",
+    cta: "빈방 보기", contact: "궁금하신 점은 이 메일에 회신해 주세요.", footer: "yah.homes / Bonfire Inc." },
+  zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好",
+    lead: "已受理您的預訂取消。", refundTitle: "退款",
+    paid: "已付金額", fee: "取消費用", refund: "退款金額",
+    refundNote: "將退款至您使用的信用卡。依發卡機構作業，反映時間可能需要數日至一個月左右。",
+    noRefundNote: "已超過免費取消期限，故不予退款。",
+    again: "期待再次為您服務，隨時歡迎重新選擇日期預訂。",
+    cta: "查詢空房", contact: "如有任何問題，請直接回覆這封郵件。", footer: "yah.homes / Bonfire Inc." },
+  th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "",
+    lead: "เราได้ยกเลิกการจองของคุณแล้ว", refundTitle: "การคืนเงิน",
+    paid: "ชำระแล้ว", fee: "ค่าธรรมเนียมการยกเลิก", refund: "จำนวนเงินคืน",
+    refundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ ขึ้นอยู่กับผู้ออกบัตร อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน",
+    noRefundNote: "เลยกำหนดยกเลิกฟรีแล้ว จึงไม่มีการคืนเงิน",
+    again: "หวังว่าจะได้ต้อนรับคุณอีกครั้ง คุณสามารถจองวันใหม่ได้ตลอดเวลา",
+    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาตอบกลับอีเมลฉบับนี้", footer: "yah.homes / Bonfire Inc." },
+};
+
+/** キャンセル確認メール（お客様宛・確定メールと同じカード構成）。失敗しても取消は成立させる。 */
+async function sendCancellationMail(
+  bookingId: string,
+  b: BookingDoc & Record<string, unknown>,
+  refundAmount: number,
+): Promise<void> {
+  try {
+    const lang = String(b.lang ?? "en");
+    const L = CANCEL_L10N[lang] ?? CANCEL_L10N.en;
+    const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
+    const yen = (n: number) => `¥${Number(n).toLocaleString("en-US")}`;
+    const no = bookingId.slice(0, 8).toUpperCase();
+    const total = Number(b.total);
+    const fee = total - refundAmount;
+    const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+    const row = (k: string, v: string, strong = false) =>
+      `<tr><td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;">${k}</td>
+        <td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:${strong ? "16px" : "14px"};color:#111111;text-align:right;font-weight:${strong ? "600" : "500"};">${v}</td></tr>`;
+
+    const html = `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(L.subject)}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f4;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 12px;"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',Helvetica,Arial,sans-serif;">
+  <tr><td style="background:#111111;padding:20px 24px;">
+    <table role="presentation" width="100%"><tr>
+      <td style="font-size:17px;font-weight:600;color:#ffffff;">yah.homes</td>
+      <td style="text-align:right;font-size:11px;color:#bbbbbb;line-height:1.6;">${esc(L.paid)}<br><span style="color:#ffffff;font-size:14px;font-weight:600;letter-spacing:.06em;">${esc(no)}</span></td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:28px 24px 0;">
+    <div style="font-size:15px;color:#111111;margin-bottom:6px;">${esc(String(b.name ?? ""))}${esc(L.greetSuffix)}</div>
+    <div style="font-size:20px;font-weight:600;color:#111111;line-height:1.5;margin-bottom:18px;">${esc(L.lead)}</div>
+    <div style="font-size:13px;color:#555555;line-height:1.9;padding:12px 14px;background:#f7f7f7;border-radius:6px;margin-bottom:20px;">
+      ${esc(P.name)}<br>${esc(String(b.checkin))} 〜 ${esc(String(b.checkout))}
+    </div>
+    <table role="presentation" width="100%" style="border:1px solid #e8e8e8;border-radius:6px;margin-bottom:16px;"><tr><td style="padding:18px 20px;">
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#999999;margin-bottom:10px;">${esc(L.refundTitle)}</div>
+      <table role="presentation" width="100%">
+        ${row(esc(L.paid), yen(total))}
+        ${row(esc(L.fee), yen(fee))}
+        ${row(esc(L.refund), yen(refundAmount), true)}
+      </table>
+      <div style="font-size:12px;color:#999999;line-height:1.7;margin-top:12px;">${esc(refundAmount > 0 ? L.refundNote : L.noRefundNote)}</div>
+    </td></tr></table>
+    <div style="font-size:13px;color:#666666;line-height:1.9;margin:18px 0 14px;">${esc(L.again)}</div>
+    <table role="presentation" width="100%"><tr><td align="center" style="border-radius:6px;background:#111111;">
+      <a href="${esc(bookPath)}" style="display:block;padding:14px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(L.cta)}</a>
+    </td></tr></table>
+    <div style="border-top:1px solid #f0f0f0;margin-top:22px;padding-top:16px;font-size:13px;color:#666666;line-height:1.8;">${esc(L.contact)}</div>
+  </td></tr>
+  <tr><td style="padding:18px 24px 26px;font-size:12px;color:#aaaaaa;">${esc(L.footer)}</td></tr>
+</table></td></tr></table></body></html>`;
+
+    const text = [
+      `${String(b.name ?? "")}${L.greetSuffix}`, "", L.lead, "",
+      `${P.name}`, `${b.checkin} 〜 ${b.checkout}`, `${L.paid.replace(/:$/, "")}: ${no}`, "",
+      `--- ${L.refundTitle} ---`,
+      `${L.paid}: ${yen(total)}`, `${L.fee}: ${yen(fee)}`, `${L.refund}: ${yen(refundAmount)}`,
+      refundAmount > 0 ? L.refundNote : L.noRefundNote, "",
+      L.again, bookPath, "", L.contact, "", L.footer,
+    ].join("\n");
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    await transporter.sendMail({
+      from: `"yah.homes" <${SMTP_USER.value()}>`, to: String(b.email),
+      replyTo: SMTP_USER.value(), subject: L.subject, text, html,
+    });
+  } catch (err) {
+    logger.error("sendCancellationMail failed", err);
+  }
+}
+
 async function notifyError(text: string): Promise<void> {
   try {
     const transporter = nodemailer.createTransport({
@@ -1796,7 +1962,8 @@ async function notifyError(text: string): Promise<void> {
 
 // ─── MS3.5: My Page API（自分の予約一覧・到着予定時刻の追記・v4 §6） ───
 export const accountApi = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS],
+    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -1863,9 +2030,114 @@ export const accountApi = onRequest(
       }
 
       if (req.method === "POST") {
-        const { action, bookingId, arrival } = (req.body ?? {}) as Record<string, unknown>;
+        const { action, bookingId, arrival, reason } = (req.body ?? {}) as Record<string, unknown>;
         const idStr = typeof bookingId === "string" ? bookingId : "";
-        if (action !== "arrival" || !idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+        if (!idStr || (action !== "arrival" && action !== "cancel")) {
+          res.status(400).json({ ok: false, error: "invalid_input" }); return;
+        }
+
+        // ── セルフキャンセル（v5 §5-3 / spec_self_cancel_202608.md）──
+        if (action === "cancel") {
+          const ref = db.collection("bookings").doc(idStr);
+          const v = (await ref.get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
+          if (!v || v.uid !== uid) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+          if (v.status !== "CONFIRMED") { res.status(409).json({ ok: false, error: "not_cancellable" }); return; }
+
+          // チェックイン当日・滞在中はセルフキャンセル不可（問い合わせのみ・決定事項④）
+          const checkinStart = Date.parse(`${v.checkin}T00:00:00+09:00`);
+          if (Date.now() >= checkinStart) { res.status(409).json({ ok: false, error: "after_checkin" }); return; }
+
+          // 返金額はサーバー時刻で決める。クライアントの時計は使わない（決定事項①②）
+          const freeUntil = v.freeCancelUntilAt ? Date.parse(String(v.freeCancelUntilAt)) : 0;
+          const withinFree = freeUntil > 0 && Date.now() < freeUntil;
+          const refundAmount = withinFree ? Number(v.total) : 0;
+
+          // 二重実行の防止: CANCELLING へのCASで入口を1つに絞る
+          const okLock = await transition(ref,
+            { status: ["CONFIRMED"], stateVersion: v.stateVersion },
+            { status: "CANCELLING", cancelReason: typeof reason === "string" ? reason.slice(0, 500) : null });
+          if (!okLock) { res.status(409).json({ ok: false, error: "in_progress" }); return; }
+
+          const revert = async (failure: string) => {
+            const c = (await ref.get()).data() as BookingDoc;
+            await transition(ref, { status: ["CANCELLING"], stateVersion: c.stateVersion },
+              { status: "MANUAL_REVIEW", failureReason: failure });
+          };
+
+          // ① Beds24 を先に取り消す。返金だけ通って部屋が残る状態を作らない。
+          if (v.beds24Id) {
+            try {
+              await cancelBeds24Booking(Number(v.beds24Id));
+            } catch (e) {
+              await notifyError(
+                `[要対応] お客様のキャンセル操作で Beds24 の取り消しに失敗しました。返金は行っていません。\n` +
+                `予約ID: ${idStr}／Beds24予約ID: ${v.beds24Id}／${String(e).slice(0, 160)}`,
+              );
+              await revert(`beds24_cancel_failed: ${String(e).slice(0, 120)}`);
+              res.status(500).json({ ok: false, error: "cancel_failed" });
+              return;
+            }
+          }
+
+          // ② 返金（無料期間内のみ）
+          if (refundAmount > 0 && v.paymentIntentId) {
+            try {
+              const stripe = stripeClient();
+              const pi = await stripe.paymentIntents.retrieve(String(v.paymentIntentId));
+              if (pi.status === "requires_capture") await stripe.paymentIntents.cancel(pi.id);
+              else await stripe.refunds.create({ payment_intent: pi.id, amount: refundAmount });
+            } catch (e) {
+              await notifyError(
+                `[要対応] Beds24 は取り消しましたが、返金に失敗しました。手動で返金してください。\n` +
+                `予約ID: ${idStr}／返金額: ¥${refundAmount}／${String(e).slice(0, 160)}`,
+              );
+              await revert(`refund_failed: ${String(e).slice(0, 120)}`);
+              res.status(500).json({ ok: false, error: "refund_failed" });
+              return;
+            }
+          }
+
+          // ③ 日付ロックを解放し、確定させる
+          await releaseInventoryLocks(String(v.prop), String(v.checkin), String(v.checkout), idStr);
+          const c2 = (await ref.get()).data() as BookingDoc;
+          await transition(ref, { status: ["CANCELLING"], stateVersion: c2.stateVersion },
+            { status: "CANCELLED", refundedAmount: refundAmount, cancelledBy: "guest",
+              cancelledAt: FieldValue.serverTimestamp() });
+          await db.collection("audit_logs").add({
+            actor: `guest:${uid}`, action: "booking_self_cancel", target: idStr,
+            amount: refundAmount, withinFree, beds24Id: v.beds24Id ?? null,
+            reason: typeof reason === "string" ? reason.slice(0, 500) : null,
+            at: FieldValue.serverTimestamp(),
+          });
+
+          await sendCancellationMail(idStr, v, refundAmount);
+          try {
+            const transporter = nodemailer.createTransport({
+              host: "smtp.gmail.com", port: 465, secure: true,
+              auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+            });
+            await transporter.sendMail({
+              from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
+              to: await notifyRecipients("notifyBookings"),
+              subject: `【キャンセル】${v.prop} ${v.checkin}〜${v.checkout}（返金 ¥${refundAmount.toLocaleString("en-US")}）`,
+              text: [
+                "お客様ご自身によるキャンセルが完了しました。",
+                "", `棟: ${v.prop}`, `日程: ${v.checkin} 〜 ${v.checkout}`, `人数: ${v.guests}名`,
+                `お支払い済み: ¥${Number(v.total).toLocaleString("en-US")}`,
+                `返金額: ¥${refundAmount.toLocaleString("en-US")}（${withinFree ? "無料期間内" : "期限後・返金なし"}）`,
+                `Beds24: ${v.beds24Id ? "取り消し済み" : "書込なし"}`,
+                `理由: ${typeof reason === "string" && reason ? reason : "（未記入）"}`,
+                `予約ID: ${idStr}`,
+              ].join("\n"),
+            });
+          } catch (err) {
+            logger.warn("cancel notify failed", err);
+          }
+
+          res.status(200).json({ ok: true, refunded: refundAmount, withinFree });
+          return;
+        }
+
         const arrStr = typeof arrival === "string" && /^(\d{2}:\d{2}|24:00\+|)$/.test(arrival) ? arrival : "";
 
         const ref = db.collection("bookings").doc(idStr);
@@ -1974,7 +2246,7 @@ export const adminUsers = onRequest(
 // ─── 直販予約の管理API（/admin/bookings・v4 §8-5） ───
 // 一覧＝台帳メンバー、返金＝rootオーナーのみ。全金銭操作を audit_logs に記録。
 export const adminBookings = onRequest(
-  { region: REGION, secrets: [STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2038,14 +2310,34 @@ export const adminBookings = onRequest(
           } else {
             await stripe.refunds.create({ payment_intent: pi.id, amount: refundAmount });
           }
+          // Beds24 側の予約も取り消す（失敗しても返金は成立させ、要対応として通知する）
+          let beds24CancelError = "";
+          if (v.beds24Id) {
+            try {
+              await cancelBeds24Booking(Number(v.beds24Id));
+            } catch (e) {
+              beds24CancelError = String(e).slice(0, 160);
+              await notifyError(
+                `[要対応] 返金は完了しましたが、Beds24 の予約を取り消せませんでした。手動で取り消してください。\n` +
+                `予約ID: ${idStr}／Beds24予約ID: ${v.beds24Id}／${beds24CancelError}`,
+              );
+            }
+          }
+
+          // 押さえていた宿泊日を解放する（これを忘れるとその日程が永久に売れなくなる）
+          await releaseInventoryLocks(String(v.prop), String(v.checkin), String(v.checkout), idStr);
+
           const cur = (await ref.get()).data() as { status: string; stateVersion: number };
           await transition(ref, { status: [cur.status], stateVersion: cur.stateVersion },
-            { status: "CANCELLED", refundedAmount: refundAmount, refundedBy: email });
+            { status: "CANCELLED", refundedAmount: refundAmount, refundedBy: email,
+              beds24CancelError: beds24CancelError || null, cancelledAt: FieldValue.serverTimestamp() });
           await db.collection("audit_logs").add({
             actor: email, action: "booking_refund", target: idStr,
-            amount: refundAmount, paymentIntentId: v.paymentIntentId, at: FieldValue.serverTimestamp(),
+            amount: refundAmount, paymentIntentId: v.paymentIntentId,
+            beds24Id: v.beds24Id ?? null, beds24CancelError: beds24CancelError || null,
+            at: FieldValue.serverTimestamp(),
           });
-          res.status(200).json({ ok: true, refunded: refundAmount });
+          res.status(200).json({ ok: true, refunded: refundAmount, beds24Cancelled: !beds24CancelError });
           return;
         }
 
@@ -2064,7 +2356,12 @@ export const adminBookings = onRequest(
 
 // ─── 物件ファクトSSoT API（/admin/properties・v4 §8-4） ───
 // 保存後はサイト再ビルドが必要（ページはビルド時にFirestoreを読み、HTMLに焼き込むため）。
-const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "shower", "sink", "toilet"] as const;
+const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "shower", "sink", "toilet",
+  "washer", "dryer", "audio", "tvInch", "studyDesk", "parking", "theater",
+  "fromAirportCarMin", "fromStationWalkMin", "toTenjinWalkMin", "toHakataWalkMin",
+  "spotMarketMin", "spotMarketM", "spotSumiyoshiMin", "spotSumiyoshiM",
+  "spotCanalMin", "spotCanalM", "spotNakasuWalkMin", "spotNakasuTaxiMin",
+  "spotOhoriCarMin", "spotOhoriM"] as const;
 
 export const adminProperties = onRequest(
   { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
@@ -2111,8 +2408,17 @@ export const adminProperties = onRequest(
         const doc: Record<string, unknown> = {};
         for (const f of FACT_FIELDS) {
           const n = Number(v[f]);
-          if (!Number.isInteger(n) || n < 0 || n > 99) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
+          if (!Number.isInteger(n) || n < 0 || n > 99999) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
           doc[f] = n;
+        }
+        // 最寄り駅名（文字列）
+        const ns = String(v.nearestStation ?? "").trim();
+        if (ns) doc.nearestStation = ns.slice(0, 40);
+        // チェックイン/アウト時刻（"16:00" 形式）
+        for (const f of ["checkinTime", "checkoutTime"] as const) {
+          const t = String(v[f] ?? "").trim();
+          if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
+          if (t) doc[f] = t;
         }
         // 評価は表示用の文字列（例 "4.77" / "47"）
         const rating = String(v.rating ?? "").trim();

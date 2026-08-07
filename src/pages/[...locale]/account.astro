@@ -6,6 +6,7 @@
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
+import { getPropertyFacts } from "../../lib/propertyFacts";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -45,6 +46,29 @@ const A = {
     checkinInfo: "Check-in details", checkinSoon: "We will send your check-in details about 3 days before arrival.",
     cancel: "Cancel this booking", cancelSoon: "To cancel, please contact us and we will take care of it.",
     contact: "Contact us", statusPending: "Processing", statusConfirmed: "Confirmed", statusCancelled: "Cancelled",
+    stay: "Your reservation", guestsRow: "Guests", house: "House",
+    checkinWindow: "from {ci} (no time limit)", checkoutWindow: "until {co}",
+    nightsUnit: "{n} nights", guestsUnit: "{g} adults",
+    detailTitle: "Booking details", cancelFeeTitle: "Cancellation fee",
+    cancelFreeRow: "Until {d}", cancelAfterRow: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).",
+    changeNote: "To change your dates or party size, please cancel this booking and make a new one. Within the free cancellation period there is no extra cost.",
+    cancelBtn: "Cancel this booking",
+    cancelBtnAfter: "Cancel without refund",
+    cancelFreeUntil: "Free cancellation until {d}",
+    cancelFeeNow: "Cancellation fee {a} (no refund)",
+    confirmTitle: "Cancel this booking",
+    confirmPaid: "Paid", confirmFee: "Cancellation fee", confirmRefund: "Refund",
+    confirmRefundNote: "We will refund to the card you used. Depending on your card issuer it can take from a few days to about a month to appear. This cannot be undone.",
+    confirmNoRefundNote: "The free cancellation deadline has passed, so no refund applies. This cannot be undone.",
+    reasonLabel: "If you don\u2019t mind, tell us why (optional)",
+    confirmYes: "Confirm cancellation", confirmNo: "Keep booking",
+    cancelDone: "Your booking has been cancelled. We have emailed you a confirmation.",
+    cancelFail: "We could not complete the cancellation. Please contact us and we will take care of it.",
+    cancelBusy: "Processing…",
+    payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
+    payNote: "Room rate, lodging tax and cleaning fee are included. There is nothing more to pay.",
+    placeTitle: "Location", placeBtn: "Open in Maps", placeNote: "The exact address is sent with your check-in details.",
+    statusProcessing: "In progress", statusUnpaid: "Payment not completed",
     error: "Could not load your bookings. Please try again shortly.",
   },
   ja: {
@@ -62,6 +86,29 @@ const A = {
     checkinInfo: "入室のご案内", checkinSoon: "ご宿泊の3日前を目安に、入室方法をお送りします。",
     cancel: "このご予約をキャンセルする", cancelSoon: "キャンセルをご希望の場合は、お問い合わせよりご連絡ください。担当が対応いたします。",
     contact: "お問い合わせ", statusPending: "処理中", statusConfirmed: "確定", statusCancelled: "キャンセル済み",
+    stay: "お客様のご予約", guestsRow: "宿泊者の内訳", house: "お部屋",
+    checkinWindow: "{ci}〜（時間の制限はありません）", checkoutWindow: "〜{co}",
+    nightsUnit: "{n}泊", guestsUnit: "大人{g}名",
+    detailTitle: "ご予約内容", cancelFeeTitle: "キャンセル料",
+    cancelFreeRow: "{d} まで", cancelAfterRow: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。",
+    changeNote: "日程・人数の変更をご希望の場合は、一度キャンセルのうえ、あらためてご予約ください。無料キャンセル期間内であれば追加のご負担はありません。",
+    cancelBtn: "このご予約をキャンセルする",
+    cancelBtnAfter: "返金なしでキャンセルする",
+    cancelFreeUntil: "{d} まで無料でキャンセルいただけます",
+    cancelFeeNow: "キャンセル料 {a}（ご返金はありません）",
+    confirmTitle: "このご予約をキャンセルします",
+    confirmPaid: "お支払い済み金額", confirmFee: "キャンセル料", confirmRefund: "ご返金額",
+    confirmRefundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。この操作は取り消せません。",
+    confirmNoRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。この操作は取り消せません。",
+    reasonLabel: "差し支えなければ理由をお聞かせください（任意）",
+    confirmYes: "キャンセルを確定する", confirmNo: "やめる",
+    cancelDone: "キャンセルが完了しました。確認メールをお送りしました。",
+    cancelFail: "キャンセルを完了できませんでした。お手数ですが、お問い合わせよりご連絡ください。",
+    cancelBusy: "処理しています…",
+    payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
+    payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
+    placeTitle: "場所", placeBtn: "地図を開く", placeNote: "正確な住所は入室のご案内とあわせてお送りします。",
+    statusProcessing: "手続き中", statusUnpaid: "決済未完了",
     error: "ご予約を読み込めませんでした。時間をおいてお試しください。",
   },
   ko: {
@@ -79,6 +126,29 @@ const A = {
     checkinInfo: "입실 안내", checkinSoon: "숙박 3일 전을 기준으로 입실 방법을 보내드립니다.",
     cancel: "이 예약 취소하기", cancelSoon: "취소를 원하시면 문의를 통해 연락 주세요. 담당자가 처리해 드립니다.",
     contact: "문의하기", statusPending: "처리 중", statusConfirmed: "확정", statusCancelled: "취소됨",
+    stay: "예약 내용", guestsRow: "인원", house: "숙소",
+    checkinWindow: "{ci}~ (시간 제한 없음)", checkoutWindow: "~{co}",
+    nightsUnit: "{n}박", guestsUnit: "성인 {g}명",
+    detailTitle: "예약 내용", cancelFeeTitle: "취소 수수료",
+    cancelFreeRow: "{d}까지", cancelAfterRow: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.",
+    changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요. 무료 취소 기간 내라면 추가 부담은 없습니다.",
+    cancelBtn: "이 예약 취소하기",
+    cancelBtnAfter: "환불 없이 취소하기",
+    cancelFreeUntil: "{d}까지 무료로 취소하실 수 있습니다",
+    cancelFeeNow: "취소 수수료 {a}(환불 없음)",
+    confirmTitle: "이 예약을 취소합니다",
+    confirmPaid: "결제 완료 금액", confirmFee: "취소 수수료", confirmRefund: "환불 금액",
+    confirmRefundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 며칠에서 한 달 정도 걸릴 수 있습니다. 이 작업은 되돌릴 수 없습니다.",
+    confirmNoRefundNote: "무료 취소 기한이 지나 환불은 없습니다. 이 작업은 되돌릴 수 없습니다.",
+    reasonLabel: "괜찮으시다면 이유를 알려주세요(선택)",
+    confirmYes: "취소 확정", confirmNo: "그만두기",
+    cancelDone: "예약이 취소되었습니다. 확인 메일을 보내드렸습니다.",
+    cancelFail: "취소를 완료하지 못했습니다. 문의를 통해 연락 주세요.",
+    cancelBusy: "처리 중입니다…",
+    payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
+    payNote: "숙박료・숙박세・청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
+    placeTitle: "위치", placeBtn: "지도 열기", placeNote: "정확한 주소는 입실 안내와 함께 보내드립니다.",
+    statusProcessing: "처리 중", statusUnpaid: "결제 미완료",
     error: "예약을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
   },
   zh: {
@@ -96,6 +166,29 @@ const A = {
     checkinInfo: "入住說明", checkinSoon: "我們將於入住前約3天寄送入住方式。",
     cancel: "取消此訂單", cancelSoon: "如需取消，請透過諮詢與我們聯繫，將由專人為您處理。",
     contact: "聯絡我們", statusPending: "處理中", statusConfirmed: "已確認", statusCancelled: "已取消",
+    stay: "您的預訂", guestsRow: "人數", house: "房源",
+    checkinWindow: "{ci} 起（無時間限制）", checkoutWindow: "{co} 前",
+    nightsUnit: "{n}晚", guestsUnit: "成人{g}人",
+    detailTitle: "預訂內容", cancelFeeTitle: "取消費用",
+    cancelFreeRow: "{d} 前", cancelAfterRow: "{d} 起", cancelNote: "取消期限以日本時間為準。",
+    changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂。在免費取消期限內不會產生額外費用。",
+    cancelBtn: "取消此訂單",
+    cancelBtnAfter: "不退款並取消",
+    cancelFreeUntil: "{d} 前可免費取消",
+    cancelFeeNow: "取消費用 {a}（不予退款）",
+    confirmTitle: "將取消此預訂",
+    confirmPaid: "已付金額", confirmFee: "取消費用", confirmRefund: "退款金額",
+    confirmRefundNote: "將退款至您使用的信用卡。依發卡機構作業，可能需要數日至一個月左右。此操作無法復原。",
+    confirmNoRefundNote: "已超過免費取消期限，不予退款。此操作無法復原。",
+    reasonLabel: "方便的話請告訴我們原因（選填）",
+    confirmYes: "確定取消", confirmNo: "保留預訂",
+    cancelDone: "已完成取消，確認郵件已寄出。",
+    cancelFail: "無法完成取消，請透過諮詢與我們聯繫。",
+    cancelBusy: "處理中…",
+    payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
+    payNote: "已含住宿費・住宿稅・清潔費，不會另外收費。",
+    placeTitle: "位置", placeBtn: "開啟地圖", placeNote: "詳細地址將與入住說明一併寄送。",
+    statusProcessing: "處理中", statusUnpaid: "尚未完成付款",
     error: "無法載入訂單，請稍後再試。",
   },
   th: {
@@ -113,6 +206,29 @@ const A = {
     checkinInfo: "รายละเอียดการเช็คอิน", checkinSoon: "เราจะส่งวิธีเข้าที่พักประมาณ 3 วันก่อนเข้าพัก",
     cancel: "ยกเลิกการจองนี้", cancelSoon: "หากต้องการยกเลิก กรุณาติดต่อเรา แล้วเจ้าหน้าที่จะดำเนินการให้",
     contact: "ติดต่อเรา", statusPending: "กำลังดำเนินการ", statusConfirmed: "ยืนยันแล้ว", statusCancelled: "ยกเลิกแล้ว",
+    stay: "การจองของคุณ", guestsRow: "ผู้เข้าพัก", house: "ที่พัก",
+    checkinWindow: "ตั้งแต่ {ci} (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน {co}",
+    nightsUnit: "{n} คืน", guestsUnit: "ผู้ใหญ่ {g} ท่าน",
+    detailTitle: "รายละเอียดการจอง", cancelFeeTitle: "ค่าธรรมเนียมการยกเลิก",
+    cancelFreeRow: "ถึง {d}", cancelAfterRow: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)",
+    changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม",
+    cancelBtn: "ยกเลิกการจองนี้",
+    cancelBtnAfter: "ยกเลิกโดยไม่รับเงินคืน",
+    cancelFreeUntil: "ยกเลิกฟรีได้ถึง {d}",
+    cancelFeeNow: "ค่าธรรมเนียมการยกเลิก {a} (ไม่มีการคืนเงิน)",
+    confirmTitle: "ยกเลิกการจองนี้",
+    confirmPaid: "ชำระแล้ว", confirmFee: "ค่าธรรมเนียมการยกเลิก", confirmRefund: "จำนวนเงินคืน",
+    confirmRefundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน การดำเนินการนี้ไม่สามารถย้อนกลับได้",
+    confirmNoRefundNote: "เลยกำหนดยกเลิกฟรีแล้ว จึงไม่มีการคืนเงิน การดำเนินการนี้ไม่สามารถย้อนกลับได้",
+    reasonLabel: "หากสะดวก กรุณาบอกเหตุผล (ไม่บังคับ)",
+    confirmYes: "ยืนยันการยกเลิก", confirmNo: "เก็บการจองไว้",
+    cancelDone: "ยกเลิกการจองเรียบร้อยแล้ว เราได้ส่งอีเมลยืนยันให้คุณแล้ว",
+    cancelFail: "ไม่สามารถยกเลิกได้ กรุณาติดต่อเรา",
+    cancelBusy: "กำลังดำเนินการ…",
+    payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
+    payNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาดแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม",
+    placeTitle: "สถานที่", placeBtn: "เปิดแผนที่", placeNote: "ที่อยู่โดยละเอียดจะส่งพร้อมกับคำแนะนำการเช็คอิน",
+    statusProcessing: "กำลังดำเนินการ", statusUnpaid: "ยังไม่ได้ชำระเงิน",
     error: "ไม่สามารถโหลดการจองได้ กรุณาลองใหม่อีกครั้ง",
   },
 }[lang];
@@ -121,6 +237,18 @@ const HOUSE_NAMES = {
   kiyokawa: "yah.homes kiyokawa",
   takasago: "yah.homes takasago",
   test: "yah.homes test1（検証用）",
+};
+// 住所は発注者確認済みのもののみ記載（未確認の棟は地図リンクのみ）— メールと同一の扱い
+const HOUSE_PLACE = {
+  kiyokawa: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762" },
+  takasago: { address: "", map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778" },
+  test: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762" },
+};
+const { facts } = await getPropertyFacts();
+const HOUSE_TIMES = {
+  kiyokawa: { ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
+  takasago: { ci: facts.takasago.checkinTime, co: facts.takasago.checkoutTime },
+  test: { ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
 };
 const HOUSE_IMAGES = {
   kiyokawa: PROPERTIES.kiyokawa.exterior,
@@ -139,12 +267,22 @@ const uiA = {
   cancel: A.cancel, cancelSoon: A.cancelSoon, contact: A.contact,
   emailSent: A.emailSent, emailFail: A.emailFail,
   statusPending: A.statusPending, statusConfirmed: A.statusConfirmed, statusCancelled: A.statusCancelled,
-  houses: HOUSE_NAMES, images: HOUSE_IMAGES, contactHref: CONTACT_HREF,
-  nightsUnit: { en: "{n} nights", ja: "{n}泊", ko: "{n}박", zh: "{n}晚", th: "{n} คืน" }[lang],
-  guestsUnit: { en: "{g} guests", ja: "{g}名", ko: "{g}명", zh: "{g}人", th: "{g} ท่าน" }[lang],
+  statusProcessing: A.statusProcessing, statusUnpaid: A.statusUnpaid,
+  stay: A.stay, guestsRow: A.guestsRow, house: A.house,
+  checkinWindow: A.checkinWindow, checkoutWindow: A.checkoutWindow,
+  nightsUnit: A.nightsUnit, guestsUnit: A.guestsUnit,
+  detailTitle: A.detailTitle, cancelFeeTitle: A.cancelFeeTitle,
+  cancelFreeRow: A.cancelFreeRow, cancelAfterRow: A.cancelAfterRow, cancelNote: A.cancelNote, changeNote: A.changeNote,
+  cancelBtn: A.cancelBtn, cancelBtnAfter: A.cancelBtnAfter,
+  cancelFreeUntil: A.cancelFreeUntil, cancelFeeNow: A.cancelFeeNow,
+  confirmTitle: A.confirmTitle, confirmPaid: A.confirmPaid, confirmFee: A.confirmFee, confirmRefund: A.confirmRefund,
+  confirmRefundNote: A.confirmRefundNote, confirmNoRefundNote: A.confirmNoRefundNote,
+  reasonLabel: A.reasonLabel, confirmYes: A.confirmYes, confirmNo: A.confirmNo,
+  cancelDone: A.cancelDone, cancelFail: A.cancelFail, cancelBusy: A.cancelBusy,
+  payTitle: A.payTitle, payTotal: A.payTotal, payPaid: A.payPaid, payOnSite: A.payOnSite, payNote: A.payNote,
+  placeTitle: A.placeTitle, placeBtn: A.placeBtn, placeNote: A.placeNote,
+  houses: HOUSE_NAMES, images: HOUSE_IMAGES, places: HOUSE_PLACE, times: HOUSE_TIMES, contactHref: CONTACT_HREF,
   details: { en: "Arrival, check-in and cancellation", ja: "ご到着・入室・キャンセルについて", ko: "도착・입실・취소 안내", zh: "抵達・入住・取消說明", th: "การมาถึง เช็คอิน และการยกเลิก" }[lang],
-  statusProcessing: { en: "In progress", ja: "手続き中", ko: "처리 중", zh: "處理中", th: "กำลังดำเนินการ" }[lang],
-  statusUnpaid: { en: "Payment not completed", ja: "決済未完了", ko: "결제 미완료", zh: "尚未完成付款", th: "ยังไม่ได้ชำระเงิน" }[lang],
 };
 ---
 
@@ -186,13 +324,14 @@ const uiA = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ ACCOUNT_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA }}>
+<script define:vars={{ ACCOUNT_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang }}>
   const $ = (id) => document.getElementById(id);
   const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const yen = (n) => `¥${Number(n).toLocaleString("en-US")}`;
   const todayKey = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
   let auth = null;
+  let cache = [];
 
   const statusLabel = (s) =>
     s === "CONFIRMED" ? uiA.statusConfirmed
@@ -205,58 +344,160 @@ const uiA = {
   const shortDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(LOC, { month: "short", day: "numeric" });
   const nightsOf = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
+  // 予約確認メールと同じ項目立て・同じ順序で組む（ご予約内容／キャンセル料／お支払い）
+  const rows = (list) => `<table class="ac-rows">${list.filter(Boolean).map(([k, v, sub]) =>
+    `<tr><th>${k}</th><td>${v}${sub ? `<span>${sub}</span>` : ""}</td></tr>`).join("")}</table>`;
+  const panel = (title, inner, note) =>
+    `<section class="ac-panel"><p class="ac-panel-title">${title}</p>${inner}${note ? `<p class="ac-panel-note">${note}</p>` : ""}</section>`;
+
+  // キャンセル可否の判定（表示用。最終判定はサーバー時刻で行う）
+  const canSelfCancel = (b) =>
+    b.status === "CONFIRMED" && Date.parse(`${b.checkin}T00:00:00+09:00`) > Date.now();
+  const withinFree = (b) => b.freeCancelUntilAt && Date.parse(b.freeCancelUntilAt) > Date.now();
+
+  function cancelBlock(b) {
+    if (b.status === "CANCELLED") return "";
+    if (!canSelfCancel(b)) {
+      // チェックイン当日・滞在中・手続き中は問い合わせのみ（決定事項④）
+      return `
+        <div class="ac-block">
+          <p class="ac-block-title">${uiA.cancel}</p>
+          <p class="ac-note">${uiA.cancelSoon}</p>
+          <p class="ac-note ac-changenote">${uiA.changeNote}</p>
+          <a class="ac-outline" href="${uiA.contactHref}">${uiA.contact}</a>
+        </div>`;
+    }
+    const free = withinFree(b);
+    const info = free
+      ? uiA.cancelFreeUntil.replace("{d}", String(b.freeCancelUntilAt).slice(0, 10))
+      : uiA.cancelFeeNow.replace("{a}", yen(b.total));
+    return `
+      <div class="ac-block">
+        <p class="ac-block-title">${uiA.cancel}</p>
+        <p class="ac-note">${info}</p>
+        <p class="ac-note ac-changenote">${uiA.changeNote}</p>
+        <button type="button" class="ac-outline ac-cancel-open" data-cancel="${esc(b.id)}">
+          ${free ? uiA.cancelBtn : uiA.cancelBtnAfter}
+        </button>
+        <span class="ac-cancel-msg" data-cancelmsg="${esc(b.id)}"></span>
+      </div>`;
+  }
+
+  // 確認ダイアログ（返金額を明示してから実行・二重の確認）
+  function openCancelDialog(b) {
+    const free = withinFree(b);
+    const refund = free ? b.total : 0;
+    const dlg = document.createElement("div");
+    dlg.className = "ac-modal";
+    dlg.innerHTML = `
+      <div class="ac-modal-box" role="dialog" aria-modal="true">
+        <p class="ac-modal-title">${uiA.confirmTitle}</p>
+        <p class="ac-modal-sub">${esc(uiA.houses[b.prop] ?? b.prop)}<br>${esc(b.checkin)} 〜 ${esc(b.checkout)}</p>
+        <table class="ac-modal-rows">
+          <tr><th>${uiA.confirmPaid}</th><td>${yen(b.total)}</td></tr>
+          <tr><th>${uiA.confirmFee}</th><td>${yen(b.total - refund)}</td></tr>
+          <tr class="ac-modal-total"><th>${uiA.confirmRefund}</th><td>${yen(refund)}</td></tr>
+        </table>
+        <p class="ac-modal-note">${free ? uiA.confirmRefundNote : uiA.confirmNoRefundNote}</p>
+        <label class="ac-modal-reason">
+          <span>${uiA.reasonLabel}</span>
+          <textarea id="ac-reason" rows="2" maxlength="500"></textarea>
+        </label>
+        <div class="ac-modal-actions">
+          <button type="button" class="ac-modal-no" id="ac-cancel-no">${uiA.confirmNo}</button>
+          <button type="button" class="ac-modal-yes" id="ac-cancel-yes">${free ? uiA.confirmYes : uiA.cancelBtnAfter}</button>
+        </div>
+        <p class="ac-modal-status" id="ac-modal-status"></p>
+      </div>`;
+    document.body.appendChild(dlg);
+    const close = () => dlg.remove();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) close(); });
+    dlg.querySelector("#ac-cancel-no").addEventListener("click", close);
+    dlg.querySelector("#ac-cancel-yes").addEventListener("click", async () => {
+      const yes = dlg.querySelector("#ac-cancel-yes");
+      yes.disabled = true;
+      dlg.querySelector("#ac-modal-status").textContent = uiA.cancelBusy;
+      window.gtag?.("event", "cancel_confirmed", { prop: b.prop, within_free: free, lang });
+      const r = await api("POST", { action: "cancel", bookingId: b.id, reason: dlg.querySelector("#ac-reason").value });
+      if (r.ok) {
+        close();
+        load();
+      } else {
+        window.gtag?.("event", "cancel_failed", { prop: b.prop, error_type: String(r.error ?? "unknown"), lang });
+        dlg.querySelector("#ac-modal-status").textContent = uiA.cancelFail;
+        yes.disabled = false;
+      }
+    });
+  }
+
   function card(b) {
     const house = uiA.houses[b.prop] ?? b.prop;
     const image = uiA.images[b.prop] ?? "";
+    const place = uiA.places[b.prop] ?? { address: "", map: "" };
+    const tm = uiA.times[b.prop] ?? { ci: "", co: "" };
     const nights = nightsOf(b.checkin, b.checkout);
-    const freeUntil = b.freeCancelUntilAt
-      ? uiA.freeUntil.replace("{d}", String(b.freeCancelUntilAt).slice(0, 10))
-      : "";
+    const no = esc(b.id).slice(0, 8).toUpperCase();
+    const freeDate = b.freeCancelUntilAt ? String(b.freeCancelUntilAt).slice(0, 10) : "";
     const opts = [`<option value="">${uiA.arrivalAny}</option>`]
       .concat(ARRIVALS.map((h) => `<option value="${h}"${b.arrival === h ? " selected" : ""}>${h}〜</option>`))
       .concat([`<option value="24:00+"${b.arrival === "24:00+" ? " selected" : ""}>${uiA.arrivalLate}</option>`])
       .join("");
+
     return `
       <article class="ac-card" data-s="${esc(b.status)}">
-        <div class="ac-top">
-          ${image ? `<img class="ac-thumb" src="${esc(image)}" alt="" loading="lazy" />` : ""}
-          <div class="ac-main">
-            <div class="ac-head">
-              <h3 class="ac-house">${esc(house)}</h3>
-              <span class="ac-badge" data-s="${esc(b.status)}">${statusLabel(b.status)}</span>
-            </div>
-            <p class="ac-when">${shortDate(b.checkin)} <span>→</span> ${shortDate(b.checkout)}</p>
-            <p class="ac-meta">${uiA.nightsUnit.replace("{n}", nights)}・${uiA.guestsUnit.replace("{g}", esc(b.guests))}</p>
-            <p class="ac-total">${yen(b.total)}</p>
-            <p class="ac-no">${uiA.bookingNo} ${esc(b.id).slice(0, 8).toUpperCase()}</p>
-            ${freeUntil ? `<p class="ac-cancelinfo">${freeUntil}</p>` : ""}
-          </div>
-        </div>
+        <header class="ac-bar">
+          <span class="ac-bar-house">${esc(house)}</span>
+          <span class="ac-bar-right">
+            <span class="ac-bar-no">${uiA.bookingNo}<strong>${no}</strong></span>
+            <span class="ac-badge" data-s="${esc(b.status)}">${statusLabel(b.status)}</span>
+          </span>
+        </header>
 
-        <details class="ac-details">
-          <summary>${uiA.details}</summary>
-          <div class="ac-details-body">
-            <div class="ac-block">
-              <p class="ac-block-title">${uiA.arrival}</p>
-              <div class="ac-arrival">
-                <select data-arrival="${esc(b.id)}">${opts}</select>
-                <button type="button" class="ac-btn-sub" data-savearrival="${esc(b.id)}">${uiA.arrivalSave}</button>
-                <span class="ac-saved" data-saved="${esc(b.id)}"></span>
-              </div>
-              <p class="ac-note">${uiA.arrivalNote}</p>
+        <div class="ac-body">
+          ${image ? `<img class="ac-hero" src="${esc(image)}" alt="${esc(house)}" loading="lazy" />` : ""}
+          ${panel(uiA.detailTitle, rows([
+            [uiA.house, esc(house)],
+            [uiA.checkin, esc(b.checkin), uiA.checkinWindow.replace("{ci}", tm.ci)],
+            [uiA.checkout, esc(b.checkout), uiA.checkoutWindow.replace("{co}", tm.co)],
+            [uiA.stay, uiA.nightsUnit.replace("{n}", nights)],
+            [uiA.guestsRow, uiA.guestsUnit.replace("{g}", esc(b.guests))],
+          ]))}
+
+          ${freeDate ? panel(uiA.cancelFeeTitle, rows([
+            [uiA.cancelFreeRow.replace("{d}", freeDate), yen(0)],
+            [uiA.cancelAfterRow.replace("{d}", freeDate), yen(b.total)],
+          ]), uiA.cancelNote) : ""}
+
+          ${panel(uiA.payTitle, rows([
+            [uiA.payTotal, yen(b.total)],
+            [uiA.payPaid, yen(b.total)],
+            [uiA.payOnSite, yen(0)],
+          ]), uiA.payNote)}
+
+          <section class="ac-panel">
+            <p class="ac-panel-title">${uiA.arrival}</p>
+            <div class="ac-arrival">
+              <select data-arrival="${esc(b.id)}">${opts}</select>
+              <button type="button" class="ac-btn-sub" data-savearrival="${esc(b.id)}">${uiA.arrivalSave}</button>
+              <span class="ac-saved" data-saved="${esc(b.id)}"></span>
             </div>
-            <div class="ac-block">
-              <p class="ac-block-title">${uiA.checkinInfo}</p>
-              <p class="ac-note">${uiA.checkinSoon}</p>
-            </div>
-            ${b.status !== "CANCELLED" ? `
-            <div class="ac-block">
-              <p class="ac-block-title">${uiA.cancel}</p>
-              <p class="ac-note">${uiA.cancelSoon}</p>
-              <a class="ac-link" href="${uiA.contactHref}">${uiA.contact}</a>
-            </div>` : ""}
+            <p class="ac-panel-note">${uiA.arrivalNote}</p>
+          </section>
+
+          <div class="ac-block">
+            <p class="ac-block-title">${uiA.checkinInfo}</p>
+            <p class="ac-note">${uiA.checkinSoon}</p>
           </div>
-        </details>
+
+          ${place.map ? `
+          <div class="ac-block">
+            <p class="ac-block-title">${uiA.placeTitle}</p>
+            <p class="ac-note">${place.address ? `<strong>${esc(place.address)}</strong>` : uiA.placeNote}</p>
+            <a class="ac-outline" href="${esc(place.map)}" target="_blank" rel="noopener noreferrer">${uiA.placeBtn}</a>
+          </div>` : ""}
+
+          ${cancelBlock(b)}
+        </div>
       </article>`;
   }
 
@@ -276,6 +517,7 @@ const uiA = {
       const j = await api("GET");
       if (!j.ok) throw new Error("load");
       const items = j.items || [];
+      cache = items;
       if (!items.length) {
         $("ac-list").innerHTML = `<p class="ac-status">${uiA.empty}</p><a class="ac-btn" href="${BOOK_PATH}">${esc(uiA.emptyCta ?? "")}</a>`;
         return;
@@ -285,6 +527,15 @@ const uiA = {
       $("ac-list").innerHTML =
         (upcoming.length ? `<h2 class="ac-h2">${uiA.upcoming}</h2>${upcoming.map(card).join("")}` : "") +
         (past.length ? `<h2 class="ac-h2">${uiA.past}</h2>${past.map(card).join("")}` : "");
+
+      document.querySelectorAll("[data-cancel]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          const b = (cache || []).find((x) => x.id === btn.dataset.cancel);
+          if (!b) return;
+          window.gtag?.("event", "cancel_started", { prop: b.prop, within_free: !!withinFree(b), lang });
+          openCancelDialog(b);
+        })
+      );
 
       document.querySelectorAll("[data-savearrival]").forEach((btn) =>
         btn.addEventListener("click", async () => {
@@ -377,48 +628,105 @@ const uiA = {
     flex: 1; min-width: 200px; padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.9rem;
     color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
   }
-  .ac-h2 { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin: 2rem 0 0.75rem; }
-  .ac-card { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.25rem; margin-bottom: 1rem; }
-  .ac-card[data-s="CANCELLED"] { background: #fafafa; border-color: #f0f0f0; }
-  .ac-card :global(.ac-top) { display: flex; gap: 1.1rem; align-items: flex-start; }
-  .ac-card :global(.ac-thumb) {
-    width: 104px; flex-shrink: 0; aspect-ratio: 3 / 4; object-fit: cover;
-    border-radius: 4px; background: #f5f5f5; display: block;
+  #ac-list :global(.ac-h2) { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin: 2rem 0 0.75rem; }
+  /* 予約確認メールと同じ構成: 黒ヘッダー → 写真 → 情報パネル（メールのカードと同義） */
+  #ac-list :global(.ac-card) { border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; margin-bottom: 1.75rem; background: #ffffff; }
+  #ac-list :global(.ac-card[data-s="CANCELLED"]) { opacity: 0.75; }
+  #ac-list :global(.ac-card .ac-bar) {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    background: #111111; padding: 14px 18px;
   }
-  .ac-card :global(.ac-main) { flex: 1; min-width: 0; }
-  .ac-card :global(.ac-head) { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
-  .ac-card :global(.ac-house) { font-size: 0.95rem; font-weight: 500; color: #111111; }
-  .ac-card :global(.ac-badge) {
-    flex-shrink: 0; font-size: 0.68rem; padding: 0.2rem 0.6rem; border-radius: 999px;
-    background: #f2f2f2; color: #666666; white-space: nowrap;
+  #ac-list :global(.ac-card .ac-bar-house) { font-size: 0.95rem; font-weight: 600; color: #ffffff; letter-spacing: 0.02em; }
+  #ac-list :global(.ac-card .ac-bar-right) { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+  #ac-list :global(.ac-card .ac-bar-no) { font-size: 0.63rem; color: #bbbbbb; line-height: 1.4; text-align: right; }
+  #ac-list :global(.ac-card .ac-bar-no strong) { display: block; font-size: 0.85rem; color: #ffffff; letter-spacing: 0.06em; }
+  #ac-list :global(.ac-card .ac-badge) {
+    font-size: 0.66rem; padding: 0.22rem 0.6rem; border-radius: 999px;
+    background: #333333; color: #dddddd; white-space: nowrap;
   }
-  .ac-card :global(.ac-badge[data-s="CONFIRMED"]) { background: #111111; color: #ffffff; }
-  .ac-card :global(.ac-badge[data-s="PAYMENT_PENDING"]) { background: #ffffff; color: #888888; border: 1px solid #dddddd; }
-  .ac-card :global(.ac-when) { margin-top: 0.6rem; font-size: 1rem; font-weight: 500; color: #111111; }
-  .ac-card :global(.ac-when span) { color: #bbbbbb; margin: 0 0.15rem; }
-  .ac-card :global(.ac-meta) { margin-top: 0.15rem; font-size: 0.78rem; color: #888888; }
-  .ac-card :global(.ac-total) { margin-top: 0.5rem; font-size: 1.05rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
-  .ac-card :global(.ac-no) { margin-top: 0.3rem; font-size: 0.7rem; color: #aaaaaa; letter-spacing: 0.04em; }
-  .ac-card :global(.ac-cancelinfo) { margin-top: 0.7rem; font-size: 0.76rem; color: #555555; }
-  .ac-card :global(.ac-details) { margin-top: 1rem; border-top: 1px solid #f0f0f0; padding-top: 0.6rem; }
-  .ac-card :global(.ac-details summary) {
-    font-size: 0.78rem; color: #555555; cursor: pointer; list-style: none;
-    display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0;
+  #ac-list :global(.ac-card .ac-badge[data-s="CONFIRMED"]) { background: #ffffff; color: #111111; font-weight: 600; }
+  /* 確認メールと同じ見せ方: 本文の内側・角丸・戸建ての全景が入る比率 */
+  #ac-list :global(.ac-card .ac-hero) {
+    display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; object-position: center 60%;
+    border-radius: 8px; background: #f5f5f5; margin-bottom: 16px;
   }
-  .ac-card :global(.ac-details summary::-webkit-details-marker) { display: none; }
-  .ac-card :global(.ac-details summary::before) {
-    content: "›"; display: inline-block; color: #aaaaaa; transition: transform 0.15s;
+  #ac-list :global(.ac-card .ac-body) { padding: 18px; }
+
+  #ac-list :global(.ac-card .ac-panel) { border: 1px solid #e8e8e8; border-radius: 6px; padding: 16px 18px; margin-bottom: 14px; }
+  #ac-list :global(.ac-card .ac-panel-title) {
+    font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: #999999; margin-bottom: 8px;
   }
-  .ac-card :global(.ac-details[open] summary::before) { transform: rotate(90deg); }
-  .ac-card :global(.ac-details-body) { padding-top: 0.4rem; }
-  .ac-card :global(.ac-block) { margin-top: 1rem; }
-  .ac-card :global(.ac-block-title) { font-size: 0.78rem; font-weight: 500; color: #111111; margin-bottom: 0.4rem; }
-  .ac-card :global(.ac-note) { font-size: 0.74rem; color: #888888; line-height: 1.7; }
-  .ac-card :global(.ac-arrival) { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
-  .ac-card :global(.ac-arrival select) { padding: 0.45rem 0.6rem; font-family: inherit; font-size: 0.85rem; border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff; color: #111111; }
-  .ac-card :global(.ac-saved) { font-size: 0.76rem; color: #888888; }
+  #ac-list :global(.ac-card .ac-panel-note) { font-size: 0.72rem; color: #999999; line-height: 1.7; margin-top: 10px; }
+  #ac-list :global(.ac-card .ac-rows) { width: 100%; border-collapse: collapse; }
+  #ac-list :global(.ac-card .ac-rows th) {
+    padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.78rem; font-weight: 400;
+    color: #888888; text-align: left; vertical-align: top; white-space: nowrap;
+  }
+  #ac-list :global(.ac-card .ac-rows td) {
+    padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.85rem; font-weight: 500;
+    color: #111111; text-align: right; vertical-align: top;
+  }
+  #ac-list :global(.ac-card .ac-rows tr:last-child th),
+  #ac-list :global(.ac-card .ac-rows tr:last-child td) { border-bottom: none; }
+  #ac-list :global(.ac-card .ac-rows td span) { display: block; font-size: 0.7rem; font-weight: 400; color: #aaaaaa; margin-top: 2px; }
+
+  #ac-list :global(.ac-card .ac-block) { border-top: 1px solid #f0f0f0; padding-top: 14px; margin-top: 14px; }
+  #ac-list :global(.ac-card .ac-block-title) { font-size: 0.8rem; font-weight: 600; color: #111111; margin-bottom: 5px; }
+  #ac-list :global(.ac-card .ac-note) { font-size: 0.78rem; color: #666666; line-height: 1.8; }
+  #ac-list :global(.ac-card .ac-note strong) { color: #111111; font-weight: 500; }
+  /* キャンセル確認ダイアログ（body直下に生成するため :global で書く） */
+  :global(.ac-modal) {
+    position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.5);
+    display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+  }
+  :global(.ac-modal-box) {
+    background: #ffffff; border-radius: 8px; padding: 1.75rem; width: 100%; max-width: 420px;
+    max-height: 90vh; overflow-y: auto; font-family: inherit;
+  }
+  :global(.ac-modal-title) { font-size: 1.05rem; font-weight: 600; color: #111111; margin-bottom: 0.5rem; }
+  :global(.ac-modal-sub) { font-size: 0.82rem; color: #666666; line-height: 1.8; margin-bottom: 1.1rem; }
+  :global(.ac-modal-rows) { width: 100%; border-collapse: collapse; margin-bottom: 0.9rem; }
+  :global(.ac-modal-rows th) { padding: 0.55rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; font-weight: 400; color: #888888; text-align: left; }
+  :global(.ac-modal-rows td) { padding: 0.55rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.88rem; font-weight: 500; color: #111111; text-align: right; }
+  :global(.ac-modal-total th) { font-size: 0.85rem; color: #333333; border-bottom: none; }
+  :global(.ac-modal-total td) { font-size: 1.15rem; font-weight: 600; border-bottom: none; }
+  :global(.ac-modal-note) { font-size: 0.76rem; color: #888888; line-height: 1.8; margin-bottom: 1rem; }
+  :global(.ac-modal-reason) { display: block; margin-bottom: 1.2rem; }
+  :global(.ac-modal-reason span) { display: block; font-size: 0.76rem; color: #888888; margin-bottom: 0.35rem; }
+  :global(.ac-modal-reason textarea) {
+    width: 100%; padding: 0.55rem 0.7rem; font-family: inherit; font-size: 0.85rem; color: #111111;
+    border: 1px solid #d7d7d7; border-radius: 4px; resize: vertical; box-sizing: border-box;
+  }
+  :global(.ac-modal-actions) { display: flex; gap: 0.6rem; }
+  :global(.ac-modal-no) {
+    flex: 1; padding: 0.8rem; background: #ffffff; color: #111111; font-family: inherit; font-size: 0.85rem;
+    border: 1px solid #d7d7d7; border-radius: 5px; cursor: pointer;
+  }
+  :global(.ac-modal-yes) {
+    flex: 1.4; padding: 0.8rem; background: #111111; color: #ffffff; font-family: inherit;
+    font-size: 0.85rem; font-weight: 600; border: none; border-radius: 5px; cursor: pointer;
+  }
+  :global(.ac-modal-yes:disabled) { opacity: 0.5; }
+  :global(.ac-modal-status) { font-size: 0.78rem; color: #333333; margin-top: 0.7rem; min-height: 1.2em; }
+
+  #ac-list :global(.ac-card .ac-cancel-open) { cursor: pointer; font-family: inherit; }
+  #ac-list :global(.ac-card .ac-cancel-msg) { display: block; font-size: 0.76rem; color: #888888; margin-top: 0.5rem; }
+  #ac-list :global(.ac-card .ac-changenote) { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #eeeeee; }
+  #ac-list :global(.ac-card .ac-outline) {
+    display: inline-block; margin-top: 10px; padding: 9px 16px; border: 1px solid #d7d7d7;
+    border-radius: 5px; font-size: 0.78rem; color: #111111; text-decoration: none;
+  }
+  #ac-list :global(.ac-card .ac-outline:hover) { border-color: #111111; }
+  #ac-list :global(.ac-card .ac-arrival) { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  #ac-list :global(.ac-card .ac-arrival select) {
+    padding: 0.45rem 0.6rem; font-family: inherit; font-size: 0.85rem;
+    border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff; color: #111111;
+  }
+  #ac-list :global(.ac-card .ac-saved) { font-size: 0.76rem; color: #888888; }
   @media (max-width: 520px) {
-    .ac-card :global(.ac-thumb) { width: 76px; }
-    .ac-card :global(.ac-head) { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+    #ac-list :global(.ac-card .ac-bar) { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    #ac-list :global(.ac-card .ac-bar-right) { width: 100%; justify-content: space-between; }
+    #ac-list :global(.ac-card .ac-bar-no) { text-align: left; }
+    #ac-list :global(.ac-card .ac-hero) { aspect-ratio: 4 / 3; }
   }
 </style>

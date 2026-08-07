@@ -1,6 +1,7 @@
 ---
 /* yah.homes ComparisonTable — 旧 ComparisonTable.tsx の忠実移植 */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import { localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
 import { nearbyData } from "../../data/nearbyData";
@@ -81,10 +82,11 @@ function cellClass(v: string): string {
   if (v === ct.values.available) return "val avail";
   return "val";
 }
+const SH_SUB = { en: 'Side by side, so you can pick the right house', ja: '2棟を並べて、ご旅行に合うほうをお選びください', ko: '두 채를 나란히 비교해 보세요', zh: '兩棟並列比較，挑選適合的房源', th: 'เปรียบเทียบสองหลังเพื่อเลือกที่เหมาะกับคุณ' }[lang];
 ---
 
 <div style="max-width:900px;margin:0 auto;padding:0 1.5rem 5rem;">
-  <h2 class="cmp-title">{ct.title}</h2>
+  <SectionHeading num="07" label="Compare" title={ct.title} subtitle={SH_SUB} />
   <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table class="cmp-table">
       <thead>

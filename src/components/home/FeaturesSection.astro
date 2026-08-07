@@ -2,6 +2,7 @@
 /* yah.homes FeaturesSection — 旧 FeaturesSection.tsx の忠実移植
    「Our features and strengths」箇条書き（lucideアイコン・上下ボーダー行） */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 import { lucide, SALES_POINT_ICONS } from "../../lib/lucide";
 
@@ -18,10 +19,16 @@ const allItems: { icon: string; text: string; subText?: string }[] = [
     text: item,
   })),
 ];
+// ダッシュで繋がれた見出しを、主見出しと副見出しに割る
+const [SH_TITLE, SH_SUB] = (() => {
+  const h = t.features.heading;
+  const m = h.split(/\s*[—–-]\s*/);
+  return m.length > 1 ? [m[0], m.slice(1).join(" ")] : [h, ""];
+})();
 ---
 
 <div style="max-width:900px;margin:0 auto;padding:0 1.5rem 5rem;">
-  <h2 class="feat-heading">{t.features.heading}</h2>
+  <SectionHeading num="03" label="Features" title={SH_TITLE} subtitle={SH_SUB} />
   <ul class="feat-list">
     {
       allItems.map((item, index) => (

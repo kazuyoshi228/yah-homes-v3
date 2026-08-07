@@ -40,12 +40,6 @@ const LIVE = [
   },
 ];
 
-const FRAME = [
-  { href: "/admin/dashboard/", title: "Dashboard", desc: "枠のみ（実データ未接続）" },
-  { href: "/admin/instagram/", title: "Instagram", desc: "枠のみ" },
-  { href: "/admin/analytics/", title: "Analytics", desc: "枠のみ（現在はGA4を直接確認）" },
-  { href: "/admin/docs/", title: "Docs", desc: "枠のみ" },
-];
 ---
 
 <SiteLayout
@@ -78,16 +72,6 @@ const FRAME = [
           </a>
         ))}
       </div>
-
-      <h2 class="am-h2">未実装（枠のみ）</h2>
-      <ul class="am-frame">
-        {FRAME.map((it) => (
-          <li>
-            <a href={it.href}>{it.title}</a>
-            <span>{it.desc}</span>
-          </li>
-        ))}
-      </ul>
 
       <p class="am-note">
         物件ファクト管理（サイト全体の表示に直結するため）とお問い合わせ受信箱（個人情報を含むため）は、
@@ -124,12 +108,5 @@ const FRAME = [
   }
   .am-card-desc { font-size: 0.8rem; color: #555555; line-height: 1.8; margin-bottom: 0.6rem; }
   .am-card-access { font-size: 0.72rem; color: #aaaaaa; }
-  .am-frame { list-style: none; padding: 0; margin: 0; }
-  .am-frame li {
-    display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap;
-    padding: 0.55rem 0; border-bottom: 1px solid #f5f5f5; font-size: 0.82rem;
-  }
-  .am-frame a { color: #111111; min-width: 110px; }
-  .am-frame span { font-size: 0.76rem; color: #aaaaaa; }
   .am-note { margin-top: 2rem; font-size: 0.76rem; color: #888888; line-height: 1.8; }
 </style>

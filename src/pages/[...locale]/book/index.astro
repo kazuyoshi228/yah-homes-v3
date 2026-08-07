@@ -173,6 +173,8 @@ const strings = {
   searching: t.searching,
   soldOut: t.soldOut,
   soldOutHint: t.soldOutHint,
+  overCapacity: t.overCapacity,
+  overCapacityHint: t.overCapacityHint,
   totalLabel: t.totalLabel,
   approx: t.approx,
   errorFetch: t.errorFetch,
@@ -335,8 +337,13 @@ const strings = {
     state.monthOffset = Math.max(0, Math.min(MAX_OFFSET, diff));
   }
 
+  // 入ってきた prop=（物件ページや広告からの棟指定）は日付選択後も保持する
+  const initialProp = new URLSearchParams(location.search).get("prop");
+  const focusedProp = HOUSES.some((h) => h.key === initialProp) ? initialProp : "";
+
   function syncUrl() {
     const p = new URLSearchParams();
+    if (focusedProp) p.set("prop", focusedProp);
     if (state.checkin) p.set("checkin", state.checkin);
     if (state.checkout) p.set("checkout", state.checkout);
     p.set("guests", String(state.guests));
@@ -495,8 +502,10 @@ const strings = {
   function renderQuote(house, p, nights, byId) {
     const box = document.querySelector(`[data-quote="${house.key}"]`);
     if (!box) return;
+    // 定員超過は「満室」ではない。日付を変えても解決しないので、人数の上限を伝える。
     if (state.guests > house.capacity) {
-      box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
+      box.innerHTML = `<p class="bk-quote-out">${strings.overCapacity.replace("{n}", house.capacity)}</p>
+        <p class="bk-quote-hint">${strings.overCapacityHint.replace("{n}", house.capacity)}</p>`;
       return;
     }
     if (!p || !p.available) {

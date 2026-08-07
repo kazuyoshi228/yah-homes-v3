@@ -19,6 +19,9 @@ export interface BookStrings {
   searching: string;
   soldOut: string;
   soldOutHint: string;
+  /** 定員超過（満室ではない。{n}=その棟の定員） */
+  overCapacity: string;
+  overCapacityHint: string;
   totalLabel: string;
   totalNote: (nights: number, guests: number) => string;
   approx: string;
@@ -59,6 +62,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "Unavailable",
     searching: "Checking availability…",
     soldOut: "Not available for these dates",
+    overCapacity: "Up to {n} guests",
+    overCapacityHint: "This house sleeps {n}. Please reduce the number of guests, or choose the other house — changing dates will not change the capacity.",
     soldOutHint: "Try different dates or the other house.",
     totalLabel: "Total",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
@@ -94,6 +99,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "満室・予約不可",
     searching: "空室を確認しています…",
     soldOut: "この日程は満室です",
+    overCapacity: "この棟は最大{n}名までです",
+    overCapacityHint: "ご人数を{n}名以下にするか、もう一方の棟をご検討ください。日程を変えても定員は変わりません。",
     soldOutHint: "日付を変更するか、もう一方の棟をご検討ください。",
     totalLabel: "合計",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
@@ -129,6 +136,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "예약 불가",
     searching: "빈방을 확인하고 있습니다…",
     soldOut: "해당 날짜는 예약이 불가합니다",
+    overCapacity: "이 숙소는 최대 {n}명까지입니다",
+    overCapacityHint: "인원을 {n}명 이하로 변경하시거나 다른 숙소를 확인해 주세요. 날짜를 바꿔도 정원은 동일합니다.",
     soldOutHint: "날짜를 변경하거나 다른 동을 확인해 주세요.",
     totalLabel: "합계",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
@@ -164,6 +173,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "已滿房",
     searching: "正在查詢空房…",
     soldOut: "此日期已滿房",
+    overCapacity: "本棟最多可住{n}人",
+    overCapacityHint: "請將人數調整為{n}人以下，或改選另一棟。更換日期並不會改變可住人數。",
     soldOutHint: "請更換日期，或查看另一棟。",
     totalLabel: "總金額",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
@@ -199,6 +210,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "ไม่ว่าง",
     searching: "กำลังตรวจสอบห้องว่าง…",
     soldOut: "วันที่เลือกไม่ว่าง",
+    overCapacity: "ที่พักนี้รองรับได้สูงสุด {n} ท่าน",
+    overCapacityHint: "กรุณาลดจำนวนผู้เข้าพักให้ไม่เกิน {n} ท่าน หรือเลือกอีกหลังหนึ่ง การเปลี่ยนวันที่ไม่ได้เปลี่ยนจำนวนที่รองรับ",
     soldOutHint: "กรุณาเปลี่ยนวันที่ หรือดูอีกหลังหนึ่ง",
     totalLabel: "ราคารวม",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,

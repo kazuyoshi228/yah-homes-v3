@@ -45,6 +45,50 @@ const bookingItems = [
   { label: "Takasago", href: localizedPath(lang, "/properties/takasago") },
 ];
 
+// ローカルガイド ドロップダウン（ローカル＝店・スポット／ガイド＝記事）
+const GUIDE_DESC = {
+  en: { locals: "Shops and spots", guides: "Articles" },
+  ja: { locals: "お店・スポット", guides: "記事" },
+  ko: { locals: "가게・스팟", guides: "기사" },
+  zh: { locals: "店家・景點", guides: "文章" },
+  th: { locals: "ร้านและสถานที่", guides: "บทความ" },
+}[lang];
+const GUIDE_LABEL = { en: "Local Guide", ja: "ローカルガイド", ko: "로컬 가이드", zh: "在地指南", th: "ไกด์ท้องถิ่น" }[lang];
+const LOCALS_LABEL = { en: "Local Map", ja: "ローカル・マップ", ko: "로컬 맵", zh: "在地地圖", th: "แผนที่ท้องถิ่น" }[lang];
+const guideItems = [
+  { label: LOCALS_LABEL, desc: GUIDE_DESC.locals, href: localsHref },
+  { label: t.nav.guides, desc: GUIDE_DESC.guides, href: guidesHref },
+];
+
+// yah.homesについて ドロップダウン（about と contact を統合）
+const ABOUT_ITEMS = {
+  en: [
+    { label: "Message from Director", desc: "Who runs yah.homes", href: `${aboutHref}#director` },
+    { label: "Company", desc: "Registered details", href: `${aboutHref}#company` },
+    { label: "Contact", desc: "Ask us anything", href: contactHref },
+  ],
+  ja: [
+    { label: "Message from Director", desc: "運営している人間について", href: `${aboutHref}#director` },
+    { label: "運営会社", desc: "登記情報", href: `${aboutHref}#company` },
+    { label: "お問い合わせ", desc: "ご質問・ご相談", href: contactHref },
+  ],
+  ko: [
+    { label: "Message from Director", desc: "운영자 소개", href: `${aboutHref}#director` },
+    { label: "운영 회사", desc: "등기 정보", href: `${aboutHref}#company` },
+    { label: "문의", desc: "질문・상담", href: contactHref },
+  ],
+  zh: [
+    { label: "Message from Director", desc: "關於經營者", href: `${aboutHref}#director` },
+    { label: "營運公司", desc: "登記資訊", href: `${aboutHref}#company` },
+    { label: "聯絡我們", desc: "諮詢與提問", href: contactHref },
+  ],
+  th: [
+    { label: "Message from Director", desc: "เกี่ยวกับผู้ดูแล", href: `${aboutHref}#director` },
+    { label: "บริษัทผู้ดำเนินการ", desc: "ข้อมูลจดทะเบียน", href: `${aboutHref}#company` },
+    { label: "ติดต่อเรา", desc: "สอบถามได้ทุกเรื่อง", href: contactHref },
+  ],
+}[lang];
+
 const langList = LOCALES.map((code) => ({
   code,
   label: t.nav.langNames[code],
@@ -61,12 +105,7 @@ const langList = LOCALES.map((code) => ({
 
     <!-- Desktop nav -->
     <div class="nav-desktop">
-      <a href={homeHref} class="nav-btn">{t.nav.home}</a>
-      <a href={aboutHref} class="nav-btn">{t.nav.about}</a>
-      <a href={localsHref} class="nav-btn">{t.nav.locals}</a>
-      <a href={guidesHref} class="nav-btn">{t.nav.guides}</a>
-
-      <!-- Booking dropdown（旧構想: Kiyokawa / Takasago 直行） -->
+      <!-- 施設（直販で最も重要な導線のため先頭） -->
       <div class="booking-wrap" id="booking-wrap">
         <button class="nav-btn booking-toggle" id="booking-toggle" aria-haspopup="true" aria-expanded="false">
           {t.nav.properties}
@@ -83,7 +122,41 @@ const langList = LOCALES.map((code) => ({
         </div>
       </div>
 
-      <a href={contactHref} class="nav-btn">{t.nav.contact}</a>
+      <!-- ローカルガイド（ローカル＋ガイドを統合） -->
+      <div class="booking-wrap" id="guide-wrap">
+        <button class="nav-btn booking-toggle" id="guide-toggle" aria-haspopup="true" aria-expanded="false">
+          {GUIDE_LABEL}
+          <span class="chev"><Fragment set:html={lucide("chevronDown", { size: 10, strokeWidth: 2 })} /></span>
+        </button>
+        <div class="booking-menu guide-menu" role="menu">
+          {
+            guideItems.map((item) => (
+              <a href={item.href} role="menuitem" class="booking-item guide-item">
+                <span class="gi-label">{item.label}</span>
+                <span class="gi-desc">{item.desc}</span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+
+      <!-- yah.homesについて（about ＋ 運営会社 ＋ お問い合わせ） -->
+      <div class="booking-wrap" id="about-wrap">
+        <button class="nav-btn booking-toggle" id="about-toggle" aria-haspopup="true" aria-expanded="false">
+          {t.nav.about}
+          <span class="chev"><Fragment set:html={lucide("chevronDown", { size: 10, strokeWidth: 2 })} /></span>
+        </button>
+        <div class="booking-menu guide-menu" role="menu">
+          {
+            ABOUT_ITEMS.map((item) => (
+              <a href={item.href} role="menuitem" class="booking-item guide-item">
+                <span class="gi-label">{item.label}</span>
+                <span class="gi-desc">{item.desc}</span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
 
       <!-- Language dropdown -->
       <div class="lang-wrap" id="lang-wrap">
@@ -146,14 +219,26 @@ const langList = LOCALES.map((code) => ({
 
   <!-- Mobile menu -->
   <div class="mobile-menu" id="mobile-menu">
-    <a href={homeHref} class="mm-item">{t.nav.home}</a>
-    <a href={aboutHref} class="mm-item">{t.nav.about}</a>
-    <a href={localsHref} class="mm-item">{t.nav.locals}</a>
-    <a href={guidesHref} class="mm-item">{t.nav.guides}</a>
     <div class="mm-booking">
       <p class="mm-booking-label">{t.nav.properties}</p>
       {
         bookingItems.map((item) => (
+          <a href={item.href} class="mm-booking-item">— {item.label}</a>
+        ))
+      }
+    </div>
+    <div class="mm-booking">
+      <p class="mm-booking-label">{GUIDE_LABEL}</p>
+      {
+        guideItems.map((item) => (
+          <a href={item.href} class="mm-booking-item">— {item.label}（{item.desc}）</a>
+        ))
+      }
+    </div>
+    <div class="mm-booking">
+      <p class="mm-booking-label">{t.nav.about}</p>
+      {
+        ABOUT_ITEMS.map((item) => (
           <a href={item.href} class="mm-booking-item">— {item.label}</a>
         ))
       }
@@ -171,10 +256,6 @@ const langList = LOCALES.map((code) => ({
         }
       </div>
     )}
-    <a href={contactHref} class="mm-item">
-      <Fragment set:html={lucide("mail", { size: 13, strokeWidth: 1.8 })} />
-      {t.nav.contact}
-    </a>
     <div class="mm-lang">
       <p class="mm-lang-label">{t.nav.language}</p>
       {
@@ -247,6 +328,11 @@ const langList = LOCALES.map((code) => ({
   #site-nav.hero-visible .nav-btn {
     color: #ffffff;
   }
+
+  .guide-menu { min-width: 200px; }
+  .guide-item { display: flex; flex-direction: column; gap: 0.15rem; }
+  .gi-label { font-size: 0.85rem; color: inherit; }
+  .gi-desc { font-size: 0.7rem; color: #999999; }
 
   /* Booking dropdown（旧 Navbar の隠しドロップダウン仕様） */
   .booking-wrap {
@@ -643,12 +729,36 @@ const langList = LOCALES.map((code) => ({
 
   // Booking ドロップダウン
   const bookingWrap = document.getElementById("booking-wrap");
+  const guideWrap = document.getElementById("guide-wrap");
   const bookingToggle = document.getElementById("booking-toggle");
   bookingToggle?.addEventListener("click", (e) => {
     e.stopPropagation();
     const open = bookingWrap?.classList.toggle("open");
     bookingToggle.setAttribute("aria-expanded", open ? "true" : "false");
     langWrap?.classList.remove("open");
+    guideWrap?.classList.remove("open");
+  });
+
+  // yah.homesについて ドロップダウン
+  const aboutWrap = document.getElementById("about-wrap");
+  const aboutToggle = document.getElementById("about-toggle");
+  aboutToggle?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = aboutWrap?.classList.toggle("open");
+    aboutToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    langWrap?.classList.remove("open");
+    bookingWrap?.classList.remove("open");
+    document.getElementById("guide-wrap")?.classList.remove("open");
+  });
+
+  // ローカルガイド ドロップダウン
+  const guideToggle = document.getElementById("guide-toggle");
+  guideToggle?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = guideWrap?.classList.toggle("open");
+    guideToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    langWrap?.classList.remove("open");
+    bookingWrap?.classList.remove("open");
   });
 
   // Book Now ドロップダウン
@@ -667,6 +777,14 @@ const langList = LOCALES.map((code) => ({
     if (langWrap && !langWrap.contains(e.target as Node)) {
       langWrap.classList.remove("open");
       langToggle?.setAttribute("aria-expanded", "false");
+    }
+    if (aboutWrap && !aboutWrap.contains(e.target as Node)) {
+      aboutWrap.classList.remove("open");
+      document.getElementById("about-toggle")?.setAttribute("aria-expanded", "false");
+    }
+    if (guideWrap && !guideWrap.contains(e.target as Node)) {
+      guideWrap.classList.remove("open");
+      document.getElementById("guide-toggle")?.setAttribute("aria-expanded", "false");
     }
     if (bookingWrap && !bookingWrap.contains(e.target as Node)) {
       bookingWrap.classList.remove("open");
