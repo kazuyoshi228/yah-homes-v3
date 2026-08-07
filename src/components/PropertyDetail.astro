@@ -94,9 +94,9 @@ const conditionRows: string[] = [
     <h1 class="pd-name">{d.hero.propertyName}</h1>
     <p class="pd-tagline">{d.hero.tagline}</p>
     <p class="pd-capacity">{d.hero.capacity}</p>
-    <!-- Book Now（Airbnb直行）はユーザー指示により削除（2026-07-13）— Beds24誘導のみ残す -->
+    <!-- 2026-08-08: Beds24 iframe撤去に伴い、ヒーローCTAはAirbnb直行に（右上Book Nowと同方針） -->
     <div class="pd-hero-ctas">
-      <a href="#booking" class="pd-cta-secondary">{d.booking.title}</a>
+      <a href={p.airbnbUrl} target="_blank" rel="noopener noreferrer" class="pd-cta-secondary" data-cta-location="property_detail_hero">{d.booking.title}</a>
     </div>
   </div>
 </section>
@@ -286,22 +286,6 @@ const conditionRows: string[] = [
           {d.houseRules.items.map((r: { rule: string }) => <li>{r.rule}</li>)}
         </ul>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- Beds24 -->
-<section class="pd-section" id="booking">
-  <div class="pd-container">
-    <h2 class="pd-h2">{d.booking.title}</h2>
-    <p class="pd-sub">{d.booking.subtitle}</p>
-    <div class="beds24">
-      <iframe
-        src={`https://beds24.com/booking2.php?propid=${p.beds24PropId}&referer=iframe`}
-        title={`${d.hero.propertyName} availability`}
-        loading="lazy"
-        referrerpolicy="no-referrer-when-downgrade"
-      ></iframe>
     </div>
   </div>
 </section>
@@ -684,17 +668,6 @@ const conditionRows: string[] = [
     }
   }
 
-  .beds24 {
-    border: 1px solid #e8e8e8;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .beds24 iframe {
-    width: 100%;
-    height: 720px;
-    border: 0;
-    display: block;
-  }
 
   .pd-gallery {
     display: grid;
