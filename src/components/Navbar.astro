@@ -26,8 +26,10 @@ const localsHref = localizedPath(lang, "/locals");
 const guidesHref = localizedPath(lang, "/guides");
 const contactHref = `${homeHref}#contact`;
 
-// Book Now ドロップダウン（右上ピル・Airbnb直行・cta_location=nav で計測）
+// 右上の予約ピル: BOOK_PREVIEW 時は自社予約（/book/）へ直行、本番は従来のAirbnbドロップダウン
 import { PROPERTIES } from "../data/properties";
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const bookPath = localizedPath(lang, "/book");
 const bookNowItems = [
   { label: "Kiyokawa", href: PROPERTIES.kiyokawa.airbnbUrl },
   { label: "Takasago", href: PROPERTIES.takasago.airbnbUrl },
@@ -102,22 +104,26 @@ const langList = LOCALES.map((code) => ({
         </div>
       </div>
 
-      <!-- Book Now pill（ドロップダウン: 清川/高砂 → Airbnb直行） -->
-      <div class="booknow-wrap" id="booknow-wrap">
-        <button class="contact-pill booknow-toggle" id="booknow-toggle" aria-haspopup="true" aria-expanded="false">
-          {t.nav.bookNow}
-          <span class="chev"><Fragment set:html={lucide("chevronDown", { size: 10, strokeWidth: 2 })} /></span>
-        </button>
-        <div class="booknow-menu" role="menu">
-          {
-            bookNowItems.map((item) => (
-              <a href={item.href} role="menuitem" class="booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">
-                {item.label}
-              </a>
-            ))
-          }
+      <!-- 予約ピル: 自社予約へ直行（プレビュー）／Airbnbドロップダウン（本番） -->
+      {BOOK_PREVIEW ? (
+        <a href={bookPath} class="contact-pill booknow-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
+      ) : (
+        <div class="booknow-wrap" id="booknow-wrap">
+          <button class="contact-pill booknow-toggle" id="booknow-toggle" aria-haspopup="true" aria-expanded="false">
+            {t.nav.bookNow}
+            <span class="chev"><Fragment set:html={lucide("chevronDown", { size: 10, strokeWidth: 2 })} /></span>
+          </button>
+          <div class="booknow-menu" role="menu">
+            {
+              bookNowItems.map((item) => (
+                <a href={item.href} role="menuitem" class="booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">
+                  {item.label}
+                </a>
+              ))
+            }
+          </div>
         </div>
-      </div>
+      )}
     </div>
 
     <!-- Mobile hamburger -->
@@ -145,14 +151,18 @@ const langList = LOCALES.map((code) => ({
         ))
       }
     </div>
-    <div class="mm-booking">
-      <p class="mm-booking-label">{t.nav.bookNow}</p>
-      {
-        bookNowItems.map((item) => (
-          <a href={item.href} class="mm-booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">— {item.label}</a>
-        ))
-      }
-    </div>
+    {BOOK_PREVIEW ? (
+      <a href={bookPath} class="mm-item mm-book-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
+    ) : (
+      <div class="mm-booking">
+        <p class="mm-booking-label">{t.nav.bookNow}</p>
+        {
+          bookNowItems.map((item) => (
+            <a href={item.href} class="mm-booking-item" target="_blank" rel="noopener noreferrer" data-cta-location="nav">— {item.label}</a>
+          ))
+        }
+      </div>
+    )}
     <a href={contactHref} class="mm-item">
       <Fragment set:html={lucide("mail", { size: 13, strokeWidth: 1.8 })} />
       {t.nav.contact}
@@ -376,6 +386,15 @@ const langList = LOCALES.map((code) => ({
   .booknow-wrap.open .chev :global(svg) {
     transform: rotate(180deg);
   }
+  .booknow-direct {
+    background: #ff5a5f;
+    border-color: #ff5a5f;
+    color: #ffffff;
+    text-decoration: none;
+  }
+  .booknow-direct:hover { background: #e04a4f; border-color: #e04a4f; color: #ffffff; }
+  #site-nav.hero-visible .booknow-direct { background: #ff5a5f; border-color: #ff5a5f; color: #ffffff; }
+  .mm-book-direct { font-weight: 600; }
   .booknow-menu {
     display: none;
     position: absolute;
