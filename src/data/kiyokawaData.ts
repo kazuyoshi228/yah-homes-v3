@@ -76,7 +76,6 @@ export interface KiyokawaTranslations {
   // Booking conditions
   conditions: {
     title: string;
-    minNights: string;
     cancellation: string;
     cleaningFee: string;
     extraGuest: string;
@@ -291,10 +290,9 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
     },
     conditions: {
       title: "Booking Conditions",
-      minNights: "Minimum stay: 2 nights",
       cancellation: "Cancellation: Please contact us for details.",
       cleaningFee: "Cleaning fee: Included in the rate",
-      extraGuest: "Extra guest fee: ¥10,000 per person over the declared headcount",
+      extraGuest: "Rate covers up to 5 guests; ¥5,000 per additional guest per night",
       noiseRule: "Quiet hours apply. Please be considerate of neighbours.",
       petRule: "No pets allowed (service animals with prior notice excepted).",
       smokingRule: "No smoking indoors. Designated outdoor area available.",
@@ -427,7 +425,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
         items: [
           "Please keep the property clean. Additional cleaning fees may apply for excessive mess or left rubbish.",
           "Lost or damaged items will be charged at replacement cost.",
-          "Exceeding the declared number of guests will incur a surcharge of ¥10,000 per extra person.",
+          "Exceeding the declared number of guests will incur a surcharge of ¥5,000 per extra person.",
           "Please sort rubbish according to the bin guide provided.",
           "Pets are not allowed (guide dogs permitted with prior notice).",
           "A city accommodation tax (set by Fukuoka City) applies in addition to the room rate.",
@@ -637,10 +635,9 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
     },
     conditions: {
       title: "ご予約条件",
-      minNights: "最低宿泊数: 2泊",
       cancellation: "キャンセル：詳しくは、お問い合わせください。",
       cleaningFee: "清掃料金: 宿泊料金に含まれています",
-      extraGuest: "追加人数料金: 申告人数を超える場合、超過1名につき¥10,000",
+      extraGuest: "追加人数料金: 5名まで同一料金・6名目以降1名につき¥5,000/泊",
       noiseRule: "深夜の騒音はお控えください。近隣へのご配慮をお願いいたします。",
       petRule: "ペットの同伴はご遠慮ください（補助犬は事前にご連絡ください）。",
       smokingRule: "室内は禁煙です。屋外に指定の喫煙場所がございます。",
@@ -773,7 +770,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
         items: [
           "お部屋は清潔にご利用ください。著しい汚れやゴミの放置があった場合、追加の清掃費を申し受けることがあります。",
           "室内備品の紛失・破損があった場合は、実費を申し受けます。",
-          "申告人数を超えてご宿泊された場合、超過1名につき¥10,000の追加料金を申し受けます。",
+          "申告人数を超えてご宿泊された場合、超過1名につき¥5,000の追加料金を申し受けます。",
           "ゴミはご案内に従って分別をお願いいたします。",
           "ペットの同伴はご遠慮ください（補助犬は事前にご連絡ください）。",
           "宿泊料金とは別に、福岡市の定める宿泊税がかかります。",
@@ -1028,7 +1025,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
         items: [
           "객실을 깨끗하게 이용해 주세요. 심한 오염이나 방치된 쓰레기가 있을 경우 추가 청소비를 청구할 수 있습니다.",
           "실내 비품의 분실이나 파손이 있을 경우 실비를 청구합니다.",
-          "예약 시 신고한 인원을 초과하여 숙박하실 경우 초과 1인당 ¥10,000의 추가 요금이 부과됩니다.",
+          "예약 시 신고한 인원을 초과하여 숙박하실 경우 초과 1인당 ¥5,000의 추가 요금이 부과됩니다.",
           "쓰레기는 안내에 따라 반드시 분리수거해 주세요.",
           "반려동물 동반은 금지입니다 (안내견·보조견은 사전 연락 필수).",
           "숙박 요금과 별도로 후쿠오카시 규정에 따른 숙박세가 부과됩니다.",
@@ -1074,10 +1071,9 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
     },
     conditions: {
       title: "예약 조건",
-      minNights: "최소 숙박: 2박",
       cancellation: "취소 정책: 자세한 내용은 문의해 주세요.",
       cleaningFee: "청소비: 요금에 포함",
-      extraGuest: "추가 인원 요금: 신고 인원 초과 1인당 ¥10,000",
+      extraGuest: "추가 인원 요금: 5명까지 동일 요금・6명째부터 1인당 ¥5,000/박",
       noiseRule: "심야 소음에 주의해 주세요.",
       petRule: "반려동물 동반 불가 (사전 연락 시 안내견 가능).",
       smokingRule: "실내 흡연 금지. 지정 야외 흡연 구역 있음.",
@@ -1346,7 +1342,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
         items: [
           "請保持房間整潔。若有嚴重髒亂或遺棄垃圾，將另行收取清潔費。",
           "房內物品遺失或損壞，將按實際費用收取。",
-          "入住人數超出申報人數，每位加收 ¥10,000 。",
+          "入住人數超出申報人數，每位加收 ¥5,000 。",
           "請依照垃圾桶說明進行分類。",
           "禁止攜帶寵物（導盲犬需事先告知）。",
           "除房費外，還需支付福岡市規定的容宿稅。",
@@ -1392,10 +1388,9 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
     },
     conditions: {
       title: "預訂條件",
-      minNights: "最短住宿：2 晚",
       cancellation: "取消政策：詳情請與我們聯繫。",
       cleaningFee: "清潔費：已包含在費率中",
-      extraGuest: "額外住客費：超出申報人數每人 ¥10,000",
+      extraGuest: "額外住客費：5人以內同一價格・第6人起每人每晚 ¥5,000",
       noiseRule: "請注意深夜噪音，體諒鄰居。",
       petRule: "不允許攜帶寵物（事先通知的導盲犬除外）。",
       smokingRule: "室內禁止吸菸，室外有指定吸菸區。",
@@ -1664,7 +1659,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
         items: [
           "กรุณาดูแลรักษาความสะอาด หากมีความสกปรกมากเกินไปหรือทิ้งขยะไว้ อาจมีการเรียกเก็บค่าทำความสะอาดเพิ่มเติม",
           "หากของในห้องสูญหายหรือเสียหาย จะเรียกเก็บตามราคาจริง",
-          "หากจำนวนผู้เข้าพักเกินกว่าที่แจ้งไว้ จะเรียกเก็บ ¥10,000 ต่อคนที่เกิน",
+          "หากจำนวนผู้เข้าพักเกินกว่าที่แจ้งไว้ จะเรียกเก็บ ¥5,000 ต่อคนที่เกิน",
           "กรุณาแยกขยะตามคำแนะนำที่ให้ไว้",
           "ไม่อนุญาตให้นำสัตว์เลี้ยงมา (สุนัขนำทางได้รับการยกเว้นหากแจ้งล่วงหน้า)",
           "นอกจากค่าที่พักแล้ว ยังมีภาษีที่พักตามระเบียบของเมืองฟุกุโอกะ",
@@ -1711,10 +1706,9 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
     },
     conditions: {
       title: "เงื่อนไขการจอง",
-      minNights: "พักขั้นต่ำ: 2 คืน",
       cancellation: "นโยบายยกเลิก: กรุณาติดต่อเราสำหรับรายละเอียด",
       cleaningFee: "ค่าทำความสะอาด: รวมอยู่ในราคาแล้ว",
-      extraGuest: "ค่าผู้เข้าพักเพิ่ม: ¥10,000 ต่อคนที่เกินจากจำนวนที่แจ้งไว้",
+      extraGuest: "ราคาเดียวกันสูงสุด 5 ท่าน・ตั้งแต่ท่านที่ 6 คิด ¥5,000 ต่อท่านต่อคืน",
       noiseRule: "กรุณาระวังเสียงรบกวนในช่วงกลางคืน",
       petRule: "ไม่อนุญาตให้นำสัตว์เลี้ยงมา (สุนัขนำทางได้หากแจ้งล่วงหน้า)",
       smokingRule: "ห้ามสูบบุหรี่ภายในที่พัก มีพื้นที่สูบบุหรี่กลางแจ้งที่กำหนดไว้",

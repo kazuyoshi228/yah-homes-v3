@@ -67,7 +67,6 @@ export interface TakasagoTranslations {
   };
   conditions: {
     title: string;
-    minNights: string;
     cancellation: string;
     cleaningFee: string;
     extraGuest: string;
@@ -271,10 +270,9 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
     },
     conditions: {
       title: "Booking Conditions",
-      minNights: "Minimum stay: 2 nights",
       cancellation: "Cancellation: Please contact us for details.",
       cleaningFee: "Cleaning fee: Included in the rate",
-      extraGuest: "Extra guest fee: ¥10,000 per person over the declared headcount",
+      extraGuest: "Rate covers up to 5 guests; ¥5,000 per additional guest per night",
       noiseRule: "Quiet hours apply. Please be considerate of neighbours.",
       petRule: "No pets allowed (service animals with prior notice excepted).",
       smokingRule: "No smoking indoors. Designated outdoor area available.",
@@ -408,7 +406,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         items: [
           "Please keep the property clean. Additional cleaning fees may apply for excessive mess or left rubbish.",
           "Lost or damaged items will be charged at replacement cost.",
-          "Exceeding the declared number of guests will incur a surcharge of ¥10,000 per extra person.",
+          "Exceeding the declared number of guests will incur a surcharge of ¥5,000 per extra person.",
           "Please sort rubbish according to the bin guide provided.",
           "Pets are not allowed (guide dogs permitted with prior notice).",
           "A city accommodation tax (set by Fukuoka City) applies in addition to the room rate.",
@@ -615,10 +613,9 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
     },
     conditions: {
       title: "ご予約条件",
-      minNights: "最低宿泊数：2泊",
       cancellation: "キャンセル：詳しくは、お問い合わせください。",
       cleaningFee: "清掃料金：宿泊料金に含まれます",
-      extraGuest: "追加ゲスト料金：申告人数を超える場合、お一人につき¥10,000",
+      extraGuest: "追加ゲスト料金：5名まで同一料金・6名目以降お一人につき¥5,000/泊",
       noiseRule: "夜間はお静かにお過ごしください。ご近所への配慮をお願いいたします。",
       petRule: "ペットの同伴はご遠慮いただいております（補助犬は事前のご連絡で同伴可）。",
       smokingRule: "室内は禁煙です。屋外の指定場所をご利用ください。",
@@ -752,7 +749,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         items: [
           "清潔なご利用をお願いいたします。著しい汚れやごみの放置があった場合は、追加の清掃料金を申し受けることがあります。",
           "備品の紛失・破損については、実費をご請求いたします。",
-          "申告人数を超えてのご宿泊は、超過1名につき¥10,000の追加料金を申し受けます。",
+          "申告人数を超えてのご宿泊は、超過1名につき¥5,000の追加料金を申し受けます。",
           "ごみは備え付けの案内に沿って分別をお願いいたします。",
           "ペットの同伴はご遠慮ください（盲導犬は事前のご連絡で同伴可）。",
           "宿泊料金とは別に、福岡市の定める宿泊税がかかります。",
@@ -957,10 +954,9 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
     },
     conditions: {
       title: "예약 조건",
-      minNights: "최소 숙박: 2박",
       cancellation: "취소 정책: 자세한 내용은 문의해 주세요.",
       cleaningFee: "청소비: 요금에 포함",
-      extraGuest: "추가 게스트 요금: 신고 인원 초과 시 1인당 ¥10,000",
+      extraGuest: "추가 게스트 요금: 5명까지 동일 요금・6명째부터 1인당 ¥5,000/박",
       noiseRule: "야간 정숙 시간이 있습니다. 이웃을 배려해 주세요.",
       petRule: "반려동물 불가 (사전 통보 시 안내견 허용).",
       smokingRule: "실내 금연. 지정된 야외 흡연 구역 이용 가능.",
@@ -1067,7 +1063,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         items: [
           "숙소를 청결하게 유지해 주세요. 과도한 오염이나 쓰레기 방치 시 추가 청소비가 부과될 수 있습니다.",
           "분실 또는 파손된 물품은 실비로 청구됩니다.",
-          "신고 인원 초과 시 초과 인원 1인당 ¥10,000의 추가 요금이 부과됩니다.",
+          "신고 인원 초과 시 초과 인원 1인당 ¥5,000의 추가 요금이 부과됩니다.",
           "제공된 안내에 따라 쓰레기를 분리수거해 주세요.",
           "반려동물은 허용되지 않습니다 (사전 통보 시 안내견 허용).",
           "숙박 요금 외에 후쿠오카시 숙박세가 부과됩니다.",
@@ -1271,10 +1267,9 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
     },
     conditions: {
       title: "預訂條件",
-      minNights: "最短住宿：2 晚",
       cancellation: "取消政策：詳情請與我們聯繫。",
       cleaningFee: "清潔費：已含在費率中",
-      extraGuest: "額外房客費：超出申報人數每人 ¥10,000",
+      extraGuest: "額外房客費：5人以內同一價格・第6人起每人每晚 ¥5,000",
       noiseRule: "有安靜時段規定。請體諒鄰居。",
       petRule: "不允許攜帶寵物（事先通知可攜帶導盲犬）。",
       smokingRule: "室內禁止吸菸。有指定戶外吸菸區。",
@@ -1381,7 +1376,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         items: [
           "請保持房源清潔。過度髒亂或留下垃圾可能會收取額外清潔費。",
           "遺失或損壞的物品將按實際費用收費。",
-          "超出申報人數將收取每人 ¥10,000 的附加費。",
+          "超出申報人數將收取每人 ¥5,000 的附加費。",
           "請按照提供的垃圾分類指南分類垃圾。",
           "不允許攜帶寵物（事先通知可攜帶導盲犬）。",
           "除住宿費外，還需繳納福岡市規定的住宿稅。",
@@ -1586,10 +1581,9 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
     },
     conditions: {
       title: "เงื่อนไขการจอง",
-      minNights: "พักขั้นต่ำ: 2 คืน",
       cancellation: "นโยบายยกเลิก: กรุณาติดต่อเราสำหรับรายละเอียด",
       cleaningFee: "ค่าทำความสะอาด: รวมอยู่ในราคาแล้ว",
-      extraGuest: "ค่าผู้เข้าพักเพิ่ม: ¥10,000 ต่อคนที่เกินจากจำนวนที่แจ้งไว้",
+      extraGuest: "ราคาเดียวกันสูงสุด 5 ท่าน・ตั้งแต่ท่านที่ 6 คิด ¥5,000 ต่อท่านต่อคืน",
       noiseRule: "กรุณาระวังเสียงรบกวนในช่วงกลางคืน",
       petRule: "ไม่อนุญาตให้นำสัตว์เลี้ยงมา (สุนัขนำทางได้หากแจ้งล่วงหน้า)",
       smokingRule: "ห้ามสูบบุหรี่ภายในที่พัก มีพื้นที่สูบบุหรี่กลางแจ้งที่กำหนดไว้",
@@ -1696,7 +1690,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         items: [
           "กรุณาดูแลรักษาความสะอาด หากมีความสกปรกมากเกินไปหรือทิ้งขยะไว้ อาจมีการเรียกเก็บค่าทำความสะอาดเพิ่มเติม",
           "หากของในห้องสูญหายหรือเสียหาย จะเรียกเก็บตามราคาจริง",
-          "หากจำนวนผู้เข้าพักเกินกว่าที่แจ้งไว้ จะเรียกเก็บ ¥10,000 ต่อคนที่เกิน",
+          "หากจำนวนผู้เข้าพักเกินกว่าที่แจ้งไว้ จะเรียกเก็บ ¥5,000 ต่อคนที่เกิน",
           "กรุณาแยกขยะตามคำแนะนำที่ให้ไว้",
           "ไม่อนุญาตให้นำสัตว์เลี้ยงมา (สุนัขนำทางได้รับการยกเว้นหากแจ้งล่วงหน้า)",
           "นอกจากค่าที่พักแล้ว ยังมีภาษีที่พักตามระเบียบของเมืองฟุกุโอกะ",
