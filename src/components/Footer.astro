@@ -13,6 +13,9 @@ const t = translations[lang];
 const updated = new Date().toISOString().slice(0, 10);
 
 const aboutHref = localizedPath(lang, "/about");
+// 予約した人の受け皿（予約前の人には意味がないため控えめに置く）
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const accountHref = localizedPath(lang, "/account");
 const legalHref = localizedPath(lang, "/legal/tokushoho");
 const privacyHref = localizedPath(lang, "/legal/privacy");
 const LEGAL_LABEL: Record<Locale, string> = {
@@ -52,6 +55,9 @@ const ABOUT_LABEL: Record<Locale, string> = {
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;">
       <nav style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:flex-end;">
+        {BOOK_PREVIEW && (
+          <a href={accountHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">My Page</a>
+        )}
         <a href={aboutHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{ABOUT_LABEL[lang]}</a>
         <a href={legalHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{LEGAL_LABEL[lang]}</a>
         <a href={privacyHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{PRIVACY_LABEL[lang]}</a>
