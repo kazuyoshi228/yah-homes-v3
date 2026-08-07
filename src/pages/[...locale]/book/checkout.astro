@@ -1,0 +1,467 @@
+---
+/* /book/checkout — 予約の「確定」ページ（design_booking_p1_v4.md §3〜5・MS3）
+   構成はBooking.comの2カラム（左=予約サマリ固定／右=入力ステップ）を参考に、ブランド準拠のモノクロームで再構成。
+   現段階: 認証・入力・同意・最終確認まで。Stripe決済の結線はMS3で追加（ボタンは無効表示）。
+   公開ガード: BOOK_PREVIEW=1 のときのみ生成・noindex。 */
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
+import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
+import { PROPERTIES } from "../../../data/properties";
+
+export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+
+export function getStaticPaths() {
+  if (!BOOK_PREVIEW) return [];
+  return LOCALES.map((locale) => ({
+    params: { locale: localeParam(locale) },
+    props: { lang: locale as Locale },
+  }));
+}
+
+const { lang } = Astro.props as { lang: Locale };
+const t = BOOK_STRINGS[lang];
+
+const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+const BOOK_PATH = localizedPath(lang, "/book");
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+const HOUSE_META = {
+  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: 8 },
+  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: 6 },
+};
+
+// 画面文言（5言語）
+const C = {
+  en: {
+    title: "Complete your booking", steps: ["Dates & house", "Your details", "Payment"],
+    summary: "Your booking", checkin: "Check-in", checkout: "Check-out", guests: "Guests",
+    checkinTime: "From 15:00", checkoutTime: "Until 10:00", nightsGuests: (n: number, g: number) => `${n} nights · ${g} guests`,
+    priceTitle: "Price details", total: "Total", taxNote: "Tax and cleaning fee included",
+    cancelTitle: "Cancellation", freeUntil: (d: string) => `Free cancellation until ${d}`,
+    cancelAfter: "After that, the full amount is charged.",
+    authTitle: "Sign in to continue", authLead: "We use your Google account so you can manage this booking later. No password needed.",
+    authBtn: "Continue with Google", authDone: "Signed in as",
+    detailsTitle: "Your details", name: "Full name", email: "Email", phone: "Phone", phoneNote: "So we can reach you during your stay",
+    leadGuest: "Lead guest (if different)", optional: "optional",
+    rulesTitle: "House rules", rules: ["No parties or events", "Stated number of guests only", "Outdoor security camera at the entrance", "No smoking indoors"],
+    rulesAgree: "I agree to the house rules",
+    marketing: "Send me occasional offers and coupons",
+    trustReply: "We reply within 2–3 business days", operator: "Operated by Bonfire Inc.",
+    confirmTitle: "Final confirmation", payBtn: "Confirm and pay", paySoon: "Card payment is being set up. It will be enabled shortly.",
+    faqTitle: "Before you book",
+    faq: [["Is there parking?", "Kiyokawa has a free private parking space. Takasago can accommodate a large vehicle."],
+          ["What time can we check in?", "From 15:00. Check-out is by 10:00. Self check-in, no front desk."],
+          ["Is there a charge for extra guests?", "The rate covers up to 5 guests. Each additional guest is ¥5,000 per night."]],
+    back: "Change dates or house", missing: "Please choose your dates first.",
+  },
+  ja: {
+    title: "ご予約の確定", steps: ["日程・棟の選択", "お客様情報", "お支払い"],
+    summary: "ご予約内容", checkin: "チェックイン", checkout: "チェックアウト", guests: "人数",
+    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}泊 ${g}名`,
+    priceTitle: "料金内訳", total: "合計", taxNote: "税・清掃料込み",
+    cancelTitle: "キャンセルについて", freeUntil: (d: string) => `${d} まで無料キャンセル`,
+    cancelAfter: "以降は全額が発生します。",
+    authTitle: "ログインして進む", authLead: "ご予約の確認・変更をあとから行えるよう、Googleアカウントで進みます。パスワードは不要です。",
+    authBtn: "Googleで続ける", authDone: "ログイン中",
+    detailsTitle: "お客様情報", name: "お名前", email: "メールアドレス", phone: "電話番号", phoneNote: "ご滞在中にご連絡する場合に使用します",
+    leadGuest: "宿泊代表者名（予約者と異なる場合）", optional: "任意",
+    rulesTitle: "ハウスルール", rules: ["パーティー・イベントはご遠慮ください", "ご申告の人数でのご利用をお願いします", "玄関に屋外防犯カメラを設置しています", "屋内は禁煙です"],
+    rulesAgree: "ハウスルールに同意します",
+    marketing: "お得な情報・クーポンを受け取る",
+    trustReply: "2〜3営業日以内にご連絡いたします", operator: "運営: ボンファイア株式会社",
+    confirmTitle: "最終確認", payBtn: "同意してお支払いへ", paySoon: "カード決済は準備中です。まもなく有効になります。",
+    faqTitle: "ご予約の前に",
+    faq: [["駐車場はありますか？", "清川は無料の専用駐車場があります。高砂は大型車の駐車が可能です。"],
+          ["チェックインは何時からですか？", "15:00からご利用いただけます。チェックアウトは10:00までです。フロントのないセルフチェックインです。"],
+          ["人数が増えると料金は変わりますか？", "5名まで同一料金です。6名目以降はお一人につき1泊¥5,000を申し受けます。"]],
+    back: "日程・棟を変更する", missing: "先に日程をお選びください。",
+  },
+  ko: {
+    title: "예약 확정", steps: ["날짜・동 선택", "고객 정보", "결제"],
+    summary: "예약 내용", checkin: "체크인", checkout: "체크아웃", guests: "인원",
+    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}박 ${g}명`,
+    priceTitle: "요금 내역", total: "합계", taxNote: "세금・청소비 포함",
+    cancelTitle: "취소 안내", freeUntil: (d: string) => `${d}까지 무료 취소`,
+    cancelAfter: "이후에는 전액이 부과됩니다.",
+    authTitle: "로그인하고 진행", authLead: "예약 확인・변경을 나중에 하실 수 있도록 Google 계정으로 진행합니다. 비밀번호는 필요 없습니다.",
+    authBtn: "Google로 계속하기", authDone: "로그인 중",
+    detailsTitle: "고객 정보", name: "성함", email: "이메일", phone: "전화번호", phoneNote: "숙박 중 연락이 필요할 때 사용합니다",
+    leadGuest: "숙박 대표자명(예약자와 다른 경우)", optional: "선택",
+    rulesTitle: "하우스 룰", rules: ["파티・이벤트는 삼가 주세요", "신고하신 인원으로 이용해 주세요", "현관에 실외 방범 카메라가 있습니다", "실내는 금연입니다"],
+    rulesAgree: "하우스 룰에 동의합니다",
+    marketing: "혜택・쿠폰 정보를 받아보기",
+    trustReply: "2~3영업일 이내에 연락드립니다", operator: "운영: Bonfire Inc.",
+    confirmTitle: "최종 확인", payBtn: "동의하고 결제로", paySoon: "카드 결제는 준비 중입니다. 곧 이용하실 수 있습니다.",
+    faqTitle: "예약 전 안내",
+    faq: [["주차장이 있나요?", "기요카와는 무료 전용 주차장이 있습니다. 다카사고는 대형차 주차가 가능합니다."],
+          ["체크인은 몇 시부터인가요?", "15:00부터 이용 가능하며 체크아웃은 10:00까지입니다. 프런트 없는 셀프 체크인입니다."],
+          ["인원이 늘면 요금이 달라지나요?", "5명까지 동일 요금이며, 6명째부터 1인당 1박 ¥5,000이 추가됩니다."]],
+    back: "날짜・동 변경", missing: "먼저 날짜를 선택해 주세요.",
+  },
+  zh: {
+    title: "完成預訂", steps: ["日期・房源", "顧客資料", "付款"],
+    summary: "預訂內容", checkin: "入住", checkout: "退房", guests: "人數",
+    checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}晚 ${g}人`,
+    priceTitle: "費用明細", total: "總金額", taxNote: "含稅・清潔費",
+    cancelTitle: "取消說明", freeUntil: (d: string) => `${d} 前可免費取消`,
+    cancelAfter: "之後將收取全額費用。",
+    authTitle: "登入後繼續", authLead: "為了讓您日後можеть查詢與變更訂單，我們使用 Google 帳號登入，無需密碼。",
+    authBtn: "使用 Google 繼續", authDone: "已登入",
+    detailsTitle: "顧客資料", name: "姓名", email: "電子郵件", phone: "電話號碼", phoneNote: "入住期間需要聯繫時使用",
+    leadGuest: "入住代表人姓名（與訂購人不同時）", optional: "選填",
+    rulesTitle: "住宿規則", rules: ["請勿舉辦派對或活動", "請依申報人數入住", "玄關設有室外監視器", "室內禁菸"],
+    rulesAgree: "我同意住宿規則",
+    marketing: "接收優惠與折扣資訊",
+    trustReply: "我們將於2〜3個工作天內回覆", operator: "營運: Bonfire Inc.",
+    confirmTitle: "最終確認", payBtn: "同意並前往付款", paySoon: "信用卡付款準備中，即將開放。",
+    faqTitle: "預訂前須知",
+    faq: [["有停車位嗎？", "清川館附免費專用停車位；高砂館可停大型車。"],
+          ["幾點可以入住？", "15:00 起可入住，退房時間為 10:00 前。無櫃檯，自助入住。"],
+          ["人數增加費用會變嗎？", "5人以內同一價格，第6人起每人每晚加收 ¥5,000。"]],
+    back: "變更日期或房源", missing: "請先選擇日期。",
+  },
+  th: {
+    title: "ยืนยันการจอง", steps: ["วันที่・บ้าน", "ข้อมูลผู้เข้าพัก", "ชำระเงิน"],
+    summary: "รายละเอียดการจอง", checkin: "เช็คอิน", checkout: "เช็คเอาท์", guests: "ผู้เข้าพัก",
+    checkinTime: "15:00 เป็นต้นไป", checkoutTime: "ก่อน 10:00", nightsGuests: (n: number, g: number) => `${n} คืน ${g} ท่าน`,
+    priceTitle: "รายละเอียดราคา", total: "ราคารวม", taxNote: "รวมภาษีและค่าทำความสะอาด",
+    cancelTitle: "การยกเลิก", freeUntil: (d: string) => `ยกเลิกฟรีถึง ${d}`,
+    cancelAfter: "หลังจากนั้นจะเรียกเก็บเต็มจำนวน",
+    authTitle: "เข้าสู่ระบบเพื่อดำเนินการต่อ", authLead: "เราใช้บัญชี Google เพื่อให้คุณจัดการการจองได้ภายหลัง ไม่ต้องใช้รหัสผ่าน",
+    authBtn: "ดำเนินการต่อด้วย Google", authDone: "เข้าสู่ระบบแล้ว",
+    detailsTitle: "ข้อมูลผู้เข้าพัก", name: "ชื่อ-นามสกุล", email: "อีเมล", phone: "เบอร์โทรศัพท์", phoneNote: "ใช้ติดต่อระหว่างการเข้าพัก",
+    leadGuest: "ชื่อผู้เข้าพักหลัก (หากต่างจากผู้จอง)", optional: "ไม่บังคับ",
+    rulesTitle: "กฎของที่พัก", rules: ["ไม่อนุญาตให้จัดปาร์ตี้หรืออีเวนต์", "กรุณาเข้าพักตามจำนวนที่แจ้ง", "มีกล้องวงจรปิดภายนอกที่ทางเข้า", "ห้ามสูบบุหรี่ภายในบ้าน"],
+    rulesAgree: "ฉันยอมรับกฎของที่พัก",
+    marketing: "รับข้อเสนอและคูปองพิเศษ",
+    trustReply: "เราจะติดต่อกลับภายใน 2–3 วันทำการ", operator: "ดำเนินการโดย Bonfire Inc.",
+    confirmTitle: "ยืนยันครั้งสุดท้าย", payBtn: "ยอมรับและชำระเงิน", paySoon: "ระบบชำระเงินกำลังเตรียมการ จะเปิดให้ใช้งานเร็ว ๆ นี้",
+    faqTitle: "ก่อนจอง",
+    faq: [["มีที่จอดรถไหม", "คิโยคาวะมีที่จอดรถส่วนตัวฟรี ทาคาซาโกะจอดรถขนาดใหญ่ได้"],
+          ["เช็คอินได้กี่โมง", "ตั้งแต่ 15:00 และเช็คเอาท์ก่อน 10:00 เป็นแบบเช็คอินด้วยตนเอง"],
+          ["ถ้าคนเพิ่มราคาจะเปลี่ยนไหม", "ราคาเดียวกันสูงสุด 5 ท่าน ตั้งแต่ท่านที่ 6 คิดเพิ่มท่านละ ¥5,000 ต่อคืน"]],
+    back: "เปลี่ยนวันที่หรือบ้าน", missing: "กรุณาเลือกวันที่ก่อน",
+  },
+}[lang];
+
+const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
+const uiStrings = {
+  approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
+  total: C.total, missing: C.missing, authDone: C.authDone,
+  nightsGuests: C.nightsGuests(-1, -2).replace("-1", "{n}").replace("-2", "{g}"),
+  freeUntil: C.freeUntil("{d}"),
+  soldOut: t.soldOut,
+};
+---
+
+<SiteLayout
+  lang={lang}
+  path="/book/checkout"
+  title={`${C.title} | yah.homes`}
+  description={t.metaDescription}
+  noindex={true}
+  solidNav
+>
+  <section class="co">
+    <div class="co-container">
+      <!-- 進行ステップ -->
+      <ol class="co-steps">
+        {C.steps.map((label, i) => (
+          <li class={i === 1 ? "co-step is-current" : i === 0 ? "co-step is-done" : "co-step"}>
+            <span class="co-step-no">{i + 1}</span>{label}
+          </li>
+        ))}
+      </ol>
+
+      <div class="co-grid">
+        <!-- 左: 予約サマリ（PCは追従） -->
+        <aside class="co-summary">
+          <div class="co-card">
+            <img class="co-photo" id="co-photo" src={HOUSE_META.kiyokawa.image} alt="" width="360" height="240" />
+            <div class="co-card-body">
+              <h2 class="co-house" id="co-house">—</h2>
+              <a class="co-back" href={BOOK_PATH}>{C.back}</a>
+            </div>
+          </div>
+
+          <div class="co-block">
+            <h3 class="co-block-title">{C.summary}</h3>
+            <dl class="co-dl">
+              <div><dt>{C.checkin}</dt><dd id="co-in">—<span class="co-time">{C.checkinTime}</span></dd></div>
+              <div><dt>{C.checkout}</dt><dd id="co-out">—<span class="co-time">{C.checkoutTime}</span></dd></div>
+              <div><dt>{C.guests}</dt><dd id="co-guests">—</dd></div>
+            </dl>
+          </div>
+
+          <div class="co-block">
+            <h3 class="co-block-title">{C.priceTitle}</h3>
+            <div class="co-total-row">
+              <span>{C.total}</span>
+              <strong class="co-total" id="co-total">—</strong>
+            </div>
+            <p class="co-fx" id="co-fx"></p>
+            <p class="co-note">{C.taxNote}</p>
+          </div>
+
+          <div class="co-block">
+            <h3 class="co-block-title">{C.cancelTitle}</h3>
+            <p class="co-cancel" id="co-cancel">—</p>
+            <p class="co-note">{C.cancelAfter}</p>
+          </div>
+        </aside>
+
+        <!-- 右: 入力ステップ -->
+        <div class="co-main">
+          <h1 class="co-title">{C.title}</h1>
+
+          <!-- 認証 -->
+          <section class="co-sec" id="co-auth">
+            <h2 class="co-sec-title">{C.authTitle}</h2>
+            <p class="co-sec-lead">{C.authLead}</p>
+            <button type="button" class="co-google" id="co-google">{C.authBtn}</button>
+            <p class="co-status" id="co-auth-status"></p>
+          </section>
+
+          <!-- お客様情報 -->
+          <section class="co-sec" id="co-details" hidden>
+            <h2 class="co-sec-title">{C.detailsTitle}</h2>
+            <div class="co-field">
+              <label for="cf-name">{C.name}</label>
+              <input id="cf-name" type="text" required maxlength="200" />
+            </div>
+            <div class="co-field">
+              <label for="cf-email">{C.email}</label>
+              <input id="cf-email" type="email" required maxlength="320" readonly />
+            </div>
+            <div class="co-field">
+              <label for="cf-phone">{C.phone}</label>
+              <div class="co-phone">
+                <select id="cf-cc">
+                  {[["+81", "JP"], ["+886", "TW"], ["+852", "HK"], ["+82", "KR"], ["+66", "TH"], ["+65", "SG"], ["+1", "US"], ["+44", "GB"], ["+61", "AU"]].map(([code, cc]) => (
+                    <option value={code} selected={(lang === "ja" && cc === "JP") || (lang === "zh" && cc === "TW") || (lang === "ko" && cc === "KR") || (lang === "th" && cc === "TH") || (lang === "en" && cc === "US")}>{cc} {code}</option>
+                  ))}
+                </select>
+                <input id="cf-phone" type="tel" required maxlength="20" inputmode="tel" />
+              </div>
+              <p class="co-hint">{C.phoneNote}</p>
+            </div>
+            <div class="co-field">
+              <label for="cf-lead">{C.leadGuest}<span class="co-optional">{C.optional}</span></label>
+              <input id="cf-lead" type="text" maxlength="200" />
+            </div>
+          </section>
+
+          <!-- ハウスルール -->
+          <section class="co-sec" id="co-rules" hidden>
+            <h2 class="co-sec-title">{C.rulesTitle}</h2>
+            <ul class="co-rules">
+              {C.rules.map((r) => <li>{r}</li>)}
+            </ul>
+            <label class="co-check"><input type="checkbox" id="cf-rules" /> {C.rulesAgree}</label>
+            <label class="co-check"><input type="checkbox" id="cf-marketing" /> {C.marketing}</label>
+          </section>
+
+          <!-- 最終確認・決済 -->
+          <section class="co-sec" id="co-pay" hidden>
+            <h2 class="co-sec-title">{C.confirmTitle}</h2>
+            <div class="co-trust">
+              <span id="co-trust-cancel">—</span>
+              <span>{C.trustReply}</span>
+              <span>{C.operator}</span>
+            </div>
+            <div class="co-final" id="co-final"></div>
+            <button type="button" class="co-pay-btn" id="co-pay-btn" disabled>{C.payBtn}</button>
+            <p class="co-status" id="co-pay-status">{C.paySoon}</p>
+          </section>
+
+          <!-- FAQ -->
+          <section class="co-sec co-faq">
+            <h2 class="co-sec-title">{C.faqTitle}</h2>
+            {C.faq.map(([q, a]) => (
+              <details class="co-faq-item"><summary>{q}</summary><p>{a}</p></details>
+            ))}
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ AVAIL_ENDPOINT, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang }}>
+  const $ = (id) => document.getElementById(id);
+  const yen = (n) => `¥${n.toLocaleString("en-US")}`;
+  const p = new URLSearchParams(location.search);
+  const prop = p.get("prop");
+  const checkin = p.get("checkin");
+  const checkout = p.get("checkout");
+  const guests = Number(p.get("guests")) || 0;
+
+  // 日程が無ければ選択ページへ戻す
+  if (!prop || !HOUSE_META[prop] || !checkin || !checkout || !guests) {
+    $("co-house").textContent = uiStrings.missing;
+    $("co-pay-status").textContent = "";
+  } else {
+    const meta = HOUSE_META[prop];
+    const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
+    $("co-photo").src = meta.image;
+    $("co-house").textContent = meta.name;
+    $("co-in").firstChild.textContent = checkin;
+    $("co-out").firstChild.textContent = checkout;
+    $("co-guests").textContent = uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests);
+
+    // 無料キャンセル期限 = チェックイン7日前（JST基準・v4 §4）
+    const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 7 * 86400000);
+    const fcStr = fc.toISOString().slice(0, 10);
+    $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
+    $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
+
+    // 総額（サーバー側の見積りを再取得）
+    fetch(`${AVAIL_ENDPOINT}?prop=${prop}&checkin=${checkin}&checkout=${checkout}&guests=${guests}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.ok || !j.available) { $("co-total").textContent = uiStrings.soldOut; return; }
+        $("co-total").textContent = yen(j.total);
+        if (uiStrings.fxCode !== "JPY") {
+          $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
+        }
+        $("co-final").textContent = `${meta.name}　${checkin} 〜 ${checkout}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
+      })
+      .catch(() => { $("co-total").textContent = "—"; });
+  }
+
+  // ── 認証（Google一本・v4 §5） ──
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+
+    // WebView検出: Google OAuthが弾かれるため外部ブラウザへ誘導（v4 §5）
+    const ua = navigator.userAgent || "";
+    const isWebView = /(FBAN|FBAV|Instagram|Line\/|NAVER|KAKAOTALK)/i.test(ua);
+    if (isWebView) {
+      $("co-google").disabled = true;
+      $("co-auth-status").textContent = "Safari / Chrome で開いてご予約ください";
+    }
+
+    $("co-google").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("co-auth-status").textContent = "ログインに失敗しました"; }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      $("co-auth").hidden = true;
+      ["co-details", "co-rules", "co-pay"].forEach((id) => ($(id).hidden = false));
+      $("cf-name").value = user.displayName || "";
+      $("cf-email").value = user.email || "";
+    });
+  });
+
+  // 同意チェックで決済ボタンの活性を制御（MS3でStripeに結線）
+  const sync = () => {
+    const ok = $("cf-rules").checked && $("cf-name").value && $("cf-phone").value;
+    $("co-pay-btn").disabled = true; // MS3までは常に無効
+    $("co-pay-btn").dataset.ready = ok ? "1" : "";
+  };
+  ["cf-rules", "cf-name", "cf-phone"].forEach((id) => {
+    $(id).addEventListener("input", sync);
+    $(id).addEventListener("change", sync);
+  });
+</script>
+
+<style>
+  .co { background: #ffffff; padding: 7rem 1.5rem 5rem; }
+  .co-container { max-width: 1040px; margin: 0 auto; }
+
+  /* ステップ */
+  .co-steps {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    padding: 0 0 1.5rem;
+    margin: 0 0 2rem;
+    border-bottom: 1px solid #e8e8e8;
+    font-size: 0.8rem;
+    color: #aaaaaa;
+    flex-wrap: wrap;
+  }
+  .co-step { display: flex; align-items: center; gap: 0.5rem; }
+  .co-step-no {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; background: #f7f7f7; color: #aaaaaa; border: 1px solid #e8e8e8;
+  }
+  .co-step.is-current { color: #111111; font-weight: 500; }
+  .co-step.is-current .co-step-no { background: #111111; color: #ffffff; border-color: #111111; }
+  .co-step.is-done { color: #555555; }
+  .co-step.is-done .co-step-no { background: #ffffff; color: #111111; border-color: #111111; }
+
+  .co-grid { display: grid; grid-template-columns: 320px 1fr; gap: 2.5rem; align-items: start; }
+  @media (max-width: 800px) { .co-grid { grid-template-columns: 1fr; gap: 2rem; } }
+
+  /* 左サマリ */
+  .co-summary { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 1.25rem; }
+  @media (max-width: 800px) { .co-summary { position: static; } }
+  .co-card { border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden; }
+  .co-photo { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: #f7f7f7; }
+  .co-card-body { padding: 0.9rem 1rem; }
+  .co-house { font-size: 0.95rem; font-weight: 500; color: #111111; }
+  .co-back { font-size: 0.75rem; color: #888888; text-decoration: underline; text-underline-offset: 3px; }
+  .co-block { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1rem; }
+  .co-block-title { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin-bottom: 0.7rem; }
+  .co-dl { display: flex; flex-direction: column; gap: 0.55rem; margin: 0; }
+  .co-dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .co-dl dt { font-size: 0.78rem; color: #888888; }
+  .co-dl dd { font-size: 0.85rem; font-weight: 500; color: #111111; margin: 0; text-align: right; }
+  .co-time { display: block; font-size: 0.7rem; font-weight: 400; color: #aaaaaa; }
+  .co-total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; color: #555555; }
+  .co-total { font-size: 1.35rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
+  .co-fx { font-size: 0.75rem; color: #888888; text-align: right; }
+  .co-note { font-size: 0.72rem; color: #aaaaaa; margin-top: 0.35rem; line-height: 1.6; }
+  .co-cancel { font-size: 0.85rem; font-weight: 500; color: #111111; }
+
+  /* 右カラム */
+  .co-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 1.75rem; }
+  .co-sec { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .co-sec-title { font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 0.6rem; }
+  .co-sec-lead { font-size: 0.82rem; color: #555555; line-height: 1.8; margin-bottom: 1rem; }
+  .co-google {
+    padding: 0.75rem 1.6rem; background: #111111; color: #ffffff;
+    font-family: inherit; font-size: 0.9rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .co-google:disabled { opacity: 0.4; cursor: not-allowed; }
+  .co-status { font-size: 0.8rem; color: #888888; min-height: 1.3em; margin-top: 0.6rem; }
+  .co-field { margin-bottom: 1rem; }
+  .co-field label { display: block; font-size: 0.78rem; color: #555555; margin-bottom: 0.3rem; }
+  .co-optional { font-size: 0.7rem; color: #aaaaaa; margin-left: 0.5rem; }
+  .co-field input, .co-field select {
+    width: 100%; padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.9rem;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
+  }
+  .co-field input[readonly] { background: #f7f7f7; color: #555555; }
+  .co-phone { display: grid; grid-template-columns: 110px 1fr; gap: 0.5rem; }
+  .co-hint { font-size: 0.72rem; color: #aaaaaa; margin-top: 0.3rem; }
+  .co-rules { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.9; color: #333333; }
+  .co-check { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: #333333; margin-bottom: 0.6rem; line-height: 1.6; }
+  .co-trust {
+    display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem;
+    padding: 0.75rem 1rem; background: #f7f7f7; border-radius: 4px;
+    font-size: 0.76rem; color: #555555; margin-bottom: 1rem;
+  }
+  .co-final { font-size: 0.85rem; color: #111111; line-height: 1.9; margin-bottom: 1rem; }
+  .co-pay-btn {
+    width: 100%; padding: 0.9rem; background: #111111; color: #ffffff;
+    font-family: inherit; font-size: 0.95rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .co-pay-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .co-faq { border: none; padding: 0; }
+  .co-faq-item { border-bottom: 1px solid #f0f0f0; padding: 0.7rem 0; }
+  .co-faq-item summary { font-size: 0.85rem; color: #111111; cursor: pointer; }
+  .co-faq-item p { font-size: 0.82rem; color: #555555; line-height: 1.85; margin-top: 0.5rem; }
+</style>
