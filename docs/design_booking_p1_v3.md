@@ -85,6 +85,14 @@
 | **MS4 全面切替** | iframe撤去済→広告着地差し替え・noindex解除・毎日突合 | 2週間ハイパーケアで異常なし |
 
 - ブランチ: `feature/book-p1`。デモ=preview channel（`BOOK_PREVIEW=1`ゲート）。MS3本番URLテスト=Basic認証+noindex。**Stripeはtest/live分離・検証用Webhook/メール宛先を用意**。
+
+### 7-1. Git運用（2026-08-08明文化）
+
+- **ブランチ体系**: `dev`=本番デプロイ元（安定）／`feature/book-p1`=P1実装の作業ブランチ（devから分岐）。P1のコミットはすべて feature に積み、**devへのマージは各MSの発注者承認時**。
+- **デモ**: feature のビルドを preview channel（`book-demo`）へデプロイ。dev/本番の履歴は汚さない。
+- **Functionsの例外**: 関数デプロイはブランチと無関係に本番プロジェクトへ乗るため、featureから上げてよいのは**読み取り専用**（beds24Webhookミラー・bookingApi拡張）のみ。書き込み系（bookCreate等）はStripe testモード＋Beds24検証用物件の状態でのみデプロイし、本番切替はMS3.9承認後。
+- **鉄則の適用**（CLAUDE.md共通）: 実装は承認済み仕様＋着工指示があるときのみ／本番デプロイは都度承認／**デプロイ完了後は必ず git push**（未プッシュを溜めない）。
+- コミット粒度: 1コミット=1決定・仕様変更はdocsコミットを実装と分離（決定ログとして機能させる）。
 - ロールバック演習は表示だけでなく処理中予約・PaymentIntent・広告URL・計測を含む手順で行う。
 
 ## 8. Firebase / Cloud Functions 技術仕様（v3改訂）
