@@ -226,7 +226,7 @@ const en: Translations = {
       "5-star hotel-grade Simmons mattresses in every bedroom",
       "Spacious kitchen & living-dining area",
       "Private parking available",
-      "Spotless bathrooms, quality amenities & Japanese craft art pieces",
+      "Spotless bathrooms, quality amenities & Kyushu traditional crafts",
     ],
   },
   properties: {
@@ -317,7 +317,7 @@ const en: Translations = {
       "5-star hotel-grade Simmons mattresses in every bedroom",
       "Spacious kitchen & living-dining area",
       "Private parking available",
-      "Spotless bathrooms, quality amenities & Japanese craft art pieces",
+      "Spotless bathrooms, quality amenities & Kyushu traditional crafts",
     ],
   },
   bookingCta: {
@@ -402,7 +402,7 @@ const ko: Translations = {
       "전 침실 5성급 호텔 수준의 시몬스 고급 매트리스",
       "넓은 주방과 거실·다이닝 공간",
       "전용 주차장 완비",
-      "청결한 욕실, 고급 어메니티와 일본 공예 아트 피스",
+      "청결한 욕실, 고급 어메니티와 규슈 전통 공예품",
     ],
   },
   properties: {
@@ -492,7 +492,7 @@ const ko: Translations = {
       "전 침실 5성급 호텔 수준의 시몬스 고급 매트리스",
       "넓은 주방과 거실·다이닝 공간",
       "전용 주차장 이용 가능",
-      "청결한 욕실, 고급 어메니티 & 일본 공예품 인테리어",
+      "청결한 욕실, 고급 어메니티 & 규슈 전통 공예품",
     ],
   },
   bookingCta: {
@@ -577,7 +577,7 @@ const zh: Translations = {
       "全臥室配備五星級飯店等級 Simmons 高級床墊",
       "寬敞廚房與客廳・餐廳空間",
       "附設私人停車場",
-      "潔淨衛浴、精選備品與日本工藝藝術品",
+      "潔淨衛浴、精選備品與九州傳統工藝品",
     ],
   },
   properties: {
@@ -667,7 +667,7 @@ const zh: Translations = {
       "全室配備五星級飯店標準的Simmons高級床墊",
       "寬敞的廚房與客廳餐廳空間",
       "專屬停車場可使用",
-      "潔淨的浴室、優質備品及日本工藝品裝飾",
+      "潔淨的浴室、優質備品及九州傳統工藝品",
     ],
   },
   bookingCta: {
@@ -752,7 +752,7 @@ const th: Translations = {
       "ที่นอน Simmons ระดับ 5 ดาวในทุกห้องนอน",
       "ครัวและพื้นที่นั่งเล่น-รับประทานอาหารกว้างขวาง",
       "มีที่จอดรถส่วนตัว",
-      "ห้องน้ำสะอาด สิ่งอำนวยความสะดวกคุณภาพ และงานศิลป์หัตถกรรมญี่ปุ่น",
+      "ห้องน้ำสะอาด สิ่งอำนวยความสะดวกคุณภาพ และงานหัตถกรรมดั้งเดิมของคิวชู",
     ],
   },
   properties: {
@@ -842,7 +842,7 @@ const th: Translations = {
       "ทุกห้องนอนมีที่นอน Simmons ระดับ 5 ดาว",
       "ครัวและห้องนั่งเล่นขนาดใหญ่",
       "มีที่จอดรถส่วนตัว",
-      "ห้องน้ำสะอาด อุปกรณ์คุณภาพสูง & งานศิลปะหัตถกรรมญี่ปุ่น",
+      "ห้องน้ำสะอาด อุปกรณ์คุณภาพสูง & งานหัตถกรรมดั้งเดิมของคิวชู",
     ],
   },
   bookingCta: {
@@ -928,7 +928,7 @@ const ja: Translations = {
       "全寝室に5つ星ホテル級のシモンズ製プレミアムマットレス",
       "広々としたキッチンとリビングダイニング",
       "専用駐車場あり",
-      "清潔なバスルーム、上質なアメニティ。日本の工芸品を装飾品として配置。",
+      "清潔なバスルーム、上質なアメニティ。九州の伝統工芸品を配置。",
     ],
   },
   properties: {
@@ -1020,7 +1020,7 @@ const ja: Translations = {
       "全寝室に5つ星ホテル級のシモンズ製プレミアムマットレス",
       "広々としたキッチンとリビングダイニング",
       "専用駐車場あり",
-      "清潔なバスルーム、上質なアメニティ。日本の工芸品を装飾品として配置。",
+      "清潔なバスルーム、上質なアメニティ。九州の伝統工芸品を配置。",
     ],
   },
   bookingCta: {
