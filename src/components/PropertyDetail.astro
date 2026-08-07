@@ -31,6 +31,17 @@ const ui = uiStrings[lang];
 const nearby = nearbyData[lang];
 
 const thumb = (src: string) => src.replace(/\.webp$/, "-480.webp");
+
+// 直販導線（/book/ へ棟指定で遷移）。プレビュー時のみ表示し、本番は従来のOTAボタン。
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const bookHref = `${localizedPath(lang, "/book")}?prop=${propertyKey}`;
+const DIRECT = {
+  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book" },
+  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する" },
+  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기" },
+  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂" },
+  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง" },
+}[lang];
 const hero480 = thumb(heroImage);
 const hero768 = heroImage.replace(/\.webp$/, "-768.webp");
 
@@ -95,6 +106,9 @@ const conditionRows: string[] = [
     <p class="pd-capacity">{d.hero.capacity}</p>
     <!-- 2026-08-08: Beds24 iframe撤去に伴い、ヒーローCTAはAirbnb直行に（右上Book Nowと同方針） -->
     <div class="pd-hero-ctas">
+      {BOOK_PREVIEW && (
+        <a href={bookHref} class="pd-cta-direct" data-cta-location="property_detail_hero_direct">{DIRECT.cta}</a>
+      )}
       <a href={p.airbnbUrl} target="_blank" rel="noopener noreferrer" class="pd-cta-secondary" data-cta-location="property_detail_hero">{d.booking.title}</a>
     </div>
   </div>
@@ -330,6 +344,12 @@ const conditionRows: string[] = [
         </details>
       ))
     }
+    {BOOK_PREVIEW && (
+      <div class="pd-direct-band">
+        <p class="pd-direct-note">{DIRECT.note}</p>
+        <a href={bookHref} class="pd-cta-direct" data-cta-location="property_detail_footer_direct">{DIRECT.cta}</a>
+      </div>
+    )}
     <div style="margin-top:2.5rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
       <a href={localizedPath(lang, "/")} class="pd-cta-ghost">{ui.backToHome}</a>
     </div>
@@ -404,6 +424,35 @@ const conditionRows: string[] = [
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
+  }
+  .pd-cta-direct {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.8rem;
+    background: #ffffff;
+    color: #111111;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    border: 1px solid #ffffff;
+    border-radius: 999px;
+    transition: opacity 0.2s;
+  }
+  .pd-cta-direct:hover { opacity: 0.85; }
+  .pd-direct-band {
+    margin-top: 3rem;
+    padding: 2rem;
+    background: #111111;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .pd-direct-note {
+    font-size: 0.95rem;
+    color: #ffffff;
+    margin-bottom: 1.25rem;
+    line-height: 1.8;
   }
   .pd-cta-secondary {
     display: inline-flex;
