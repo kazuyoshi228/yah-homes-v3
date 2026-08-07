@@ -89,7 +89,9 @@
 ### 7-1. Git運用（2026-08-08明文化）
 
 - **ブランチ体系**: `dev`=本番デプロイ元（安定）／`feature/book-p1`=P1実装の作業ブランチ（devから分岐）。P1のコミットはすべて feature に積み、**devへのマージは各MSの発注者承認時**。
-- **デモ**: feature のビルドを preview channel（`book-demo`）へデプロイ。dev/本番の履歴は汚さない。
+- **デモ**: feature のビルドを preview channel（`book-demo`）へデプロイ。**チャンネル名固定＝URL不変・`--expires 30d`・再デプロイで延長**（関係者への共有URLを安定させる）。dev/本番の履歴は汚さない。
+- **⚠ デモのバックエンドは本番共有**: preview channel も Firestore/Functions/Auth は本番プロジェクトの同一データを使う。デモでの操作は本番に書き込まれるため、決済=Stripe test mode・予約書込=Beds24検証用物件、のガードを外さない（yah.mobile運用で確立した注意）。
+- **⚠ App Check×プレビューチャンネル**: チャンネルURL（`yah-homes--book-demo-*.web.app`）を **reCAPTCHA Enterprise の許可ドメインに登録**しないと App Check がブロックし予約フローが失敗する（yah.mobileで実際に踏んだ地雷）。MS3チェックリストに含める。
 - **Functionsの例外**: 関数デプロイはブランチと無関係に本番プロジェクトへ乗るため、featureから上げてよいのは**読み取り専用**（beds24Webhookミラー・bookingApi拡張）のみ。書き込み系（bookCreate等）はStripe testモード＋Beds24検証用物件の状態でのみデプロイし、本番切替はMS3.9承認後。
 - **鉄則の適用**（CLAUDE.md共通）: 実装は承認済み仕様＋着工指示があるときのみ／本番デプロイは都度承認／**デプロイ完了後は必ず git push**（未プッシュを溜めない）。
 - コミット粒度: 1コミット=1決定・仕様変更はdocsコミットを実装と分離（決定ログとして機能させる）。
