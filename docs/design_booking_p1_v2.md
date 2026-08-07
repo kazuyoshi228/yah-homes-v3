@@ -2,7 +2,7 @@
 
 > 作成: 2026-08-08（v1の全決定を統合・現行仕様のみ記載。経緯・廃止案は v1 = design_booking_p1.md 参照）
 > 対象: yah.homes-v2（Astro + Firebase Hosting/Functions/Firestore/Auth）
-> ステータス: 設計確定・実装前（着工は発注者の号令で MS1 から）
+> ステータス: **アーカイブ（2026-08-08）**。厳格レビュー反映後の正本は **design_booking_p1_v3.md**。
 
 ## 1. 原則
 
