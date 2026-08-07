@@ -147,6 +147,16 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
 - **返金上限**: ¥10,000超の返金は確認ダイアログ＋audit_logs必須記録（二者承認はP2）。
 - すべての金銭操作・名簿閲覧を audit_logs に記録。ログにPII・トークンを出さない（マスキング）。
 
+### 8-5b. 管理者台帳 /admin/users（2026-08-08仕様化・P1に先行実装可）
+
+管理画面へのアクセス者と**通知メールの宛先**を1画面で管理する:
+
+- Firestore `admin_users/{email}`: `name`・`role`（owner/operator）・**通知フラグ3種**（`notifyPartners`=パートナー申請／`notifyTeiten`=定点観測／`notifyBookings`=直販予約）・addedAt/updatedBy
+- **rootオーナー**（kazuyoshi.yamada@bonfire.co.jp）はコード側で固定・削除不可・台帳に依らず常に有効
+- 台帳の**編集はrootオーナーのみ**。登録メンバー（Airstar担当等）は閲覧＋既存の /admin/partners（将来 /admin/bookings）へGoogleログイン可能になる
+- **通知宛先の解決**: partnersApply・beds24DailyObserver・（将来）bookCreate の通知メールは、root＋該当フラグONのメンバーへ送信（ハードコード宛先を廃止）
+- ページ: /admin/users（Googleログイン・一覧・追加/編集/削除・partners管理画面と同型UI）
+
 ### 8-6. その他
 
 - **App Check**（reCAPTCHA Enterprise）: bookingApi・bookCreate 必須。＋IP/UID単位の簡易レート制限・Beds24 API利用量アラート。
