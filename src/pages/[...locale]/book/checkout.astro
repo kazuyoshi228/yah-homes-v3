@@ -49,6 +49,9 @@ const C = {
     cancelAfter: "After that, the full amount is charged.",
     authTitle: "Sign in to continue", authLead: "We use your Google account so you can manage this booking later. No password needed.",
     authBtn: "Continue with Google", authDone: "Signed in as",
+    authEmail: "Continue with email", authEmailPlaceholder: "your@email.com",
+    authEmailSend: "Send sign-in link", authEmailSent: "We sent a sign-in link. Please open it on this device.",
+    authEmailFail: "Could not send the link. Please check the address.",
     detailsTitle: "Your details", name: "Full name", email: "Email", phone: "Phone", phoneNote: "So we can reach you during your stay",
     leadGuest: "Lead guest (if different)", optional: "optional",
     arrival: "Estimated arrival time", arrivalNote: "Self check-in with a secure key box — you can arrive at any time, there is no cut-off.", arrivalAny: "Not decided", arrivalLate: "After midnight",
@@ -68,6 +71,9 @@ const C = {
     cancelAfter: "以降は全額が発生します。",
     authTitle: "ログインして進む", authLead: "ご予約の確認・変更をあとから行えるよう、Googleアカウントで進みます。パスワードは不要です。",
     authBtn: "Googleで続ける", authDone: "ログイン中",
+    authEmail: "メールアドレスで続ける", authEmailPlaceholder: "your@email.com",
+    authEmailSend: "ログイン用リンクを送る", authEmailSent: "ログイン用のリンクをお送りしました。この端末で開いてください。",
+    authEmailFail: "リンクを送信できませんでした。アドレスをご確認ください。",
     detailsTitle: "お客様情報", name: "お名前", email: "メールアドレス", phone: "電話番号", phoneNote: "ご滞在中にご連絡する場合に使用します",
     leadGuest: "宿泊代表者名（予約者と異なる場合）", optional: "任意",
     arrival: "到着予定時刻", arrivalNote: "セキュリティキーボックスでの受け渡しのため、到着時刻の制限はありません。", arrivalAny: "未定", arrivalLate: "24:00以降",
@@ -87,6 +93,9 @@ const C = {
     cancelAfter: "이후에는 전액이 부과됩니다.",
     authTitle: "로그인하고 진행", authLead: "예약 확인・변경을 나중에 하실 수 있도록 Google 계정으로 진행합니다. 비밀번호는 필요 없습니다.",
     authBtn: "Google로 계속하기", authDone: "로그인 중",
+    authEmail: "이메일로 계속하기", authEmailPlaceholder: "your@email.com",
+    authEmailSend: "로그인 링크 보내기", authEmailSent: "로그인 링크를 보내드렸습니다. 이 기기에서 열어 주세요.",
+    authEmailFail: "링크를 보내지 못했습니다. 주소를 확인해 주세요.",
     detailsTitle: "고객 정보", name: "성함", email: "이메일", phone: "전화번호", phoneNote: "숙박 중 연락이 필요할 때 사용합니다",
     leadGuest: "숙박 대표자명(예약자와 다른 경우)", optional: "선택",
     arrival: "도착 예정 시각", arrivalNote: "보안 키박스를 통한 셀프 체크인이므로 도착 시각에 제한이 없습니다.", arrivalAny: "미정", arrivalLate: "24:00 이후",
@@ -106,6 +115,9 @@ const C = {
     cancelAfter: "之後將收取全額費用。",
     authTitle: "登入後繼續", authLead: "為了讓您日後можеть查詢與變更訂單，我們使用 Google 帳號登入，無需密碼。",
     authBtn: "使用 Google 繼續", authDone: "已登入",
+    authEmail: "使用電子郵件繼續", authEmailPlaceholder: "your@email.com",
+    authEmailSend: "寄送登入連結", authEmailSent: "已寄送登入連結，請在此裝置上開啟。",
+    authEmailFail: "無法寄送連結，請確認電子郵件地址。",
     detailsTitle: "顧客資料", name: "姓名", email: "電子郵件", phone: "電話號碼", phoneNote: "入住期間需要聯繫時使用",
     leadGuest: "入住代表人姓名（與訂購人不同時）", optional: "選填",
     arrival: "預計抵達時間", arrivalNote: "採用密碼鑰匙盒自助入住，抵達時間沒有限制。", arrivalAny: "未定", arrivalLate: "24:00 之後",
@@ -125,6 +137,9 @@ const C = {
     cancelAfter: "หลังจากนั้นจะเรียกเก็บเต็มจำนวน",
     authTitle: "เข้าสู่ระบบเพื่อดำเนินการต่อ", authLead: "เราใช้บัญชี Google เพื่อให้คุณจัดการการจองได้ภายหลัง ไม่ต้องใช้รหัสผ่าน",
     authBtn: "ดำเนินการต่อด้วย Google", authDone: "เข้าสู่ระบบแล้ว",
+    authEmail: "ดำเนินการต่อด้วยอีเมล", authEmailPlaceholder: "your@email.com",
+    authEmailSend: "ส่งลิงก์เข้าสู่ระบบ", authEmailSent: "ส่งลิงก์เข้าสู่ระบบแล้ว กรุณาเปิดบนอุปกรณ์นี้",
+    authEmailFail: "ส่งลิงก์ไม่สำเร็จ กรุณาตรวจสอบอีเมล",
     detailsTitle: "ข้อมูลผู้เข้าพัก", name: "ชื่อ-นามสกุล", email: "อีเมล", phone: "เบอร์โทรศัพท์", phoneNote: "ใช้ติดต่อระหว่างการเข้าพัก",
     leadGuest: "ชื่อผู้เข้าพักหลัก (หากต่างจากผู้จอง)", optional: "ไม่บังคับ",
     arrival: "เวลาที่คาดว่าจะถึง", arrivalNote: "เช็คอินด้วยตนเองผ่านตู้เก็บกุญแจนิรภัย จึงไม่มีข้อจำกัดเรื่องเวลาที่มาถึง", arrivalAny: "ยังไม่ระบุ", arrivalLate: "หลังเที่ยงคืน",
@@ -141,6 +156,7 @@ const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
 const uiStrings = {
   approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
   total: C.total, missing: C.missing, authDone: C.authDone,
+  authEmailSent: C.authEmailSent, authEmailFail: C.authEmailFail,
   nightsGuests: C.nightsGuests(-1, -2).replace("-1", "{n}").replace("-2", "{g}"),
   preparing: { en: "Preparing payment…", ja: "決済を準備しています…", ko: "결제를 준비하고 있습니다…", zh: "正在準備付款…", th: "กำลังเตรียมการชำระเงิน…" }[lang],
   paying: { en: "Processing…", ja: "処理しています…", ko: "처리 중입니다…", zh: "處理中…", th: "กำลังดำเนินการ…" }[lang],
@@ -216,6 +232,16 @@ const uiStrings = {
             <h2 class="co-sec-title">{C.authTitle}</h2>
             <p class="co-sec-lead">{C.authLead}</p>
             <button type="button" class="co-google" id="co-google">{C.authBtn}</button>
+
+            <div class="co-authsep"><span>or</span></div>
+
+            <div class="co-emailauth">
+              <label class="co-authlabel" for="co-email">{C.authEmail}</label>
+              <div class="co-emailrow">
+                <input id="co-email" type="email" placeholder={C.authEmailPlaceholder} maxlength="320" />
+                <button type="button" class="co-emailbtn" id="co-email-send">{C.authEmailSend}</button>
+              </div>
+            </div>
             <p class="co-status" id="co-auth-status"></p>
           </section>
 
@@ -331,7 +357,8 @@ const uiStrings = {
 
   // ── 認証（Google一本・v4 §5） ──
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
-    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged,
+            sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
@@ -341,13 +368,43 @@ const uiStrings = {
     const isWebView = /(FBAN|FBAV|Instagram|Line\/|NAVER|KAKAOTALK)/i.test(ua);
     if (isWebView) {
       $("co-google").disabled = true;
-      $("co-auth-status").textContent = "Safari / Chrome で開いてご予約ください";
+      $("co-auth-status").textContent = "アプリ内ブラウザでは Google ログインをご利用いただけません。下のメールアドレスでの認証をご利用いただくか、Safari / Chrome で開いてください。";
     }
 
     $("co-google").addEventListener("click", async () => {
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
       catch { $("co-auth-status").textContent = "ログインに失敗しました"; }
     });
+
+    // メールリンク認証（パスワードなし）。戻り先URLに予約条件を保持するため状態は失われない。
+    $("co-email-send").addEventListener("click", async () => {
+      const addr = $("co-email").value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(addr)) { $("co-auth-status").textContent = uiStrings.authEmailFail; return; }
+      $("co-email-send").disabled = true;
+      try {
+        await sendSignInLinkToEmail(auth, addr, { url: location.href, handleCodeInApp: true });
+        window.localStorage.setItem("yah_email_for_signin", addr);
+        $("co-auth-status").textContent = uiStrings.authEmailSent;
+      } catch {
+        $("co-auth-status").textContent = uiStrings.authEmailFail;
+      }
+      $("co-email-send").disabled = false;
+    });
+
+    // メールのリンクから戻ってきた場合はそのままログインを完了する
+    if (isSignInWithEmailLink(auth, location.href)) {
+      let saved = window.localStorage.getItem("yah_email_for_signin");
+      if (!saved) saved = window.prompt("ご予約に使用するメールアドレスをご入力ください") || "";
+      if (saved) {
+        try {
+          await signInWithEmailLink(auth, saved, location.href);
+          window.localStorage.removeItem("yah_email_for_signin");
+          history.replaceState(null, "", location.pathname + location.search.replace(/[?&](apiKey|oobCode|mode|lang)=[^&]*/g, "").replace(/^&/, "?"));
+        } catch {
+          $("co-auth-status").textContent = uiStrings.authEmailFail;
+        }
+      }
+    }
 
     onAuthStateChanged(auth, (user) => {
       if (!user) return;
@@ -510,7 +567,20 @@ const uiStrings = {
     font-family: inherit; font-size: 0.9rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
   }
   .co-google:disabled { opacity: 0.4; cursor: not-allowed; }
-  .co-status { font-size: 0.8rem; color: #888888; min-height: 1.3em; margin-top: 0.6rem; }
+  .co-status { font-size: 0.8rem; color: #888888; min-height: 1.3em; margin-top: 0.6rem; line-height: 1.7; }
+  .co-authsep { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: #aaaaaa; font-size: 0.75rem; }
+  .co-authsep::before, .co-authsep::after { content: ""; flex: 1; height: 1px; background: #e8e8e8; }
+  .co-authlabel { display: block; font-size: 0.78rem; color: #555555; margin-bottom: 0.35rem; }
+  .co-emailrow { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .co-emailrow input {
+    flex: 1; min-width: 200px; padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.9rem;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
+  }
+  .co-emailbtn {
+    padding: 0.6rem 1.2rem; background: #ffffff; color: #111111; font-family: inherit; font-size: 0.85rem;
+    font-weight: 500; border: 1px solid #111111; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  }
+  .co-emailbtn:disabled { opacity: 0.5; }
   .co-field { margin-bottom: 1rem; }
   .co-field label { display: block; font-size: 0.78rem; color: #555555; margin-bottom: 0.3rem; }
   .co-optional { font-size: 0.7rem; color: #aaaaaa; margin-left: 0.5rem; }

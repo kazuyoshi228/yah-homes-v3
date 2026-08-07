@@ -31,7 +31,8 @@ const FB_CONFIG = {
 const A = {
   en: {
     title: "My Page", lead: "View and manage your bookings.",
-    signIn: "Sign in with Google", signInLead: "Sign in with the Google account you used to book.",
+    signIn: "Sign in with Google", signInEmail: "Send sign-in link", signInLead: "Sign in with the account you used to book.",
+    emailSent: "We sent a sign-in link. Please open it on this device.", emailFail: "Could not send the link.",
     signOut: "Sign out", loading: "Loading…",
     empty: "No bookings yet.", emptyCta: "Search availability",
     upcoming: "Upcoming stays", past: "Past stays",
@@ -47,7 +48,8 @@ const A = {
   },
   ja: {
     title: "My Page", lead: "ご予約の確認・変更ができます。",
-    signIn: "Googleでログイン", signInLead: "ご予約時に使用された Google アカウントでログインしてください。",
+    signIn: "Googleでログイン", signInEmail: "ログイン用リンクを送る", signInLead: "ご予約時に使用されたアカウント、またはメールアドレスでログインしてください。",
+    emailSent: "ログイン用のリンクをお送りしました。この端末で開いてください。", emailFail: "リンクを送信できませんでした。",
     signOut: "ログアウト", loading: "読み込み中…",
     empty: "ご予約はまだありません。", emptyCta: "空室を見る",
     upcoming: "今後のご予約", past: "過去のご予約",
@@ -63,7 +65,8 @@ const A = {
   },
   ko: {
     title: "My Page", lead: "예약 확인・변경이 가능합니다.",
-    signIn: "Google로 로그인", signInLead: "예약 시 사용하신 Google 계정으로 로그인해 주세요.",
+    signIn: "Google로 로그인", signInEmail: "로그인 링크 보내기", signInLead: "예약 시 사용하신 계정 또는 이메일로 로그인해 주세요.",
+    emailSent: "로그인 링크를 보내드렸습니다. 이 기기에서 열어 주세요.", emailFail: "링크를 보내지 못했습니다.",
     signOut: "로그아웃", loading: "불러오는 중…",
     empty: "예약이 아직 없습니다.", emptyCta: "예약 가능일 보기",
     upcoming: "다가오는 예약", past: "지난 예약",
@@ -79,7 +82,8 @@ const A = {
   },
   zh: {
     title: "My Page", lead: "可查詢與變更您的訂單。",
-    signIn: "使用 Google 登入", signInLead: "請使用預訂時所用的 Google 帳號登入。",
+    signIn: "使用 Google 登入", signInEmail: "寄送登入連結", signInLead: "請使用預訂時所用的帳號或電子郵件登入。",
+    emailSent: "已寄送登入連結，請在此裝置上開啟。", emailFail: "無法寄送連結。",
     signOut: "登出", loading: "載入中…",
     empty: "目前尚無訂單。", emptyCta: "查詢空房",
     upcoming: "即將到來的訂單", past: "過往訂單",
@@ -95,7 +99,8 @@ const A = {
   },
   th: {
     title: "My Page", lead: "ตรวจสอบและจัดการการจองของคุณ",
-    signIn: "เข้าสู่ระบบด้วย Google", signInLead: "กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ใช้ตอนจอง",
+    signIn: "เข้าสู่ระบบด้วย Google", signInEmail: "ส่งลิงก์เข้าสู่ระบบ", signInLead: "กรุณาเข้าสู่ระบบด้วยบัญชีหรืออีเมลที่ใช้ตอนจอง",
+    emailSent: "ส่งลิงก์เข้าสู่ระบบแล้ว กรุณาเปิดบนอุปกรณ์นี้", emailFail: "ส่งลิงก์ไม่สำเร็จ",
     signOut: "ออกจากระบบ", loading: "กำลังโหลด…",
     empty: "ยังไม่มีการจอง", emptyCta: "ดูห้องว่าง",
     upcoming: "การจองที่กำลังจะถึง", past: "การจองที่ผ่านมา",
@@ -122,6 +127,7 @@ const uiA = {
   emptyCta: A.emptyCta,
   checkinInfo: A.checkinInfo, checkinSoon: A.checkinSoon,
   cancel: A.cancel, cancelSoon: A.cancelSoon, contact: A.contact,
+  emailSent: A.emailSent, emailFail: A.emailFail,
   statusPending: A.statusPending, statusConfirmed: A.statusConfirmed, statusCancelled: A.statusCancelled,
   houses: HOUSE_NAMES, contactHref: CONTACT_HREF,
 };
@@ -145,6 +151,11 @@ const uiA = {
         <p class="ac-empty">{A.empty}</p>
         <p class="ac-signin-lead">{A.signInLead}</p>
         <button type="button" class="ac-btn" id="ac-google">{A.signIn}</button>
+        <div class="ac-sep"><span>or</span></div>
+        <div class="ac-emailrow">
+          <input id="ac-email" type="email" placeholder="your@email.com" maxlength="320" />
+          <button type="button" class="ac-btn-sub" id="ac-email-send">{A.signInEmail}</button>
+        </div>
         <p class="ac-status" id="ac-signin-status"></p>
       </div>
 
@@ -264,7 +275,8 @@ const uiA = {
   }
 
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
-    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import(
+    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+            sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     auth = getAuth(initializeApp(FB_CONFIG));
@@ -274,6 +286,30 @@ const uiA = {
       catch { $("ac-signin-status").textContent = "…"; }
     });
     $("ac-signout").addEventListener("click", () => signOut(auth));
+
+    $("ac-email-send").addEventListener("click", async () => {
+      const addr = $("ac-email").value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(addr)) { $("ac-signin-status").textContent = uiA.emailFail; return; }
+      $("ac-email-send").disabled = true;
+      try {
+        await sendSignInLinkToEmail(auth, addr, { url: location.href, handleCodeInApp: true });
+        localStorage.setItem("yah_email_for_signin", addr);
+        $("ac-signin-status").textContent = uiA.emailSent;
+      } catch { $("ac-signin-status").textContent = uiA.emailFail; }
+      $("ac-email-send").disabled = false;
+    });
+
+    if (isSignInWithEmailLink(auth, location.href)) {
+      let saved = localStorage.getItem("yah_email_for_signin");
+      if (!saved) saved = window.prompt("ご予約に使用されたメールアドレスをご入力ください") || "";
+      if (saved) {
+        try {
+          await signInWithEmailLink(auth, saved, location.href);
+          localStorage.removeItem("yah_email_for_signin");
+          history.replaceState(null, "", location.pathname);
+        } catch { $("ac-signin-status").textContent = uiA.emailFail; }
+      }
+    }
 
     onAuthStateChanged(auth, (user) => {
       $("ac-signin").hidden = !!user;
@@ -306,7 +342,14 @@ const uiA = {
   .ac-link { background: none; border: none; padding: 0; font-family: inherit; font-size: 0.82rem; color: #111111; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .ac-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
   .ac-user { font-size: 0.8rem; color: #888888; }
-  .ac-status { font-size: 0.85rem; color: #888888; }
+  .ac-status { font-size: 0.85rem; color: #888888; line-height: 1.7; margin-top: 0.6rem; }
+  .ac-sep { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: #aaaaaa; font-size: 0.75rem; }
+  .ac-sep::before, .ac-sep::after { content: ""; flex: 1; height: 1px; background: #e8e8e8; }
+  .ac-emailrow { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .ac-emailrow input {
+    flex: 1; min-width: 200px; padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.9rem;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
+  }
   .ac-h2 { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin: 2rem 0 0.75rem; }
   .ac-card { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.5rem; margin-bottom: 1.25rem; }
   .ac-card :global(.ac-card-head) { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
