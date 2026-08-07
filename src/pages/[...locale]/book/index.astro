@@ -26,31 +26,26 @@ const CHECKOUT_PATH = localizedPath(lang, "/book/checkout");
 
 // カード表示用スペック（2026-08-08 発注者提供・表示のみ。properties.ts/Beds24の正本は未変更）
 const SPEC_LABELS = {
-  en: { cap: "Capacity", rooms: "Bedrooms", beds: "Beds", water: "Bath",
+  en: { cap: "Capacity", rooms: "Bedrooms", beds: "Beds", bath: "Bathroom", shower: "Shower room", sink: "Washbasin", toilet: "Toilet",
         guests: (n: number) => `Up to ${n}`, room: (n: number) => `${n} rooms`,
-        bed: (s: number, d: number) => `${d} double / ${s} single`,
-        wet: (b: number, w: number) => `${b} bath / ${w} washbasin` },
-  ja: { cap: "定員", rooms: "寝室", beds: "ベッド", water: "水回り",
+        bed: (s: number, d: number) => `${d} double / ${s} single`, unit: (n: number) => `${n}` },
+  ja: { cap: "定員", rooms: "寝室", beds: "ベッド", bath: "浴室", shower: "シャワーブース", sink: "洗面台", toilet: "トイレ",
         guests: (n: number) => `最大${n}名`, room: (n: number) => `${n}室`,
-        bed: (s: number, d: number) => `ダブル${d}・シングル${s}`,
-        wet: (b: number, w: number) => `浴室${b}・洗面台${w}` },
-  ko: { cap: "정원", rooms: "침실", beds: "침대", water: "욕실",
+        bed: (s: number, d: number) => `ダブル${d}・シングル${s}`, unit: (n: number) => `${n}` },
+  ko: { cap: "정원", rooms: "침실", beds: "침대", bath: "욕실", shower: "샤워부스", sink: "세면대", toilet: "화장실",
         guests: (n: number) => `최대 ${n}명`, room: (n: number) => `${n}개`,
-        bed: (s: number, d: number) => `더블 ${d}・싱글 ${s}`,
-        wet: (b: number, w: number) => `욕실 ${b}・세면대 ${w}` },
-  zh: { cap: "人數", rooms: "臥室", beds: "床鋪", water: "衛浴",
+        bed: (s: number, d: number) => `더블 ${d}・싱글 ${s}`, unit: (n: number) => `${n}` },
+  zh: { cap: "人數", rooms: "臥室", beds: "床鋪", bath: "浴室", shower: "淋浴間", sink: "洗手台", toilet: "廁所",
         guests: (n: number) => `最多${n}人`, room: (n: number) => `${n}間`,
-        bed: (s: number, d: number) => `雙人床${d}・單人床${s}`,
-        wet: (b: number, w: number) => `浴室${b}・洗手台${w}` },
-  th: { cap: "จำนวน", rooms: "ห้องนอน", beds: "เตียง", water: "ห้องน้ำ",
+        bed: (s: number, d: number) => `雙人床${d}・單人床${s}`, unit: (n: number) => `${n}` },
+  th: { cap: "จำนวน", rooms: "ห้องนอน", beds: "เตียง", bath: "ห้องอาบน้ำ", shower: "ห้องอาบน้ำฝักบัว", sink: "อ่างล้างหน้า", toilet: "ห้องน้ำ",
         guests: (n: number) => `สูงสุด ${n} ท่าน`, room: (n: number) => `${n} ห้อง`,
-        bed: (s: number, d: number) => `เตียงคู่ ${d} / เดี่ยว ${s}`,
-        wet: (b: number, w: number) => `ห้องน้ำ ${b} / อ่างล้างหน้า ${w}` },
+        bed: (s: number, d: number) => `เตียงคู่ ${d} / เดี่ยว ${s}`, unit: (n: number) => `${n}` },
 }[lang];
 
 const SPECS = {
-  kiyokawa: { max: 8, rooms: 3, single: 2, double: 3, bath: 1, sink: 1 },
-  takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, sink: 3 },
+  kiyokawa: { max: 8, rooms: 3, single: 2, double: 3, bath: 1, shower: 1, sink: 1, toilet: 2 },
+  takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, shower: 1, sink: 3, toilet: 2 },
 };
 const specRows = (k: "kiyokawa" | "takasago") => {
   const v = SPECS[k];
@@ -59,7 +54,10 @@ const specRows = (k: "kiyokawa" | "takasago") => {
     [L.cap, L.guests(v.max)],
     [L.rooms, L.room(v.rooms)],
     [L.beds, L.bed(v.single, v.double)],
-    [L.water, L.wet(v.bath, v.sink)],
+    [L.bath, L.unit(v.bath)],
+    [L.shower, L.unit(v.shower)],
+    [L.sink, L.unit(v.sink)],
+    [L.toilet, L.unit(v.toilet)],
   ];
 };
 
