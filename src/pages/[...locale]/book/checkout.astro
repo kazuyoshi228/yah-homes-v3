@@ -48,6 +48,7 @@ const C = {
     authBtn: "Continue with Google", authDone: "Signed in as",
     detailsTitle: "Your details", name: "Full name", email: "Email", phone: "Phone", phoneNote: "So we can reach you during your stay",
     leadGuest: "Lead guest (if different)", optional: "optional",
+    arrival: "Estimated arrival time", arrivalNote: "Self check-in with a secure key box — you can arrive at any time, there is no cut-off.", arrivalAny: "Not decided", arrivalLate: "After midnight",
     rulesTitle: "House rules", rules: ["No parties or events", "Stated number of guests only — bedding is prepared for the number you book", "Outdoor security camera at the entrance", "No smoking indoors"],
     rulesAgree: "I agree to the house rules",
     marketing: "Send me occasional offers and coupons",
@@ -70,6 +71,7 @@ const C = {
     authBtn: "Googleで続ける", authDone: "ログイン中",
     detailsTitle: "お客様情報", name: "お名前", email: "メールアドレス", phone: "電話番号", phoneNote: "ご滞在中にご連絡する場合に使用します",
     leadGuest: "宿泊代表者名（予約者と異なる場合）", optional: "任意",
+    arrival: "到着予定時刻", arrivalNote: "セキュリティキーボックスでの受け渡しのため、到着時刻の制限はありません。", arrivalAny: "未定", arrivalLate: "24:00以降",
     rulesTitle: "ハウスルール", rules: ["パーティー・イベントはご遠慮ください", "ご申告の人数でのご利用をお願いします。寝具はご申告の人数分ご用意いたします", "玄関に屋外防犯カメラを設置しています", "屋内は禁煙です"],
     rulesAgree: "ハウスルールに同意します",
     marketing: "お得な情報・クーポンを受け取る",
@@ -92,6 +94,7 @@ const C = {
     authBtn: "Google로 계속하기", authDone: "로그인 중",
     detailsTitle: "고객 정보", name: "성함", email: "이메일", phone: "전화번호", phoneNote: "숙박 중 연락이 필요할 때 사용합니다",
     leadGuest: "숙박 대표자명(예약자와 다른 경우)", optional: "선택",
+    arrival: "도착 예정 시각", arrivalNote: "보안 키박스를 통한 셀프 체크인이므로 도착 시각에 제한이 없습니다.", arrivalAny: "미정", arrivalLate: "24:00 이후",
     rulesTitle: "하우스 룰", rules: ["파티・이벤트는 삼가 주세요", "신고하신 인원으로 이용해 주세요. 침구는 신고하신 인원수만큼 준비해 드립니다", "현관에 실외 방범 카메라가 있습니다", "실내는 금연입니다"],
     rulesAgree: "하우스 룰에 동의합니다",
     marketing: "혜택・쿠폰 정보를 받아보기",
@@ -114,6 +117,7 @@ const C = {
     authBtn: "使用 Google 繼續", authDone: "已登入",
     detailsTitle: "顧客資料", name: "姓名", email: "電子郵件", phone: "電話號碼", phoneNote: "入住期間需要聯繫時使用",
     leadGuest: "入住代表人姓名（與訂購人不同時）", optional: "選填",
+    arrival: "預計抵達時間", arrivalNote: "採用密碼鑰匙盒自助入住，抵達時間沒有限制。", arrivalAny: "未定", arrivalLate: "24:00 之後",
     rulesTitle: "住宿規則", rules: ["請勿舉辦派對或活動", "請依申報人數入住，寢具將依申報人數準備", "玄關設有室外監視器", "室內禁菸"],
     rulesAgree: "我同意住宿規則",
     marketing: "接收優惠與折扣資訊",
@@ -136,6 +140,7 @@ const C = {
     authBtn: "ดำเนินการต่อด้วย Google", authDone: "เข้าสู่ระบบแล้ว",
     detailsTitle: "ข้อมูลผู้เข้าพัก", name: "ชื่อ-นามสกุล", email: "อีเมล", phone: "เบอร์โทรศัพท์", phoneNote: "ใช้ติดต่อระหว่างการเข้าพัก",
     leadGuest: "ชื่อผู้เข้าพักหลัก (หากต่างจากผู้จอง)", optional: "ไม่บังคับ",
+    arrival: "เวลาที่คาดว่าจะถึง", arrivalNote: "เช็คอินด้วยตนเองผ่านตู้เก็บกุญแจนิรภัย จึงไม่มีข้อจำกัดเรื่องเวลาที่มาถึง", arrivalAny: "ยังไม่ระบุ", arrivalLate: "หลังเที่ยงคืน",
     rulesTitle: "กฎของที่พัก", rules: ["ไม่อนุญาตให้จัดปาร์ตี้หรืออีเวนต์", "กรุณาเข้าพักตามจำนวนที่แจ้ง เราจะจัดเตรียมเครื่องนอนตามจำนวนที่แจ้งไว้", "มีกล้องวงจรปิดภายนอกที่ทางเข้า", "ห้ามสูบบุหรี่ภายในบ้าน"],
     rulesAgree: "ฉันยอมรับกฎของที่พัก",
     marketing: "รับข้อเสนอและคูปองพิเศษ",
@@ -253,6 +258,17 @@ const uiStrings = {
             <div class="co-field">
               <label for="cf-lead">{C.leadGuest}<span class="co-optional">{C.optional}</span></label>
               <input id="cf-lead" type="text" maxlength="200" />
+            </div>
+            <div class="co-field">
+              <label for="cf-arrival">{C.arrival}<span class="co-optional">{C.optional}</span></label>
+              <select id="cf-arrival">
+                <option value="">{C.arrivalAny}</option>
+                {["15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"].map((h) => (
+                  <option value={h}>{h}〜</option>
+                ))}
+                <option value="24:00+">{C.arrivalLate}</option>
+              </select>
+              <p class="co-hint">{C.arrivalNote}</p>
             </div>
           </section>
 
