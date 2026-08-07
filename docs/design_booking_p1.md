@@ -168,6 +168,8 @@ FAQ・関連リンクは置かない（売り込みは全部②の仕事）。�
 
 **画面構成（1ページ・ミニマル）**: Menu Bar → 日付×人数（カレンダー）→ 物件カード×2（空き・総額を即表示）→ 「選ぶ」でカードがその場でExpand（選ばなかった方は縮小表示で比較可能）→ 認証 → 連絡先確認 → 決済（Stripe Payment Element 埋め込み・画面遷移なし）→ 完了 → Footer。
 
+**カレンダーの空き状況先読み（2026-08-08決定・実装計画に含める）**: 日付ピッカー自体に**選択前から満室日をグレーアウト**表示する。/api/availability を表示月＋翌月分まとめて先読み（5分キャッシュ・月送り時に追加取得）。「選ぶ→満室→選び直し」のループを構造的に排除する。両棟とも満室の日のみグレー・片方空きは選択可とし、選択後のカードで棟別の空/塞を表示。
+
 **認証（必須・Google一本・会員化が直販戦略のコア。tripla事例=自社予約の8割が会員）**:
 - 位置づけ: 認証は摩擦ではなく**信頼シグナル**（発注者 2026-08-07）。無名の直販サイトで決済する不安に対し、「Googleで続ける」がスマートに通る体験自体が「このサイトはちゃんとしている」の演出になる。決済（カード入力）の直前に置くのはこのため
 - 認証は**「Googleで続ける」一本**（Firebase Auth・1タップ・partners管理画面の基盤流用）。メールリンク認証は採用しない（2026-08-08決定: 別ブラウザ着地の状態消失リスクとフロー複雑化を避ける）。パスワードという概念をゲストに見せない
@@ -258,7 +260,7 @@ Firestore（クライアント直書き禁止）＋ Beds24 API ＋ Stripe API �
 
 #### 計測（§10と接続）
 
-GA4 ファネルイベント: `book_form_reach` → `book_auth_done` → `book_payment_start` → `purchase`（value=総額・通貨JPY）。cta_location 体系はそのまま流用。
+GA4は**標準eコマースイベントに統一**（2026-08-08決定・Google Ads連携と自動入札の最適化対象のため独自名を使わない）: `begin_checkout`（/book/到達）→ `add_shipping_info` は使わず → `add_payment_info`（認証完了・決済ステップ到達）→ `purchase`（value=総額・currency=JPY・transaction_id=beds24BookingId）。補助として `login`（認証完了・method=google）を併記。cta_location 体系はそのまま流用。
 
 #### 非機能
 
@@ -333,7 +335,8 @@ GA4 ファネルイベント: `book_form_reach` → `book_auth_done` → `book_p
 | ②物件詳細 表示 | `view_item`（item_id=slug） | |
 | ミニウィジェット操作 | `select_dates` | カスタム |
 | ③到達（/book/） | `begin_checkout` | MS2以降 |
-| 予約完了 | `purchase`（value=金額, transaction_id=beds24BookingId） | MS3で自社計測（クロスドメイン不要） |
+| 認証完了・決済ステップ到達 | `add_payment_info`（＋`login` method=google） | MS3・§7-4と統一（2026-08-08） |
+| 予約完了 | `purchase`（value=金額, currency=JPY, transaction_id=beds24BookingId） | MS3で自社計測（クロスドメイン不要） |
 
 - Google Ads: `purchase` をプライマリCVへ昇格し、既存「Airbnbリンククリック」CVは**セカンダリに降格**（学習信号の二重計上を防ぐ）。
 - Webhookミラー（MS1）があるため、**広告→予約の真の突合はFirestore側でも可能**（GA4が欠測してもデータは残る）。
