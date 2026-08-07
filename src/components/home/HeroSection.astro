@@ -6,12 +6,20 @@ import { translations } from "../../i18n/translations";
 import type { Locale } from "../../i18n/config";
 import { lucide, SALES_POINT_ICONS } from "../../lib/lucide";
 import InlineBookingCta from "./InlineBookingCta.astro";
+import { localizedPath } from "../../i18n/config";
+import { BOOK_STRINGS } from "../../i18n/bookStrings";
 
 interface Props {
   lang: Locale;
 }
 const { lang } = Astro.props;
 const t = translations[lang];
+
+// ヒーロー内の空室検索ボックス（着地点=トップ → /book/ へ日付・人数を引き継ぐ）
+const bt = BOOK_STRINGS[lang];
+const BOOK_PATH = localizedPath(lang, "/book");
+const SEARCH_CTA = { en: "See availability", ja: "空室を見る", ko: "예약 가능일 보기", zh: "查詢空房", th: "ดูห้องว่าง" }[lang];
+const MAX_GUESTS = 8;
 
 const HERO_IMAGE = "/manus-storage/hero-dining-006-opt_1d801c69.webp";
 const HERO_IMAGE_768 = "/manus-storage/hero-dining-768_41dc6825.webp";
@@ -65,6 +73,27 @@ export const HOME_HERO_PRELOAD = {
         ))
       }
     </ul>
+
+    <!-- 空室検索ボックス: 日付×人数 → /book/ へ引き継ぐ -->
+    <form class="hero-search" id="hero-search" action={BOOK_PATH} method="get">
+      <div class="hs-field">
+        <label class="hs-label" for="hs-in">{bt.checkin}</label>
+        <input class="hs-input" id="hs-in" name="checkin" type="date" required />
+      </div>
+      <div class="hs-field">
+        <label class="hs-label" for="hs-out">{bt.checkout}</label>
+        <input class="hs-input" id="hs-out" name="checkout" type="date" required />
+      </div>
+      <div class="hs-field">
+        <label class="hs-label" for="hs-guests">{bt.guests}</label>
+        <select class="hs-input" id="hs-guests" name="guests">
+          {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
+            <option value={String(n)} selected={n === 4}>{bt.guestsUnit(n)}</option>
+          ))}
+        </select>
+      </div>
+      <button type="submit" class="hs-submit">{SEARCH_CTA}</button>
+    </form>
 
     <div class="hero-ctas">
       <InlineBookingCta lang={lang} ctaLocation="hero" showRating align="left" />
@@ -152,4 +181,80 @@ export const HOME_HERO_PRELOAD = {
   .hero-ctas {
     margin-top: 1.5rem;
   }
+
+  /* 空室検索ボックス（ヒーロー上・白カード） */
+  .hero-search {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 1px;
+    background: #d7d7d7;
+    border-radius: 4px;
+    overflow: hidden;
+    max-width: 680px;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 640px) {
+    .hero-search { grid-template-columns: 1fr 1fr; }
+    .hero-search .hs-field:nth-child(3) { grid-column: 1 / -1; }
+    .hero-search .hs-submit { grid-column: 1 / -1; }
+  }
+  .hs-field {
+    background: #ffffff;
+    padding: 0.6rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .hs-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888888;
+  }
+  .hs-input {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111111;
+    border: none;
+    background: transparent;
+    padding: 0;
+    width: 100%;
+    cursor: pointer;
+  }
+  .hs-submit {
+    background: #111111;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    padding: 0 1.6rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .hs-submit { padding: 0.85rem; }
+  }
+  .hs-submit:hover { opacity: 0.85; }
 </style>
+
+<script>
+  // 過去日を選べないようにする（min=今日・チェックアウトはチェックインの翌日以降）
+  const inEl = document.getElementById("hs-in") as HTMLInputElement | null;
+  const outEl = document.getElementById("hs-out") as HTMLInputElement | null;
+  if (inEl && outEl) {
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    inEl.min = today;
+    outEl.min = today;
+    inEl.addEventListener("change", () => {
+      if (!inEl.value) return;
+      const next = new Date(`${inEl.value}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      const min = next.toISOString().slice(0, 10);
+      outEl.min = min;
+      if (!outEl.value || outEl.value <= inEl.value) outEl.value = min;
+    });
+  }
+</script>
