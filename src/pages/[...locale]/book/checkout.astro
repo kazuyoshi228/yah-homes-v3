@@ -68,7 +68,7 @@ const C = {
     detailsTitle: "お客様情報", name: "お名前", email: "メールアドレス", phone: "電話番号", phoneNote: "ご滞在中にご連絡する場合に使用します",
     leadGuest: "宿泊代表者名（予約者と異なる場合）", optional: "任意",
     arrival: "到着予定時刻", arrivalNote: "セキュリティキーボックスでの受け渡しのため、到着時刻の制限はありません。", arrivalAny: "未定", arrivalLate: "24:00以降",
-    rulesTitle: "ハウスルール", rules: ["パーティー・イベントはご遠慮ください", "ご申告の人数でのご利用をお願いします。タオル・寝具はご申告の人数分ご用意いたします", "玄関に屋外防犯カメラを設置しています", "屋内は禁煙です"],
+    rulesTitle: "ハウスルール", rules: ["パーティー・イベントはご遠慮ください。", "ご申告の人数でのご利用をお願いします。タオル・寝具はご申告の人数分ご用意いたします。", "玄関に屋外防犯カメラを設置しています。", "屋内は禁煙です。"],
     rulesAgree: "ハウスルールに同意します",
     marketing: "お得な情報・クーポンを受け取る",
     trustReply: "2〜3営業日以内にご連絡いたします", operator: "運営: ボンファイア株式会社",
@@ -437,8 +437,16 @@ const uiStrings = {
   .co-rules { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.9; color: #333333; }
   .co-check { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: #333333; margin-bottom: 0.6rem; line-height: 1.6; }
   .co-sec-final {
-    background: #f7f7f7;
-    border-color: #d7d7d7;
+    background: #111111;
+    border-color: #111111;
+  }
+  .co-sec-final .co-sec-title { color: #ffffff; }
+  .co-sec-final .co-final { color: #ffffff; }
+  .co-sec-final .co-status { color: rgba(255, 255, 255, 0.65); }
+  /* 黒面上のCTAは白ボタン+黒文字（ブランドガイドライン） */
+  .co-sec-final .co-pay-btn {
+    background: #ffffff;
+    color: #111111;
   }
   .co-trust {
     display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem;
