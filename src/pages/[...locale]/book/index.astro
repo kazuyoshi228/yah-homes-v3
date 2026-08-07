@@ -44,7 +44,7 @@ const SPEC_LABELS = {
 }[lang];
 
 const SPECS = {
-  kiyokawa: { max: 8, rooms: 3, single: 2, double: 3, bath: 1, shower: 1, sink: 1, toilet: 2 },
+  kiyokawa: { max: 7, rooms: 3, single: 1, double: 3, bath: 1, shower: 0, sink: 1, toilet: 2 },
   takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, shower: 1, sink: 3, toilet: 2 },
 };
 const specRows = (k: "kiyokawa" | "takasago") => {
@@ -54,10 +54,10 @@ const specRows = (k: "kiyokawa" | "takasago") => {
     [L.cap, L.guests(v.max)],
     [L.rooms, L.room(v.rooms)],
     [L.beds, L.bed(v.single, v.double)],
-    [L.bath, L.unit(v.bath)],
-    [L.shower, L.unit(v.shower)],
-    [L.sink, L.unit(v.sink)],
-    [L.toilet, L.unit(v.toilet)],
+    [L.bath, v.bath ? L.unit(v.bath) : "—"],
+    [L.shower, v.shower ? L.unit(v.shower) : "—"],
+    [L.sink, v.sink ? L.unit(v.sink) : "—"],
+    [L.toilet, v.toilet ? L.unit(v.toilet) : "—"],
   ];
 };
 
