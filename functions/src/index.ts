@@ -1176,3 +1176,80 @@ async function notifyError(text: string): Promise<void> {
     logger.error("notifyError failed", err);
   }
 }
+
+
+// ─── MS3.5: My Page API（自分の予約一覧・到着予定時刻の追記・v4 §6） ───
+export const accountApi = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const authz = String(req.headers["authorization"] ?? "");
+    const m = /^Bearer (.+)$/.exec(authz);
+    if (!m) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    let uid = "";
+    try {
+      uid = (await getAuth().verifyIdToken(m[1])).uid;
+    } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    try {
+      if (req.method === "GET") {
+        // 本人のUIDの予約のみ（v4 §8-4）
+        const snap = await db.collection("bookings").where("uid", "==", uid).orderBy("checkin", "desc").limit(50).get();
+        const items = snap.docs.map((d) => {
+          const v = d.data();
+          return {
+            id: d.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
+            total: v.total, status: v.status, arrival: v.arrival ?? null,
+            freeCancelUntilAt: v.freeCancelUntilAt ?? null,
+          };
+        });
+        res.status(200).json({ ok: true, items });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { action, bookingId, arrival } = (req.body ?? {}) as Record<string, unknown>;
+        const idStr = typeof bookingId === "string" ? bookingId : "";
+        if (action !== "arrival" || !idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+        const arrStr = typeof arrival === "string" && /^(\d{2}:\d{2}|24:00\+|)$/.test(arrival) ? arrival : "";
+
+        const ref = db.collection("bookings").doc(idStr);
+        const snap = await ref.get();
+        const v = snap.data();
+        if (!v || v.uid !== uid) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+
+        await ref.update({ arrival: arrStr || null, updatedAt: FieldValue.serverTimestamp() });
+        // 運営会社へ共有（到着予定の把握・v4 §6）
+        try {
+          const transporter = nodemailer.createTransport({
+            host: "smtp.gmail.com", port: 465, secure: true,
+            auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+          });
+          await transporter.sendMail({
+            from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
+            to: PARTNERS_NOTIFY_TO,
+            subject: `【到着予定】${v.prop} ${v.checkin} — ${arrStr || "未定"}`,
+            text: `到着予定時刻が更新されました。\n\n棟: ${v.prop}\nチェックイン: ${v.checkin}\n到着予定: ${arrStr || "未定"}\n予約ID: ${idStr}`,
+          });
+        } catch (err) {
+          logger.warn("arrival notify failed", err);
+        }
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("accountApi failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);

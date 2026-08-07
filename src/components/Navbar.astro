@@ -30,6 +30,10 @@ const contactHref = `${homeHref}#contact`;
 import { PROPERTIES } from "../data/properties";
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const bookPath = localizedPath(lang, "/book");
+const accountPath = localizedPath(lang, "/account");
+const MYPAGE_LABEL = { en: "My Page", ja: "My Page", ko: "My Page", zh: "My Page", th: "My Page" }[lang];
+// 予約フロー内（/book/・/book/checkout）では「予約する」ピルを出さない（同語反復の回避）
+const isBookFlow = path.startsWith("/book");
 const bookNowItems = [
   { label: "Kiyokawa", href: PROPERTIES.kiyokawa.airbnbUrl },
   { label: "Takasago", href: PROPERTIES.takasago.airbnbUrl },
@@ -104,9 +108,12 @@ const langList = LOCALES.map((code) => ({
         </div>
       </div>
 
-      <!-- 予約ピル: 自社予約へ直行（プレビュー）／Airbnbドロップダウン（本番） -->
+      <!-- My Page: 常時表示（未ログインで押した場合は /account 側でログインを促す） -->
+      {BOOK_PREVIEW && <a href={accountPath} class="contact-pill nav-mypage">{MYPAGE_LABEL}</a>}
+
+      <!-- 予約ピル: 自社予約へ直行（プレビュー）／Airbnbドロップダウン（本番）。/book/ 系では出さない -->
       {BOOK_PREVIEW ? (
-        <a href={bookPath} class="contact-pill booknow-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
+        !isBookFlow && <a href={bookPath} class="contact-pill booknow-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
       ) : (
         <div class="booknow-wrap" id="booknow-wrap">
           <button class="contact-pill booknow-toggle" id="booknow-toggle" aria-haspopup="true" aria-expanded="false">
@@ -151,8 +158,9 @@ const langList = LOCALES.map((code) => ({
         ))
       }
     </div>
+    {BOOK_PREVIEW && <a href={accountPath} class="mm-item mm-book-direct">{MYPAGE_LABEL}</a>}
     {BOOK_PREVIEW ? (
-      <a href={bookPath} class="mm-item mm-book-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
+      !isBookFlow && <a href={bookPath} class="mm-item mm-book-direct" data-cta-location="nav_direct">{t.nav.bookNow}</a>
     ) : (
       <div class="mm-booking">
         <p class="mm-booking-label">{t.nav.bookNow}</p>
@@ -385,6 +393,18 @@ const langList = LOCALES.map((code) => ({
   }
   .booknow-wrap.open .chev :global(svg) {
     transform: rotate(180deg);
+  }
+  .nav-mypage {
+    background: #ffffff;
+    border-color: #111111;
+    color: #111111;
+    text-decoration: none;
+  }
+  .nav-mypage:hover { background: #111111; color: #ffffff; }
+  #site-nav.hero-visible .nav-mypage {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.85);
+    color: #ffffff;
   }
   .booknow-direct {
     background: #ff5a5f;
