@@ -9,6 +9,7 @@
  */
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { initializeApp } from "firebase-admin/app";
@@ -356,7 +357,9 @@ export const partnersApply = onRequest(
 // ─── Beds24 空き状況API（design_partners_page.md §7 / P1 §7-1 前倒し） ───
 // 読み取り専用。refresh token は Secret（M2で保存）。propId/roomId は初回に /properties から自動発見してキャッシュ。
 const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
-const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY"); // read専用（bookingApi・定点観測で共用）
+const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY");
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
@@ -920,3 +923,256 @@ export const beds24Webhook = onRequest(
     }
   }
 );
+
+
+// ─── MS3: 直販予約の作成と決済（v4 §8-1 状態機械） ───
+// bookCreate は PaymentIntent 作成まで。Beds24書込〜captureは stripeWebhook 起点で bookingWorker が実行する。
+const stripeClient = () => new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: "2026-07-29.dahlia" });
+
+type BookingDoc = {
+  uid: string; prop: string; checkin: string; checkout: string; guests: number;
+  total: number; status: string; stateVersion: number; operationId: string;
+  paymentIntentId?: string; beds24Id?: string;
+};
+
+/** 状態遷移（CAS）: 想定バージョン一致時のみ更新。古いタスクが最新状態を壊さない（v4 §8-1） */
+async function transition(
+  ref: FirebaseFirestore.DocumentReference,
+  expect: { status: string[]; stateVersion: number },
+  next: Record<string, unknown>,
+): Promise<boolean> {
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const cur = snap.data() as BookingDoc | undefined;
+    if (!cur) return false;
+    if (!expect.status.includes(cur.status) || cur.stateVersion !== expect.stateVersion) return false;
+    tx.update(ref, { ...next, stateVersion: cur.stateVersion + 1, updatedAt: FieldValue.serverTimestamp() });
+    return true;
+  });
+}
+
+/** 予約開始: 検証 → pending作成 → PaymentIntent（manual capture）→ client_secret を返す */
+export const bookCreate = onRequest(
+  { region: REGION, secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ ok: false, error: "method_not_allowed" }); return; }
+
+    // 認証必須（v4 §5）
+    const authz = String(req.headers["authorization"] ?? "");
+    const m = /^Bearer (.+)$/.exec(authz);
+    if (!m) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    let uid = "", email = "";
+    try {
+      const decoded = await getAuth().verifyIdToken(m[1]);
+      uid = decoded.uid;
+      email = (decoded.email ?? "").toLowerCase();
+    } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const prop = String(b.prop ?? "");
+    const checkin = String(b.checkin ?? "");
+    const checkout = String(b.checkout ?? "");
+    const guests = Number(b.guests);
+    const name = typeof b.name === "string" ? b.name.trim().slice(0, 200) : "";
+    const phone = typeof b.phone === "string" ? b.phone.trim().slice(0, 40) : "";
+    const leadGuest = typeof b.leadGuest === "string" ? b.leadGuest.trim().slice(0, 200) : "";
+    const arrival = typeof b.arrival === "string" ? b.arrival.slice(0, 10) : "";
+    const langStr = typeof b.lang === "string" && ["en", "ja", "ko", "zh", "th"].includes(b.lang) ? b.lang : "en";
+    const rulesAccepted = b.rulesAccepted === true;
+    const marketingOptIn = b.marketingOptIn === true;
+    const idempotencyKey = typeof b.idempotencyKey === "string" ? b.idempotencyKey.slice(0, 100) : "";
+
+    const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!(prop in PROPERTY_CAPACITY) || !isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
+        !Number.isInteger(guests) || guests < 1 || !name || !phone || !rulesAccepted || !idempotencyKey) {
+      res.status(400).json({ ok: false, error: "invalid_input" });
+      return;
+    }
+
+    try {
+      // 冪等: 同じキーの予約が既にあれば、その client_secret を返す（二重送信対策）
+      const dup = await db.collection("bookings").where("idempotencyKey", "==", idempotencyKey).limit(1).get();
+      if (!dup.empty) {
+        const d = dup.docs[0].data() as BookingDoc & { clientSecret?: string };
+        res.status(200).json({ ok: true, bookingId: dup.docs[0].id, clientSecret: d.clientSecret ?? null, duplicate: true });
+        return;
+      }
+
+      // 金額はサーバー側で再見積り（改ざん防止・v4 §8-1）
+      const q = await fetch(
+        `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[prop]}&arrival=${checkin}&departure=${checkout}&numAdults=${guests}`,
+        { headers: { token: BEDS24_TOKEN.value() } },
+      ).then((r) => r.json() as Promise<{ data?: Array<{ roomId?: number; offers?: Array<{ price?: number; unitsAvailable?: number }> }> }>);
+      const offer = q.data?.[0]?.offers?.[0];
+      if (!offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
+        res.status(409).json({ ok: false, error: "unavailable" });
+        return;
+      }
+      const total = offer.price;
+
+      // 無料キャンセル期限 = チェックイン7日前 00:00 JST（v4 §4）
+      const freeCancelUntilAt = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 7 * 86400000).toISOString();
+      const operationId = `op_${idempotencyKey}`;
+
+      const ref = db.collection("bookings").doc();
+      await ref.set({
+        uid, email, prop, checkin, checkout, guests, total, currency: "JPY",
+        name, phone, leadGuest: leadGuest || null, arrival: arrival || null, lang: langStr,
+        status: "PAYMENT_PENDING", stateVersion: 0, operationId, idempotencyKey,
+        roomId: q.data?.[0]?.roomId ?? null,
+        policyVersion: "2026-08-08", freeCancelUntilAt,
+        createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // 同意証跡（v4 §4.5-1/2）
+      await db.collection("consents").add({
+        uid, email, bookingId: ref.id,
+        houseRules: { accepted: true, version: "2026-08-08" },
+        marketing: { optIn: marketingOptIn, version: "2026-08-08" },
+        lang: langStr, createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // manual capture: Beds24書込に成功してから確定する（v4 §8-1）
+      const stripe = stripeClient();
+      const pi = await stripe.paymentIntents.create({
+        amount: total, currency: "jpy", capture_method: "manual",
+        metadata: { bookingId: ref.id, operationId, prop, checkin, checkout, guests: String(guests) },
+        description: `yah.homes ${prop} ${checkin}〜${checkout}`,
+        receipt_email: email || undefined,
+      }, { idempotencyKey: operationId });
+
+      await ref.update({ paymentIntentId: pi.id, clientSecret: pi.client_secret, stateVersion: 1 });
+      await db.collection("operations").add({
+        operationId, bookingId: ref.id, provider: "stripe", action: "create_payment_intent",
+        providerId: pi.id, createdAt: FieldValue.serverTimestamp(),
+      });
+
+      res.status(200).json({ ok: true, bookingId: ref.id, clientSecret: pi.client_secret, total });
+    } catch (err) {
+      logger.error("bookCreate failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+/** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
+export const stripeWebhook = onRequest(
+  { region: REGION, secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    if (!sig) { res.status(400).send("missing_signature"); return; }
+
+    const stripe = stripeClient();
+    let event: Stripe.Event;
+    try {
+      // 署名検証には raw body が必要（firebase-functions は rawBody を提供）
+      event = stripe.webhooks.constructEvent(
+        (req as unknown as { rawBody: Buffer }).rawBody,
+        String(sig),
+        STRIPE_WEBHOOK_SECRET.value(),
+      );
+    } catch (err) {
+      logger.error("stripeWebhook signature verification failed", err);
+      res.status(400).send("invalid_signature");
+      return;
+    }
+
+    res.status(200).send("ok"); // 先にACK（再送嵐を避ける）
+
+    const evRef = db.collection("webhook_events").doc(`stripe_${event.id}`);
+    try {
+      const fresh = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(evRef);
+        if (snap.exists) return false;
+        tx.set(evRef, { provider: "stripe", type: event.type, receivedAt: FieldValue.serverTimestamp(), processedAt: null, result: null });
+        return true;
+      });
+      if (!fresh) return;
+
+      if (event.type === "payment_intent.amount_capturable_updated") {
+        await fulfillBooking(event.data.object as Stripe.PaymentIntent, stripe);
+      } else if (event.type === "payment_intent.payment_failed") {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = pi.metadata?.bookingId;
+        if (bookingId) {
+          const ref = db.collection("bookings").doc(bookingId);
+          const cur = (await ref.get()).data() as BookingDoc | undefined;
+          if (cur) await transition(ref, { status: ["PAYMENT_PENDING"], stateVersion: cur.stateVersion }, { status: "PAYMENT_FAILED" });
+        }
+      }
+      await evRef.set({ processedAt: FieldValue.serverTimestamp(), result: "ok" }, { merge: true });
+    } catch (err) {
+      logger.error("stripeWebhook processing failed", err);
+      await evRef.set({ processedAt: FieldValue.serverTimestamp(), result: `error: ${String(err).slice(0, 300)}` }, { merge: true }).catch(() => undefined);
+    }
+  }
+);
+
+/** 履行: 再見積り・再在庫確認 → Beds24書込 → capture → CONFIRMED（失敗系は全てオーソリ解放） */
+async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise<void> {
+  const bookingId = pi.metadata?.bookingId;
+  if (!bookingId) return;
+  const ref = db.collection("bookings").doc(bookingId);
+  const cur = (await ref.get()).data() as BookingDoc | undefined;
+  if (!cur) return;
+  if (cur.status === "CONFIRMED") return; // 既に確定（重複配信）
+
+  const ok = await transition(ref, { status: ["PAYMENT_PENDING"], stateVersion: cur.stateVersion }, { status: "AUTHORIZED" });
+  if (!ok) return; // 別タスクが処理済み or 状態不一致（stateVersion CAS）
+
+  const fail = async (reason: string, status: string) => {
+    await stripe.paymentIntents.cancel(pi.id).catch(() => undefined); // オーソリ解放
+    const c = (await ref.get()).data() as BookingDoc;
+    await transition(ref, { status: [c.status], stateVersion: c.stateVersion }, { status, failureReason: reason });
+    await notifyError(`予約の履行に失敗しました（${reason}）\n予約ID: ${bookingId}\nPaymentIntent: ${pi.id}`);
+  };
+
+  try {
+    // 確定直前の再在庫確認（v4 §8-1）
+    const q = await fetch(
+      `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[cur.prop]}&arrival=${cur.checkin}&departure=${cur.checkout}&numAdults=${cur.guests}`,
+      { headers: { token: BEDS24_TOKEN.value() } },
+    ).then((r) => r.json() as Promise<{ data?: Array<{ offers?: Array<{ price?: number; unitsAvailable?: number }> }> }>);
+    const offer = q.data?.[0]?.offers?.[0];
+    if (!offer || (offer.unitsAvailable ?? 0) < 1) { await fail("在庫が埋まりました", "VOIDED"); return; }
+    if (offer.price !== cur.total) { await fail(`料金が変動しました（${cur.total}→${offer.price}）`, "VOIDED"); return; }
+
+    // TODO(MS3.9): Beds24 への書き込み（POST /bookings）。書込トークン発行後に有効化する。
+    // 現段階は検証用物件が未作成のため書込を行わず、CONFIRMED まで進めない。
+    await notifyError(
+      `[要対応] オーソリ済みですが Beds24 書込は未実装のため保留中です。\n` +
+      `予約ID: ${bookingId}／PaymentIntent: ${pi.id}／${cur.prop} ${cur.checkin}〜${cur.checkout} ${cur.guests}名 ¥${cur.total}`,
+    );
+    const c2 = (await ref.get()).data() as BookingDoc;
+    await transition(ref, { status: ["AUTHORIZED"], stateVersion: c2.stateVersion }, { status: "MANUAL_REVIEW", note: "beds24_write_pending" });
+  } catch (err) {
+    logger.error("fulfillBooking failed", err);
+    await fail(String(err).slice(0, 200), "MANUAL_REVIEW");
+  }
+}
+
+/** 障害通知（沈黙禁止・v4 §8-6） */
+async function notifyError(text: string): Promise<void> {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    await transporter.sendMail({
+      from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
+      to: PARTNERS_NOTIFY_TO,
+      subject: "【予約エラー】直販予約の処理でエラーが発生しました",
+      text,
+    });
+  } catch (err) {
+    logger.error("notifyError failed", err);
+  }
+}
