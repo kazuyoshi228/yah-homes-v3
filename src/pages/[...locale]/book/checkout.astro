@@ -44,8 +44,8 @@ const C = {
     title: "Complete your booking", steps: ["Dates & house", "Your details", "Payment"],
     summary: "Your booking", checkin: "Check-in", checkout: "Check-out", guests: "Guests",
     checkinTime: "From 15:00", checkoutTime: "Until 10:00", nightsGuests: (n: number, g: number) => `${n} nights · ${g} guests`,
-    priceTitle: "Price details", total: "Total", taxNote: "Tax and cleaning fee included",
-    cancelTitle: "Cancellation", freeUntil: (d: string) => `Free cancellation until ${d}`,
+    priceTitle: "Price details", total: "Total", taxNote: "Room, lodging tax and cleaning fee included",
+    cancelTitle: "Cancellation", freeUntil: (d: string) => `Free cancellation until ${d} 23:59 (JST)`,
     cancelAfter: "After that, the full amount is charged.",
     authTitle: "Sign in to continue", authLead: "We use your Google account so you can manage this booking later. No password needed.",
     authBtn: "Continue with Google", authDone: "Signed in as",
@@ -66,8 +66,8 @@ const C = {
     title: "ご予約の確定", steps: ["日程・棟の選択", "お客様情報", "お支払い"],
     summary: "ご予約内容", checkin: "チェックイン", checkout: "チェックアウト", guests: "人数",
     checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}泊 ${g}名`,
-    priceTitle: "料金内訳", total: "合計", taxNote: "税・清掃料込み",
-    cancelTitle: "キャンセルについて", freeUntil: (d: string) => `${d} まで無料キャンセル`,
+    priceTitle: "料金内訳", total: "合計", taxNote: "宿泊料・宿泊税・清掃料込み",
+    cancelTitle: "キャンセルについて", freeUntil: (d: string) => `${d} 23:59（日本時間）まで無料キャンセル`,
     cancelAfter: "以降は全額が発生します。",
     authTitle: "ログインして進む", authLead: "ご予約の確認・変更をあとから行えるよう、Googleアカウントで進みます。パスワードは不要です。",
     authBtn: "Googleで続ける", authDone: "ログイン中",
@@ -88,8 +88,8 @@ const C = {
     title: "예약 확정", steps: ["날짜・동 선택", "고객 정보", "결제"],
     summary: "예약 내용", checkin: "체크인", checkout: "체크아웃", guests: "인원",
     checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}박 ${g}명`,
-    priceTitle: "요금 내역", total: "합계", taxNote: "세금・청소비 포함",
-    cancelTitle: "취소 안내", freeUntil: (d: string) => `${d}까지 무료 취소`,
+    priceTitle: "요금 내역", total: "합계", taxNote: "숙박료・숙박세・청소비 포함",
+    cancelTitle: "취소 안내", freeUntil: (d: string) => `${d} 23:59(일본 시간)까지 무료 취소`,
     cancelAfter: "이후에는 전액이 부과됩니다.",
     authTitle: "로그인하고 진행", authLead: "예약 확인・변경을 나중에 하실 수 있도록 Google 계정으로 진행합니다. 비밀번호는 필요 없습니다.",
     authBtn: "Google로 계속하기", authDone: "로그인 중",
@@ -110,8 +110,8 @@ const C = {
     title: "完成預訂", steps: ["日期・房源", "顧客資料", "付款"],
     summary: "預訂內容", checkin: "入住", checkout: "退房", guests: "人數",
     checkinTime: "15:00〜", checkoutTime: "〜10:00", nightsGuests: (n: number, g: number) => `${n}晚 ${g}人`,
-    priceTitle: "費用明細", total: "總金額", taxNote: "含稅・清潔費",
-    cancelTitle: "取消說明", freeUntil: (d: string) => `${d} 前可免費取消`,
+    priceTitle: "費用明細", total: "總金額", taxNote: "含住宿費・住宿稅・清潔費",
+    cancelTitle: "取消說明", freeUntil: (d: string) => `${d} 23:59（日本時間）前可免費取消`,
     cancelAfter: "之後將收取全額費用。",
     authTitle: "登入後繼續", authLead: "為了讓您日後можеть查詢與變更訂單，我們使用 Google 帳號登入，無需密碼。",
     authBtn: "使用 Google 繼續", authDone: "已登入",
@@ -132,8 +132,8 @@ const C = {
     title: "ยืนยันการจอง", steps: ["วันที่・บ้าน", "ข้อมูลผู้เข้าพัก", "ชำระเงิน"],
     summary: "รายละเอียดการจอง", checkin: "เช็คอิน", checkout: "เช็คเอาท์", guests: "ผู้เข้าพัก",
     checkinTime: "15:00 เป็นต้นไป", checkoutTime: "ก่อน 10:00", nightsGuests: (n: number, g: number) => `${n} คืน ${g} ท่าน`,
-    priceTitle: "รายละเอียดราคา", total: "ราคารวม", taxNote: "รวมภาษีและค่าทำความสะอาด",
-    cancelTitle: "การยกเลิก", freeUntil: (d: string) => `ยกเลิกฟรีถึง ${d}`,
+    priceTitle: "รายละเอียดราคา", total: "ราคารวม", taxNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด",
+    cancelTitle: "การยกเลิก", freeUntil: (d: string) => `ยกเลิกฟรีถึง ${d} 23:59 (เวลาญี่ปุ่น)`,
     cancelAfter: "หลังจากนั้นจะเรียกเก็บเต็มจำนวน",
     authTitle: "เข้าสู่ระบบเพื่อดำเนินการต่อ", authLead: "เราใช้บัญชี Google เพื่อให้คุณจัดการการจองได้ภายหลัง ไม่ต้องใช้รหัสผ่าน",
     authBtn: "ดำเนินการต่อด้วย Google", authDone: "เข้าสู่ระบบแล้ว",
@@ -336,8 +336,9 @@ const uiStrings = {
     $("co-guests").textContent = uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests);
 
     // 無料キャンセル期限 = チェックイン7日前（JST基準・v4 §4）
-    const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 7 * 86400000);
-    const fcStr = fc.toISOString().slice(0, 10);
+    // 7日前の 00:00 JST = 8日前の 23:59 JST。表記は後者に揃える（実質同じ期限）
+    const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 8 * 86400000);
+    const fcStr = new Date(fc.getTime() + 9 * 3600000).toISOString().slice(0, 10);
     $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
     $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
 
