@@ -355,27 +355,16 @@ export const partnersApply = onRequest(
 
 // ─── Beds24 空き状況API（design_partners_page.md §7 / P1 §7-1 前倒し） ───
 // 読み取り専用。refresh token は Secret（M2で保存）。propId/roomId は初回に /properties から自動発見してキャッシュ。
-const BEDS24_REFRESH_TOKEN_KIYOKAWA = defineSecret("BEDS24_REFRESH_TOKEN_KIYOKAWA");
-const BEDS24_REFRESH_TOKEN_TAKASAGO = defineSecret("BEDS24_REFRESH_TOKEN_TAKASAGO");
+const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
+// 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
+const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
 
 type AvailCache = { data: Record<string, boolean>; expires: number };
 const availCache: Record<string, AvailCache> = {};
-const tokenCache: Record<string, { token: string; expires: number }> = {};
-
-async function beds24Token(slug: "kiyokawa" | "takasago"): Promise<string> {
-  const cached = tokenCache[slug];
-  if (cached && cached.expires > Date.now()) return cached.token;
-  const refresh = slug === "kiyokawa" ? BEDS24_REFRESH_TOKEN_KIYOKAWA.value() : BEDS24_REFRESH_TOKEN_TAKASAGO.value();
-  const r = await fetch(`${BEDS24_API}/authentication/token`, { headers: { refreshToken: refresh } });
-  const j = (await r.json()) as { token?: string; expiresIn?: number };
-  if (!j.token) throw new Error("beds24 token refresh failed");
-  tokenCache[slug] = { token: j.token, expires: Date.now() + Math.max(60, (j.expiresIn ?? 86400) - 300) * 1000 };
-  return j.token;
-}
 
 export const bookingApi = onRequest(
-  { region: REGION, secrets: [BEDS24_REFRESH_TOKEN_KIYOKAWA, BEDS24_REFRESH_TOKEN_TAKASAGO] },
+  { region: REGION, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -399,14 +388,13 @@ export const bookingApi = onRequest(
     }
 
     try {
-      const token = await beds24Token(slug);
       const start = new Date();
       const end = new Date(start.getTime() + 100 * 86400000); // 表示は翌月+翌々月 → 月末まで確実に覆う
       const fmt = (d: Date) => d.toISOString().slice(0, 10);
-      // 部屋在庫カレンダー（各招待コードは該当propertyスコープ。roomIdは省略して全room取得）
+      // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）
       const r = await fetch(
-        `${BEDS24_API}/inventory/rooms/calendar?startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true`,
-        { headers: { token } },
+        `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}&startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true`,
+        { headers: { token: BEDS24_TOKEN.value() } },
       );
       const j = (await r.json()) as { success?: boolean; data?: Array<{ roomId?: number; calendar?: Array<{ from: string; to: string; numAvail?: number }> }> };
       if (!j.success || !j.data) throw new Error("beds24 calendar fetch failed");
@@ -579,7 +567,6 @@ export const partnersAdmin = onRequest({ region: REGION, secrets: [SMTP_USER, SM
 // ─── Beds24 クラウド定点観測（spec_beds24_cloud_observer.md v0.2） ───
 // 毎朝8:00 JST: 予約取得→前回スナップショット差分→定点シート記入→サマリメール→状態保存。
 // ロジックは scripts/beds24-daily.mjs と同一（数字の連続性維持）。トークンはread専用。
-const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
 const TEITEN_SHEET_ID = "1DxniZSvdzb5s4Zjt_6MYgWkkFq7q7HlCxyIUZn6hMfk";
 const TEITEN_PROPS: Record<number, string> = { 278158: "清川", 291238: "高砂" };
 
