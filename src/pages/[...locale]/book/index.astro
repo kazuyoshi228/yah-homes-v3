@@ -80,6 +80,17 @@ const HOUSES = [
   },
 ];
 
+// 信頼ブロック: 運営者の顔と「聞けば人が答える」約束（写真は差し替え用スロット）
+const OWNER_PHOTO = ""; // 例: "/manus-storage/owner.webp"（未設定なら写真なしで表示）
+const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
+const HOST_COPY = {
+  en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 24 hours.", cta: "Contact us" },
+  ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。24時間以内にお返事いたします。", cta: "ご質問・ご相談はこちら" },
+  ko: { lead: "yah.homes는 후쿠오카에서 2개 동을 운영하고 있습니다. 궁금한 점은 직접 답변드리며, 24시간 이내에 회신드립니다.", cta: "문의하기" },
+  zh: { lead: "yah.homes 在福岡經營兩棟房源。有任何疑問我們會親自回覆，並於24小時內回信。", cta: "諮詢與提問" },
+  th: { lead: "yah.homes ดูแลบ้าน 2 หลังในฟุกุโอกะ หากมีข้อสงสัยเราตอบเองและจะติดต่อกลับภายใน 24 ชั่วโมง", cta: "ติดต่อสอบถาม" },
+}[lang];
+
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
 
@@ -181,6 +192,15 @@ const strings = {
           </article>
         ))}
       </div>
+
+      <!-- 信頼ブロック（迷って下までスクロールした人向け・売り込みにはしない） -->
+      <aside class="bk-host">
+        {OWNER_PHOTO && <img class="bk-host-photo" src={OWNER_PHOTO} alt="" width="80" height="80" loading="lazy" />}
+        <div class="bk-host-body">
+          <p class="bk-host-text">{HOST_COPY.lead}</p>
+          <a class="bk-host-link" href={CONTACT_HREF}>{HOST_COPY.cta}</a>
+        </div>
+      </aside>
     </div>
   </section>
 </SiteLayout>
@@ -625,4 +645,35 @@ const strings = {
     text-align: center;
   }
   .bk-quote :global(.bk-cta:hover) { opacity: 0.85; }
+
+  /* 信頼ブロック */
+  .bk-host {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .bk-host-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #f7f7f7;
+  }
+  .bk-host-text {
+    font-size: 0.85rem;
+    line-height: 1.85;
+    color: #555555;
+  }
+  .bk-host-link {
+    display: inline-block;
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: #111111;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 </style>
