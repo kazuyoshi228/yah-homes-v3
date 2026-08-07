@@ -86,12 +86,28 @@ const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
 const HOST_NAME = { en: "Kazuyoshi Yamada", ja: "山田一慶", ko: "야마다 카즈요시", zh: "山田一慶", th: "Kazuyoshi Yamada" }[lang];
 const HOST_ROLE = { en: "Director, yah.homes", ja: "yah.homes ディレクター", ko: "yah.homes 디렉터", zh: "yah.homes 總監", th: "ผู้อำนวยการ yah.homes" }[lang];
 const HOST_COPY = {
-  en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 2–3 business days.", cta: "Contact us" },
-  ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。2〜3営業日以内にご連絡いたします。", cta: "ご質問・ご相談はこちら" },
-  ko: { lead: "yah.homes는 후쿠오카에서 2개 동을 운영하고 있습니다. 궁금한 점은 직접 답변드리며, 2~3영업일 이내에 연락드립니다.", cta: "문의하기" },
-  zh: { lead: "yah.homes 在福岡經營兩棟房源。有任何疑問我們會親自回覆，並於2〜3個工作天內與您聯繫。", cta: "諮詢與提問" },
-  th: { lead: "yah.homes ดูแลบ้าน 2 หลังในฟุกุโอกะ หากมีข้อสงสัยเราตอบเองและจะติดต่อกลับภายใน 2–3 วันทำการ", cta: "ติดต่อสอบถาม" },
+  en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 2–3 business days.", cta: "Contact us",
+        title: "Ask us anything", name: "Name", email: "Email", message: "Your question", send: "Send", close: "Close",
+        sending: "Sending…", done: "Thank you. We'll reply within 2–3 business days.", fail: "Could not send. Please try again shortly.",
+        ctx: "Dates you were viewing" },
+  ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。2〜3営業日以内にご連絡いたします。", cta: "ご質問・ご相談はこちら",
+        title: "ご質問・ご相談", name: "お名前", email: "メールアドレス", message: "ご質問内容", send: "送信する", close: "閉じる",
+        sending: "送信中…", done: "ありがとうございます。2〜3営業日以内にご連絡いたします。", fail: "送信に失敗しました。時間をおいてお試しください。",
+        ctx: "ご覧の日程" },
+  ko: { lead: "yah.homes는 후쿠오카에서 2개 동을 운영하고 있습니다. 궁금한 점은 직접 답변드리며, 2~3영업일 이내에 연락드립니다.", cta: "문의하기",
+        title: "문의하기", name: "성함", email: "이메일", message: "문의 내용", send: "보내기", close: "닫기",
+        sending: "전송 중…", done: "감사합니다. 2~3영업일 이내에 연락드리겠습니다.", fail: "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        ctx: "보고 계신 날짜" },
+  zh: { lead: "yah.homes 在福岡經營兩棟房源。有任何疑問我們會親自回覆，並於2〜3個工作天內與您聯繫。", cta: "諮詢與提問",
+        title: "諮詢與提問", name: "姓名", email: "電子郵件", message: "問題內容", send: "送出", close: "關閉",
+        sending: "傳送中…", done: "感謝您的來訊，我們將於2〜3個工作天內回覆。", fail: "傳送失敗，請稍後再試。",
+        ctx: "您查看的日期" },
+  th: { lead: "yah.homes ดูแลบ้าน 2 หลังในฟุกุโอกะ หากมีข้อสงสัยเราตอบเองและจะติดต่อกลับภายใน 2–3 วันทำการ", cta: "ติดต่อสอบถาม",
+        title: "ติดต่อสอบถาม", name: "ชื่อ", email: "อีเมล", message: "คำถามของคุณ", send: "ส่ง", close: "ปิด",
+        sending: "กำลังส่ง…", done: "ขอบคุณค่ะ เราจะติดต่อกลับภายใน 2–3 วันทำการ", fail: "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        ctx: "วันที่คุณกำลังดู" },
 }[lang];
+const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/contact";
 
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
@@ -201,14 +217,34 @@ const strings = {
         <div class="bk-host-body">
           <p class="bk-host-name">{HOST_NAME}<span class="bk-host-role">{HOST_ROLE}</span></p>
           <p class="bk-host-text">{HOST_COPY.lead}</p>
-          <a class="bk-host-link" href={CONTACT_HREF}>{HOST_COPY.cta}</a>
+          <button type="button" class="bk-host-link" id="bk-ask">{HOST_COPY.cta}</button>
         </div>
       </aside>
+
+      <!-- 問い合わせダイアログ（ページ遷移せず、選択中の日程を保持したまま質問できる） -->
+      <dialog class="bk-dialog" id="bk-dialog">
+        <form class="bk-dialog-form" id="bk-ask-form" method="dialog">
+          <h2 class="bk-dialog-title">{HOST_COPY.title}</h2>
+          <p class="bk-dialog-ctx" id="bk-ask-ctx"></p>
+          <label class="bk-dialog-label" for="ask-name">{HOST_COPY.name}</label>
+          <input class="bk-dialog-input" id="ask-name" type="text" required maxlength="200" />
+          <label class="bk-dialog-label" for="ask-email">{HOST_COPY.email}</label>
+          <input class="bk-dialog-input" id="ask-email" type="email" required maxlength="320" />
+          <label class="bk-dialog-label" for="ask-message">{HOST_COPY.message}</label>
+          <textarea class="bk-dialog-input" id="ask-message" rows="4" required maxlength="5000"></textarea>
+          <input type="text" id="ask-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;" />
+          <p class="bk-dialog-status" id="ask-status" role="status"></p>
+          <div class="bk-dialog-actions">
+            <button type="button" class="bk-dialog-close" id="ask-close">{HOST_COPY.close}</button>
+            <button type="button" class="bk-dialog-send" id="ask-send">{HOST_COPY.send}</button>
+          </div>
+        </form>
+      </dialog>
     </div>
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, CHECKOUT_PATH, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
+<script define:vars={{ AVAIL_ENDPOINT, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -361,6 +397,45 @@ const strings = {
   });
 
   renderAll();
+
+  // ── 問い合わせダイアログ（遷移なし・選択中の日程を本文へ自動添付） ──
+  const dlg = $("bk-dialog");
+  $("bk-ask").addEventListener("click", () => {
+    const ctx = state.checkin && state.checkout
+      ? `${HOST_COPY.ctx}: ${state.checkin} 〜 ${state.checkout}（${state.guests}）`
+      : "";
+    $("bk-ask-ctx").textContent = ctx;
+    $("ask-status").textContent = "";
+    dlg.showModal();
+  });
+  $("ask-close").addEventListener("click", () => dlg.close());
+  $("ask-send").addEventListener("click", async () => {
+    const form = $("bk-ask-form");
+    if (!form.reportValidity()) return;
+    const ctx = $("bk-ask-ctx").textContent;
+    $("ask-send").disabled = true;
+    $("ask-status").textContent = HOST_COPY.sending;
+    try {
+      const r = await fetch(CONTACT_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: $("ask-name").value,
+          email: $("ask-email").value,
+          message: ctx ? `${$("ask-message").value}\n\n---\n${ctx}` : $("ask-message").value,
+          lang,
+          website: $("ask-website").value,
+        }),
+      });
+      const j = await r.json();
+      $("ask-status").textContent = j.ok ? HOST_COPY.done : HOST_COPY.fail;
+      if (j.ok) { $("ask-message").value = ""; setTimeout(() => dlg.close(), 2500); }
+    } catch {
+      $("ask-status").textContent = HOST_COPY.fail;
+    } finally {
+      $("ask-send").disabled = false;
+    }
+  });
 </script>
 
 <style>
@@ -687,9 +762,90 @@ const strings = {
   .bk-host-link {
     display: inline-block;
     margin-top: 0.4rem;
+    padding: 0;
     font-size: 0.85rem;
+    font-family: inherit;
     color: #111111;
+    background: none;
+    border: none;
     text-decoration: underline;
     text-underline-offset: 3px;
+    cursor: pointer;
   }
+
+  /* 問い合わせダイアログ */
+  .bk-dialog {
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    padding: 0;
+    width: min(440px, calc(100vw - 3rem));
+    background: #ffffff;
+  }
+  .bk-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .bk-dialog-form {
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .bk-dialog-title {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #111111;
+    margin-bottom: 0.5rem;
+  }
+  .bk-dialog-ctx {
+    font-size: 0.75rem;
+    color: #888888;
+    margin-bottom: 1rem;
+    min-height: 1em;
+  }
+  .bk-dialog-label {
+    font-size: 0.75rem;
+    color: #555555;
+    margin-bottom: 0.25rem;
+  }
+  .bk-dialog-input {
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: #111111;
+    padding: 0.55rem 0.7rem;
+    margin-bottom: 0.9rem;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    background: #ffffff;
+  }
+  .bk-dialog-status {
+    font-size: 0.8rem;
+    color: #555555;
+    min-height: 1.4em;
+    margin-bottom: 0.5rem;
+  }
+  .bk-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+  .bk-dialog-close {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: #111111;
+    background: #ffffff;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .bk-dialog-send {
+    padding: 0.6rem 1.4rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: #ffffff;
+    background: #111111;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .bk-dialog-send:disabled { opacity: 0.5; }
 </style>
