@@ -24,6 +24,28 @@ const t = BOOK_STRINGS[lang];
 const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
 const CHECKOUT_PATH = localizedPath(lang, "/book/checkout");
 
+// カード表示用スペック（2026-08-08 発注者提供・表示のみ。properties.ts/Beds24の正本は未変更）
+const SPEC_LABELS = {
+  en: { rooms: "bedrooms", single: "single", double: "double", bath: "bath", sink: "washbasin", max: (n: number) => `up to ${n} guests` },
+  ja: { rooms: "寝室", single: "シングル", double: "ダブル", bath: "浴室", sink: "洗面台", max: (n: number) => `最大${n}名` },
+  ko: { rooms: "침실", single: "싱글", double: "더블", bath: "욕실", sink: "세면대", max: (n: number) => `최대 ${n}명` },
+  zh: { rooms: "臥室", single: "單人床", double: "雙人床", bath: "浴室", sink: "洗手台", max: (n: number) => `最多${n}人` },
+  th: { rooms: "ห้องนอน", single: "เตียงเดี่ยว", double: "เตียงคู่", bath: "ห้องน้ำ", sink: "อ่างล้างหน้า", max: (n: number) => `สูงสุด ${n} ท่าน` },
+}[lang];
+
+const SPECS = {
+  kiyokawa: { max: 8, rooms: 3, single: 2, double: 3, bath: 1, sink: 1 },
+  takasago: { max: 6, rooms: 3, single: 4, double: 1, bath: 1, sink: 3 },
+};
+const specLines = (k: "kiyokawa" | "takasago") => {
+  const v = SPECS[k];
+  return [
+    `${SPEC_LABELS.max(v.max)}　/　${SPEC_LABELS.rooms} ${v.rooms}`,
+    `${SPEC_LABELS.single} ${v.single}　/　${SPEC_LABELS.double} ${v.double}`,
+    `${SPEC_LABELS.bath} ${v.bath}　/　${SPEC_LABELS.sink} ${v.sink}`,
+  ];
+};
+
 const HOUSES = [
   {
     key: "kiyokawa" as const,
@@ -132,7 +154,10 @@ const strings = {
             <div class="bk-house-body">
               <div class="bk-house-head">
                 <h2 class="bk-house-name">{h.name}</h2>
-                <p class="bk-house-meta">{h.area}　/　{t.capacityMax(h.capacity)}</p>
+                <p class="bk-house-meta">{h.area}</p>
+                <ul class="bk-house-spec">
+                  {specLines(h.key).map((line) => <li>{line}</li>)}
+                </ul>
                 <p class="bk-house-rating">★ {h.rating}（{h.reviews}）</p>
               </div>
               <div class="bk-quote" data-quote={h.key}>
@@ -514,6 +539,14 @@ const strings = {
     font-size: 0.8rem;
     color: #888888;
     line-height: 1.7;
+  }
+  .bk-house-spec {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.85;
+    color: #555555;
   }
   .bk-house-rating {
     font-size: 0.78rem;
