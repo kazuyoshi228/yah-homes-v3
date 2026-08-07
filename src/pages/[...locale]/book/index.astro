@@ -1,0 +1,576 @@
+---
+/* /book/ — 予約の「選択」ページ（design_booking_p1_v4.md §3〜4・MS2）
+   日付×人数 → 2棟の空室と総額を即表示 → 「この棟で進む」で /book/checkout へ。
+   デザイン: ブランドガイドライン準拠のモノクローム（Black/White/LightGray/Gray）。
+   公開ガード: 本番ビルドでは生成しない（BOOK_PREVIEW=1 のときのみ・v4 §7）。 */
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
+import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
+import { PROPERTIES } from "../../../data/properties";
+
+export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+
+export function getStaticPaths() {
+  if (!BOOK_PREVIEW) return [];
+  return LOCALES.map((locale) => ({
+    params: { locale: localeParam(locale) },
+    props: { lang: locale as Locale },
+  }));
+}
+
+const { lang } = Astro.props as { lang: Locale };
+const t = BOOK_STRINGS[lang];
+
+const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+const CHECKOUT_PATH = localizedPath(lang, "/book/checkout");
+
+const HOUSES = [
+  {
+    key: "kiyokawa" as const,
+    name: { en: "Kiyokawa House", ja: "清川館", ko: "기요카와", zh: "清川館", th: "บ้านคิโยคาวะ" }[lang],
+    area: { en: "Kiyokawa · 8 min to Tenjin", ja: "清川・天神まで車で8分", ko: "기요카와・텐진까지 차로 8분", zh: "清川・開車8分鐘到天神", th: "คิโยคาวะ・8 นาทีถึงเทนจิน" }[lang],
+    capacity: PROPERTIES.kiyokawa.capacity,
+    image: PROPERTIES.kiyokawa.exterior,
+    rating: PROPERTIES.kiyokawa.rating,
+    reviews: PROPERTIES.kiyokawa.reviewCount,
+    detail: localizedPath(lang, "/properties/kiyokawa"),
+  },
+  {
+    key: "takasago" as const,
+    name: { en: "Takasago House", ja: "高砂館", ko: "다카사고", zh: "高砂館", th: "บ้านทาคาซาโกะ" }[lang],
+    area: { en: "Takasago · walk to Tenjin", ja: "高砂・天神徒歩圏", ko: "다카사고・텐진 도보권", zh: "高砂・步行可達天神", th: "ทาคาซาโกะ・เดินถึงเทนจิน" }[lang],
+    capacity: PROPERTIES.takasago.capacity,
+    image: PROPERTIES.takasago.exterior,
+    rating: PROPERTIES.takasago.rating,
+    reviews: PROPERTIES.takasago.reviewCount,
+    detail: localizedPath(lang, "/properties/takasago"),
+  },
+];
+
+const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
+const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
+
+// カレンダー2ヶ月分の見出しラベル（言語別表記をビルド時に確定）
+const now = new Date();
+const monthLabels = [0, 1].map((i) => {
+  const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+  return { y: d.getFullYear(), m: d.getMonth(), label: t.monthLabel(d.getFullYear(), d.getMonth()) };
+});
+// 「2泊4名」表記のテンプレ（{n}/{g} を置換）
+const noteTemplate = t.totalNote(-1, -2).replace("-1", "{n}").replace("-2", "{g}");
+
+const strings = {
+  selectDates: t.selectDates,
+  selectCheckout: t.selectCheckout,
+  searching: t.searching,
+  soldOut: t.soldOut,
+  soldOutHint: t.soldOutHint,
+  totalLabel: t.totalLabel,
+  approx: t.approx,
+  errorFetch: t.errorFetch,
+  proceed: t.proceed,
+  monthLabels,
+  noteTemplate,
+  nightsLabel: t.nights(-1).replace("-1", "{n}"),
+  dow: t.dow,
+  fxCode: t.fxCode,
+  fxSymbol: t.fxSymbol,
+  fxRate,
+};
+---
+
+<SiteLayout
+  lang={lang}
+  path="/book"
+  title={t.metaTitle}
+  description={t.metaDescription}
+  noindex={true}
+  solidNav
+>
+  <section class="bk">
+    <div class="bk-container">
+      <header class="bk-header">
+        <h1 class="bk-title">{t.title}</h1>
+        <p class="bk-lead">{t.lead}</p>
+      </header>
+
+      <!-- 検索バー: 日付（カレンダーで選択）× 人数 -->
+      <div class="bk-search" id="bk-search">
+        <div class="bk-field">
+          <span class="bk-field-label">{t.checkin}</span>
+          <output class="bk-field-value" id="bk-in">—</output>
+        </div>
+        <div class="bk-field">
+          <span class="bk-field-label">{t.checkout}</span>
+          <output class="bk-field-value" id="bk-out">—</output>
+        </div>
+        <div class="bk-field">
+          <label class="bk-field-label" for="bk-guests">{t.guests}</label>
+          <select class="bk-select" id="bk-guests">
+            {Array.from({ length: MAX_CAP }, (_, i) => i + 1).map((n) => (
+              <option value={String(n)} selected={n === 4}>{t.guestsUnit(n)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p class="bk-hint" id="bk-hint">{t.selectDates}</p>
+
+      <!-- カレンダー（2ヶ月・満室日は選択前からグレーアウト） -->
+      <div class="bk-cal" id="bk-cal"></div>
+      <div class="bk-legend">
+        <span><i class="lg-open"></i>{t.legendOpen}</span>
+        <span><i class="lg-closed"></i>{t.legendClosed}</span>
+      </div>
+
+      <!-- 棟カード -->
+      <div class="bk-houses" id="bk-houses">
+        {HOUSES.map((h) => (
+          <article class="bk-house" data-house={h.key}>
+            <a class="bk-house-img" href={h.detail}>
+              <img src={h.image} alt={h.name} loading="lazy" width="480" height="320" />
+            </a>
+            <div class="bk-house-body">
+              <div class="bk-house-head">
+                <h2 class="bk-house-name">{h.name}</h2>
+                <p class="bk-house-meta">{h.area}　/　{t.capacityMax(h.capacity)}</p>
+                <p class="bk-house-rating">★ {h.rating}（{h.reviews}）</p>
+              </div>
+              <div class="bk-quote" data-quote={h.key}>
+                <p class="bk-quote-idle">{t.selectDates}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ AVAIL_ENDPOINT, CHECKOUT_PATH, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, "0");
+  const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  const today = new Date();
+  const todayKey = key(today.getFullYear(), today.getMonth(), today.getDate());
+  const addDays = (k, n) => {
+    const [y, m, d] = k.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  };
+  const nightsBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const yen = (n) => `¥${n.toLocaleString("en-US")}`;
+
+  // URLパラメータで状態復元（v4 §3: 非機微値のみ）
+  const params = new URLSearchParams(location.search);
+  const state = {
+    checkin: params.get("checkin") || null,
+    checkout: params.get("checkout") || null,
+    guests: Number(params.get("guests")) || 4,
+    avail: null, // { kiyokawa: {date:bool}, takasago: {...} }
+  };
+  if (state.guests) $("bk-guests").value = String(state.guests);
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (state.checkin) p.set("checkin", state.checkin);
+    if (state.checkout) p.set("checkout", state.checkout);
+    p.set("guests", String(state.guests));
+    history.replaceState(null, "", `${location.pathname}?${p.toString()}`);
+  }
+
+  const anyAvail = (k) => {
+    if (!state.avail) return true; // 未取得時は選択可（取得後に確定）
+    return HOUSES.some((h) => state.avail[h.key]?.[k] === true);
+  };
+
+  // ── カレンダー描画（2ヶ月・満室と過去はグレーアウト） ──
+  function renderCal() {
+    const base = new Date(today.getFullYear(), today.getMonth(), 1);
+    let html = "";
+    for (let i = 0; i < 2; i++) {
+      const m = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      const y = m.getFullYear(), mo = m.getMonth();
+      const days = new Date(y, mo + 1, 0).getDate();
+      const startDow = new Date(y, mo, 1).getDay();
+      let cells = "";
+      for (let s = 0; s < startDow; s++) cells += '<span class="cal-cell cal-empty"></span>';
+      for (let d = 1; d <= days; d++) {
+        const k = key(y, mo, d);
+        const past = k < todayKey;
+        const closed = past || !anyAvail(k);
+        const isIn = state.checkin === k;
+        const isOut = state.checkout === k;
+        const inRange = state.checkin && state.checkout && k > state.checkin && k < state.checkout;
+        const cls = ["cal-cell", closed ? "cal-closed" : "cal-open", isIn || isOut ? "cal-sel" : "", inRange ? "cal-range" : ""].filter(Boolean).join(" ");
+        cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}>${d}</button>`;
+      }
+      const head = strings.dow.map((w) => `<span class="cal-dow">${w}</span>`).join("");
+      const label = strings.monthLabels[i]?.label ?? `${y}/${mo + 1}`;
+      html += `<div class="cal-month"><p class="cal-title">${label}</p><div class="cal-grid">${head}${cells}</div></div>`;
+    }
+    $("bk-cal").innerHTML = html;
+    $("bk-cal").querySelectorAll("[data-date]").forEach((b) =>
+      b.addEventListener("click", () => pickDate(b.dataset.date))
+    );
+  }
+
+  function pickDate(k) {
+    if (!state.checkin || state.checkout || k <= state.checkin) {
+      state.checkin = k;
+      state.checkout = null;
+    } else {
+      // チェックイン〜アウトの間に満室日があれば、その日を新しいチェックインにする
+      for (let d = state.checkin; d < k; d = addDays(d, 1)) {
+        if (!anyAvail(d)) { state.checkin = k; state.checkout = null; renderAll(); return; }
+      }
+      state.checkout = k;
+    }
+    renderAll();
+  }
+
+  function renderAll() {
+    $("bk-in").textContent = state.checkin || "—";
+    $("bk-out").textContent = state.checkout || "—";
+    $("bk-hint").textContent = !state.checkin
+      ? strings.selectDates
+      : !state.checkout
+        ? strings.selectCheckout
+        : strings.nightsLabel.replace("{n}", nightsBetween(state.checkin, state.checkout));
+    renderCal();
+    syncUrl();
+    if (state.checkin && state.checkout) loadQuotes();
+    else HOUSES.forEach((h) => {
+      document.querySelector(`[data-quote="${h.key}"]`).innerHTML = `<p class="bk-quote-idle">${strings.selectDates}</p>`;
+    });
+  }
+
+  // ── 見積り（両棟並列） ──
+  async function loadQuotes() {
+    const nights = nightsBetween(state.checkin, state.checkout);
+    HOUSES.forEach((h) => {
+      document.querySelector(`[data-quote="${h.key}"]`).innerHTML = `<p class="bk-quote-idle">${strings.searching}</p>`;
+    });
+    await Promise.all(HOUSES.map(async (h) => {
+      const box = document.querySelector(`[data-quote="${h.key}"]`);
+      if (state.guests > h.capacity) {
+        box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
+        return;
+      }
+      try {
+        const url = `${AVAIL_ENDPOINT}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+        const j = await fetch(url).then((r) => r.json());
+        if (!j.ok) throw new Error("quote");
+        if (!j.available) {
+          box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
+          return;
+        }
+        const fx = strings.fxCode === "JPY" ? "" :
+          `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(j.total * strings.fxRate).toLocaleString("en-US")}</p>`;
+        const href = `${CHECKOUT_PATH}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+        box.innerHTML = `
+          <p class="bk-quote-label">${strings.totalLabel}</p>
+          <p class="bk-quote-total">${yen(j.total)}</p>
+          ${fx}
+          <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
+          <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
+      } catch {
+        box.innerHTML = `<p class="bk-quote-hint">${strings.errorFetch}</p>`;
+      }
+    }));
+  }
+
+  // ── 空室先読み（表示中の2ヶ月分・両棟） ──
+  (async () => {
+    try {
+      const results = await Promise.all(HOUSES.map(async (h) => {
+        const j = await fetch(`${AVAIL_ENDPOINT}?prop=${h.key}`).then((r) => r.json());
+        return [h.key, j.ok ? j.dates || {} : {}];
+      }));
+      state.avail = Object.fromEntries(results);
+    } catch {
+      state.avail = null;
+    }
+    renderAll();
+  })();
+
+  $("bk-guests").addEventListener("change", (e) => {
+    state.guests = Number(e.target.value);
+    syncUrl();
+    if (state.checkin && state.checkout) loadQuotes();
+  });
+
+  renderAll();
+</script>
+
+<style>
+  /* ブランドガイドライン: Black #000 / White #fff / LightGray #F7F7F7 / Gray #D7D7D7 のみ */
+  .bk {
+    background: #ffffff;
+    padding: 7rem 1.5rem 5rem;
+    min-height: 70vh;
+  }
+  .bk-container {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  .bk-title {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 500;
+    color: #111111;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+  }
+  .bk-lead {
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.85;
+    color: #555555;
+    margin-bottom: 2.5rem;
+  }
+
+  /* 検索バー */
+  .bk-search {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1px;
+    background: #d7d7d7;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  @media (max-width: 560px) {
+    .bk-search { grid-template-columns: 1fr 1fr; }
+    .bk-search .bk-field:last-child { grid-column: 1 / -1; }
+  }
+  .bk-field {
+    background: #ffffff;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+  .bk-field-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888888;
+  }
+  .bk-field-value {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #111111;
+    font-variant-numeric: tabular-nums;
+  }
+  .bk-select {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #111111;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    padding: 0;
+    cursor: pointer;
+  }
+  .bk-hint {
+    font-size: 0.8rem;
+    color: #888888;
+    margin: 0.75rem 0 1.5rem;
+  }
+
+  /* カレンダー */
+  .bk-cal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  @media (max-width: 560px) {
+    .bk-cal { grid-template-columns: 1fr; }
+  }
+  .bk-cal :global(.cal-month) {
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 1rem;
+  }
+  .bk-cal :global(.cal-title) {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #111111;
+    margin: 0 0 0.75rem;
+  }
+  .bk-cal :global(.cal-grid) {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .bk-cal :global(.cal-dow) {
+    font-size: 0.62rem;
+    color: #aaaaaa;
+    text-align: center;
+    padding: 0.2rem 0;
+  }
+  .bk-cal :global(.cal-cell) {
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 0.45rem 0;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: #ffffff;
+    color: #111111;
+    font-family: inherit;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .bk-cal :global(.cal-open:hover) {
+    border-color: #111111;
+  }
+  .bk-cal :global(.cal-closed) {
+    color: #d7d7d7;
+    background: #f7f7f7;
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+  .bk-cal :global(.cal-sel) {
+    background: #111111;
+    color: #ffffff;
+    font-weight: 600;
+  }
+  .bk-cal :global(.cal-range) {
+    background: #f7f7f7;
+    border-color: #d7d7d7;
+  }
+  .bk-cal :global(.cal-empty) {
+    border: none;
+    cursor: default;
+  }
+  .bk-legend {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.72rem;
+    color: #888888;
+  }
+  .bk-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 0.35rem;
+    vertical-align: -1px;
+  }
+  .bk-legend .lg-open { background: #ffffff; border: 1px solid #d7d7d7; }
+  .bk-legend .lg-closed { background: #f7f7f7; border: 1px solid #e8e8e8; }
+
+  /* 棟カード */
+  .bk-houses {
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .bk-house {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  @media (max-width: 640px) {
+    .bk-house { grid-template-columns: 1fr; }
+  }
+  .bk-house-img {
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #f7f7f7;
+  }
+  .bk-house-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .bk-house-img { aspect-ratio: 16 / 9; }
+  }
+  .bk-house-body {
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 640px) {
+    .bk-house-body { align-items: stretch; }
+    .bk-quote { text-align: left; }
+  }
+  .bk-house-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #111111;
+    margin-bottom: 0.3rem;
+  }
+  .bk-house-meta {
+    font-size: 0.8rem;
+    color: #888888;
+    line-height: 1.7;
+  }
+  .bk-house-rating {
+    font-size: 0.78rem;
+    color: #555555;
+    margin-top: 0.3rem;
+  }
+  .bk-quote {
+    text-align: right;
+    min-width: 190px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .bk-quote :global(.bk-quote-label) {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888888;
+  }
+  .bk-quote :global(.bk-quote-total) {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #111111;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+  .bk-quote :global(.bk-quote-fx) {
+    font-size: 0.75rem;
+    color: #888888;
+  }
+  .bk-quote :global(.bk-quote-note) {
+    font-size: 0.75rem;
+    color: #888888;
+    margin-top: 0.15rem;
+  }
+  .bk-quote :global(.bk-quote-idle),
+  .bk-quote :global(.bk-quote-hint) {
+    font-size: 0.8rem;
+    color: #aaaaaa;
+    line-height: 1.7;
+  }
+  .bk-quote :global(.bk-quote-out) {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #888888;
+  }
+  .bk-quote :global(.bk-cta) {
+    display: inline-block;
+    margin-top: 0.9rem;
+    padding: 0.7rem 1.4rem;
+    background: #111111;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .bk-quote :global(.bk-cta:hover) { opacity: 0.85; }
+</style>

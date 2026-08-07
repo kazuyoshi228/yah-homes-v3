@@ -355,7 +355,8 @@ export const partnersApply = onRequest(
 
 // ─── Beds24 空き状況API（design_partners_page.md §7 / P1 §7-1 前倒し） ───
 // 読み取り専用。refresh token は Secret（M2で保存）。propId/roomId は初回に /properties から自動発見してキャッシュ。
-const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN"); // read専用（bookingApi・定点観測で共用）
+const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
+const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY"); // read専用（bookingApi・定点観測で共用）
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238 };
@@ -376,6 +377,63 @@ export const bookingApi = onRequest(
     const slug = String(req.query.prop ?? "");
     if (slug !== "kiyokawa" && slug !== "takasago") {
       res.status(400).json({ ok: false, error: "invalid_prop" });
+      return;
+    }
+
+    // ── quote: checkin/checkout/guests があれば見積り（直販チャネル料金・v4 §8） ──
+    const checkin = String(req.query.checkin ?? "");
+    const checkout = String(req.query.checkout ?? "");
+    if (checkin || checkout) {
+      const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+      const guests = Number(req.query.guests ?? 0);
+      const cap = PROPERTY_CAPACITY[slug];
+      if (!isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
+          !Number.isInteger(guests) || guests < 1 || guests > cap) {
+        res.status(400).json({ ok: false, error: "invalid_quote_params" });
+        return;
+      }
+      try {
+        const r = await fetch(
+          `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[slug]}` +
+            `&arrival=${checkin}&departure=${checkout}&numAdults=${guests}`,
+          { headers: { token: BEDS24_TOKEN.value() } },
+        );
+        const j = (await r.json()) as {
+          success?: boolean;
+          data?: Array<{ roomId?: number; offers?: Array<{ offerId?: number; price?: number; unitsAvailable?: number }> }>;
+        };
+        const room = j.data?.[0];
+        const offer = room?.offers?.[0];
+        if (!j.success || !offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
+          res.status(200).json({ ok: true, prop: slug, available: false });
+          return;
+        }
+        const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
+        const now = Date.now();
+        res.set("Cache-Control", "private, max-age=60");
+        res.status(200).json({
+          ok: true,
+          prop: slug,
+          available: true,
+          total: offer.price,
+          currency: "JPY",
+          nights,
+          guests,
+          checkin,
+          checkout,
+          // 確定直前にサーバー側で再見積りするための参照値（v4 §8-1）
+          quote: {
+            id: `${slug}_${checkin}_${checkout}_${guests}_${offer.price}_${now}`,
+            roomId: room?.roomId ?? null,
+            offerId: offer.offerId ?? null,
+            fetchedAt: now,
+            expiresAt: now + 15 * 60 * 1000,
+          },
+        });
+      } catch (err) {
+        logger.error("bookingApi quote failed", err);
+        res.status(502).json({ ok: false, error: "upstream_failed" });
+      }
       return;
     }
 
@@ -770,3 +828,95 @@ export const beds24DailyObserver = onSchedule(
 
 // 週次スコアカード（spec v0.3）— 日次は上記の beds24DailyObserver（v0.2実装）を正とする
 export { beds24WeeklyReport } from "./beds24.js";
+
+
+// ─── MS1: Beds24 Webhook → Firestore ミラー（v4 §8・全チャネルの予約を自社DBへ） ───
+// 受信は即ACK。ペイロードは信用せず webhook_events に保存し、正データはAPIで取り直す。
+export const beds24Webhook = onRequest(
+  { region: REGION, secrets: [BEDS24_TOKEN, BEDS24_WEBHOOK_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    if (req.method !== "POST" && req.method !== "GET") {
+      res.status(405).send("method_not_allowed");
+      return;
+    }
+    // 共有シークレット（URLクエリ）で照合。不一致は403（内容をログに出さない）
+    const key = String(req.query.key ?? "");
+    if (!key || key !== BEDS24_WEBHOOK_KEY.value()) {
+      res.status(403).send("forbidden");
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const bookingId = String(body.bookingId ?? body.id ?? req.query.bookingId ?? "").trim();
+    if (!bookingId) {
+      res.status(400).send("missing_booking_id");
+      return;
+    }
+
+    // 冪等: 同一イベントは一度だけ処理（v4 §8-2）
+    const eventId = `beds24_${bookingId}_${String(body.timeStamp ?? body.modifiedTime ?? Date.now())}`;
+    const evRef = db.collection("webhook_events").doc(eventId);
+    res.status(200).send("ok"); // 先にACK（Beds24の再送嵐を避ける）
+
+    try {
+      const fresh = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(evRef);
+        if (snap.exists) return false;
+        tx.set(evRef, {
+          provider: "beds24",
+          bookingId,
+          receivedAt: FieldValue.serverTimestamp(),
+          processedAt: null,
+          result: null,
+        });
+        return true;
+      });
+      if (!fresh) return; // 重複配信
+
+      // 正データをAPIで取り直す（ペイロードを直接信用しない）
+      const r = await fetch(`${BEDS24_API}/bookings?id=${bookingId}&includeInvoiceItems=false`, {
+        headers: { token: BEDS24_TOKEN.value() },
+      });
+      const j = (await r.json()) as { success?: boolean; data?: Array<Record<string, unknown>> };
+      const b = j.data?.[0];
+      if (!j.success || !b) throw new Error(`beds24 booking fetch failed: ${bookingId}`);
+
+      const propKey = TEITEN_PROPS[Number(b.propertyId)] === "清川" ? "kiyokawa"
+        : TEITEN_PROPS[Number(b.propertyId)] === "高砂" ? "takasago" : "unknown";
+      const arrival = String(b.arrival ?? "");
+      const departure = String(b.departure ?? "");
+      const nights = arrival && departure
+        ? Math.round((Date.parse(departure) - Date.parse(arrival)) / 86400000) : 0;
+      const channelRaw = String(b.referer ?? b.apiSource ?? "").toLowerCase();
+      const channel = channelRaw.includes("airbnb") ? "airbnb"
+        : channelRaw.includes("booking") ? "booking"
+        : channelRaw.includes("yah") || channelRaw.includes("direct") ? "direct"
+        : channelRaw || "unknown";
+
+      await db.collection("bookings_mirror").doc(bookingId).set({
+        beds24Id: bookingId,
+        propKey,
+        propertyId: b.propertyId ?? null,
+        channel,
+        status: b.status ?? null,
+        arrival,
+        departure,
+        nights,
+        numAdult: b.numAdult ?? null,
+        numChild: b.numChild ?? null,
+        price: b.price ?? null,
+        country: b.country2 ?? null,
+        guestName: `${b.firstName ?? ""} ${b.lastName ?? ""}`.trim() || null,
+        updatedAt: FieldValue.serverTimestamp(),
+        raw: b, // スキーマ変化に備えた原文保全
+      }, { merge: true });
+
+      await evRef.set({ processedAt: FieldValue.serverTimestamp(), result: "ok" }, { merge: true });
+      logger.info(`beds24Webhook mirrored ${bookingId} (${propKey}/${channel})`);
+    } catch (err) {
+      logger.error("beds24Webhook failed", err);
+      await evRef.set({ processedAt: FieldValue.serverTimestamp(), result: `error: ${String(err).slice(0, 300)}` }, { merge: true })
+        .catch(() => undefined);
+    }
+  }
+);
