@@ -242,8 +242,22 @@ export const HOME_HERO_PRELOAD = {
 
 <script>
   // 過去日を選べないようにする（min=今日・チェックアウトはチェックインの翌日以降）
+  const formEl = document.getElementById("hero-search") as HTMLFormElement | null;
   const inEl = document.getElementById("hs-in") as HTMLInputElement | null;
   const outEl = document.getElementById("hs-out") as HTMLInputElement | null;
+
+  // GA4: 検索ボックスの送信を計測（hero の Airbnb ボタン=click_airbnb と比較するため）
+  formEl?.addEventListener("submit", () => {
+    const g = (document.getElementById("hs-guests") as HTMLSelectElement | null)?.value;
+    const nights = inEl?.value && outEl?.value
+      ? Math.round((Date.parse(outEl.value) - Date.parse(inEl.value)) / 86400000) : null;
+    (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag?.("event", "search", {
+      cta_location: "hero_search",
+      checkin: inEl?.value ?? null,
+      nights,
+      guests: g ? Number(g) : null,
+    });
+  });
   if (inEl && outEl) {
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
     inEl.min = today;
