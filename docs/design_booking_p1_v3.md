@@ -197,6 +197,19 @@ CONFIRMED → CANCEL_REQUESTED → REFUND_PENDING → CANCELLED
 **運用**: 全チャネルが bookings_mirror に記録／日次突合の差異ゼロ／Runbookのみで当番が復旧できる／iframe版へのロールバック手順を演習済み。
 **計測**: purchase重複なし・GA4/Ads/Firestoreの件数差異を説明できる。
 
+## 11.5 テスト戦略（5層・2026-08-08決定）
+
+| 層 | 対象 | 手段 |
+|---|---|---|
+| 1 ユニット | 状態遷移表（全状態×全イベント総当たり）・キャンセル期限判定（JST境界）・quote検証・stateVersion CAS | 純関数に切り出しnode単体テスト |
+| 2 エミュレータ | bookCreate→Webhook→Worker の一連・firestore.rules（他人UID拒否・直書き拒否） | Firebase Emulator Suite（外部APIはスタブ） |
+| 3 外部実機 | Stripe=test mode＋CLIで重複/順不同/遅延を再現。**Beds24=検証用の偽物件を作成して書込・取消・Webhookを実機検証**（サンドボックス不在のため。OTA未接続で現実影響ゼロ。本物件への書込はMS3.9まで行わない） | Stripe CLI／Beds24パネル |
+| 4 障害注入 | §11の整合性シナリオ（capture失敗・関数停止・timeout・重複）を `config/faultInjection` フラグで意図的に発生→収束確認 | 手動実行チェックリスト |
+| 5 E2E | URL状態復元・カレンダーグレーアウト・sticky総額・最終確認画面・Stripeテストカードでの決済通し・5言語スモーク。認証は**Auth エミュレータ**のテストユーザーで通す（本物のGoogle OAuthはWebView実機チェックリストで手動） | Playwright |
+
+- 実施タイミング: MS1=層3スパイク／MS2=層1+2＋選択ページE2E／MS3=層1〜5フル（テストファースト）／**デプロイ前に必ずE2E一式**（10分以内の規模を維持）／MS3.9=人間＋実カード最終通し。
+- CIで毎コミット全実行はしない（2棟規模に過剰）。「デプロイ前一式」をルール化。
+
 ## 12. 運用・監視
 
 - 毎朝の定点観測（稼働中）に直販件数・整合差異件数を追加（beds24DailyObserver拡張）。
