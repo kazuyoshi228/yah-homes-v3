@@ -89,7 +89,7 @@
 2. `bookings` に pending 先行作成（Idempotency-Key=クライアントUUID）
 3. Stripe PaymentIntent（**manual capture**・金額はサーバ側quote）
 4. Beds24 `POST /bookings` 成功で beds24Id 保存
-5. **Beds24成功後に capture** → confirmed → 確認メール（ゲスト+bookings@）
+5. **Beds24成功後に capture** → confirmed → 確認メール（ゲスト+contact@mail.yah.homes）
 6. 失敗系は全パターンでオーソリ解放。取りこぼしは stripeWebhook が孤児オーソリ検出→解放。障害時は【予約エラー】メール必須（沈黙禁止）
 
 **Firestore**（クライアント直書き全面禁止）:
@@ -107,11 +107,11 @@
 ## 9. 運営会社まわり
 
 - **ゲスト連絡はBeds24統合インボックス一本**（OTA+直販を同一画面・業務変更なし）。直販ゲスト向け自動メール4通×5言語（予約確認/チェックイン案内/当日/お礼+クーポン）はBeds24 Auto Actionsに登録（MS3並行・起案は当方）。
-- **bookings@yah.homes**（新設・転送=運営会社+オーナー）: Stripe紛争通知・名簿送付・システム通知専用。
+- **通知メールボックスは既存の contact@mail.yah.homes に集約**（2026-08-08決定・新設なし）: Stripe紛争通知・名簿送付・システム通知の宛先。運営会社担当への転送を設定（Airstar合意事項③）。
 - **/admin/bookings**: 予約一覧・金銭操作（オーナー限定）・名簿閲覧・対応メモ。メッセージ機能なし。
 - **紛争分担**: 事実確認=運営会社／Stripe対応=オーナー。エスカレーション権限表（銭湯代¥2,000×人数・¥10,000まで現場判断等）は運用開始時に合意。
 - **宿泊者名簿**（法的義務者=運営会社）: 予約時は最小・名簿事項はチェックイン前の自動メールで追補→Firestore保存→運営会社へ自動送付。保存3年。
-- Airstar合意事項（面談）: ①直販分の対応費用（現行運用費内 or 件数課金）②名簿受け渡し形式③bookings@転送先。
+- Airstar合意事項（面談）: ①直販分の対応費用（現行運用費内 or 件数課金）②名簿受け渡し形式③contact@mail.yah.homes の運営会社への転送設定。
 
 ## 10. 計測（GA4標準eコマースに統一）
 
