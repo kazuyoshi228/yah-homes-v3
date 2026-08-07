@@ -140,12 +140,15 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
 
-// カレンダー2ヶ月分の見出しラベル（言語別表記をビルド時に確定）
+// カレンダー見出しラベル（言語別表記をビルド時に確定）
+// 表示しうる全月ぶん（今月〜12ヶ月後）を "YYYY-M" キーで持つ。
+// 月名表記の言語（en/th）では月番号の文字列置換が成立しないため、実体を全て渡す。
 const now = new Date();
-const monthLabels = [0, 1].map((i) => {
+const monthLabels: Record<string, string> = {};
+for (let i = 0; i <= 13; i++) {
   const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-  return { y: d.getFullYear(), m: d.getMonth(), label: t.monthLabel(d.getFullYear(), d.getMonth()) };
-});
+  monthLabels[`${d.getFullYear()}-${d.getMonth()}`] = t.monthLabel(d.getFullYear(), d.getMonth());
+}
 // 「2泊4名」表記のテンプレ（{n}/{g} を置換）
 const noteTemplate = t.totalNote(-1, -2).replace("-1", "{n}").replace("-2", "{g}");
 
@@ -327,11 +330,7 @@ const strings = {
   };
 
   // ── カレンダー描画（2ヶ月・満室と過去はグレーアウト） ──
-  const monthLabel = (y, mo) => {
-    const t0 = strings.monthLabels[0];
-    // 既定ラベルの年・月を差し替えて言語表記を維持
-    return t0.label.replace(String(t0.y), String(y)).replace(new RegExp(`(?<![0-9])${t0.m + 1}(?![0-9])`), String(mo + 1));
-  };
+  const monthLabel = (y, mo) => strings.monthLabels[`${y}-${mo}`] ?? `${y}-${String(mo + 1).padStart(2, "0")}`;
 
   function renderCal() {
     const base = new Date(today.getFullYear(), today.getMonth() + state.monthOffset, 1);
