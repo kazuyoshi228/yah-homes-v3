@@ -450,7 +450,7 @@ export const bookingApi = onRequest(
 
     try {
       const start = new Date();
-      const end = new Date(start.getTime() + 100 * 86400000); // 表示は翌月+翌々月 → 月末まで確実に覆う
+      const end = new Date(start.getTime() + 400 * 86400000); // 1年先まで月送りできるよう13ヶ月分を先読み
       const fmt = (d: Date) => d.toISOString().slice(0, 10);
       // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）
       const r = await fetch(

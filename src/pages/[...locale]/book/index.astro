@@ -177,7 +177,12 @@ const strings = {
       </div>
       <p class="bk-hint" id="bk-hint">{t.selectDates}</p>
 
-      <!-- カレンダー（2ヶ月・満室日は選択前からグレーアウト） -->
+      <!-- カレンダー（2ヶ月ずつ・1年先まで月送り・満室日は選択前からグレーアウト） -->
+      <div class="bk-calnav">
+        <button type="button" class="bk-navbtn" id="bk-prev" aria-label="prev">‹</button>
+        <span class="bk-navlabel" id="bk-navlabel"></span>
+        <button type="button" class="bk-navbtn" id="bk-next" aria-label="next">›</button>
+      </div>
       <div class="bk-cal" id="bk-cal"></div>
       <div class="bk-legend">
         <span><i class="lg-open"></i>{t.legendOpen}</span>
@@ -264,8 +269,16 @@ const strings = {
     checkout: params.get("checkout") || null,
     guests: Number(params.get("guests")) || 4,
     avail: null, // { kiyokawa: {date:bool}, takasago: {...} }
+    monthOffset: 0, // 表示開始月（0=今月）・0〜11 で1年先まで
   };
+  const MAX_OFFSET = 11; // 今月+11 → 表示は最大で「11ヶ月後・12ヶ月後」
   if (state.guests) $("bk-guests").value = String(state.guests);
+  // URLで先の日付が指定されていれば、その月を開いた状態で表示
+  if (state.checkin) {
+    const [cy, cm] = state.checkin.split("-").map(Number);
+    const diff = (cy - today.getFullYear()) * 12 + (cm - 1 - today.getMonth());
+    state.monthOffset = Math.max(0, Math.min(MAX_OFFSET, diff));
+  }
 
   function syncUrl() {
     const p = new URLSearchParams();
@@ -281,8 +294,14 @@ const strings = {
   };
 
   // ── カレンダー描画（2ヶ月・満室と過去はグレーアウト） ──
+  const monthLabel = (y, mo) => {
+    const t0 = strings.monthLabels[0];
+    // 既定ラベルの年・月を差し替えて言語表記を維持
+    return t0.label.replace(String(t0.y), String(y)).replace(new RegExp(`(?<![0-9])${t0.m + 1}(?![0-9])`), String(mo + 1));
+  };
+
   function renderCal() {
-    const base = new Date(today.getFullYear(), today.getMonth(), 1);
+    const base = new Date(today.getFullYear(), today.getMonth() + state.monthOffset, 1);
     let html = "";
     for (let i = 0; i < 2; i++) {
       const m = new Date(base.getFullYear(), base.getMonth() + i, 1);
@@ -302,14 +321,22 @@ const strings = {
         cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}>${d}</button>`;
       }
       const head = strings.dow.map((w) => `<span class="cal-dow">${w}</span>`).join("");
-      const label = strings.monthLabels[i]?.label ?? `${y}/${mo + 1}`;
+      const label = monthLabel(y, mo);
       html += `<div class="cal-month"><p class="cal-title">${label}</p><div class="cal-grid">${head}${cells}</div></div>`;
     }
     $("bk-cal").innerHTML = html;
     $("bk-cal").querySelectorAll("[data-date]").forEach((b) =>
       b.addEventListener("click", () => pickDate(b.dataset.date))
     );
+    $("bk-prev").disabled = state.monthOffset <= 0;
+    $("bk-next").disabled = state.monthOffset >= MAX_OFFSET;
+    const b0 = new Date(today.getFullYear(), today.getMonth() + state.monthOffset, 1);
+    const b1 = new Date(today.getFullYear(), today.getMonth() + state.monthOffset + 1, 1);
+    $("bk-navlabel").textContent = `${monthLabel(b0.getFullYear(), b0.getMonth())} – ${monthLabel(b1.getFullYear(), b1.getMonth())}`;
   }
+
+  $("bk-prev").addEventListener("click", () => { if (state.monthOffset > 0) { state.monthOffset--; renderCal(); } });
+  $("bk-next").addEventListener("click", () => { if (state.monthOffset < MAX_OFFSET) { state.monthOffset++; renderCal(); } });
 
   function pickDate(k) {
     if (!state.checkin || state.checkout || k <= state.checkin) {
@@ -515,6 +542,34 @@ const strings = {
   }
 
   /* カレンダー */
+  .bk-calnav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .bk-navbtn {
+    width: 32px;
+    height: 32px;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #111111;
+    background: #ffffff;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .bk-navbtn:hover:not(:disabled) { background: #f7f7f7; }
+  .bk-navbtn:disabled { color: #d7d7d7; cursor: not-allowed; }
+  .bk-navlabel {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #111111;
+    min-width: 200px;
+    text-align: center;
+  }
   .bk-cal {
     display: grid;
     grid-template-columns: 1fr 1fr;
