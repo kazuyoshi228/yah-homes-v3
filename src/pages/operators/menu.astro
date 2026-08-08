@@ -1,0 +1,106 @@
+---
+/* /operators/menu — 運営会社向けメニュー
+   日々の運営で使う画面だけを並べる。物件ファクト（サイト表示に直結）と
+   管理者台帳（権限そのもの）はオーナー専用のため、ここには出さない。
+   アクセスは管理者台帳のメンバー。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const ITEMS = [
+  {
+    href: "/admin/bookings/",
+    title: "直販予約 管理",
+    desc: "公式サイト経由のご予約を一覧で確認します。要対応（保留中）の絞り込み、対応メモの記録ができます。",
+    status: "live" as const,
+  },
+  {
+    href: "",
+    title: "メッセージ",
+    desc: "公式サイトからご予約いただいたお客様とのやりとり。仕様を詰めてから実装します。",
+    status: "planned" as const,
+  },
+  {
+    href: "/admin/inbox/",
+    title: "お問い合わせ受信箱",
+    desc: "サイトのお問い合わせフォームから届いたご相談。対応状況とメモを記録し、メールで返信します。",
+    status: "live" as const,
+  },
+  {
+    href: "/admin/partners/",
+    title: "パートナー申請 管理",
+    desc: "インフルエンサー向けページからの申請。ステータスを確定にすると、申請者へ確定メールが自動送信されます。",
+    status: "live" as const,
+  },
+];
+---
+
+<SiteLayout
+  lang="ja"
+  path="/operators/menu"
+  title="運営メニュー | yah.homes"
+  description="yah.homes 運営会社向けメニュー"
+  noindex={true}
+  solidNav
+>
+  <section class="op">
+    <div class="op-container">
+      <p class="op-eyebrow">Operators</p>
+      <h1 class="op-title">運営メニュー</h1>
+      <p class="op-lead">
+        日々の運営で使う画面です。ご利用には、ご登録のアカウントでのログインが必要です。
+        ログインできない場合は、オーナーへご連絡ください。
+      </p>
+
+      <div class="op-grid">
+        {ITEMS.map((it) => (
+          it.status === "live" ? (
+            <a class="op-card" href={it.href}>
+              <h2 class="op-card-title">{it.title}</h2>
+              <p class="op-card-desc">{it.desc}</p>
+              <span class="op-go">開く</span>
+            </a>
+          ) : (
+            <div class="op-card op-card-planned">
+              <h2 class="op-card-title">
+                {it.title}
+                <span class="op-badge">準備中</span>
+              </h2>
+              <p class="op-card-desc">{it.desc}</p>
+            </div>
+          )
+        ))}
+      </div>
+
+      <p class="op-note">
+        物件情報の編集と管理者の追加・削除は、サイト全体の表示や権限に直結するため、オーナーのみが行えます。
+        変更が必要な場合はご連絡ください。
+      </p>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .op { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .op-container { max-width: 880px; margin: 0 auto; }
+  .op-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .op-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .op-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .op-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; }
+  .op-card {
+    display: block; border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.5rem;
+    text-decoration: none; transition: border-color 0.2s;
+  }
+  a.op-card:hover { border-color: #111111; }
+  .op-card-planned { background: #fafafa; border-style: dashed; }
+  .op-card-title {
+    font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 0.55rem;
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  }
+  .op-badge {
+    font-size: 0.65rem; font-weight: 400; color: #888888; background: #ffffff;
+    border: 1px solid #dddddd; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap;
+  }
+  .op-card-desc { font-size: 0.8rem; color: #555555; line-height: 1.85; }
+  .op-go { display: inline-block; margin-top: 0.9rem; font-size: 0.78rem; color: #111111; }
+  .op-go::after { content: " ›"; color: #aaaaaa; }
+  .op-note { margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid #f0f0f0; font-size: 0.76rem; color: #888888; line-height: 1.9; }
+</style>

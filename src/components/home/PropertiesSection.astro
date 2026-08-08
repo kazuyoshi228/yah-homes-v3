@@ -54,6 +54,7 @@ const PROPERTY_META = [
     info: t.properties.takasago.info,
   },
 ];
+const SH_PROPS = { en: "Our Houses", ja: "施設", ko: "숙소", zh: "房源", th: "ที่พัก" }[lang];
 ---
 
 <section id="properties" style="background:#ffffff;padding-top:3rem;padding-bottom:6rem;">
@@ -83,7 +84,7 @@ const PROPERTY_META = [
 
     <!-- Cards row -->
     <div style="margin-top:4.5rem;">
-      <SectionHeading num="02" label="Properties" title={t.properties.sectionLabel} />
+      <SectionHeading num="02" label="Properties" title={SH_PROPS} />
       <div class="properties-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;">
         {
           PROPERTY_META.map((p, i) => (

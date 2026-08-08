@@ -131,10 +131,7 @@ const langList = LOCALES.map((code) => ({
         <div class="booking-menu guide-menu" role="menu">
           {
             guideItems.map((item) => (
-              <a href={item.href} role="menuitem" class="booking-item guide-item">
-                <span class="gi-label">{item.label}</span>
-                <span class="gi-desc">{item.desc}</span>
-              </a>
+              <a href={item.href} role="menuitem" class="booking-item">{item.label}</a>
             ))
           }
         </div>
@@ -149,10 +146,7 @@ const langList = LOCALES.map((code) => ({
         <div class="booking-menu guide-menu" role="menu">
           {
             ABOUT_ITEMS.map((item) => (
-              <a href={item.href} role="menuitem" class="booking-item guide-item">
-                <span class="gi-label">{item.label}</span>
-                <span class="gi-desc">{item.desc}</span>
-              </a>
+              <a href={item.href} role="menuitem" class="booking-item">{item.label}</a>
             ))
           }
         </div>
@@ -329,10 +323,7 @@ const langList = LOCALES.map((code) => ({
     color: #ffffff;
   }
 
-  .guide-menu { min-width: 200px; }
-  .guide-item { display: flex; flex-direction: column; gap: 0.15rem; }
-  .gi-label { font-size: 0.85rem; color: inherit; }
-  .gi-desc { font-size: 0.7rem; color: #999999; }
+  .guide-menu { min-width: 190px; }
 
   /* Booking dropdown（旧 Navbar の隠しドロップダウン仕様） */
   .booking-wrap {

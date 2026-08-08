@@ -132,6 +132,18 @@ export const contact = onRequest(
         `Referer: ${req.headers.referer ?? "-"}`,
         `確認: https://yah.homes/admin/inbox/`,
       ].join("\n"),
+      html: mailHtml({
+        heading: "お問い合わせが届きました",
+        badge: `言語|${langStr.toUpperCase()}`,
+        rows: [
+          ["お名前", esc(nameStr)],
+          ["メール", `<a href="mailto:${esc(emailStr)}" style="color:#111111;">${esc(emailStr)}</a>`],
+          ["流入元", esc(String(req.headers.referer ?? "-"))],
+        ],
+        blocks: [{ title: "メッセージ", body: esc(messageStr) }],
+        cta: { label: "受信箱を開く", href: `${SITE_URL}/admin/inbox/` },
+        note: "このメールに返信すると、お客様へ直接届きます。",
+      }),
     });
   } catch (err) {
     logger.error("contact mail notification failed", err);
@@ -165,6 +177,13 @@ export const contact = onRequest(
         `https://yah.homes`,
         `Operated by Bonfire Inc.`,
       ].join("\n"),
+      html: mailHtml({
+        heading: "Thank you for contacting yah.homes",
+        lead: `Dear ${nameStr}, we have received your inquiry. A member of our team will get back to you within 2–3 business days.`,
+        blocks: [{ title: "Your message", body: esc(messageStr) }],
+        cta: { label: "See availability", href: `${SITE_URL}/book/` },
+        note: "If you have any urgent questions, simply reply to this email.",
+      }),
     });
   } catch (err) {
     logger.error("contact auto-reply failed", err);
@@ -275,8 +294,23 @@ export const partnersApply = onRequest(
           `--- メッセージ ---`,
           messageStr || "(なし)",
           ``,
-          `確認: https://console.firebase.google.com/u/0/project/yah-homes/firestore/databases/-default-/data/~2Fpartner_applications`,
+          `確認: https://yah.homes/admin/partners/`,
         ].join("\n"),
+        html: mailHtml({
+          heading: "パートナー宿泊の申請が届きました",
+          badge: `言語|${applyLang.toUpperCase()}`,
+          rows: [
+            ["お名前", esc(nameStr)],
+            ["メール", `<a href="mailto:${esc(emailStr)}" style="color:#111111;">${esc(emailStr)}</a>`],
+            ["媒体URL", `<a href="${esc(mediaStr)}" style="color:#111111;word-break:break-all;">${esc(mediaStr)}</a>`],
+            ["希望棟", esc(PROPERTY_LABEL[propStr])],
+            ["第1希望", esc(date1Str)],
+            ["第2希望", esc(date2Str)],
+            ["人数", `${guestsNum}名`],
+          ],
+          blocks: [{ title: "メッセージ", body: esc(messageStr || "（なし）") }],
+          cta: { label: "申請管理を開く", href: `${SITE_URL}/admin/partners/` },
+        }),
       });
     } catch (err) {
       logger.error("partners notify mail failed", err);
@@ -345,6 +379,30 @@ export const partnersApply = onRequest(
           `yah.homes（運営: ボンファイア株式会社）`,
           `https://yah.homes/ja/`,
         ].join("\n"),
+        html: (() => {
+          const L = applyLang === "ko"
+            ? { h: "파트너 숙박 신청이 접수되었습니다", lead: `${nameStr} 님, 신청해 주셔서 감사합니다. 2~3영업일 이내에 담당자가 연락드립니다.`,
+                prop: "희망 숙소", d1: "1지망 체크인", d2: "2지망 체크인", g: "인원", unit: "명",
+                label: PROPERTY_LABEL_KO[propStr] ?? propStr, note: "문의는 이 메일에 그대로 회신해 주세요." }
+            : applyLang === "zh"
+            ? { h: "已收到您的夥伴住宿申請", lead: `${nameStr} 您好，感謝您的申請。我們將於2〜3個工作天內與您聯繫。`,
+                prop: "希望房源", d1: "第1希望入住日", d2: "第2希望入住日", g: "人數", unit: "人",
+                label: PROPERTY_LABEL_ZH[propStr] ?? propStr, note: "如有問題，請直接回覆這封郵件。" }
+            : { h: "パートナー宿泊のお申し込みを受け付けました", lead: `${nameStr} 様　お申し込みありがとうございます。2〜3営業日以内に担当よりご連絡いたします。`,
+                prop: "希望棟", d1: "第1希望チェックイン", d2: "第2希望チェックイン", g: "人数", unit: "名",
+                label: PROPERTY_LABEL[propStr] ?? propStr, note: "ご質問はこのメールにそのままご返信ください。" };
+          return mailHtml({
+            heading: L.h,
+            lead: L.lead,
+            rows: [
+              [L.prop, esc(L.label)],
+              [L.d1, esc(date1Str)],
+              [L.d2, esc(date2Str)],
+              [L.g, `${guestsNum}${L.unit}`],
+            ],
+            note: L.note,
+          });
+        })(),
       });
     } catch (err) {
       logger.error("partners auto-reply failed", err);
@@ -850,6 +908,21 @@ export const partnersAdmin = onRequest({ region: REGION, secrets: [SMTP_USER, SM
             `yah.homes`,
             `https://yah.homes/ja/`,
           ].join("\n"),
+          html: mailHtml({
+            heading: "ご宿泊が確定しました",
+            lead: `${v.name} 様　パートナー宿泊のご予約が確定しましたのでお知らせします。`,
+            rows: [
+              ["棟", esc(PROPERTY_LABEL[String(v.property)] ?? String(v.property))],
+              ["チェックイン", `${esc(fmtJa(ciStr))}　15:00〜`],
+              ["チェックアウト", `${esc(fmtJa(coStr))}　〜10:00`],
+              ["人数", `${esc(v.guests)}名`],
+            ],
+            blocks: [
+              { title: "入室のご案内", body: "ご宿泊の1週間前を目安に、住所・入室方法などのご案内をお送りします。" },
+              { title: "変更・キャンセル", body: "日程の変更・キャンセルは7日前までに、このメールへご返信ください。" },
+            ],
+            note: "当日お会いできるのを楽しみにしています。",
+          }),
         });
       } catch (err) {
         logger.error("partners confirmation mail failed", err);
@@ -942,7 +1015,15 @@ export const beds24DailyObserver = onSchedule(
     });
     const teitenTo = await notifyRecipients("notifyTeiten");
     const mail = (subject: string, text: string) =>
-      transporter.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: teitenTo, subject, text });
+      transporter.sendMail({
+        from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: teitenTo, subject, text,
+        html: mailHtml({
+          heading: subject.replace(/^【定点】\s*/, "") || "定点観測",
+          badge: `定点観測|${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
+          blocks: [{ title: "サマリー", body: esc(text) }],
+          cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+        }),
+      });
 
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
     try {
@@ -1515,7 +1596,57 @@ async function sendPurchaseEvent(booking: {
    Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
    メールクライアント制約: table レイアウト＋インラインCSS。外部CSS/JS/画像は使わない。 */
 
+const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
 const SITE_URL = "https://yah.homes";
+
+/* ─── メールの共通テンプレート ───
+   全ての送信メールを同じ枠に載せる。table＋インラインCSSのみ（外部CSS/JS/画像なし）。
+   variant: "brand"=通常（黒ヘッダー） / "alert"=要対応（赤い帯を足す） */
+function mailHtml(o: {
+  heading: string;
+  badge?: string;
+  lead?: string;
+  rows?: Array<[string, string]>;
+  blocks?: Array<{ title: string; body: string }>;
+  cta?: { label: string; href: string };
+  note?: string;
+  variant?: "brand" | "alert";
+}): string {
+  const alert = o.variant === "alert";
+  const row = ([k, v]: [string, string]) =>
+    `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;vertical-align:top;white-space:nowrap;">${esc(k)}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#111111;text-align:right;font-weight:500;word-break:break-word;">${v}</td></tr>`;
+  const block = (b: { title: string; body: string }) =>
+    `<div style="border-top:1px solid #f0f0f0;padding-top:14px;margin-top:14px;">
+       <div style="font-size:13px;font-weight:600;color:#111111;margin-bottom:5px;">${esc(b.title)}</div>
+       <div style="font-size:13px;color:#666666;line-height:1.8;white-space:pre-wrap;">${b.body}</div>
+     </div>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(o.heading)}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f4;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 12px;"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',Helvetica,Arial,sans-serif;">
+  <tr><td style="background:#111111;padding:18px 24px;">
+    <table role="presentation" width="100%"><tr>
+      <td style="font-size:16px;font-weight:600;color:#ffffff;letter-spacing:.02em;">yah.homes</td>
+      ${o.badge ? `<td style="text-align:right;font-size:11px;color:#bbbbbb;line-height:1.6;">${esc(o.badge.split("|")[0] ?? "")}<br><span style="color:#ffffff;font-size:14px;font-weight:600;letter-spacing:.06em;">${esc(o.badge.split("|")[1] ?? o.badge)}</span></td>` : ""}
+    </tr></table>
+  </td></tr>
+  ${alert ? `<tr><td style="background:#c0392b;height:4px;line-height:4px;font-size:0;">&nbsp;</td></tr>` : ""}
+  <tr><td style="padding:26px 24px 24px;">
+    <div style="font-size:19px;font-weight:600;color:#111111;line-height:1.5;margin-bottom:${o.lead ? "8px" : "16px"};">${esc(o.heading)}</div>
+    ${o.lead ? `<div style="font-size:13px;color:#666666;line-height:1.9;margin-bottom:18px;">${esc(o.lead)}</div>` : ""}
+    ${o.rows?.length ? `<table role="presentation" width="100%" style="border:1px solid #e8e8e8;border-radius:6px;"><tr><td style="padding:14px 18px;">
+      <table role="presentation" width="100%">${o.rows.map(row).join("")}</table></td></tr></table>` : ""}
+    ${(o.blocks ?? []).map(block).join("")}
+    ${o.cta ? `<table role="presentation" width="100%" style="margin-top:20px;"><tr><td align="center" style="border-radius:6px;background:#111111;">
+      <a href="${esc(o.cta.href)}" style="display:block;padding:14px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(o.cta.label)}</a>
+    </td></tr></table>` : ""}
+    ${o.note ? `<div style="font-size:12px;color:#999999;line-height:1.8;margin-top:16px;">${esc(o.note)}</div>` : ""}
+  </td></tr>
+  <tr><td style="padding:16px 24px 22px;border-top:1px solid #f0f0f0;font-size:12px;color:#aaaaaa;">yah.homes ／ ボンファイア株式会社</td></tr>
+</table></td></tr></table></body></html>`;
+}
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 const MAIL_PROP = {
@@ -1646,8 +1777,6 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes / Bonfire Inc.",
   },
 };
-
-const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 function buildConfirmationMail(
   lang: string,
@@ -1830,35 +1959,35 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
 }
 
 const CANCEL_L10N: Record<string, Record<string, string>> = {
-  ja: { subject: "【yah.homes】ご予約をキャンセルしました", greetSuffix: " 様",
+  ja: { subject: "【yah.homes】ご予約をキャンセルしました", greetSuffix: " 様", bookingNo: "予約番号",
     lead: "ご予約のキャンセルを承りました。", refundTitle: "ご返金",
     paid: "お支払い済み金額", fee: "キャンセル料", refund: "ご返金額",
     refundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。",
     noRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。",
     again: "またのご利用をお待ちしております。日程を改めてのご予約はこちらから承ります。",
     cta: "空室を見る", contact: "ご不明な点は、このメールにご返信ください。", footer: "yah.homes ／ ボンファイア株式会社" },
-  en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "",
+  en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "", bookingNo: "Booking ID",
     lead: "We have cancelled your booking.", refundTitle: "Refund",
     paid: "Paid", fee: "Cancellation fee", refund: "Refund",
     refundNote: "We are refunding to the card you used. Depending on your card issuer, it can take from a few days to about a month to appear.",
     noRefundNote: "The free cancellation deadline had passed, so no refund applies.",
     again: "We hope to welcome you another time. You can book new dates any time.",
     cta: "See availability", contact: "Just reply to this email if you have any questions.", footer: "yah.homes / Bonfire Inc." },
-  ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님",
+  ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님", bookingNo: "예약번호",
     lead: "예약 취소를 접수했습니다.", refundTitle: "환불",
     paid: "결제 완료 금액", fee: "취소 수수료", refund: "환불 금액",
     refundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 반영까지 며칠에서 한 달 정도 걸릴 수 있습니다.",
     noRefundNote: "무료 취소 기한이 지나 환불은 없습니다.",
     again: "다음 기회에 다시 모시겠습니다. 새로운 날짜로 언제든지 예약하실 수 있습니다.",
     cta: "빈방 보기", contact: "궁금하신 점은 이 메일에 회신해 주세요.", footer: "yah.homes / Bonfire Inc." },
-  zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好",
+  zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好", bookingNo: "預訂編號",
     lead: "已受理您的預訂取消。", refundTitle: "退款",
     paid: "已付金額", fee: "取消費用", refund: "退款金額",
     refundNote: "將退款至您使用的信用卡。依發卡機構作業，反映時間可能需要數日至一個月左右。",
     noRefundNote: "已超過免費取消期限，故不予退款。",
     again: "期待再次為您服務，隨時歡迎重新選擇日期預訂。",
     cta: "查詢空房", contact: "如有任何問題，請直接回覆這封郵件。", footer: "yah.homes / Bonfire Inc." },
-  th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "",
+  th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "", bookingNo: "หมายเลขการจอง",
     lead: "เราได้ยกเลิกการจองของคุณแล้ว", refundTitle: "การคืนเงิน",
     paid: "ชำระแล้ว", fee: "ค่าธรรมเนียมการยกเลิก", refund: "จำนวนเงินคืน",
     refundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ ขึ้นอยู่กับผู้ออกบัตร อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน",
@@ -1893,7 +2022,7 @@ async function sendCancellationMail(
   <tr><td style="background:#111111;padding:20px 24px;">
     <table role="presentation" width="100%"><tr>
       <td style="font-size:17px;font-weight:600;color:#ffffff;">yah.homes</td>
-      <td style="text-align:right;font-size:11px;color:#bbbbbb;line-height:1.6;">${esc(L.paid)}<br><span style="color:#ffffff;font-size:14px;font-weight:600;letter-spacing:.06em;">${esc(no)}</span></td>
+      <td style="text-align:right;font-size:11px;color:#bbbbbb;line-height:1.6;">${esc(L.bookingNo)}<br><span style="color:#ffffff;font-size:14px;font-weight:600;letter-spacing:.06em;">${esc(no)}</span></td>
     </tr></table>
   </td></tr>
   <tr><td style="padding:28px 24px 0;">
@@ -1922,7 +2051,7 @@ async function sendCancellationMail(
 
     const text = [
       `${String(b.name ?? "")}${L.greetSuffix}`, "", L.lead, "",
-      `${P.name}`, `${b.checkin} 〜 ${b.checkout}`, `${L.paid.replace(/:$/, "")}: ${no}`, "",
+      `${P.name}`, `${b.checkin} 〜 ${b.checkout}`, `${L.bookingNo}: ${no}`, "",
       `--- ${L.refundTitle} ---`,
       `${L.paid}: ${yen(total)}`, `${L.fee}: ${yen(fee)}`, `${L.refund}: ${yen(refundAmount)}`,
       refundAmount > 0 ? L.refundNote : L.noRefundNote, "",
@@ -1953,6 +2082,13 @@ async function notifyError(text: string): Promise<void> {
       to: await notifyRecipients("notifyBookings"),
       subject: "【予約エラー】直販予約の処理でエラーが発生しました",
       text,
+      html: mailHtml({
+        heading: "直販予約の処理でエラーが発生しました",
+        badge: "状態|要対応",
+        variant: "alert",
+        blocks: [{ title: "内容", body: esc(text) }],
+        cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+      }),
     });
   } catch (err) {
     logger.error("notifyError failed", err);
@@ -2120,6 +2256,20 @@ export const accountApi = onRequest(
               from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
               to: await notifyRecipients("notifyBookings"),
               subject: `【キャンセル】${v.prop} ${v.checkin}〜${v.checkout}（返金 ¥${refundAmount.toLocaleString("en-US")}）`,
+              html: mailHtml({
+                heading: "お客様ご自身によるキャンセルが完了しました",
+                badge: `予約番号|${idStr.slice(0, 8).toUpperCase()}`,
+                rows: [
+                  ["棟", esc(PROPERTY_LABEL[String(v.prop)] ?? v.prop)],
+                  ["日程", `${esc(v.checkin)} 〜 ${esc(v.checkout)}`],
+                  ["人数", `${esc(v.guests)}名`],
+                  ["お支払い済み", `¥${Number(v.total).toLocaleString("en-US")}`],
+                  ["返金額", `¥${refundAmount.toLocaleString("en-US")}（${withinFree ? "無料期間内" : "期限後・返金なし"}）`],
+                  ["Beds24", v.beds24Id ? "取り消し済み" : "書込なし"],
+                ],
+                blocks: [{ title: "理由", body: esc(typeof reason === "string" && reason ? reason : "（未記入）") }],
+                cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+              }),
               text: [
                 "お客様ご自身によるキャンセルが完了しました。",
                 "", `棟: ${v.prop}`, `日程: ${v.checkin} 〜 ${v.checkout}`, `人数: ${v.guests}名`,
@@ -2157,6 +2307,16 @@ export const accountApi = onRequest(
             to: await notifyRecipients("notifyBookings"),
             subject: `【到着予定】${v.prop} ${v.checkin} — ${arrStr || "未定"}`,
             text: `到着予定時刻が更新されました。\n\n棟: ${v.prop}\nチェックイン: ${v.checkin}\n到着予定: ${arrStr || "未定"}\n予約ID: ${idStr}`,
+            html: mailHtml({
+              heading: "到着予定時刻が更新されました",
+              badge: `予約番号|${idStr.slice(0, 8).toUpperCase()}`,
+              rows: [
+                ["棟", esc(PROPERTY_LABEL[String(v.prop)] ?? v.prop)],
+                ["チェックイン", esc(String(v.checkin))],
+                ["到着予定", esc(arrStr || "未定")],
+              ],
+              cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+            }),
           });
         } catch (err) {
           logger.warn("arrival notify failed", err);
@@ -2488,7 +2648,8 @@ export const adminRebuild = onRequest(
 
 
 // ─── 問い合わせ台帳API（/admin/inbox・オーナー限定） ───
-// 本文に個人情報を含むため、閲覧・操作は root オーナーのみに限定する（2026-08-08 発注者指示）。
+// 本文に個人情報を含むため Function 経由のみ。閲覧は管理者台帳のメンバーに限る
+// （運営会社が問い合わせに直接対応できるよう開放・2026-08-08 発注者判断）。
 export const adminInbox = onRequest(
   { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
@@ -2501,9 +2662,9 @@ export const adminInbox = onRequest(
     }
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
+    // 閲覧・対応は管理者台帳のメンバー（運営会社を含む）。個人情報を扱うためFunction経由のみ。
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
 
     try {
       if (req.method === "GET") {

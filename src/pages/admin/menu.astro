@@ -29,8 +29,7 @@ const LIVE = [
     href: "/admin/inbox/",
     title: "お問い合わせ受信箱",
     desc: "サイトのお問い合わせフォームから届いたご相談の一覧です。対応状況とメモを記録できます。返信はメールソフトで行います。",
-    access: "オーナーのみ",
-    owner: true,
+    access: "管理者台帳のメンバー",
   },
   {
     href: "/admin/users/",
@@ -73,9 +72,18 @@ const LIVE = [
         ))}
       </div>
 
+      <h2 class="am-h2">運営会社向け</h2>
+      <div class="am-grid">
+        <a class="am-card" href="/operators/menu/">
+          <h3 class="am-card-title">運営メニュー</h3>
+          <p class="am-card-desc">運営会社が日々使う画面だけを並べたメニューです。直販予約・メッセージ・お問い合わせ受信箱・パートナー申請。</p>
+          <p class="am-card-access">管理者台帳のメンバー</p>
+        </a>
+      </div>
+
       <p class="am-note">
-        物件ファクト管理（サイト全体の表示に直結するため）とお問い合わせ受信箱（個人情報を含むため）は、
-        {ROOT_ONLY} のみが開けます。
+        物件ファクト管理（サイト全体の表示に直結するため）と管理者台帳の編集（権限そのものを扱うため）は、
+        {ROOT_ONLY} のみが行えます。
       </p>
     </div>
   </section>
