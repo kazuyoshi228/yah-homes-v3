@@ -259,7 +259,7 @@ const en: Translations = {
   director: {
     sectionHeading: "Message from Director",
     directorName: "Kazuyoshi Yamada",
-    directorTitle: "Director of yah.homes",
+    directorTitle: "yah.homes Creative Director",
     intro: [
       "Thank you for visiting the yah.homes website.",
       "My name is Kazuyoshi Yamada, and I am the Director of yah.homes.",
@@ -435,8 +435,8 @@ const ko: Translations = {
   },
   director: {
     sectionHeading: "디렉터 메시지",
-    directorName: "야마다 카즈요시",
-    directorTitle: "yah.homes 디렉터",
+    directorName: "Kazuyoshi Yamada",
+    directorTitle: "yah.homes Creative Director",
     intro: [
       "yah.homes 웹사이트를 방문해 주셔서 감사합니다.",
       "저는 yah.homes의 디렉터 야마다 카즈요시입니다.",
@@ -611,8 +611,8 @@ const zh: Translations = {
   },
   director: {
     sectionHeading: "總監的話",
-    directorName: "山田一慶",
-    directorTitle: "yah.homes 總監",
+    directorName: "Kazuyoshi Yamada",
+    directorTitle: "yah.homes Creative Director",
     intro: [
       "感謝您造訪我們的官方網站。",
       "我是 yah.homes 的總監山田一慶。",
@@ -787,8 +787,8 @@ const th: Translations = {
   },
   director: {
     sectionHeading: "ข้อความจากผู้อำนวยการ",
-    directorName: "คาซุโยชิ ยามาดะ",
-    directorTitle: "ผู้อำนวยการ yah.homes",
+    directorName: "Kazuyoshi Yamada",
+    directorTitle: "yah.homes Creative Director",
     intro: [
       "ขอบคุณที่เข้าชมเว็บไซต์ของเรา",
       "ผมชื่อ คาซุโยชิ ยามาดะ ผู้อำนวยการของ yah.homes",
@@ -965,8 +965,8 @@ const ja: Translations = {
   },
   director: {
     sectionHeading: "ディレクターメッセージ",
-    directorName: "山田一慶",
-    directorTitle: "yah.homes ディレクター",
+    directorName: "Kazuyoshi Yamada",
+    directorTitle: "yah.homes Creative Director",
     intro: [
       "yah.homes のウェブサイトをご覧いただき、ありがとうございます。",
       "yah.homes ディレクターの山田一慶です。",
