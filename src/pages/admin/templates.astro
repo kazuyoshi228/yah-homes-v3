@@ -141,7 +141,7 @@ const VARS = [
               <p class="tp-desc">差し込み記号に入る実際の値です。棟で違うものはここが正。</p>
               <div class="tp-scroll">
                 <table class="tp-grid">
-                  <thead><tr><th>差し込み記号</th><th>yah.homes kiyokawa</th><th>yah.homes takasago</th></tr></thead>
+                  <thead><tr><th>入る内容</th><th>yah.homes kiyokawa</th><th>yah.homes takasago</th></tr></thead>
                   <tbody>
                     {VALUES.map((r) => (
                       <tr>
@@ -203,6 +203,9 @@ const VARS = [
         el.classList.toggle("is-active", el.dataset.nav === key);
         el.setAttribute("aria-current", el.dataset.nav === key ? "true" : "false");
       });
+      document.querySelectorAll(`[data-panel="${key}"] .tp-body`).forEach((ta) => {
+        ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`;
+      });
       if (location.hash.slice(1) !== key) history.replaceState(null, "", `#${key}`);
       document.querySelector(".tp-main").scrollIntoView({ block: "start", behavior: "instant" });
     }
@@ -237,7 +240,7 @@ const VARS = [
           </label>
           <label class="tp-field">
             <span>本文</span>
-            <textarea class="tp-body" data-body="${esc(t.id)}" rows="20" spellcheck="false">${esc(t.body)}</textarea>
+            <textarea class="tp-body" data-body="${esc(t.id)}" rows="3" spellcheck="false">${esc(t.body)}</textarea>
           </label>
           <div class="tp-actions">
             <button type="button" class="tp-btn tp-save" data-save="${esc(t.id)}">保存する</button>
@@ -250,12 +253,16 @@ const VARS = [
         btn.addEventListener("click", () => show(btn.dataset.nav))
       );
 
-      document.querySelectorAll("[data-body]").forEach((ta) =>
+      // 本文は中身の高さぶんだけ伸ばす。枠内スクロールだと全文を一望できず、
+      // 編集中に前後の文脈を見失うため。
+      const grow = (ta) => { ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`; };
+      document.querySelectorAll("[data-body]").forEach((ta) => {
         ta.addEventListener("input", () => {
+          grow(ta);
           const el = document.querySelector(`[data-len="${ta.dataset.body}"]`);
           if (el) el.textContent = `${ta.value.length} 文字`;
-        })
-      );
+        });
+      });
 
       document.querySelectorAll("[data-save]").forEach((btn) =>
         btn.addEventListener("click", async () => {
@@ -416,6 +423,7 @@ const VARS = [
   }
   #tp-list :global(.tp-lang) { background: #111111; color: #ffffff; }
   #tp-list :global(.tp-body) {
+    overflow-y: hidden; resize: none;
     width: 100%; padding: 0.9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.78rem; line-height: 1.85; color: #111111; background: #ffffff;
     border: 1px solid #d7d7d7; border-radius: 4px; resize: vertical; box-sizing: border-box;

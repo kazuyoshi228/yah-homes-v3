@@ -23,11 +23,18 @@ interface Props {
   parkingEn: string;
   /** 車庫の寸法（W×D, mm）。分かっている棟のみ */
   garageSize?: { w: number; d: number };
+  /** 大型車が停められる棟のみ true */
+  parkingLargeCar?: boolean;
+  /** 外観写真のキャプション（既定は赤丸の説明） */
+  entranceCaptionJa?: string;
+  entranceCaptionEn?: string;
 }
 const {
   prop, name, zip, addressJa, addressEn,
   photoEntrance, photoKeybox, photoParking,
-  keyPlaceJa, keyPlaceEn, parkingJa, parkingEn, garageSize,
+  keyPlaceJa, keyPlaceEn, parkingJa, parkingEn, garageSize, parkingLargeCar,
+  entranceCaptionJa = "赤い丸が玄関ドアです。",
+  entranceCaptionEn = "The red circle marks the front door.",
 } = Astro.props;
 
 const CHECKIN_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/checkinInfo";
@@ -54,8 +61,8 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
         <p class="ht-step">01</p>
         <h2 class="ht-h2">玄関の場所<span>Finding the entrance</span></h2>
         <figure class="ht-fig">
-          <img class="ht-photo" src={photoEntrance} alt={`${name} の外観。赤い丸が玄関ドア`} loading="eager" />
-          <figcaption>赤い丸が玄関ドアです。<span class="ht-en">The red circle marks the front door.</span></figcaption>
+          <img class="ht-photo" src={photoEntrance} alt={`${name} の外観`} loading="eager" />
+          <figcaption>{entranceCaptionJa}<span class="ht-en">{entranceCaptionEn}</span></figcaption>
         </figure>
       </section>
 
@@ -87,6 +94,15 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
           <img class="ht-photo" src={photoParking} alt={`${name} の駐車スペース`} loading="lazy" />
         )}
         <p class="ht-text">{parkingJa}<br /><span class="ht-en">{parkingEn}</span></p>
+        {parkingLargeCar && (
+          <div class="ht-spec">
+            <p class="ht-spec-title">大型車もご利用いただけます<span>Large vehicles welcome</span></p>
+            <p class="ht-spec-note">
+              アルファードなどの大型車も駐車可能です。<br />
+              <span class="ht-en">Large vehicles such as the Toyota Alphard can be parked here.</span>
+            </p>
+          </div>
+        )}
         {garageSize && (
           <div class="ht-spec">
             <p class="ht-spec-title">車庫のサイズ<span>Garage dimensions</span></p>
