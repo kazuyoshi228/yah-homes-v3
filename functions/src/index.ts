@@ -769,6 +769,259 @@ export const bookingApi = onRequest(
   }
 );
 
+
+/* ─── ゲスト向けライフサイクルメール（前日リマインド／滞在後フォロー） ───
+   毎朝10時JSTに走り、対象日の予約へ1通ずつ送る。送信済みフラグで二重送信を防ぐ。
+   入室コードは別系統（運営会社が送る）のため、ここでは触れない。 */
+
+const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
+  ja: {
+    remSubject: "【yah.homes】明日のご宿泊について",
+    remHeading: "明日、お待ちしております",
+    remLead: "ご到着が明日となりました。当日の流れをご確認ください。",
+    remCheckin: "チェックイン", remCheckout: "チェックアウト", remGuests: "人数", remArrival: "到着予定時刻",
+    remPlace: "場所", remEntry: "入室について",
+    remEntryBody: "玄関のキーボックスでの受け渡しです。暗証番号は別途お送りしています。届いていない場合はこのメールにご返信ください。",
+    remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
+    remCta: "予約を確認する",
+    revSubject: "【yah.homes】ご滞在はいかがでしたか",
+    revHeading: "ご利用ありがとうございました",
+    revLead: "先日はyah.homesにご宿泊いただきありがとうございました。お気づきの点があれば、このメールにご返信ください。良かった点も、直すべき点も、そのままお聞かせいただけると助かります。",
+    revNote: "いただいたご意見は、次のお客様のために必ず反映します。実際に、大通りに面したロールスクリーンを遮光タイプに変更したのもお客様のご指摘がきっかけでした。",
+    revCta: "また泊まる",
+    stay: "ご滞在", nights: "{n}泊",
+  },
+  en: {
+    remSubject: "[yah.homes] Your stay starts tomorrow",
+    remHeading: "See you tomorrow",
+    remLead: "Your arrival is tomorrow. Here is what to expect on the day.",
+    remCheckin: "Check-in", remCheckout: "Check-out", remGuests: "Guests", remArrival: "Estimated arrival",
+    remPlace: "Location", remEntry: "Getting in",
+    remEntryBody: "Self check-in with a key box at the entrance. The code has been sent separately — just reply to this email if you have not received it.",
+    remArrivalNote: "There is no arrival time limit. Late-night arrivals are fine.",
+    remCta: "View your booking",
+    revSubject: "[yah.homes] How was your stay?",
+    revHeading: "Thank you for staying with us",
+    revLead: "Thank you for choosing yah.homes. If anything stood out — good or bad — just reply to this email and tell us plainly.",
+    revNote: "We act on what we hear. The blackout roller blind facing the main street was added because a guest told us the light was too bright.",
+    revCta: "Book again",
+    stay: "Your stay", nights: "{n} nights",
+  },
+  ko: {
+    remSubject: "[yah.homes] 내일 체크인 안내",
+    remHeading: "내일 뵙겠습니다",
+    remLead: "도착이 내일입니다. 당일 흐름을 확인해 주세요.",
+    remCheckin: "체크인", remCheckout: "체크아웃", remGuests: "인원", remArrival: "도착 예정 시각",
+    remPlace: "위치", remEntry: "입실 안내",
+    remEntryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 별도로 보내드렸습니다. 받지 못하셨다면 이 메일에 회신해 주세요.",
+    remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
+    remCta: "예약 확인하기",
+    revSubject: "[yah.homes] 이용은 어떠셨나요",
+    revHeading: "이용해 주셔서 감사합니다",
+    revLead: "yah.homes를 이용해 주셔서 감사합니다. 좋았던 점도 아쉬웠던 점도, 이 메일에 회신해 편하게 알려주세요.",
+    revNote: "주신 의견은 다음 손님을 위해 반드시 반영합니다. 큰길에 면한 롤스크린을 암막으로 바꾼 것도 손님의 지적이 계기였습니다.",
+    revCta: "다시 예약하기",
+    stay: "숙박", nights: "{n}박",
+  },
+  zh: {
+    remSubject: "【yah.homes】明天入住提醒",
+    remHeading: "明天見",
+    remLead: "您的入住日就在明天，請確認當天的流程。",
+    remCheckin: "入住", remCheckout: "退房", remGuests: "人數", remArrival: "預計抵達時間",
+    remPlace: "位置", remEntry: "入住方式",
+    remEntryBody: "以門口密碼鎖自助入住。密碼已另行寄送，若未收到請直接回覆這封郵件。",
+    remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
+    remCta: "查看預訂",
+    revSubject: "【yah.homes】這次入住還滿意嗎",
+    revHeading: "感謝您的入住",
+    revLead: "感謝您選擇 yah.homes。無論是好的地方還是需要改進的地方，都歡迎直接回覆這封郵件告訴我們。",
+    revNote: "您的意見我們一定會落實。面向大馬路的遮光捲簾，就是因為住客反映光線太亮才更換的。",
+    revCta: "再次預訂",
+    stay: "住宿", nights: "{n}晚",
+  },
+  th: {
+    remSubject: "[yah.homes] เข้าพักพรุ่งนี้",
+    remHeading: "พบกันพรุ่งนี้",
+    remLead: "วันเข้าพักของคุณคือพรุ่งนี้ กรุณาตรวจสอบรายละเอียดของวันนั้น",
+    remCheckin: "เช็คอิน", remCheckout: "เช็คเอาท์", remGuests: "จำนวนผู้เข้าพัก", remArrival: "เวลาที่คาดว่าจะถึง",
+    remPlace: "สถานที่", remEntry: "การเข้าที่พัก",
+    remEntryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู รหัสได้ส่งแยกไปแล้ว หากยังไม่ได้รับกรุณาตอบกลับอีเมลนี้",
+    remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
+    remCta: "ดูการจอง",
+    revSubject: "[yah.homes] การเข้าพักเป็นอย่างไรบ้าง",
+    revHeading: "ขอบคุณที่เข้าพักกับเรา",
+    revLead: "ขอบคุณที่เลือก yah.homes หากมีสิ่งใดที่ประทับใจหรือควรปรับปรุง กรุณาตอบกลับอีเมลนี้และบอกเราตรง ๆ",
+    revNote: "เรานำความเห็นไปปรับปรุงจริง ม่านม้วนกันแสงฝั่งถนนใหญ่ก็เปลี่ยนเพราะผู้เข้าพักบอกว่าแสงจ้าเกินไป",
+    revCta: "จองอีกครั้ง",
+    stay: "การเข้าพัก", nights: "{n} คืน",
+  },
+};
+
+async function sendLifecycleMail(
+  kind: "reminder" | "review",
+  bookingId: string,
+  b: BookingDoc & Record<string, unknown>,
+): Promise<void> {
+  const lang = String(b.lang ?? "en");
+  const L = LIFECYCLE_L10N[lang] ?? LIFECYCLE_L10N.en;
+  const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
+  const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
+  const no = bookingId.slice(0, 8).toUpperCase();
+  const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
+  const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+
+  let ci = "16:00", co = "10:00";
+  try {
+    const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
+    ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
+  } catch { /* 既定値 */ }
+
+  const html = kind === "reminder"
+    ? mailHtml({
+        heading: L.remHeading,
+        badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
+        lead: L.remLead,
+        rows: [
+          [L.remCheckin, `${esc(b.checkin)}　${esc(ci)}〜`],
+          [L.remCheckout, `${esc(b.checkout)}　〜${esc(co)}`],
+          [L.remGuests, `${esc(b.guests)}`],
+          ...(b.arrival ? [[L.remArrival, esc(String(b.arrival))] as [string, string]] : []),
+        ],
+        blocks: [
+          { title: L.remEntry, body: `${esc(L.remEntryBody)}<br>${esc(L.remArrivalNote)}` },
+          ...(P.address || P.map
+            ? [{ title: L.remPlace, body: `${P.address ? `<strong>${esc(P.address)}</strong><br>` : ""}${P.map ? `<a href="${esc(P.map)}" style="color:#111111;">${esc(P.map)}</a>` : ""}` }]
+            : []),
+        ],
+        cta: { label: L.remCta, href: myPage },
+      })
+    : mailHtml({
+        heading: L.revHeading,
+        badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
+        lead: L.revLead,
+        rows: [
+          [L.stay, `${esc(P.name)}`],
+          [`${esc(b.checkin)} 〜 ${esc(b.checkout)}`, L.nights.replace("{n}", String(nights))],
+        ],
+        blocks: [{ title: "—", body: esc(L.revNote) }],
+        cta: { label: L.revCta, href: bookPath },
+      });
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+  });
+  await transporter.sendMail({
+    from: `"yah.homes" <${SMTP_USER.value()}>`,
+    to: String(b.email),
+    replyTo: SMTP_USER.value(),
+    subject: kind === "reminder" ? L.remSubject : L.revSubject,
+    text: [
+      kind === "reminder" ? L.remHeading : L.revHeading, "",
+      kind === "reminder" ? L.remLead : L.revLead, "",
+      `${P.name}`, `${b.checkin} 〜 ${b.checkout}`,
+      kind === "reminder" ? `${L.remEntry}: ${L.remEntryBody}` : L.revNote, "",
+      kind === "reminder" ? myPage : bookPath,
+    ].join("\n"),
+    html,
+  });
+}
+
+/** 毎朝10時JST: 明日チェックインの予約へリマインド、昨日チェックアウトの予約へフォロー。 */
+export const guestLifecycleMailer = onSchedule(
+  { schedule: "0 10 * * *", timeZone: "Asia/Tokyo", region: REGION,
+    secrets: [SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
+    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async () => {
+    const jst = (offsetDays: number) =>
+      new Date(Date.now() + offsetDays * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    const tomorrow = jst(1);
+    const yesterday = jst(-1);
+
+    const run = async (kind: "reminder" | "review", field: "checkin" | "checkout", date: string, flag: string) => {
+      const snap = await db.collection("bookings")
+        .where("status", "==", "CONFIRMED").where(field, "==", date).get();
+      let sent = 0;
+      for (const d of snap.docs) {
+        const v = d.data() as BookingDoc & Record<string, unknown>;
+        if (v[flag]) continue; // 送信済み
+        try {
+          await sendLifecycleMail(kind, d.id, v);
+          await d.ref.update({ [flag]: FieldValue.serverTimestamp() });
+          sent++;
+        } catch (err) {
+          logger.error(`lifecycle ${kind} failed`, { bookingId: d.id, err: String(err).slice(0, 200) });
+        }
+      }
+      logger.info(`lifecycle ${kind}: ${sent}/${snap.size} sent for ${date}`);
+    };
+
+    await run("reminder", "checkin", tomorrow, "reminderSentAt");
+    await run("review", "checkout", yesterday, "reviewSentAt");
+  }
+);
+
+
+// ─── 定型メール／メッセージのSSoT（/admin/templates） ───
+// 運営会社がBeds24・OTAで送っている定型文を1箇所に集約する。
+// 閲覧・編集は管理者台帳のメンバー。差し込み記号は {{...}} で統一する。
+export const adminTemplates = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    try {
+      if (req.method === "GET") {
+        const snap = await db.collection("mail_templates").orderBy("order").get();
+        res.status(200).json({
+          ok: true,
+          items: snap.docs.map((d) => {
+            const v = d.data();
+            return {
+              id: d.id, title: v.title ?? d.id, prop: v.prop ?? "", kind: v.kind ?? "",
+              body: v.body ?? "", note: v.note ?? "", order: v.order ?? 999,
+              updatedAt: v.updatedAt?.toMillis?.() ?? null, updatedBy: v.updatedBy ?? null,
+            };
+          }),
+        });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { id, body, note } = (req.body ?? {}) as Record<string, unknown>;
+        const idStr = typeof id === "string" ? id : "";
+        if (!idStr || typeof body !== "string") { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+        if (body.length > 20000) { res.status(400).json({ ok: false, error: "too_long" }); return; }
+        await db.collection("mail_templates").doc(idStr).set({
+          body,
+          ...(typeof note === "string" ? { note: note.slice(0, 500) } : {}),
+          updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
+        }, { merge: true });
+        await db.collection("audit_logs").add({
+          actor: email, action: "mail_template_update", target: idStr, at: FieldValue.serverTimestamp(),
+        });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminTemplates failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
 // ─── パートナー申請 管理API（/admin/partners・design_partners_page.md §4.6） ───
 // 認証: Firebase Auth（Google）IDトークン検証＋許可メール限定。個人情報を扱うためFunction経由のみ。
 const PARTNERS_ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"]; // rootオーナー（削除不可・台帳に依らず常に有効）
@@ -2501,6 +2754,10 @@ export const adminBookings = onRequest(
             beds24Id: v.beds24Id ?? null, beds24CancelError: beds24CancelError || null,
             at: FieldValue.serverTimestamp(),
           });
+
+          // 管理側の返金でもお客様へキャンセル確認メールを送る
+          // （セルフキャンセルと同じ体裁。運営が処理したのに何の連絡も無い状態を作らない）
+          await sendCancellationMail(idStr, v as BookingDoc & Record<string, unknown>, refundAmount);
           res.status(200).json({ ok: true, refunded: refundAmount, beds24Cancelled: !beds24CancelError });
           return;
         }

@@ -1,0 +1,224 @@
+---
+/* /admin/templates — 定型メール／メッセージのSSoT
+   運営会社が Beds24・OTA で送っている定型文を1箇所に集約する。
+   ここを直せば、以後の送信文はここが正になる。閲覧・編集は管理者台帳のメンバー。
+   noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const TEMPLATES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminTemplates";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+/** 差し込み記号の一覧（本文に {{...}} で書く） */
+const VARS = [
+  { k: "guestName", d: "予約者名" },
+  { k: "channel", d: "予約サイト（Airbnb / Booking.com / 公式サイト）" },
+  { k: "guests", d: "宿泊人数" },
+  { k: "nights", d: "宿泊日数" },
+  { k: "checkinDateJa", d: "チェックイン日（2026年9月16日, 水曜日）" },
+  { k: "checkoutDateJa", d: "チェックアウト日" },
+  { k: "checkinTime", d: "チェックイン時刻（物件ファクト）" },
+  { k: "checkoutTime", d: "チェックアウト時刻（物件ファクト）" },
+  { k: "registerUrl", d: "宿泊者名簿フォームのURL" },
+  { k: "manualUrl", d: "入室マニュアルのURL" },
+  { k: "keyboxCode", d: "キーボックスの暗証番号" },
+  { k: "mapUrl", d: "Google マップのURL" },
+  { k: "phone", d: "問い合わせ電話番号" },
+];
+---
+
+<SiteLayout
+  lang="ja"
+  path="/admin/templates"
+  title="定型メール管理 | yah.homes"
+  description="定型メール・メッセージの単一ソース"
+  noindex={true}
+  solidNav
+>
+  <section class="tp">
+    <div class="tp-container">
+      <p class="tp-eyebrow">Admin</p>
+      <h1 class="tp-title">定型メール管理</h1>
+      <p class="tp-lead">
+        運営でお客様へ送っている定型文の<strong>唯一の正</strong>です。Beds24・OTAのメッセージや自動送信は、
+        ここの文面を基準にします。文言を変えるときは、まずここを直してください。
+      </p>
+
+      <div id="tp-login" class="tp-login">
+        <p class="tp-note">ご登録のアカウントでログインしてください。</p>
+        <button id="tp-login-btn" class="tp-btn">Googleでログイン</button>
+        <p class="tp-status" id="tp-login-status"></p>
+      </div>
+
+      <div id="tp-app" hidden>
+        <details class="tp-vars">
+          <summary>差し込み記号の一覧</summary>
+          <table class="tp-vars-table">
+            {VARS.map((v) => (
+              <tr><th>{`{{${v.k}}}`}</th><td>{v.d}</td></tr>
+            ))}
+          </table>
+          <p class="tp-note">本文にそのまま書くと、送信時に実際の値へ置き換わります。</p>
+        </details>
+
+        <div id="tp-list"></div>
+        <p class="tp-status" id="tp-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ TEMPLATES_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (ms) => (ms ? new Date(ms).toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" }) : "—");
+    const PROP = { kiyokawa: "清川", takasago: "高砂", both: "両物件" };
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(TEMPLATES_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) throw new Error("unauthorized");
+      return res.json();
+    }
+
+    function render(items) {
+      $("tp-list").innerHTML = items.map((t) => `
+        <article class="tp-card">
+          <header class="tp-head">
+            <div>
+              <h2 class="tp-name">${esc(t.title)}</h2>
+              <p class="tp-meta">
+                <span class="tp-tag">${esc(PROP[t.prop] ?? t.prop)}</span>
+                <span class="tp-tag">${esc(t.kind)}</span>
+                <span class="tp-upd">最終更新 ${fmt(t.updatedAt)}${t.updatedBy ? ` / ${esc(t.updatedBy)}` : ""}</span>
+              </p>
+            </div>
+            <span class="tp-len" data-len="${esc(t.id)}">${t.body.length} 文字</span>
+          </header>
+          ${t.note ? `<p class="tp-alert">${esc(t.note)}</p>` : ""}
+          <textarea class="tp-body" data-body="${esc(t.id)}" rows="16" spellcheck="false">${esc(t.body)}</textarea>
+          <div class="tp-actions">
+            <button type="button" class="tp-btn tp-save" data-save="${esc(t.id)}">保存する</button>
+            <button type="button" class="tp-btn-sub" data-copy="${esc(t.id)}">本文をコピー</button>
+            <span class="tp-saved" data-saved="${esc(t.id)}"></span>
+          </div>
+        </article>`).join("");
+
+      document.querySelectorAll("[data-body]").forEach((ta) =>
+        ta.addEventListener("input", () => {
+          const el = document.querySelector(`[data-len="${ta.dataset.body}"]`);
+          if (el) el.textContent = `${ta.value.length} 文字`;
+        })
+      );
+
+      document.querySelectorAll("[data-save]").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.save;
+          const body = document.querySelector(`[data-body="${id}"]`).value;
+          btn.disabled = true;
+          const r = await api("POST", { id, body });
+          document.querySelector(`[data-saved="${id}"]`).textContent = r.ok ? "保存しました" : `保存に失敗しました（${r.error ?? ""}）`;
+          btn.disabled = false;
+          if (r.ok) load();
+        })
+      );
+
+      document.querySelectorAll("[data-copy]").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const body = document.querySelector(`[data-body="${btn.dataset.copy}"]`).value;
+          try { await navigator.clipboard.writeText(body); btn.textContent = "コピーしました"; }
+          catch { btn.textContent = "コピーできませんでした"; }
+          setTimeout(() => { btn.textContent = "本文をコピー"; }, 2000);
+        })
+      );
+    }
+
+    async function load() {
+      $("tp-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        render(j.items || []);
+        $("tp-status").textContent = "";
+      } catch (e) {
+        $("tp-status").textContent =
+          e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    $("tp-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("tp-login-status").textContent = "ログインに失敗しました。"; }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      $("tp-login").hidden = !!user;
+      $("tp-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .tp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .tp-container { max-width: 880px; margin: 0 auto; }
+  .tp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .tp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .tp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2rem; }
+  .tp-note { font-size: 0.78rem; color: #888888; line-height: 1.8; }
+  .tp-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
+  .tp-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .tp-btn {
+    padding: 0.65rem 1.5rem; background: #111111; color: #ffffff; font-family: inherit;
+    font-size: 0.85rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .tp-btn:disabled { opacity: 0.5; }
+  .tp-btn-sub {
+    padding: 0.6rem 1.1rem; background: #ffffff; color: #111111; font-family: inherit;
+    font-size: 0.8rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer;
+  }
+  .tp-btn-sub:hover { border-color: #111111; }
+
+  .tp-vars { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 1.75rem; }
+  .tp-vars summary { font-size: 0.82rem; font-weight: 500; color: #111111; cursor: pointer; }
+  .tp-vars-table { width: 100%; border-collapse: collapse; margin: 0.9rem 0; }
+  .tp-vars-table th {
+    text-align: left; padding: 0.35rem 0.9rem 0.35rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.76rem; font-weight: 400; color: #111111; white-space: nowrap; vertical-align: top;
+  }
+  .tp-vars-table td { padding: 0.35rem 0; font-size: 0.76rem; color: #777777; }
+
+  #tp-list :global(.tp-card) { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  #tp-list :global(.tp-head) { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.9rem; }
+  #tp-list :global(.tp-name) { font-size: 1rem; font-weight: 500; color: #111111; }
+  #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  #tp-list :global(.tp-tag) {
+    font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
+  }
+  #tp-list :global(.tp-upd) { font-size: 0.7rem; color: #aaaaaa; }
+  #tp-list :global(.tp-len) { flex-shrink: 0; font-size: 0.7rem; color: #aaaaaa; font-variant-numeric: tabular-nums; }
+  #tp-list :global(.tp-alert) {
+    font-size: 0.76rem; color: #555555; line-height: 1.8; background: #fafafa;
+    border-left: 2px solid #d7d7d7; padding: 0.6rem 0.9rem; margin-bottom: 0.9rem; word-break: break-all;
+  }
+  #tp-list :global(.tp-body) {
+    width: 100%; padding: 0.9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem; line-height: 1.85; color: #111111; background: #ffffff;
+    border: 1px solid #d7d7d7; border-radius: 4px; resize: vertical; box-sizing: border-box;
+  }
+  #tp-list :global(.tp-actions) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+  #tp-list :global(.tp-saved) { font-size: 0.78rem; color: #555555; }
+</style>

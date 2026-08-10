@@ -45,7 +45,7 @@ const FB_CONFIG = {
             <thead>
               <tr>
                 <th>予約日</th><th>状態</th><th>棟</th><th>日程</th><th>人数</th><th>金額</th>
-                <th>ゲスト</th><th>到着</th><th>備考</th><th></th>
+                <th>ゲスト</th><th>到着</th><th>メモ</th><th>返金</th><th>備考</th>
               </tr>
             </thead>
             <tbody id="ab-tbody"></tbody>
@@ -100,13 +100,16 @@ const FB_CONFIG = {
           <td class="ab-num">${yen(b.total)}</td>
           <td>${esc(b.name ?? "")}<br><span class="ab-sub">${esc(b.email ?? "")}</span><br><span class="ab-sub">${esc(b.phone ?? "")}</span></td>
           <td>${esc(b.arrival ?? "—")}</td>
-          <td class="ab-memo">${esc(b.failureReason ?? b.note ?? "")}</td>
           <td class="ab-nowrap">
-            <button class="ab-btn-sub ab-memo-btn" data-id="${esc(b.id)}">メモ</button>
-            ${isRoot && b.paymentIntentId && b.status !== "CANCELLED"
-              ? `<button class="ab-btn-sub ab-refund" data-id="${esc(b.id)}" data-total="${esc(b.total)}">返金</button>` : ""}
+            <button class="ab-btn-sub ab-memo-btn" data-id="${esc(b.id)}">記録する</button>
           </td>
-        </tr>`).join("") || `<tr><td colspan="10" class="ab-note">該当する予約はありません</td></tr>`;
+          <td class="ab-nowrap">
+            ${isRoot && b.paymentIntentId && b.status !== "CANCELLED"
+              ? `<button class="ab-btn-sub ab-refund" data-id="${esc(b.id)}" data-total="${esc(b.total)}">返金する</button>`
+              : `<span class="ab-sub">—</span>`}
+          </td>
+          <td class="ab-memo">${esc(b.failureReason ?? b.note ?? "")}</td>
+        </tr>`).join("") || `<tr><td colspan="11" class="ab-note">該当する予約はありません</td></tr>`;
 
       document.querySelectorAll(".ab-memo-btn").forEach((btn) =>
         btn.addEventListener("click", async () => {
@@ -125,7 +128,7 @@ const FB_CONFIG = {
           if (input === null) return;
           const amount = input.trim() === "" ? total : Number(input);
           if (!Number.isInteger(amount) || amount <= 0 || amount > total) { alert("金額が正しくありません"); return; }
-          if (amount > 10000 && !confirm(`${yen(amount)} を返金します。この操作は取り消せません。実行しますか？`)) return;
+          if (!confirm(`${yen(amount)} を返金します。\n\nBeds24の予約を取り消し、お客様へキャンセル確認メールを送信します。\nこの操作は取り消せません。実行しますか？`)) return;
           btn.disabled = true;
           $("ab-status").textContent = "返金処理中...";
           const r = await api("POST", { action: "refund", bookingId: btn.dataset.id, amount });
@@ -173,7 +176,10 @@ const FB_CONFIG = {
   .ab-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
   .ab-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
   .ab-btn { margin-top: 1rem; padding: 0.7rem 1.6rem; background: #111111; color: #ffffff; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer; }
-  .ab-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; margin-right: 0.3rem; }
+  .ab-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-family: inherit; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+  .ab-btn-sub:hover { border-color: #111111; }
+  .ab-table :global(.ab-refund) { border-color: #c0392b; color: #c0392b; }
+  .ab-table :global(.ab-refund:hover) { background: #c0392b; color: #ffffff; border-color: #c0392b; }
   .ab-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; flex-wrap: wrap; }
   .ab-tools { display: flex; align-items: center; gap: 0.75rem; }
   .ab-filter { font-size: 0.78rem; color: #555555; display: flex; align-items: center; gap: 0.35rem; }
