@@ -790,6 +790,8 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCheckin: "チェックイン", remCheckout: "チェックアウト", remGuests: "人数", remArrival: "到着予定時刻",
     remPlace: "場所", remEntry: "入室について",
     remEntryBody: "玄関のキーボックスでの受け渡しです。暗証番号は別途お送りしています。届いていない場合はこのメールにご返信ください。",
+    remCodeLabel: "暗証番号 / PIN",
+    remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
     remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
     remCta: "予約を確認する",
     revSubject: "【yah.homes】ご滞在はいかがでしたか",
@@ -804,9 +806,9 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     coHeading: "Check-out is today",
     coLead: "Thank you for staying with us. Check-out is today at {co}.",
     coTitle: "Before you go",
-    coBody: "・Return the key to the key box.<br>・Please vacate the parking space by {co}.<br>・Check for belongings and large items (suitcases, clothing).",
+    coBody: "・Return the key to the key box.<br>・Please vacate the parking space by {co}.<br>・Please double-check you haven't left anything behind, especially larger items (suitcases, clothing).",
     coNoteTitle: "No cleaning needed",
-    coNote: "You do not need to clean or tidy up. Just leave.",
+    coNote: "No need to clean or tidy up — just head out as you are.",
     coBye: "We hope to see you again.",
     remSubject: "[yah.homes] Your stay starts tomorrow",
     remHeading: "See you tomorrow",
@@ -814,11 +816,13 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCheckin: "Check-in", remCheckout: "Check-out", remGuests: "Guests", remArrival: "Estimated arrival",
     remPlace: "Location", remEntry: "Getting in",
     remEntryBody: "Self check-in with a key box at the entrance. The code has been sent separately — just reply to this email if you have not received it.",
-    remArrivalNote: "There is no arrival time limit. Late-night arrivals are fine.",
+    remCodeLabel: "PIN",
+    remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
+    remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
     remCta: "View your booking",
     revSubject: "[yah.homes] How was your stay?",
     revHeading: "Thank you for staying with us",
-    revLead: "Thank you for choosing yah.homes. If anything stood out — good or bad — just reply to this email and tell us plainly.",
+    revLead: "Thank you for choosing yah.homes. If anything stood out — good or bad — just hit reply and let us know.",
     revNote: "We act on what we hear. The blackout roller blind facing the main street was added because a guest told us the light was too bright.",
     revCta: "Book again",
     stay: "Your stay", nights: "{n} nights",
@@ -828,31 +832,33 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     coHeading: "오늘이 체크아웃일입니다",
     coLead: "이용해 주셔서 감사합니다. 오늘 {co}가 체크아웃 시간입니다.",
     coTitle: "나가시기 전에",
-    coBody: "・열쇠는 키박스에 넣어 주세요.<br>・주차장도 {co}까지 비워 주세요.<br>・분실물, 대형 폐기물(캐리어·의류 등)을 두고 가시지 않도록 확인해 주세요.",
+    coBody: "・열쇠는 키박스에 넣어 주세요.<br>・주차장도 {co}까지 비워 주세요.<br>・분실물이 없는지 확인해 주시고, 큰 쓰레기(캐리어·의류 등)는 두고 가지 말아 주세요.",
     coNoteTitle: "청소는 필요 없습니다",
     coNote: "따로 청소하거나 정리하실 필요는 없습니다. 그대로 나가셔도 됩니다.",
     coBye: "다시 뵐 수 있기를 기다리겠습니다.",
     remSubject: "[yah.homes] 내일 체크인 안내",
     remHeading: "내일 뵙겠습니다",
-    remLead: "도착이 내일입니다. 당일 흐름을 확인해 주세요.",
+    remLead: "내일 도착 예정이시네요. 당일 안내 사항을 미리 확인해 주세요.",
     remCheckin: "체크인", remCheckout: "체크아웃", remGuests: "인원", remArrival: "도착 예정 시각",
     remPlace: "위치", remEntry: "입실 안내",
     remEntryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 별도로 보내드렸습니다. 받지 못하셨다면 이 메일에 회신해 주세요.",
+    remCodeLabel: "비밀번호",
+    remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
     remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
     remCta: "예약 확인하기",
-    revSubject: "[yah.homes] 이용은 어떠셨나요",
+    revSubject: "[yah.homes] 숙박은 어떠셨나요?",
     revHeading: "이용해 주셔서 감사합니다",
     revLead: "yah.homes를 이용해 주셔서 감사합니다. 좋았던 점도 아쉬웠던 점도, 이 메일에 회신해 편하게 알려주세요.",
-    revNote: "주신 의견은 다음 손님을 위해 반드시 반영합니다. 큰길에 면한 롤스크린을 암막으로 바꾼 것도 손님의 지적이 계기였습니다.",
+    revNote: "보내주신 의견은 다음 고객님을 위해 반드시 반영합니다. 큰길 쪽 롤스크린을 암막 타입으로 바꾼 것도 고객님의 의견이 계기가 되었습니다.",
     revCta: "다시 예약하기",
     stay: "숙박", nights: "{n}박",
   },
   zh: {
-    coSubject: "[yah.homes] 今日 {co} 退房",
+    coSubject: "【yah.homes】今日 {co} 退房",
     coHeading: "今天是退房日",
     coLead: "感謝您的入住。今日 {co} 為退房時間。",
     coTitle: "離開前請確認",
-    coBody: "・請將鑰匙放回密碼鎖盒。<br>・停車位也請於 {co} 前騰出。<br>・請確認是否遺留物品或大型垃圾（行李箱、衣物等）。",
+    coBody: "・請將鑰匙放回密碼鑰匙盒。<br>・停車位也請於 {co} 前騰出。<br>・請確認是否遺留物品或大型垃圾（行李箱、衣物等）。",
     coNoteTitle: "無需打掃",
     coNote: "不需要特別清潔或整理，直接離開即可。",
     coBye: "期待再次與您相見。",
@@ -862,6 +868,8 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCheckin: "入住", remCheckout: "退房", remGuests: "人數", remArrival: "預計抵達時間",
     remPlace: "位置", remEntry: "入住方式",
     remEntryBody: "以門口密碼鎖自助入住。密碼已另行寄送，若未收到請直接回覆這封郵件。",
+    remCodeLabel: "密碼",
+    remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
     remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
     remCta: "查看預訂",
     revSubject: "【yah.homes】這次入住還滿意嗎",
@@ -874,7 +882,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
   th: {
     coSubject: "[yah.homes] เช็คเอาท์วันนี้ เวลา {co}",
     coHeading: "วันนี้เป็นวันเช็คเอาท์",
-    coLead: "ขอบคุณที่เข้าพักกับเรา วันนี้เวลา {co} คือเวลาเช็คเอาท์",
+    coLead: "ขอบคุณที่เข้าพักกับเรา เวลาเช็คเอาท์ของวันนี้คือ {co}",
     coTitle: "ก่อนออกจากที่พัก",
     coBody: "・กรุณาใส่กุญแจกลับเข้ากล่องกุญแจ<br>・กรุณานำรถออกจากที่จอดภายในเวลา {co}<br>・กรุณาตรวจสอบสิ่งของและขยะชิ้นใหญ่ (กระเป๋าเดินทาง เสื้อผ้า) ที่อาจลืมไว้",
     coNoteTitle: "ไม่ต้องทำความสะอาด",
@@ -883,9 +891,11 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remSubject: "[yah.homes] เข้าพักพรุ่งนี้",
     remHeading: "พบกันพรุ่งนี้",
     remLead: "วันเข้าพักของคุณคือพรุ่งนี้ กรุณาตรวจสอบรายละเอียดของวันนั้น",
-    remCheckin: "เช็คอิน", remCheckout: "เช็คเอาท์", remGuests: "จำนวนผู้เข้าพัก", remArrival: "เวลาที่คาดว่าจะถึง",
+    remCheckin: "เช็คอิน", remCheckout: "เช็คเอาท์", remGuests: "จำนวนผู้เข้าพัก", remArrival: "เวลาถึงโดยประมาณ",
     remPlace: "สถานที่", remEntry: "การเข้าที่พัก",
     remEntryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู รหัสได้ส่งแยกไปแล้ว หากยังไม่ได้รับกรุณาตอบกลับอีเมลนี้",
+    remCodeLabel: "รหัส",
+    remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
     remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
     remCta: "ดูการจอง",
     revSubject: "[yah.homes] การเข้าพักเป็นอย่างไรบ้าง",
@@ -928,6 +938,11 @@ async function mailStrings(kind: MailKind, lang: string): Promise<Record<string,
 }
 
 /** {{var}} を展開する。未知の記号は空にしてお客様に見せない（警告は残す）。 */
+/** "1 nights" のような英語の単複崩れを直す（他言語は数詞に単複がないため無影響） */
+function fixPlural(s: string): string {
+  return s.replace(/\b1 (nights|adults|guests)\b/g, (_m, w: string) => `1 ${w.slice(0, -1)}`);
+}
+
 function expandMailVars(L: Record<string, string>, vars: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(L)) {
@@ -957,6 +972,16 @@ async function buildLifecycleMail(
     const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
     ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
   } catch { /* 既定値 */ }
+
+  // 前日案内には暗証番号を直接載せる（/admin/secrets が正）。読めない場合はカードを出さず、
+  // 「別途お送りしています／ご返信ください」の予備文面に切り替える。
+  let keybox = "";
+  if (kind === "reminder") {
+    try {
+      const sec = await db.collection("property_secrets").doc(b.prop === "test" ? "kiyokawa" : String(b.prop)).get();
+      keybox = String(sec.data()?.keyboxCode ?? "");
+    } catch { /* カードなしで送る */ }
+  }
 
   // 内部の kind 名（reminder）と、画面・テンプレートの通名（checkin）を対応させる
   const tplKind: MailKind = kind === "reminder" ? "checkin" : kind;
@@ -995,8 +1020,9 @@ async function buildLifecycleMail(
           [L.remGuests, `${esc(b.guests)}`],
           ...(b.arrival ? [[L.remArrival, esc(String(b.arrival))] as [string, string]] : []),
         ],
+        codeCard: keybox ? { label: L.remCodeLabel, code: keybox } : undefined,
         blocks: [
-          { title: L.remEntry, body: `${esc(L.remEntryBody)}<br>${esc(L.remArrivalNote)}` },
+          { title: L.remEntry, body: `${esc(keybox ? L.remEntryBodyCode : L.remEntryBody)}<br>${esc(L.remArrivalNote)}` },
           ...(P.address || P.map
             ? [{ title: L.remPlace, body: `${P.address ? `<strong>${esc(P.address)}</strong><br>` : ""}${P.map ? `<a href="${esc(P.map)}" style="color:#111111;">${esc(P.map)}</a>` : ""}` }]
             : []),
@@ -1009,7 +1035,7 @@ async function buildLifecycleMail(
         lead: L.revLead,
         rows: [
           [L.stay, `${esc(P.name)}`],
-          [`${esc(b.checkin)} 〜 ${esc(b.checkout)}`, L.nights.replace("{n}", String(nights))],
+          [`${esc(b.checkin)} 〜 ${esc(b.checkout)}`, fixPlural(L.nights.replace("{n}", String(nights)))],
         ],
         blocks: [{ title: "—", body: esc(L.revNote) }],
         cta: { label: L.revCta, href: bookPath },
@@ -1024,7 +1050,9 @@ async function buildLifecycleMail(
       `${P.name}`, `${b.checkin} 〜 ${b.checkout}`,
       kind === "checkout"
         ? `${L.coTitle}: ${L.coBody.replace(/<br>/g, "\n").replace(/\{co\}/g, co)}\n${L.coNote}\n${L.coBye}`
-        : kind === "reminder" ? `${L.remEntry}: ${L.remEntryBody}` : L.revNote, "",
+        : kind === "reminder"
+        ? `${keybox ? `${L.remCodeLabel}: ${keybox}\n` : ""}${L.remEntry}: ${keybox ? L.remEntryBodyCode : L.remEntryBody}`
+        : L.revNote, "",
       kind === "review" ? bookPath : myPage,
     ].join("\n"),
     html,
@@ -1123,7 +1151,8 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "remHeading", label: "見出し" },
     { key: "remLead", label: "書き出し", multiline: true },
     { key: "remEntry", label: "入室について・見出し" },
-    { key: "remEntryBody", label: "入室について・本文", multiline: true },
+    { key: "remEntryBodyCode", label: "入室について・本文（暗証番号カードの下に出る）", multiline: true },
+    { key: "remEntryBody", label: "入室について・予備文面（番号が読めなかった場合）", multiline: true },
     { key: "remArrivalNote", label: "到着時刻の注記", multiline: true },
     { key: "remPlace", label: "場所・見出し" },
     { key: "remCta", label: "ボタンの文字" },
@@ -2271,6 +2300,8 @@ function mailHtml(o: {
   rows?: Array<[string, string]>;
   blocks?: Array<{ title: string; body: string }>;
   cta?: { label: string; href: string };
+  /** 黒地に大きく出す暗証番号（前日のチェックイン案内用） */
+  codeCard?: { label: string; code: string };
   note?: string;
   variant?: "brand" | "alert";
 }): string {
@@ -2299,6 +2330,10 @@ function mailHtml(o: {
     ${o.lead ? `<div style="font-size:13px;color:#666666;line-height:1.9;margin-bottom:18px;">${esc(o.lead)}</div>` : ""}
     ${o.rows?.length ? `<table role="presentation" width="100%" style="border:1px solid #e8e8e8;border-radius:6px;"><tr><td style="padding:14px 18px;">
       <table role="presentation" width="100%">${o.rows.map(row).join("")}</table></td></tr></table>` : ""}
+    ${o.codeCard ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td align="center" style="background:#111111;border-radius:8px;padding:20px 24px;">
+      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#999999;margin-bottom:6px;">${esc(o.codeCard.label)}</div>
+      <div style="font-size:34px;font-weight:600;letter-spacing:.3em;color:#ffffff;padding-left:.3em;">${esc(o.codeCard.code)}</div>
+    </td></tr></table>` : ""}
     ${(o.blocks ?? []).map(block).join("")}
     ${o.cta ? `<table role="presentation" width="100%" style="margin-top:20px;"><tr><td align="center" style="border-radius:6px;background:#111111;">
       <a href="${esc(o.cta.href)}" style="display:block;padding:14px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(o.cta.label)}</a>
@@ -2371,13 +2406,13 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     registerLead: "Register the guest list (all guests)",
     registerDue: "Please complete by {d}",
     registerBtn: "Register guest list",
-    registerBody: "Japanese law requires us to collect details for every person staying. Guests without an address in Japan also need to submit a passport photo for each person.",
+    registerBody: "Japanese law requires us to collect details for every person staying. Guests without an address in Japan also need to submit a photo of each guest's passport.",
     registerWarn: "We will send your entry instructions once we have your registration. Without it, we cannot send the key box PIN.",
     subject: "[yah.homes] Your booking is confirmed", greetSuffix: "",
     lead: "Thank you for booking with yah.homes. Your reservation is confirmed.",
     bookingNo: "Booking ID", checkTitle: "Booking details",
     checkin: "Check-in", checkout: "Check-out", stay: "Your reservation", guestsRow: "Guests",
-    house: "House", arrival: "Estimated arrival", checkinWindow: "from {ci} (no time limit)", checkoutWindow: "until {co}",
+    house: "House", arrival: "Estimated arrival", checkinWindow: "from {ci} (arrive any time after that)", checkoutWindow: "until {co}",
     nights: "{n} nights", guests: "{g} adults",
     cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).", changeNote: "To change your dates or party size, please cancel this booking and make a new one. Within the free cancellation period there is no extra cost.",
     payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
@@ -2398,18 +2433,18 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     registerLead: "숙박자 명부 등록 (투숙객 전원)",
     registerDue: "{d}까지 부탁드립니다",
     registerBtn: "숙박자 명부 등록하기",
-    registerBody: "일본 여관업법에 따라 숙박하시는 모든 분의 정보를 받도록 되어 있습니다. 일본 내 주소가 없는 외국 국적 고객님은 전원의 여권 사진도 함께 제출해 주셔야 합니다.",
+    registerBody: "일본 여관업법에 따라 숙박하시는 모든 분의 정보를 등록하는 것이 의무화되어 있습니다. 일본 내 주소가 없는 외국 국적 고객님은 전원의 여권 사본(이미지)도 함께 제출해 주셔야 합니다.",
     registerWarn: "등록이 확인되면 입실 방법을 보내드립니다. 등록이 없으면 키박스 비밀번호를 보내드릴 수 없습니다.",
     subject: "[yah.homes] 예약이 확정되었습니다", greetSuffix: " 님",
     lead: "yah.homes를 예약해 주셔서 감사합니다. 예약이 확정되었습니다.",
     bookingNo: "예약번호", checkTitle: "예약 내용",
-    checkin: "체크인", checkout: "체크아웃", stay: "예약 내용", guestsRow: "인원",
+    checkin: "체크인", checkout: "체크아웃", stay: "고객님의 예약", guestsRow: "인원",
     house: "숙소", arrival: "도착 예정 시각", checkinWindow: "{ci}~ (시간 제한 없음)", checkoutWindow: "~{co}",
     nights: "{n}박", guests: "성인 {g}명",
     cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.", changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요. 무료 취소 기간 내라면 추가 부담은 없습니다.",
     payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
-    payNote: "숙박료・숙박세・청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
-    ctaTitle: "예약 확인・변경", cta: "예약 변경・취소", cta2: "문의하기",
+    payNote: "숙박료·숙박세·청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
+    ctaTitle: "예약 확인·변경", cta: "예약 변경·취소", cta2: "문의하기",
     ctaNote: "예약하신 계정으로 로그인하면 도착 예정 시각 등록과 예약 확인이 가능합니다.",
     entryTitle: "입실 안내",
     entryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호와 자세한 입실 안내는 도착 전날 메일로 보내드립니다. 늦은 시간 도착도 괜찮습니다.",
@@ -2421,22 +2456,22 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes / Bonfire Inc.",
   },
   zh: {
-    registerTitle: "入住前的一項請求",
+    registerTitle: "入住前想麻煩您一件事",
     registerLead: "登記住宿者名冊（全體住宿者）",
     registerDue: "請於 {d} 前完成",
     registerBtn: "登記住宿者名冊",
     registerBody: "依日本旅館業法規定，我們必須取得每一位住宿者的資料。在日本沒有住址的外籍旅客，另需提供全體住宿者的護照照片。",
-    registerWarn: "確認登記後，我們會寄送入住方式。未完成登記，恕無法提供密碼鎖號碼。",
+    registerWarn: "確認登記後，我們會寄送入住方式。未完成登記，恕無法提供鑰匙盒的密碼。",
     subject: "【yah.homes】您的預訂已確認", greetSuffix: " 您好",
     lead: "感謝您預訂 yah.homes，您的預訂已確認。",
     bookingNo: "預訂編號", checkTitle: "預訂內容",
     checkin: "入住", checkout: "退房", stay: "您的預訂", guestsRow: "人數",
     house: "房源", arrival: "預計抵達時間", checkinWindow: "{ci} 起（無時間限制）", checkoutWindow: "{co} 前",
-    nights: "{n}晚", guests: "成人{g}人",
+    nights: "{n}晚", guests: "成人 {g} 位",
     cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。", changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂。在免費取消期限內不會產生額外費用。",
     payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
-    payNote: "已含住宿費・住宿稅・清潔費，不會另外收費。",
-    ctaTitle: "查看・變更預訂", cta: "變更・取消預訂", cta2: "聯絡我們",
+    payNote: "已含住宿費、住宿稅與清潔費，不會另外收費。",
+    ctaTitle: "查看與變更預訂", cta: "變更或取消預訂", cta2: "聯絡我們",
     ctaNote: "以預訂時使用的帳號登入，即可登記抵達時間或查看預訂。",
     entryTitle: "入住方式",
     entryBody: "透過玄關的密碼鑰匙盒自助入住。密碼與詳細入住說明，將於抵達前一天以電子郵件寄送。深夜抵達也沒問題。",
@@ -2444,11 +2479,11 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "詳細地址將與入住說明一併寄送。",
     safetyTitle: "安全提醒",
     safetyBody: "本公司不會以郵件或電話要求您重新輸入信用卡資訊或額外付款。若收到此類訊息，請勿開啟連結並與我們聯繫。",
-    contactTitle: "有任何問題", contactBody: "請回覆這封郵件，或來信 contact@mail.yah.homes。我們會在2〜3個工作天內回覆。",
+    contactTitle: "有任何問題", contactBody: "請回覆這封郵件，或來信 contact@mail.yah.homes。我們會在 2～3 個工作天內回覆。",
     footer: "yah.homes / Bonfire Inc.",
   },
   th: {
-    registerTitle: "สิ่งที่ขอความร่วมมือก่อนเข้าพัก",
+    registerTitle: "ขอความร่วมมือก่อนการเข้าพัก",
     registerLead: "ลงทะเบียนรายชื่อผู้เข้าพัก (ทุกท่าน)",
     registerDue: "กรุณาดำเนินการภายใน {d}",
     registerBtn: "ลงทะเบียนรายชื่อผู้เข้าพัก",
@@ -2458,7 +2493,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     lead: "ขอบคุณที่จองที่พักกับ yah.homes การจองของคุณได้รับการยืนยันแล้ว",
     bookingNo: "หมายเลขการจอง", checkTitle: "รายละเอียดการจอง",
     checkin: "เช็คอิน", checkout: "เช็คเอาท์", stay: "การจองของคุณ", guestsRow: "ผู้เข้าพัก",
-    house: "ที่พัก", arrival: "เวลาที่คาดว่าจะถึง", checkinWindow: "ตั้งแต่ {ci} (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน {co}",
+    house: "ที่พัก", arrival: "เวลาถึงโดยประมาณ", checkinWindow: "ตั้งแต่ {ci} (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน {co}",
     nights: "{n} คืน", guests: "ผู้ใหญ่ {g} ท่าน",
     cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)", changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม",
     payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
@@ -2471,7 +2506,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "ที่อยู่โดยละเอียดจะส่งพร้อมกับคำแนะนำการเช็คอิน",
     safetyTitle: "เพื่อความปลอดภัย",
     safetyBody: "เราจะไม่ส่งอีเมลหรือโทรขอให้คุณกรอกข้อมูลบัตรใหม่หรือชำระเงินเพิ่ม หากได้รับข้อความลักษณะนี้ กรุณาอย่าเปิดลิงก์และติดต่อเราตามด้านล่าง",
-    contactTitle: "มีคำถาม", contactBody: "ตอบกลับอีเมลฉบับนี้ หรือเขียนถึงเราที่ contact@mail.yah.homes เราจะตอบภายใน 2–3 วันทำการ",
+    contactTitle: "หากมีข้อสงสัย", contactBody: "ตอบกลับอีเมลฉบับนี้ หรือเขียนถึงเราที่ contact@mail.yah.homes เราจะตอบภายใน 2–3 วันทำการ",
     footer: "yah.homes / Bonfire Inc.",
   },
 };
@@ -2560,8 +2595,8 @@ function buildConfirmationMail(
       ${row(esc(L.house), esc(P.name))}
       ${row(esc(L.checkin), esc(d.checkin), esc(ciWin))}
       ${row(esc(L.checkout), esc(d.checkout), esc(coWin))}
-      ${row(esc(L.stay), esc(L.nights.replace("{n}", String(d.nights))))}
-      ${row(esc(L.guestsRow), esc(L.guests.replace("{g}", String(d.guests))))}
+      ${row(esc(L.stay), esc(fixPlural(L.nights.replace("{n}", String(d.nights)))))}
+      ${row(esc(L.guestsRow), esc(fixPlural(L.guests.replace("{g}", String(d.guests)))))}
       ${d.arrival ? row(esc(L.arrival), esc(d.arrival)) : ""}
     ${cardClose()}
 
@@ -2616,8 +2651,8 @@ function buildConfirmationMail(
     `${L.house}: ${P.name}`,
     `${L.checkin}: ${d.checkin} ${ciWin}`,
     `${L.checkout}: ${d.checkout} ${coWin}`,
-    `${L.stay}: ${L.nights.replace("{n}", String(d.nights))}`,
-    `${L.guestsRow}: ${L.guests.replace("{g}", String(d.guests))}`,
+    `${L.stay}: ${fixPlural(L.nights.replace("{n}", String(d.nights)))}`,
+    `${L.guestsRow}: ${fixPlural(L.guests.replace("{g}", String(d.guests)))}`,
     d.arrival ? `${L.arrival}: ${d.arrival}` : "",
     "", `--- ${L.cancelTitle} ---`,
     `${L.cancelFree.replace("{d}", d.freeCancel)}: ${yen(0)}`,
