@@ -940,11 +940,11 @@ function expandMailVars(L: Record<string, string>, vars: Record<string, string>)
   return out;
 }
 
-async function sendLifecycleMail(
+async function buildLifecycleMail(
   kind: "reminder" | "review" | "checkout",
   bookingId: string,
   b: BookingDoc & Record<string, unknown>,
-): Promise<void> {
+): Promise<{ subject: string; text: string; html: string }> {
   const lang = String(b.lang ?? "en");
   const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
@@ -1015,14 +1015,7 @@ async function sendLifecycleMail(
         cta: { label: L.revCta, href: bookPath },
       });
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com", port: 465, secure: true,
-    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
-  });
-  await transporter.sendMail({
-    from: `"yah.homes" <${SMTP_USER.value()}>`,
-    to: String(b.email),
-    replyTo: SMTP_USER.value(),
+  return {
     subject: kind === "checkout" ? L.coSubject.replace("{co}", co)
       : kind === "reminder" ? L.remSubject : L.revSubject,
     text: [
@@ -1035,6 +1028,23 @@ async function sendLifecycleMail(
       kind === "review" ? bookPath : myPage,
     ].join("\n"),
     html,
+  };
+}
+
+async function sendLifecycleMail(
+  kind: "reminder" | "review" | "checkout",
+  bookingId: string,
+  b: BookingDoc & Record<string, unknown>,
+): Promise<void> {
+  const { subject, text, html } = await buildLifecycleMail(kind, bookingId, b);
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+  });
+  await transporter.sendMail({
+    from: `"yah.homes" <${SMTP_USER.value()}>`,
+    to: String(b.email), replyTo: SMTP_USER.value(),
+    subject, text, html,
   });
 }
 
@@ -1252,21 +1262,64 @@ export const adminTemplates = onRequest(
   }
 );
 
-/** テスト送信。ダミーの予約データで実際の送信経路をそのまま通す。 */
-async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<void> {
+export const adminMailPreview = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    res.set("Cache-Control", "no-store");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    const kind = String(req.query.kind ?? "") as MailKind;
+    const lang = String(req.query.lang ?? "ja");
+    if (!MAIL_KINDS.includes(kind) || !MAIL_LANGS.includes(lang)) {
+      res.status(400).json({ ok: false, error: "invalid_target" }); return;
+    }
+    try {
+      const { subject, html } = await buildPreviewMail(kind, lang);
+      res.status(200).json({ ok: true, kind, lang, subject, html });
+    } catch (err) {
+      logger.error("adminMailPreview failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+/** プレビュー・テスト送信で使う仮の予約。実データに触れずに実物の見た目を出すため。 */
+const DUMMY_NAME: Record<string, string> = {
+  ja: "山田 太郎", en: "Taro Yamada", ko: "야마다 타로", zh: "山田 太郎", th: "ทาโร่ ยามาดะ",
+};
+function dummyBooking(lang: string, to = "guest@example.com"): BookingDoc & Record<string, unknown> {
   const d = (n: number) => new Date(Date.now() + n * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-  const dummy = {
-    name: lang === "ja" ? "山田 太郎" : "Taro Yamada",
+  return {
+    name: DUMMY_NAME[lang] ?? DUMMY_NAME.en,
     email: to, lang, prop: "kiyokawa",
     checkin: d(7), checkout: d(9), guests: 4, total: 62000,
     arrival: "", status: "CONFIRMED",
-    freeCancelUntilAt: new Date(Date.now() - 86400000).toISOString(),
+    freeCancelUntilAt: new Date(Date.now() + 5 * 86400000).toISOString(),
   } as unknown as BookingDoc & Record<string, unknown>;
+}
 
-  if (kind === "confirm") {
-    await sendConfirmationMail("TESTTEST-0000", dummy);
-    return;
-  }
+/** 仮の予約でメールを組み立てて返す（送信はしない）。/admin/mail-preview 用。 */
+async function buildPreviewMail(kind: MailKind, lang: string): Promise<{ subject: string; html: string }> {
+  const b = dummyBooking(lang);
+  if (kind === "confirm") return buildConfirmationMailFor("PREVIEW0-0000", b);
+  const { subject, html } = await buildLifecycleMail(kind === "checkin" ? "reminder" : kind, "PREVIEW0-0000", b);
+  return { subject, html };
+}
+
+/** テスト送信。ダミーの予約データで実際の送信経路をそのまま通す。 */
+async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<void> {
+  const dummy = dummyBooking(lang, to);
+  if (kind === "confirm") { await sendConfirmationMail("TESTTEST-0000", dummy); return; }
   await sendLifecycleMail(kind === "checkin" ? "reminder" : kind, "TESTTEST-0000", dummy);
 }
 
@@ -2584,8 +2637,10 @@ function buildConfirmationMail(
 }
 
 /** 予約確定メール（お客様宛・予約言語で送る）。失敗しても確定は取り消さない。 */
-async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
-  try {
+async function buildConfirmationMailFor(
+  bookingId: string, b: BookingDoc & Record<string, unknown>,
+): Promise<{ subject: string; text: string; html: string }> {
+  {
     const lang = String(b.lang ?? "en");
     const free = b.freeCancelUntilAt
       ? new Date(String(b.freeCancelUntilAt)).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "long", timeStyle: "short" })
@@ -2624,14 +2679,21 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
       arrival: String(b.arrival ?? ""),
       freeCancel: free,
     });
+    return { subject, text, html };
+  }
+}
+
+/** 予約確定メール（お客様宛・予約言語で送る）。失敗しても確定は取り消さない。 */
+async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
+  try {
+    const { subject, text, html } = await buildConfirmationMailFor(bookingId, b);
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
     });
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email),
-      replyTo: SMTP_USER.value(),
+      to: String(b.email), replyTo: SMTP_USER.value(),
       subject, text, html,
     });
   } catch (err) {

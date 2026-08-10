@@ -1,0 +1,234 @@
+---
+/* /admin/mail-preview — メールテンプレート（実物プレビュー）
+   お客様に届くHTMLメールそのものを、仮の予約データで描画して見せる。
+   文言は /admin/templates の保存内容が反映される（同じ組み立て経路を通す）。
+   noindex・sitemap除外。閲覧は管理者台帳のメンバー。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const PREVIEW_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminMailPreview";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+const LANGS = [
+  { code: "ja", label: "日本語" },
+  { code: "en", label: "English" },
+  { code: "ko", label: "한국어" },
+  { code: "zh", label: "繁體中文" },
+  { code: "th", label: "ไทย" },
+];
+const KINDS = [
+  { kind: "confirm", num: "1", label: "予約確定メッセージ", when: "ご予約が入った直後" },
+  { kind: "checkin", num: "2", label: "チェックイン案内", when: "チェックイン前日 10:00" },
+  { kind: "checkout", num: "3", label: "チェックアウト当日の案内", when: "当日 07:00" },
+  { kind: "review", num: "4", label: "レビューのお願い", when: "チェックアウト翌日 10:00" },
+];
+---
+
+<SiteLayout
+  lang="ja"
+  path="/admin/mail-preview"
+  title="メールテンプレート | yah.homes"
+  description="お客様に届くメールの実物プレビュー"
+  noindex={true}
+  solidNav
+>
+  <section class="mp">
+    <div class="mp-container">
+      <p class="mp-eyebrow">Admin</p>
+      <h1 class="mp-title">メールテンプレート</h1>
+      <p class="mp-lead">
+        お客様に届くメールそのものです。仮の予約（清川・4名・2泊）で描画しています。
+        文言は<a href="/admin/templates/">定型メール管理</a>の保存内容が反映されます。
+      </p>
+
+      <div id="mp-login" class="mp-login">
+        <p class="mp-note">ご登録のアカウントでログインしてください。</p>
+        <button id="mp-login-btn" class="mp-btn">Googleでログイン</button>
+        <p class="mp-status" id="mp-login-status"></p>
+      </div>
+
+      <div id="mp-app" hidden>
+        <div class="mp-layout">
+          <aside class="mp-side">
+            <p class="mp-side-group">言語</p>
+            <div class="mp-langs">
+              {LANGS.map((l) => (
+                <button type="button" class="mp-lang" data-lang={l.code}>{l.label}</button>
+              ))}
+            </div>
+
+            <p class="mp-side-group">メール</p>
+            <nav class="mp-nav">
+              {KINDS.map((k) => (
+                <button type="button" class="mp-navlink" data-kind={k.kind}>
+                  <span class="mp-num">{k.num}</span>
+                  <span class="mp-navtext">
+                    {k.label}
+                    <span class="mp-when">{k.when}</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          <div class="mp-main">
+            <div class="mp-bar">
+              <div>
+                <p class="mp-sublabel">件名</p>
+                <p class="mp-subject" id="mp-subject">—</p>
+              </div>
+              <div class="mp-widths">
+                <button type="button" class="mp-w is-active" data-w="mobile">スマホ</button>
+                <button type="button" class="mp-w" data-w="desktop">パソコン</button>
+              </div>
+            </div>
+            <div class="mp-stage" id="mp-stage" data-w="mobile">
+              <iframe id="mp-frame" title="メールのプレビュー" sandbox=""></iframe>
+            </div>
+            <p class="mp-status" id="mp-status" role="status"></p>
+            <p class="mp-note mp-foot">
+              差し込みの値は仮のものです（お名前・日程・料金）。実際の送信では予約の内容が入ります。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ PREVIEW_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+
+    let lang = localStorage.getItem("yh-mp-lang") || "ja";
+    let kind = location.hash.slice(1) || "confirm";
+
+    function mark() {
+      document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("is-active", b.dataset.lang === lang));
+      document.querySelectorAll("[data-kind]").forEach((b) => b.classList.toggle("is-active", b.dataset.kind === kind));
+    }
+
+    async function load() {
+      mark();
+      $("mp-status").textContent = "読み込み中...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const res = await fetch(`${PREVIEW_ENDPOINT}?kind=${encodeURIComponent(kind)}&lang=${encodeURIComponent(lang)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) throw new Error("unauthorized");
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || "load");
+        $("mp-subject").textContent = j.subject;
+        // sandbox="" のまま srcdoc に流し込む（スクリプト無効・同一オリジン扱いにしない）
+        $("mp-frame").srcdoc = j.html;
+        $("mp-status").textContent = "";
+        if (location.hash.slice(1) !== kind) history.replaceState(null, "", `#${kind}`);
+      } catch (e) {
+        $("mp-status").textContent =
+          e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    document.querySelectorAll("[data-lang]").forEach((b) =>
+      b.addEventListener("click", () => { lang = b.dataset.lang; localStorage.setItem("yh-mp-lang", lang); load(); }));
+    document.querySelectorAll("[data-kind]").forEach((b) =>
+      b.addEventListener("click", () => { kind = b.dataset.kind; load(); }));
+    document.querySelectorAll("[data-w]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (!b.classList.contains("mp-w")) return;
+        $("mp-stage").dataset.w = b.dataset.w;
+        document.querySelectorAll(".mp-w").forEach((x) => x.classList.toggle("is-active", x === b));
+      }));
+
+    $("mp-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("mp-login-status").textContent = "ログインに失敗しました。"; }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      $("mp-login").hidden = !!user;
+      $("mp-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .mp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .mp-container { max-width: 1080px; margin: 0 auto; }
+  .mp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .mp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .mp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .mp-lead a { color: #111111; }
+
+  .mp-login { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.75rem; text-align: center; }
+  .mp-note { font-size: 0.78rem; color: #888888; line-height: 1.8; }
+  .mp-btn {
+    font-family: inherit; font-size: 0.8rem; color: #ffffff; background: #111111;
+    border: none; border-radius: 4px; padding: 0.6rem 1.4rem; cursor: pointer; margin-top: 0.8rem;
+  }
+
+  .mp-layout { display: grid; grid-template-columns: 232px 1fr; gap: 2.5rem; align-items: start; }
+  .mp-side { position: sticky; top: 6rem; }
+  .mp-side-group {
+    font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #aaaaaa; margin: 1.6rem 0 0.7rem; padding-left: 0.75rem;
+  }
+  .mp-side-group:first-child { margin-top: 0; }
+  .mp-langs { display: flex; flex-wrap: wrap; gap: 0.3rem; padding-left: 0.75rem; }
+  .mp-lang {
+    font-family: inherit; font-size: 0.73rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.32rem 0.72rem; cursor: pointer;
+  }
+  .mp-lang:hover { color: #111111; border-color: #bbbbbb; }
+  .mp-lang.is-active { color: #ffffff; background: #111111; border-color: #111111; }
+
+  .mp-nav { display: flex; flex-direction: column; gap: 0.1rem; }
+  .mp-navlink {
+    display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
+    font-family: inherit; font-size: 0.82rem; line-height: 1.55; color: #555555;
+    background: none; border: none; border-left: 2px solid transparent;
+    padding: 0.6rem 0.6rem 0.6rem 0.75rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .mp-navlink:hover { color: #111111; }
+  .mp-navlink.is-active { color: #111111; font-weight: 500; border-left-color: #111111; background: #fafafa; }
+  .mp-num { flex-shrink: 0; font-size: 0.68rem; color: #bbbbbb; font-variant-numeric: tabular-nums; }
+  .mp-navlink.is-active .mp-num { color: #111111; }
+  .mp-navtext { display: block; }
+  .mp-when { display: block; margin-top: 0.15rem; font-size: 0.66rem; font-weight: 400; color: #aaaaaa; }
+
+  .mp-main { min-width: 0; }
+  .mp-bar {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem;
+    padding-bottom: 0.9rem; margin-bottom: 1.1rem; border-bottom: 1px solid #ededed; flex-wrap: wrap;
+  }
+  .mp-sublabel { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 0.25rem; }
+  .mp-subject { font-size: 0.95rem; font-weight: 500; color: #111111; line-height: 1.5; }
+  .mp-widths { display: flex; gap: 0.3rem; }
+  .mp-w {
+    font-family: inherit; font-size: 0.72rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.3rem 0.7rem; cursor: pointer;
+  }
+  .mp-w.is-active { color: #ffffff; background: #111111; border-color: #111111; }
+
+  /* 実物と同じ幅で見せる。メールは600px想定なので、スマホ表示は375pxに絞る。 */
+  .mp-stage { background: #f4f4f4; border-radius: 6px; padding: 1rem; display: flex; justify-content: center; }
+  .mp-stage iframe { width: 100%; max-width: 375px; height: 1400px; border: 0; background: #f4f4f4; }
+  .mp-stage[data-w="desktop"] iframe { max-width: 100%; height: 1700px; }
+
+  .mp-status { margin-top: 1rem; font-size: 0.78rem; color: #888888; }
+  .mp-foot { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f2f2f2; }
+
+  @media (max-width: 860px) {
+    .mp-layout { grid-template-columns: 1fr; gap: 1.75rem; }
+    .mp-side { position: static; border-bottom: 1px solid #ededed; padding-bottom: 1.25rem; }
+  }
+</style>
