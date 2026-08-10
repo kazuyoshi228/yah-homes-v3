@@ -90,6 +90,7 @@ const VARS = [
               <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
               <p class="tp-side-group">メール文面</p>
               <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
+              <p class="tp-side-hint">文面はここが正です。保存すると次の送信から反映されます。</p>
             </nav>
           </aside>
 
@@ -180,6 +181,7 @@ const VARS = [
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
+    let ME = "";
     const $ = (id) => document.getElementById(id);
     const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmt = (ms) => (ms ? new Date(ms).toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -195,7 +197,11 @@ const VARS = [
       return res.json();
     }
 
-    const KIND_SHORT = { "予約確定（OTA）": "確定", "チェックイン案内": "入室", チェックアウト: "退室", レビュー依頼: "感想" };
+    let DATA = null;   // API のレスポンス
+    let LANG = localStorage.getItem("yh-tpl-lang") || "ja";
+
+    const LANG_LABEL = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
+    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4" };
 
     function show(key) {
       document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
@@ -203,88 +209,132 @@ const VARS = [
         el.classList.toggle("is-active", el.dataset.nav === key);
         el.setAttribute("aria-current", el.dataset.nav === key ? "true" : "false");
       });
-      document.querySelectorAll(`[data-panel="${key}"] .tp-body`).forEach((ta) => {
+      document.querySelectorAll(`[data-panel="${key}"] textarea`).forEach((ta) => {
         ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`;
       });
       if (location.hash.slice(1) !== key) history.replaceState(null, "", `#${key}`);
       document.querySelector(".tp-main").scrollIntoView({ block: "start", behavior: "instant" });
     }
 
-    function render(items) {
-      $("tp-side-mails").innerHTML = items.map((t, i) => `
-        <button type="button" class="tp-navlink tp-navmail" data-nav="${esc(t.id)}">
-          <span class="tp-navnum">${i + 1}</span>
-          <span class="tp-navtext">
-            ${esc(t.title)}
-            <span class="tp-navtags">${esc(KIND_SHORT[t.kind] ?? t.kind)}${t.lang ? ` / ${esc(t.lang.toUpperCase())}` : ""}</span>
-          </span>
-        </button>`).join("");
+    /** 1通ぶんの編集パネル。既定値は placeholder に出し、入力が空＝既定のまま。 */
+    function panelFor(kind) {
+      const def = DATA.kinds.find((k) => k.kind === kind);
+      const it = DATA.items.find((x) => x.kind === kind && x.lang === LANG);
+      const changed = def.fields.filter((f) => it.strings[f.key]).length;
+      return `
+        <section class="tp-panel" data-panel="${kind}" hidden>
+          <h2 class="tp-h2">${esc(def.label)}</h2>
+          <p class="tp-desc">
+            入力欄が空のときは、下に薄く表示されている既定の文言が送られます。
+            書き換えると<strong>次の送信から反映</strong>されます。
+          </p>
 
-      $("tp-list").innerHTML = items.map((t) => `
-        <section class="tp-panel" data-panel="${esc(t.id)}" hidden>
-          <header class="tp-head">
-            <div>
-              <h2 class="tp-h2">${esc(t.title)}</h2>
-              <p class="tp-meta">
-                <span class="tp-tag">${esc(t.kind)}</span>
-                ${t.lang ? `<span class="tp-tag tp-lang">${esc(t.lang.toUpperCase())}</span>` : ""}
-                <span class="tp-upd">最終更新 ${fmt(t.updatedAt)}${t.updatedBy ? ` / ${esc(t.updatedBy)}` : ""}</span>
-              </p>
-            </div>
-            <span class="tp-len" data-len="${esc(t.id)}">${t.body.length} 文字</span>
-          </header>
-          ${t.note ? `<p class="tp-alert">${esc(t.note)}</p>` : ""}
-          <label class="tp-field">
-            <span>件名</span>
-            <input type="text" class="tp-subject" data-subject="${esc(t.id)}" value="${esc(t.subject ?? "")}" />
-          </label>
-          <label class="tp-field">
-            <span>本文</span>
-            <textarea class="tp-body" data-body="${esc(t.id)}" rows="3" spellcheck="false">${esc(t.body)}</textarea>
-          </label>
-          <div class="tp-actions">
-            <button type="button" class="tp-btn tp-save" data-save="${esc(t.id)}">保存する</button>
-            <button type="button" class="tp-btn-sub" data-copy="${esc(t.id)}">本文をコピー</button>
-            <span class="tp-saved" data-saved="${esc(t.id)}"></span>
+          <div class="tp-tabs">
+            ${DATA.langs.map((l) => `
+              <button type="button" class="tp-tab${l === LANG ? " is-active" : ""}" data-tab="${l}">
+                ${esc(LANG_LABEL[l] ?? l)}${DATA.items.find((x) => x.kind === kind && x.lang === l).updatedAt ? '<span class="tp-dot"></span>' : ""}
+              </button>`).join("")}
           </div>
-        </section>`).join("");
 
-      document.querySelectorAll("[data-nav]").forEach((btn) =>
-        btn.addEventListener("click", () => show(btn.dataset.nav))
-      );
+          <p class="tp-meta">
+            <span class="tp-tag">${esc(LANG_LABEL[LANG] ?? LANG)}</span>
+            ${changed ? `<span class="tp-tag tp-tag-on">既定から変更 ${changed} 件</span>` : `<span class="tp-upd">すべて既定のまま</span>`}
+            <span class="tp-upd">${it.updatedAt ? `最終更新 ${fmt(it.updatedAt)}${it.updatedBy ? ` / ${esc(it.updatedBy)}` : ""}` : ""}</span>
+          </p>
 
-      // 本文は中身の高さぶんだけ伸ばす。枠内スクロールだと全文を一望できず、
-      // 編集中に前後の文脈を見失うため。
-      const grow = (ta) => { ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`; };
-      document.querySelectorAll("[data-body]").forEach((ta) => {
-        ta.addEventListener("input", () => {
-          grow(ta);
-          const el = document.querySelector(`[data-len="${ta.dataset.body}"]`);
-          if (el) el.textContent = `${ta.value.length} 文字`;
-        });
+          ${def.fields.map((f) => {
+            const cur = it.strings[f.key] || "";
+            const dv = it.defaults[f.key] || "";
+            const on = !!cur;
+            return `
+            <div class="tp-field2${on ? " is-on" : ""}" data-field="${esc(f.key)}">
+              <label class="tp-flabel" for="f-${esc(kind)}-${esc(f.key)}">
+                ${esc(f.label)}
+                ${on ? '<span class="tp-badge">変更あり</span>' : ""}
+              </label>
+              ${f.multiline
+                ? `<textarea id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" rows="2" spellcheck="false">${esc(cur)}</textarea>`
+                : `<input id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" type="text" value="${esc(cur)}" />`}
+              <p class="tp-default">既定：${esc(dv) || "（なし）"}</p>
+              ${on ? `<button type="button" class="tp-reset" data-reset="${esc(f.key)}">既定に戻す</button>` : ""}
+            </div>`;
+          }).join("")}
+
+          <div class="tp-actions">
+            <button type="button" class="tp-btn" data-save="${esc(kind)}">保存する</button>
+            <button type="button" class="tp-btn-sub" data-test="${esc(kind)}">自分宛にテスト送信</button>
+            <span class="tp-saved" data-saved="${esc(kind)}"></span>
+          </div>
+        </section>`;
+    }
+
+    function render() {
+      $("tp-side-mails").innerHTML = DATA.kinds.map((k) => {
+        const n = DATA.items.filter((x) => x.kind === k.kind && Object.values(x.strings).some(Boolean)).length;
+        return `
+        <button type="button" class="tp-navlink tp-navmail" data-nav="${esc(k.kind)}">
+          <span class="tp-navnum">${KIND_NUM[k.kind]}</span>
+          <span class="tp-navtext">${esc(k.label)}
+            <span class="tp-navtags">5言語${n ? ` / ${n}言語で変更あり` : ""}</span>
+          </span>
+        </button>`;
+      }).join("");
+
+      $("tp-list").innerHTML = DATA.kinds.map((k) => panelFor(k.kind)).join("");
+
+      document.querySelectorAll("[data-nav]").forEach((b) =>
+        b.addEventListener("click", () => show(b.dataset.nav)));
+
+      document.querySelectorAll("[data-tab]").forEach((b) =>
+        b.addEventListener("click", () => {
+          LANG = b.dataset.tab;
+          localStorage.setItem("yh-tpl-lang", LANG);
+          const open = location.hash.slice(1);
+          render(); show(open);
+        }));
+
+      document.querySelectorAll("textarea[data-in]").forEach((ta) => {
+        const grow = () => { ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`; };
+        ta.addEventListener("input", grow); grow();
       });
 
-      document.querySelectorAll("[data-save]").forEach((btn) =>
-        btn.addEventListener("click", async () => {
-          const id = btn.dataset.save;
-          const body = document.querySelector(`[data-body="${id}"]`).value;
-          const subject = document.querySelector(`[data-subject="${id}"]`).value;
-          btn.disabled = true;
-          const r = await api("POST", { id, body, subject });
-          document.querySelector(`[data-saved="${id}"]`).textContent = r.ok ? "保存しました" : `保存に失敗しました（${r.error ?? ""}）`;
-          btn.disabled = false;
-          if (r.ok) load(id);
-        })
-      );
+      document.querySelectorAll("[data-reset]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const el = b.closest(".tp-field2").querySelector("[data-in]");
+          el.value = ""; el.dispatchEvent(new Event("input"));
+          b.closest(".tp-field2").classList.remove("is-on");
+          b.remove();
+        }));
 
-      document.querySelectorAll("[data-copy]").forEach((btn) =>
-        btn.addEventListener("click", async () => {
-          const body = document.querySelector(`[data-body="${btn.dataset.copy}"]`).value;
-          try { await navigator.clipboard.writeText(body); btn.textContent = "コピーしました"; }
-          catch { btn.textContent = "コピーできませんでした"; }
-          setTimeout(() => { btn.textContent = "本文をコピー"; }, 2000);
-        })
-      );
+      document.querySelectorAll("[data-save]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const kind = b.dataset.save;
+          const strings = {};
+          document.querySelectorAll(`[data-panel="${kind}"] [data-in]`).forEach((el) => {
+            strings[el.dataset.in] = el.value;
+          });
+          const out = document.querySelector(`[data-saved="${kind}"]`);
+          b.disabled = true; out.textContent = "保存中...";
+          const r = await api("POST", { kind, lang: LANG, strings });
+          b.disabled = false;
+          out.textContent = r.ok ? "保存しました。次の送信から反映されます。"
+            : r.error === "unknown_vars" ? `使えない差し込み記号があります: ${(r.vars || []).join(", ")}`
+            : `保存に失敗しました（${r.error ?? ""}）`;
+          if (r.ok) load(kind);
+        }));
+
+      document.querySelectorAll("[data-test]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const kind = b.dataset.test;
+          const out = document.querySelector(`[data-saved="${kind}"]`);
+          const to = prompt("テスト送信の宛先メールアドレス", ME || "");
+          if (!to) return;
+          b.disabled = true; out.textContent = "送信中...";
+          const r = await api("POST", { kind, lang: LANG, testTo: to });
+          b.disabled = false;
+          out.textContent = r.ok ? `${to} へ送信しました。保存済みの文面で届きます。`
+            : `送信に失敗しました（${r.error ?? ""}）`;
+        }));
     }
 
     async function load(keep) {
@@ -292,10 +342,10 @@ const VARS = [
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
-        const items = j.items || [];
-        render(items);
+        DATA = j;
+        render();
         const hash = location.hash.slice(1);
-        const valid = ["timing", "vars", "values", ...items.map((t) => t.id)];
+        const valid = ["timing", "vars", "values", ...j.kinds.map((k) => k.kind)];
         show(valid.includes(keep) ? keep : valid.includes(hash) ? hash : "timing");
         $("tp-status").textContent = "";
       } catch (e) {
@@ -312,6 +362,7 @@ const VARS = [
     onAuthStateChanged(auth, (user) => {
       $("tp-login").hidden = !!user;
       $("tp-app").hidden = !user;
+      ME = user?.email ?? "";
       if (user) load();
     });
   });
@@ -385,17 +436,50 @@ const VARS = [
   }
   .tp-vars-table td { padding: 0.35rem 0; font-size: 0.76rem; color: #777777; }
 
-    #tp-list :global(.tp-head) { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
-    #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+    .tp-side-hint { margin-top: 1rem; padding-left: 0.75rem; font-size: 0.68rem; color: #aaaaaa; line-height: 1.7; }
+
+  #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
   #tp-list :global(.tp-tag) {
     font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
   }
+  #tp-list :global(.tp-tag-on) { background: #111111; color: #ffffff; }
   #tp-list :global(.tp-upd) { font-size: 0.7rem; color: #aaaaaa; }
-  #tp-list :global(.tp-len) { flex-shrink: 0; font-size: 0.7rem; color: #aaaaaa; font-variant-numeric: tabular-nums; }
-  #tp-list :global(.tp-alert) {
-    font-size: 0.76rem; color: #555555; line-height: 1.8; background: #fafafa;
-    border-left: 2px solid #d7d7d7; padding: 0.6rem 0.9rem; margin-bottom: 0.9rem; word-break: break-all;
+
+  /* 言語タブ。変更のある言語には点を出す */
+  #tp-list :global(.tp-tabs) { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 1.1rem; }
+  #tp-list :global(.tp-tab) {
+    font-family: inherit; font-size: 0.76rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.35rem;
   }
+  #tp-list :global(.tp-tab:hover) { color: #111111; border-color: #bbbbbb; }
+  #tp-list :global(.tp-tab.is-active) { color: #ffffff; background: #111111; border-color: #111111; }
+  #tp-list :global(.tp-dot) { width: 5px; height: 5px; border-radius: 50%; background: #b42318; }
+  #tp-list :global(.tp-tab.is-active .tp-dot) { background: #ffffff; }
+
+  /* 1キーぶんの入力。既定値を下に薄く出し、空欄＝既定のままだと分かるようにする */
+  #tp-list :global(.tp-field2) { padding: 1rem 0; border-bottom: 1px solid #f2f2f2; }
+  #tp-list :global(.tp-field2.is-on) { border-left: 2px solid #111111; padding-left: 0.9rem; }
+  #tp-list :global(.tp-flabel) {
+    display: flex; align-items: center; gap: 0.5rem; font-size: 0.76rem; color: #555555; margin-bottom: 0.4rem;
+  }
+  #tp-list :global(.tp-badge) {
+    font-size: 0.62rem; color: #ffffff; background: #111111; border-radius: 999px; padding: 0.1rem 0.45rem;
+  }
+  #tp-list :global(.tp-field2 input), #tp-list :global(.tp-field2 textarea) {
+    width: 100%; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.85rem; line-height: 1.8;
+    color: #111111; border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+    overflow-y: hidden; resize: none;
+  }
+  #tp-list :global(.tp-default) {
+    margin-top: 0.4rem; font-size: 0.72rem; color: #aaaaaa; line-height: 1.7; word-break: break-word;
+  }
+  #tp-list :global(.tp-reset) {
+    margin-top: 0.5rem; font-family: inherit; font-size: 0.7rem; color: #666666;
+    background: none; border: 1px solid #d7d7d7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer;
+  }
+  #tp-list :global(.tp-reset:hover) { border-color: #111111; color: #111111; }
+
   .tp-scroll { overflow-x: auto; margin-bottom: 0.9rem; }
   .tp-grid { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .tp-grid th, .tp-grid td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid #ededed; vertical-align: top; }

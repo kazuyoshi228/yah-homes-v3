@@ -897,13 +897,55 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
   },
 };
 
+
+// ─── 定型メールのSSoT（/admin/templates が送信文言を支配する） ───
+// 設計は docs/spec_mail_templates_ssot_202608.md。
+// テンプレートが持つのは「文言キーの上書き辞書」だけ。HTMLの骨格・表・ボタンの配置は
+// コードが持ち続ける。編集でレイアウトが壊れないこと、テンプレートが欠けても
+// 必ず送れることの2点を、この形で担保する。
+export type MailKind = "confirm" | "checkin" | "checkout" | "review";
+
+/** その通・その言語のコード既定（＝テンプレート未設定時に出る文言） */
+export function mailDefaults(kind: MailKind, lang: string): Record<string, string> {
+  const src = kind === "confirm" ? MAIL_L10N : LIFECYCLE_L10N;
+  return { ...(src[lang] ?? src.en) };
+}
+
+/** コード既定にテンプレートを重ねる。読めない・空なら既定のまま送る。 */
+async function mailStrings(kind: MailKind, lang: string): Promise<Record<string, string>> {
+  const base = mailDefaults(kind, lang);
+  try {
+    const snap = await db.collection("mail_templates").doc(`${kind}_${lang}`).get();
+    const over = (snap.data()?.strings ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(over)) {
+      if (typeof v === "string" && v.trim() !== "") base[k] = v;
+    }
+  } catch (err) {
+    // Firestoreの一時障害でメールを止めない
+    logger.warn("mailStrings fallback to defaults", { kind, lang, err: String(err).slice(0, 120) });
+  }
+  return base;
+}
+
+/** {{var}} を展開する。未知の記号は空にしてお客様に見せない（警告は残す）。 */
+function expandMailVars(L: Record<string, string>, vars: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(L)) {
+    out[k] = v.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, name: string) => {
+      if (Object.prototype.hasOwnProperty.call(vars, name)) return vars[name];
+      logger.warn("mail template unknown variable", { key: k, name });
+      return "";
+    });
+  }
+  return out;
+}
+
 async function sendLifecycleMail(
   kind: "reminder" | "review" | "checkout",
   bookingId: string,
   b: BookingDoc & Record<string, unknown>,
 ): Promise<void> {
   const lang = String(b.lang ?? "en");
-  const L = LIFECYCLE_L10N[lang] ?? LIFECYCLE_L10N.en;
   const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
   const no = bookingId.slice(0, 8).toUpperCase();
@@ -915,6 +957,17 @@ async function sendLifecycleMail(
     const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
     ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
   } catch { /* 既定値 */ }
+
+  // 内部の kind 名（reminder）と、画面・テンプレートの通名（checkin）を対応させる
+  const tplKind: MailKind = kind === "reminder" ? "checkin" : kind;
+  const L = expandMailVars(await mailStrings(tplKind, lang), {
+    guestName: String(b.name ?? ""), bookingNo: no,
+    propertyName: P.name, guests: String(b.guests ?? ""), nights: String(nights),
+    checkin: String(b.checkin), checkout: String(b.checkout),
+    checkinTime: ci, checkoutTime: co,
+    mapUrl: P.map ?? "", manualUrl: P.manual ?? "", phone: OPERATOR_PHONE,
+    myPageUrl: myPage, bookUrl: bookPath,
+  });
 
   const html = kind === "checkout"
     ? mailHtml({
@@ -1030,8 +1083,75 @@ export const guestLifecycleMailer = onSchedule(
 // ─── 定型メール／メッセージのSSoT（/admin/templates） ───
 // 運営会社がBeds24・OTAで送っている定型文を1箇所に集約する。
 // 閲覧・編集は管理者台帳のメンバー。差し込み記号は {{...}} で統一する。
+/** 画面に並べるキーの定義。ラベルは編集者向けの日本語。ここに無いキーは編集させない
+    （文言でないもの＝日付書式や単位のプレースホルダを触らせないため）。 */
+const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: boolean }[]> = {
+  confirm: [
+    { key: "subject", label: "件名" },
+    { key: "lead", label: "書き出し", multiline: true },
+    { key: "registerTitle", label: "宿泊者名簿・見出し" },
+    { key: "registerLead", label: "宿泊者名簿・主文" },
+    { key: "registerDue", label: "宿泊者名簿・期限の言い方（{d}に日付が入る）" },
+    { key: "registerBtn", label: "宿泊者名簿・ボタンの文字" },
+    { key: "registerBody", label: "宿泊者名簿・説明", multiline: true },
+    { key: "registerWarn", label: "宿泊者名簿・未登録時の注意", multiline: true },
+    { key: "cancelNote", label: "キャンセル料・注記", multiline: true },
+    { key: "changeNote", label: "日程変更について", multiline: true },
+    { key: "payNote", label: "お支払い・注記", multiline: true },
+    { key: "cta", label: "主ボタンの文字" },
+    { key: "cta2", label: "副ボタンの文字" },
+    { key: "ctaNote", label: "ボタン下の注記", multiline: true },
+    { key: "entryTitle", label: "入室について・見出し" },
+    { key: "entryBody", label: "入室について・本文", multiline: true },
+    { key: "safetyTitle", label: "お願い・見出し" },
+    { key: "safetyBody", label: "お願い・本文", multiline: true },
+    { key: "contactBody", label: "問い合わせ・本文", multiline: true },
+    { key: "footer", label: "フッター" },
+  ],
+  checkin: [
+    { key: "remSubject", label: "件名" },
+    { key: "remHeading", label: "見出し" },
+    { key: "remLead", label: "書き出し", multiline: true },
+    { key: "remEntry", label: "入室について・見出し" },
+    { key: "remEntryBody", label: "入室について・本文", multiline: true },
+    { key: "remArrivalNote", label: "到着時刻の注記", multiline: true },
+    { key: "remPlace", label: "場所・見出し" },
+    { key: "remCta", label: "ボタンの文字" },
+  ],
+  checkout: [
+    { key: "coSubject", label: "件名（{co}に時刻が入る）" },
+    { key: "coHeading", label: "見出し" },
+    { key: "coLead", label: "書き出し", multiline: true },
+    { key: "coTitle", label: "お帰りの前に・見出し" },
+    { key: "coBody", label: "お帰りの前に・本文（改行は <br>）", multiline: true },
+    { key: "coNoteTitle", label: "掃除について・見出し" },
+    { key: "coNote", label: "掃除について・本文", multiline: true },
+    { key: "coBye", label: "結び" },
+  ],
+  review: [
+    { key: "revSubject", label: "件名" },
+    { key: "revHeading", label: "見出し" },
+    { key: "revLead", label: "書き出し", multiline: true },
+    { key: "revNote", label: "補足", multiline: true },
+    { key: "revCta", label: "ボタンの文字" },
+  ],
+};
+const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review"];
+const MAIL_KIND_LABEL: Record<MailKind, string> = {
+  confirm: "予約確定メッセージ", checkin: "チェックイン案内",
+  checkout: "チェックアウト当日の案内", review: "レビューのお願い",
+};
+const MAIL_LANGS = ["ja", "en", "ko", "zh", "th"];
+/** 本文で使える差し込み記号。保存時にこれ以外を弾く。 */
+const MAIL_VARS = [
+  "guestName", "bookingNo", "propertyName", "guests", "nights",
+  "checkin", "checkout", "checkinTime", "checkoutTime",
+  "registerUrl", "registerDeadline", "manualUrl", "mapUrl", "phone", "myPageUrl", "bookUrl",
+];
+
 export const adminTemplates = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+    secrets: [SMTP_USER, SMTP_PASS] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -1040,6 +1160,7 @@ export const adminTemplates = onRequest(
       res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
     }
+    res.set("Cache-Control", "no-store");
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
@@ -1047,35 +1168,77 @@ export const adminTemplates = onRequest(
 
     try {
       if (req.method === "GET") {
-        const snap = await db.collection("mail_templates").orderBy("order").get();
+        const snap = await db.collection("mail_templates").get();
+        const saved = new Map(snap.docs.map((d) => [d.id, d.data()]));
         res.status(200).json({
           ok: true,
-          items: snap.docs.map((d) => {
-            const v = d.data();
-            return {
-              id: d.id, title: v.title ?? d.id, prop: v.prop ?? "", kind: v.kind ?? "",
-              lang: v.lang ?? "", subject: v.subject ?? "",
-              body: v.body ?? "", note: v.note ?? "", order: v.order ?? 999,
-              updatedAt: v.updatedAt?.toMillis?.() ?? null, updatedBy: v.updatedBy ?? null,
-            };
-          }),
+          vars: MAIL_VARS,
+          kinds: MAIL_KINDS.map((k) => ({ kind: k, label: MAIL_KIND_LABEL[k], fields: MAIL_FIELDS[k] })),
+          langs: MAIL_LANGS,
+          items: MAIL_KINDS.flatMap((kind) =>
+            MAIL_LANGS.map((lang) => {
+              const v = saved.get(`${kind}_${lang}`) ?? {};
+              const over = (v.strings ?? {}) as Record<string, string>;
+              const def = mailDefaults(kind, lang);
+              return {
+                id: `${kind}_${lang}`, kind, lang,
+                // 既定と上書きを両方返す。画面で「どこを変えたか」を出すため。
+                defaults: Object.fromEntries(MAIL_FIELDS[kind].map((f) => [f.key, def[f.key] ?? ""])),
+                strings: Object.fromEntries(
+                  MAIL_FIELDS[kind].map((f) => [f.key, typeof over[f.key] === "string" ? over[f.key] : ""]),
+                ),
+                updatedAt: v.updatedAt?.toMillis?.() ?? null, updatedBy: v.updatedBy ?? null,
+              };
+            }),
+          ),
         });
         return;
       }
 
       if (req.method === "POST") {
-        const { id, body, note, subject } = (req.body ?? {}) as Record<string, unknown>;
-        const idStr = typeof id === "string" ? id : "";
-        if (!idStr || typeof body !== "string") { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
-        if (body.length > 20000) { res.status(400).json({ ok: false, error: "too_long" }); return; }
-        await db.collection("mail_templates").doc(idStr).set({
-          body,
-          ...(typeof subject === "string" ? { subject: subject.slice(0, 300) } : {}),
-          ...(typeof note === "string" ? { note: note.slice(0, 500) } : {}),
+        const { kind, lang, strings, testTo } = (req.body ?? {}) as Record<string, unknown>;
+        const k = String(kind ?? "") as MailKind;
+        const l = String(lang ?? "");
+        if (!MAIL_KINDS.includes(k) || !MAIL_LANGS.includes(l)) {
+          res.status(400).json({ ok: false, error: "invalid_target" }); return;
+        }
+
+        // テスト送信: ダミーの予約で実物を1通送る
+        if (typeof testTo === "string" && testTo) {
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(testTo)) {
+            res.status(400).json({ ok: false, error: "invalid_email" }); return;
+          }
+          await sendTestMail(k, l, testTo);
+          res.status(200).json({ ok: true, sent: testTo });
+          return;
+        }
+
+        if (typeof strings !== "object" || strings === null) {
+          res.status(400).json({ ok: false, error: "invalid_input" }); return;
+        }
+        const allowed = new Set(MAIL_FIELDS[k].map((f) => f.key));
+        const clean: Record<string, string> = {};
+        const unknownVars = new Set<string>();
+        for (const [key, val] of Object.entries(strings as Record<string, unknown>)) {
+          if (!allowed.has(key) || typeof val !== "string") continue;
+          if (val.length > 4000) { res.status(400).json({ ok: false, error: "too_long" }); return; }
+          for (const m of val.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) {
+            if (!MAIL_VARS.includes(m[1])) unknownVars.add(m[1]);
+          }
+          // 空文字＝「既定に戻す」。キーごと持たせない。
+          if (val.trim() !== "") clean[key] = val;
+        }
+        if (unknownVars.size) {
+          res.status(400).json({ ok: false, error: "unknown_vars", vars: [...unknownVars] }); return;
+        }
+
+        await db.collection("mail_templates").doc(`${k}_${l}`).set({
+          kind: k, lang: l, strings: clean,
           updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
-        }, { merge: true });
+        }, { merge: false });
         await db.collection("audit_logs").add({
-          actor: email, action: "mail_template_update", target: idStr, at: FieldValue.serverTimestamp(),
+          actor: email, action: "mail_template_update", target: `${k}_${l}`,
+          changed: Object.keys(clean).length, at: FieldValue.serverTimestamp(),
         });
         res.status(200).json({ ok: true });
         return;
@@ -1088,6 +1251,25 @@ export const adminTemplates = onRequest(
     }
   }
 );
+
+/** テスト送信。ダミーの予約データで実際の送信経路をそのまま通す。 */
+async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<void> {
+  const d = (n: number) => new Date(Date.now() + n * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const dummy = {
+    name: lang === "ja" ? "山田 太郎" : "Taro Yamada",
+    email: to, lang, prop: "kiyokawa",
+    checkin: d(7), checkout: d(9), guests: 4, total: 62000,
+    arrival: "", status: "CONFIRMED",
+    freeCancelUntilAt: new Date(Date.now() - 86400000).toISOString(),
+  } as unknown as BookingDoc & Record<string, unknown>;
+
+  if (kind === "confirm") {
+    await sendConfirmationMail("TESTTEST-0000", dummy);
+    return;
+  }
+  await sendLifecycleMail(kind === "checkin" ? "reminder" : kind, "TESTTEST-0000", dummy);
+}
+
 
 
 
@@ -2072,6 +2254,9 @@ function mailHtml(o: {
 }
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
+/** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
+const OPERATOR_PHONE = "050-1721-4419";
+
 const MAIL_PROP = {
   kiyokawa: {
     name: "yah.homes kiyokawa",
@@ -2079,6 +2264,7 @@ const MAIL_PROP = {
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
     register: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", // 宿泊者名簿フォーム（旅館業法）
+    manual: "https://yah.homes/how-to/kiyokawa/", // 入室案内ページ
   },
   takasago: {
     name: "yah.homes takasago",
@@ -2086,6 +2272,7 @@ const MAIL_PROP = {
     address: "",
     map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778",
     register: "https://zfrmz.jp/sZQlLvoM43I0Od6UZPzF", // 宿泊者名簿フォーム（旅館業法）
+    manual: "https://yah.homes/how-to/takasago/", // 入室案内ページ
   },
   test: {
     name: "yah.homes test1（検証用）",
@@ -2093,7 +2280,7 @@ const MAIL_PROP = {
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
   },
-} as Record<string, { name: string; image: string; address: string; map: string }>;
+} as Record<string, { name: string; image: string; address: string; map: string; register?: string; manual?: string }>;
 
 const MAIL_L10N: Record<string, Record<string, string>> = {
   ja: {
@@ -2235,11 +2422,11 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
 
 function buildConfirmationMail(
   lang: string,
+  strings: Record<string, string>,
   d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string },
 ): { subject: string; text: string; html: string } {
-  const L = MAIL_L10N[lang] ?? MAIL_L10N.en;
-  const P: { name: string; image: string; address: string; map: string; register?: string } =
-    MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
+  const L = strings;
+  const P = MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
   const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
   const no = d.id.slice(0, 8).toUpperCase();
   const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
@@ -2413,7 +2600,18 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
     const LOC: Record<string, string> = { ja: "ja-JP", en: "en-US", ko: "ko-KR", zh: "zh-TW", th: "th-TH" };
     const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
       .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
-    const { subject, text, html } = buildConfirmationMail(lang, {
+    const P0 = MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" };
+    const strings = expandMailVars(await mailStrings("confirm", lang), {
+      guestName: String(b.name ?? ""), bookingNo: bookingId.slice(0, 8).toUpperCase(),
+      propertyName: P0.name, guests: String(b.guests ?? ""),
+      nights: String(Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000)),
+      checkin: String(b.checkin), checkout: String(b.checkout),
+      checkinTime: ci, checkoutTime: co, registerDeadline,
+      registerUrl: P0.register ?? "", mapUrl: P0.map ?? "", manualUrl: P0.manual ?? "",
+      phone: OPERATOR_PHONE,
+      myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+    });
+    const { subject, text, html } = buildConfirmationMail(lang, strings, {
       checkinTime: ci, checkoutTime: co, registerDeadline,
       id: bookingId,
       name: String(b.name ?? ""),
