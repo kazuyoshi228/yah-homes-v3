@@ -195,7 +195,7 @@ const VARS = [
       return res.json();
     }
 
-    const KIND_SHORT = { "予約確定（OTA）": "確定", "チェックイン案内": "入室", チェックアウト: "退室", "名簿依頼（直販）": "名簿" };
+    const KIND_SHORT = { "予約確定（OTA）": "確定", "チェックイン案内": "入室", チェックアウト: "退室", レビュー依頼: "感想" };
 
     function show(key) {
       document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
