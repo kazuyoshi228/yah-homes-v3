@@ -90,7 +90,6 @@ const VARS = [
               <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
               <p class="tp-side-group">メール文面</p>
               <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
-              <p class="tp-side-hint">文面はここが正です。保存すると次の送信から反映されます。</p>
             </nav>
           </aside>
 
@@ -224,11 +223,6 @@ const VARS = [
       return `
         <section class="tp-panel" data-panel="${kind}" hidden>
           <h2 class="tp-h2">${esc(def.label)}</h2>
-          <p class="tp-desc">
-            枠の中が、いまお客様に送られている文言です。書き換えて保存すると
-            <strong>次の送信から反映</strong>されます。言語ごとに別々に持ちます。
-          </p>
-
           <div class="tp-tabs">
             ${DATA.langs.map((l) => `
               <button type="button" class="tp-tab${l === LANG ? " is-active" : ""}" data-tab="${l}">
@@ -236,11 +230,10 @@ const VARS = [
               </button>`).join("")}
           </div>
 
-          <p class="tp-meta">
-            <span class="tp-tag">${esc(LANG_LABEL[LANG] ?? LANG)}</span>
-            ${changed ? `<span class="tp-tag tp-tag-on">既定から変更 ${changed} 件</span>` : `<span class="tp-upd">すべて既定のまま</span>`}
+          ${changed || it.updatedAt ? `<p class="tp-meta">
+            ${changed ? `<span class="tp-tag tp-tag-on">変更 ${changed} 件</span>` : ""}
             <span class="tp-upd">${it.updatedAt ? `最終更新 ${fmt(it.updatedAt)}${it.updatedBy ? ` / ${esc(it.updatedBy)}` : ""}` : ""}</span>
-          </p>
+          </p>` : ""}
 
           ${def.fields.map((f) => {
             const dv = it.defaults[f.key] || "";
@@ -439,9 +432,7 @@ const VARS = [
   }
   .tp-vars-table td { padding: 0.35rem 0; font-size: 0.76rem; color: #777777; }
 
-    .tp-side-hint { margin-top: 1rem; padding-left: 0.75rem; font-size: 0.68rem; color: #aaaaaa; line-height: 1.7; }
-
-  #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+    #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
   #tp-list :global(.tp-tag) {
     font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
   }
