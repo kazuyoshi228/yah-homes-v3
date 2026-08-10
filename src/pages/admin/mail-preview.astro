@@ -81,12 +81,12 @@ const KINDS = [
                 <p class="mp-subject" id="mp-subject">—</p>
               </div>
               <div class="mp-widths">
-                <button type="button" class="mp-w is-active" data-w="mobile">スマホ</button>
-                <button type="button" class="mp-w" data-w="desktop">パソコン</button>
+                <button type="button" class="mp-w" data-w="mobile">スマホ</button>
+                <button type="button" class="mp-w is-active" data-w="desktop">パソコン</button>
               </div>
             </div>
-            <div class="mp-stage" id="mp-stage" data-w="mobile">
-              <iframe id="mp-frame" title="メールのプレビュー" sandbox=""></iframe>
+            <div class="mp-stage" id="mp-stage" data-w="desktop">
+              <iframe id="mp-frame" title="メールのプレビュー" sandbox="allow-same-origin"></iframe>
             </div>
             <p class="mp-status" id="mp-status" role="status"></p>
             <p class="mp-note mp-foot">
@@ -115,6 +115,16 @@ const KINDS = [
       document.querySelectorAll("[data-kind]").forEach((b) => b.classList.toggle("is-active", b.dataset.kind === kind));
     }
 
+    /** メール本文の高さぶんだけ iframe を伸ばす。固定高だと下が切れるか余白が出る。 */
+    function fit() {
+      const fr = $("mp-frame");
+      try {
+        const d = fr.contentDocument;
+        if (!d?.body) return;
+        fr.style.height = `${Math.max(d.body.scrollHeight, d.documentElement.scrollHeight) + 8}px`;
+      } catch { fr.style.height = "1600px"; }
+    }
+
     async function load() {
       mark();
       $("mp-status").textContent = "読み込み中...";
@@ -127,8 +137,11 @@ const KINDS = [
         const j = await res.json();
         if (!j.ok) throw new Error(j.error || "load");
         $("mp-subject").textContent = j.subject;
-        // sandbox="" のまま srcdoc に流し込む（スクリプト無効・同一オリジン扱いにしない）
-        $("mp-frame").srcdoc = j.html;
+        // sandbox に allow-scripts を付けないので、メール内のJSは実行されない。
+        // allow-same-origin は本文の高さを測るためだけに許可している。
+        const fr = $("mp-frame");
+        fr.srcdoc = j.html;
+        fr.onload = fit;
         $("mp-status").textContent = "";
         if (location.hash.slice(1) !== kind) history.replaceState(null, "", `#${kind}`);
       } catch (e) {
@@ -146,6 +159,7 @@ const KINDS = [
         if (!b.classList.contains("mp-w")) return;
         $("mp-stage").dataset.w = b.dataset.w;
         document.querySelectorAll(".mp-w").forEach((x) => x.classList.toggle("is-active", x === b));
+        requestAnimationFrame(fit);
       }));
 
     $("mp-login-btn").addEventListener("click", async () => {
@@ -163,7 +177,7 @@ const KINDS = [
 
 <style>
   .mp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
-  .mp-container { max-width: 1080px; margin: 0 auto; }
+  .mp-container { max-width: 1180px; margin: 0 auto; }
   .mp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
   .mp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
   .mp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
@@ -219,10 +233,14 @@ const KINDS = [
   }
   .mp-w.is-active { color: #ffffff; background: #111111; border-color: #111111; }
 
-  /* 実物と同じ幅で見せる。メールは600px想定なので、スマホ表示は375pxに絞る。 */
-  .mp-stage { background: #f4f4f4; border-radius: 6px; padding: 1rem; display: flex; justify-content: center; }
-  .mp-stage iframe { width: 100%; max-width: 375px; height: 1400px; border: 0; background: #f4f4f4; }
-  .mp-stage[data-w="desktop"] iframe { max-width: 100%; height: 1700px; }
+  /* 実物と同じ幅で見せる。メール本体は600px設計なので、パソコン表示は 640px。
+     高さは読み込み後に本文の実寸へ合わせる（切れも余白も出さない）。 */
+  .mp-stage { background: #f4f4f4; border-radius: 6px; padding: 1rem 0; display: flex; justify-content: center; }
+  .mp-stage iframe {
+    width: 100%; max-width: 640px; min-height: 400px; border: 0; background: #f4f4f4;
+    transition: max-width 0.2s;
+  }
+  .mp-stage[data-w="mobile"] iframe { max-width: 390px; }
 
   .mp-status { margin-top: 1rem; font-size: 0.78rem; color: #888888; }
   .mp-foot { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f2f2f2; }
