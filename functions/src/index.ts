@@ -989,6 +989,7 @@ export const adminTemplates = onRequest(
             const v = d.data();
             return {
               id: d.id, title: v.title ?? d.id, prop: v.prop ?? "", kind: v.kind ?? "",
+              lang: v.lang ?? "", subject: v.subject ?? "",
               body: v.body ?? "", note: v.note ?? "", order: v.order ?? 999,
               updatedAt: v.updatedAt?.toMillis?.() ?? null, updatedBy: v.updatedBy ?? null,
             };
@@ -998,12 +999,13 @@ export const adminTemplates = onRequest(
       }
 
       if (req.method === "POST") {
-        const { id, body, note } = (req.body ?? {}) as Record<string, unknown>;
+        const { id, body, note, subject } = (req.body ?? {}) as Record<string, unknown>;
         const idStr = typeof id === "string" ? id : "";
         if (!idStr || typeof body !== "string") { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
         if (body.length > 20000) { res.status(400).json({ ok: false, error: "too_long" }); return; }
         await db.collection("mail_templates").doc(idStr).set({
           body,
+          ...(typeof subject === "string" ? { subject: subject.slice(0, 300) } : {}),
           ...(typeof note === "string" ? { note: note.slice(0, 500) } : {}),
           updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
         }, { merge: true });
@@ -1017,6 +1019,80 @@ export const adminTemplates = onRequest(
       res.status(405).json({ ok: false, error: "method_not_allowed" });
     } catch (err) {
       logger.error("adminTemplates failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+// ─── セキュリティ鍵番号の管理（/admin/secrets） ───
+// キーボックス番号は物理キーそのもの。property_facts は公開読み取りを許可しているため、
+// ここには絶対に置かず、専用コレクション property_secrets に隔離する
+// （Firestoreルールは既定deny。読み書きはこの関数＝Admin SDK 経由のみ）。
+// 閲覧・変更は管理者台帳のメンバー（運営会社を含む）。変更は必ず audit_logs に残す。
+export const adminSecrets = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    res.set("Cache-Control", "no-store");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    const PROPS = ["kiyokawa", "takasago"] as const;
+    try {
+      if (req.method === "GET") {
+        const snaps = await db.getAll(...PROPS.map((k) => db.collection("property_secrets").doc(k)));
+        res.status(200).json({
+          ok: true,
+          items: PROPS.map((k, i) => {
+            const v = snaps[i].data() ?? {};
+            return {
+              prop: k,
+              keyboxCode: v.keyboxCode ?? "",
+              note: v.note ?? "",
+              updatedAt: v.updatedAt?.toMillis?.() ?? null,
+              updatedBy: v.updatedBy ?? null,
+            };
+          }),
+        });
+        return;
+      }
+
+      if (req.method === "POST") {
+        const { prop, keyboxCode, note } = (req.body ?? {}) as Record<string, unknown>;
+        const propStr = String(prop ?? "");
+        if (!PROPS.includes(propStr as typeof PROPS[number])) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+        const code = String(keyboxCode ?? "").trim();
+        if (!/^\d{4,8}$/.test(code)) { res.status(400).json({ ok: false, error: "invalid_code" }); return; }
+
+        const ref = db.collection("property_secrets").doc(propStr);
+        const prev = (await ref.get()).data()?.keyboxCode ?? "";
+        await ref.set({
+          keyboxCode: code,
+          ...(typeof note === "string" ? { note: note.slice(0, 300) } : {}),
+          updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
+        }, { merge: true });
+
+        // 監査ログには番号そのものを残さない（桁数と変更有無のみ）
+        await db.collection("audit_logs").add({
+          actor: email, action: "keybox_code_update", target: propStr,
+          changed: prev !== code, digits: code.length, at: FieldValue.serverTimestamp(),
+        });
+        res.status(200).json({ ok: true, changed: prev !== code });
+        return;
+      }
+
+      res.status(405).json({ ok: false, error: "method_not_allowed" });
+    } catch (err) {
+      logger.error("adminSecrets failed", err);
       res.status(500).json({ ok: false, error: "internal" });
     }
   }

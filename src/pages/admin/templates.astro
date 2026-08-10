@@ -13,6 +13,30 @@ const FB_CONFIG = {
   appId: "1:18500698213:web:8b4cf08b97d916c216068c",
 };
 
+/* 送信タイミング。自動＝システムが送る／手動＝運営がBeds24・OTAから送る。
+   「前日リマインド」「レビュー依頼」は guestLifecycleMailer（毎日10:00 JST）が送信する。 */
+const TIMING = [
+  { t: "予約確定メッセージ", w: "ご予約が入った直後", trig: "予約成立（決済オーソリ確定 / OTA着信）", how: "自動", who: "全チャネル" },
+  { t: "宿泊者名簿のご登録", w: "ご予約直後 → 未登録ならチェックイン2日前", trig: "公式サイト予約の成立", how: "手動", who: "公式サイトのみ" },
+  { t: "チェックイン案内", w: "チェックイン前日 10:00 JST", trig: "翌日がチェックイン日の予約", how: "自動", who: "全チャネル" },
+  { t: "チェックアウト当日の案内", w: "チェックアウト当日の朝", trig: "当日がチェックアウト日の予約", how: "手動", who: "全チャネル" },
+  { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", how: "自動", who: "全チャネル" },
+];
+
+/* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
+const VALUES = [
+  { k: "propertyName", kiyokawa: "清川yah.", takasago: "yah homes.takasago" },
+  { k: "checkinTime", kiyokawa: "16:00", takasago: "16:00" },
+  { k: "checkoutTime", kiyokawa: "10:00", takasago: "10:00" },
+  { k: "keyboxCode", kiyokawa: "／admin/secrets/ で管理", takasago: "／admin/secrets/ で管理", secret: true },
+  { k: "manualUrl", kiyokawa: "（入室マニュアル・清川）", takasago: "（入室マニュアル・高砂）", url: true },
+  { k: "mapUrl", kiyokawa: "（Google マップ・清川）", takasago: "（Google マップ・高砂）", url: true },
+  { k: "registerUrl", kiyokawa: "（宿泊者名簿フォーム・清川）", takasago: "（宿泊者名簿フォーム・高砂）", url: true },
+  { k: "phone", kiyokawa: "運営会社 共通", takasago: "運営会社 共通" },
+  { k: "myPageUrl", kiyokawa: "https://yah.homes/account/", takasago: "同左", url: true },
+  { k: "reviewUrl", kiyokawa: "未決", takasago: "未決", todo: true },
+];
+
 /** 差し込み記号の一覧（本文に {{...}} で書く） */
 const VARS = [
   { k: "guestName", d: "予約者名" },
@@ -28,6 +52,10 @@ const VARS = [
   { k: "keyboxCode", d: "キーボックスの暗証番号" },
   { k: "mapUrl", d: "Google マップのURL" },
   { k: "phone", d: "問い合わせ電話番号" },
+  { k: "propertyName", d: "施設名（清川yah. / yah homes.takasago）" },
+  { k: "registerDeadline", d: "宿泊者名簿の期限（チェックイン2日前）" },
+  { k: "reviewUrl", d: "レビュー投稿先（未決）" },
+  { k: "myPageUrl", d: "My Page（直販のみ）" },
 ];
 ---
 
@@ -55,6 +83,30 @@ const VARS = [
       </div>
 
       <div id="tp-app" hidden>
+        <details class="tp-vars" open>
+          <summary>いつ送るか（送信タイミング）</summary>
+          <div class="tp-scroll">
+            <table class="tp-grid">
+              <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>送信</th><th>対象</th></tr></thead>
+              <tbody>
+                {TIMING.map((r) => (
+                  <tr>
+                    <td class="tp-strong">{r.t}</td>
+                    <td>{r.w}</td>
+                    <td class="tp-dim">{r.trig}</td>
+                    <td><span class:list={["tp-how", r.how === "自動" ? "tp-auto" : "tp-manual"]}>{r.how}</span></td>
+                    <td class="tp-dim">{r.who}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="tp-note">
+            <strong>自動</strong>はシステムが送ります（毎日10:00 JSTに対象を確認）。
+            <strong>手動</strong>は運営がBeds24・OTAのメッセージから送ります。
+          </p>
+        </details>
+
         <details class="tp-vars">
           <summary>差し込み記号の一覧</summary>
           <table class="tp-vars-table">
@@ -63,6 +115,29 @@ const VARS = [
             ))}
           </table>
           <p class="tp-note">本文にそのまま書くと、送信時に実際の値へ置き換わります。</p>
+        </details>
+
+        <details class="tp-vars">
+          <summary>差し込み記号に入る値（棟ごと）</summary>
+          <div class="tp-scroll">
+            <table class="tp-grid">
+              <thead><tr><th>差し込み記号</th><th>清川yah.</th><th>yah homes.takasago</th></tr></thead>
+              <tbody>
+                {VALUES.map((r) => (
+                  <tr>
+                    <td><code>{`{{${r.k}}}`}</code></td>
+                    <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.kiyokawa}</td>
+                    <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.takasago}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="tp-note">
+            URLと電話番号は、物件ファクト（<a href="/admin/properties/">/admin/properties</a>）が正です。
+            キーボックス番号だけは公開範囲が違うため、<a href="/admin/secrets/">セキュリティ鍵番号管理</a>で別に管理します。
+            <strong class="tp-todo">レビューの投稿先は未決</strong>です。決まるまで、レビュー依頼の文面では触れないでください。
+          </p>
         </details>
 
         <div id="tp-list"></div>
@@ -101,15 +176,22 @@ const VARS = [
             <div>
               <h2 class="tp-name">${esc(t.title)}</h2>
               <p class="tp-meta">
-                <span class="tp-tag">${esc(PROP[t.prop] ?? t.prop)}</span>
                 <span class="tp-tag">${esc(t.kind)}</span>
+                ${t.lang ? `<span class="tp-tag tp-lang">${esc(t.lang.toUpperCase())}</span>` : ""}
                 <span class="tp-upd">最終更新 ${fmt(t.updatedAt)}${t.updatedBy ? ` / ${esc(t.updatedBy)}` : ""}</span>
               </p>
             </div>
             <span class="tp-len" data-len="${esc(t.id)}">${t.body.length} 文字</span>
           </header>
           ${t.note ? `<p class="tp-alert">${esc(t.note)}</p>` : ""}
-          <textarea class="tp-body" data-body="${esc(t.id)}" rows="16" spellcheck="false">${esc(t.body)}</textarea>
+          <label class="tp-field">
+            <span>件名</span>
+            <input type="text" class="tp-subject" data-subject="${esc(t.id)}" value="${esc(t.subject ?? "")}" />
+          </label>
+          <label class="tp-field">
+            <span>本文</span>
+            <textarea class="tp-body" data-body="${esc(t.id)}" rows="16" spellcheck="false">${esc(t.body)}</textarea>
+          </label>
           <div class="tp-actions">
             <button type="button" class="tp-btn tp-save" data-save="${esc(t.id)}">保存する</button>
             <button type="button" class="tp-btn-sub" data-copy="${esc(t.id)}">本文をコピー</button>
@@ -128,8 +210,9 @@ const VARS = [
         btn.addEventListener("click", async () => {
           const id = btn.dataset.save;
           const body = document.querySelector(`[data-body="${id}"]`).value;
+          const subject = document.querySelector(`[data-subject="${id}"]`).value;
           btn.disabled = true;
-          const r = await api("POST", { id, body });
+          const r = await api("POST", { id, body, subject });
           document.querySelector(`[data-saved="${id}"]`).textContent = r.ok ? "保存しました" : `保存に失敗しました（${r.error ?? ""}）`;
           btn.disabled = false;
           if (r.ok) load();
@@ -214,6 +297,29 @@ const VARS = [
     font-size: 0.76rem; color: #555555; line-height: 1.8; background: #fafafa;
     border-left: 2px solid #d7d7d7; padding: 0.6rem 0.9rem; margin-bottom: 0.9rem; word-break: break-all;
   }
+  .tp-scroll { overflow-x: auto; margin-bottom: 0.9rem; }
+  .tp-grid { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .tp-grid th, .tp-grid td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid #ededed; vertical-align: top; }
+  .tp-grid thead th { font-weight: 500; color: #888888; font-size: 0.72rem; white-space: nowrap; border-bottom-color: #d7d7d7; }
+  .tp-grid tbody tr:last-child td { border-bottom: none; }
+  .tp-grid code { font-size: 0.74rem; color: #111111; white-space: nowrap; }
+  .tp-strong { font-weight: 500; color: #111111; }
+  .tp-dim { color: #888888; }
+  .tp-todo { color: #b42318; }
+  .tp-how {
+    display: inline-block; font-size: 0.68rem; padding: 0.15rem 0.5rem;
+    border-radius: 999px; white-space: nowrap;
+  }
+  .tp-auto { background: #111111; color: #ffffff; }
+  .tp-manual { background: #ffffff; color: #666666; border: 1px solid #d7d7d7; }
+
+  #tp-list :global(.tp-field) { display: block; margin-bottom: 0.8rem; }
+  #tp-list :global(.tp-field span) { display: block; font-size: 0.72rem; color: #888888; margin-bottom: 0.3rem; }
+  #tp-list :global(.tp-subject) {
+    width: 100%; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.85rem; color: #111111;
+    border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+  }
+  #tp-list :global(.tp-lang) { background: #111111; color: #ffffff; }
   #tp-list :global(.tp-body) {
     width: 100%; padding: 0.9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.78rem; line-height: 1.85; color: #111111; background: #ffffff;
