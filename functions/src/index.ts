@@ -1227,6 +1227,9 @@ export const adminTemplates = onRequest(
           res.status(400).json({ ok: false, error: "invalid_input" }); return;
         }
         const allowed = new Set(MAIL_FIELDS[k].map((f) => f.key));
+        // 画面には既定の文言を初期値として出す。そのまま保存されたぶんは
+        // 上書きとして持たない（コード側の文言改善が伝わらなくなるため）。
+        const def = mailDefaults(k, l);
         const clean: Record<string, string> = {};
         const unknownVars = new Set<string>();
         for (const [key, val] of Object.entries(strings as Record<string, unknown>)) {
@@ -1235,8 +1238,8 @@ export const adminTemplates = onRequest(
           for (const m of val.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) {
             if (!MAIL_VARS.includes(m[1])) unknownVars.add(m[1]);
           }
-          // 空文字＝「既定に戻す」。キーごと持たせない。
-          if (val.trim() !== "") clean[key] = val;
+          // 空文字・既定と同一＝上書きなし。キーごと持たせない。
+          if (val.trim() !== "" && val !== (def[key] ?? "")) clean[key] = val;
         }
         if (unknownVars.size) {
           res.status(400).json({ ok: false, error: "unknown_vars", vars: [...unknownVars] }); return;

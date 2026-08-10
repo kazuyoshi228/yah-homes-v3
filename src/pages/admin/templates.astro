@@ -225,8 +225,8 @@ const VARS = [
         <section class="tp-panel" data-panel="${kind}" hidden>
           <h2 class="tp-h2">${esc(def.label)}</h2>
           <p class="tp-desc">
-            入力欄が空のときは、下に薄く表示されている既定の文言が送られます。
-            書き換えると<strong>次の送信から反映</strong>されます。
+            枠の中が、いまお客様に送られている文言です。書き換えて保存すると
+            <strong>次の送信から反映</strong>されます。言語ごとに別々に持ちます。
           </p>
 
           <div class="tp-tabs">
@@ -243,20 +243,20 @@ const VARS = [
           </p>
 
           ${def.fields.map((f) => {
-            const cur = it.strings[f.key] || "";
             const dv = it.defaults[f.key] || "";
-            const on = !!cur;
+            const on = !!it.strings[f.key];
+            // 枠の中に実際に送られる文言を入れる。上書きが無ければ既定をそのまま出す。
+            const cur = on ? it.strings[f.key] : dv;
             return `
-            <div class="tp-field2${on ? " is-on" : ""}" data-field="${esc(f.key)}">
+            <div class="tp-field2${on ? " is-on" : ""}" data-field="${esc(f.key)}" data-def="${esc(dv)}">
               <label class="tp-flabel" for="f-${esc(kind)}-${esc(f.key)}">
                 ${esc(f.label)}
                 ${on ? '<span class="tp-badge">変更あり</span>' : ""}
+                ${on ? `<button type="button" class="tp-reset" data-reset="${esc(f.key)}">元の文言に戻す</button>` : ""}
               </label>
               ${f.multiline
                 ? `<textarea id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" rows="2" spellcheck="false">${esc(cur)}</textarea>`
                 : `<input id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" type="text" value="${esc(cur)}" />`}
-              <p class="tp-default">既定：${esc(dv) || "（なし）"}</p>
-              ${on ? `<button type="button" class="tp-reset" data-reset="${esc(f.key)}">既定に戻す</button>` : ""}
             </div>`;
           }).join("")}
 
@@ -300,9 +300,12 @@ const VARS = [
 
       document.querySelectorAll("[data-reset]").forEach((b) =>
         b.addEventListener("click", () => {
-          const el = b.closest(".tp-field2").querySelector("[data-in]");
-          el.value = ""; el.dispatchEvent(new Event("input"));
-          b.closest(".tp-field2").classList.remove("is-on");
+          const box = b.closest(".tp-field2");
+          const el = box.querySelector("[data-in]");
+          el.value = box.dataset.def || "";
+          el.dispatchEvent(new Event("input"));
+          box.classList.remove("is-on");
+          box.querySelector(".tp-badge")?.remove();
           b.remove();
         }));
 
@@ -471,11 +474,8 @@ const VARS = [
     color: #111111; border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
     overflow-y: hidden; resize: none;
   }
-  #tp-list :global(.tp-default) {
-    margin-top: 0.4rem; font-size: 0.72rem; color: #aaaaaa; line-height: 1.7; word-break: break-word;
-  }
   #tp-list :global(.tp-reset) {
-    margin-top: 0.5rem; font-family: inherit; font-size: 0.7rem; color: #666666;
+    margin-left: auto; font-family: inherit; font-size: 0.68rem; color: #666666;
     background: none; border: 1px solid #d7d7d7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer;
   }
   #tp-list :global(.tp-reset:hover) { border-color: #111111; color: #111111; }
