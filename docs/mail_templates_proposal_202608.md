@@ -47,7 +47,9 @@ Airbnb・Booking.com はいずれも、**特定の評価を名指しで求める
 | チェックアウト | `{{checkoutTime}}まで`（同・現在10:00） |
 | 名簿の期限 | **チェックイン2日前まで** |
 | 名簿の対象 | **全員分**（清川・高砂で揃える／要運営会社確認） |
-| 署名 | `AIRSTAR`（運営）／ 直販は `yah.homes` |
+| 署名（OTA経由） | `yah.homes（運営：AIRSTAR）` |
+| 署名（直販） | `yah.homes ／ ボンファイア株式会社` |
+| 署名（英語・OTA） | `yah.homes (operated by AIRSTAR)` |
 
 ---
 
@@ -111,7 +113,7 @@ Airbnb・Booking.com はいずれも、**特定の評価を名指しで求める
 
 福岡でのご滞在が、良い時間になりますように。
 
-AIRSTAR
+yah.homes（運営：AIRSTAR）
 ```
 
 **変更点** — 冒頭に「やること1つ」を枠で括った。パスポートの注記を両棟に入れた（清川に無かった）。注意事項を「必ずお守りいただくこと（金銭・法令）」と「快適に過ごすために（お願い）」に分けた。
@@ -156,7 +158,7 @@ AIRSTAR
 
 それでは、ごゆっくりお過ごしください。
 
-AIRSTAR
+yah.homes（運営：AIRSTAR）
 ```
 
 **変更点** — 暗証番号・マニュアル・地図を冒頭の枠にまとめた（現行は文章の中に散っている）。「再確認のため改めて案内する場合があります」は削除（不要な不安を生む）。連絡先を独立させた。
@@ -196,7 +198,7 @@ AIRSTAR
 
 またお会いできる日を楽しみにしています。
 
-AIRSTAR
+yah.homes（運営：AIRSTAR）
 ```
 
 **変更点** — **★5の名指しを削除**。「レビューの前に不満を教えてください」という誘導も削除（review gating に当たる）。改善要望はレビューと切り離し、「実際に直す」ことの証拠（遮光ロールスクリーン）を1つだけ添えた。
@@ -293,7 +295,7 @@ Just reply to this message with any questions.
 
 We hope Fukuoka treats you well.
 
-AIRSTAR
+yah.homes (operated by AIRSTAR)
 ```
 
 **チェックイン案内**
@@ -331,7 +333,7 @@ Reply to this message, or call {{phone}}.
 
 Enjoy your stay.
 
-AIRSTAR
+yah.homes (operated by AIRSTAR)
 ```
 
 **チェックアウト当日**
@@ -363,7 +365,7 @@ exists because a guest told us the light was too bright.
 
 We hope to see you again.
 
-AIRSTAR
+yah.homes (operated by AIRSTAR)
 ```
 
 ---
@@ -385,7 +387,9 @@ AIRSTAR
 2. **名簿の対象** — 全員分か代表者のみか（現行は清川と高砂で食い違い）
 3. **レビューの投稿先** — 直販ゲストはAirbnbに投稿できない。Google ビジネスプロフィールを用意するか、投稿依頼をしないか
 4. **キーボックス番号の管理場所** — 現在は両棟とも `2345` で平文。物件ファクトに入れるか、運営会社の手元だけにするか。定期変更の要否も
-5. **署名** — OTA経由は `AIRSTAR`、直販は `yah.homes` で分ける案でよいか
+5. ~~署名~~ — **決定済（2026-08-10）**。OTA経由は `yah.homes (operated by AIRSTAR)`、直販は `yah.homes ／ ボンファイア株式会社`。
+   お客様が予約したのは「yah.homes」であり、署名が「AIRSTAR」だけでは誰からの連絡か伝わらないため、
+   ブランド名を前に出したうえで運営者を開示する。直販は販売事業者が当社のため特商法の記載と揃える。
 
 ---
 
