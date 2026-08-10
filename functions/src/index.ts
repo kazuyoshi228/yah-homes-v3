@@ -776,6 +776,14 @@ export const bookingApi = onRequest(
 
 const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
   ja: {
+    coSubject: "【yah.homes】本日 {co} チェックアウトです",
+    coHeading: "本日がチェックアウトです",
+    coLead: "ご滞在ありがとうございました。本日 {co} がチェックアウトのお時間です。",
+    coTitle: "お帰りの前に",
+    coBody: "・鍵はキーボックスへお戻しください。<br>・駐車場も {co} までにお願いします。<br>・お忘れ物、大型のゴミ（スーツケース・衣類など）の置き忘れにご注意ください。",
+    coNoteTitle: "お掃除は不要です",
+    coNote: "特別な清掃や片付けは必要ありません。そのままお発ちください。",
+    coBye: "またお会いできる日を楽しみにしています。",
     remSubject: "【yah.homes】明日のご宿泊について",
     remHeading: "明日、お待ちしております",
     remLead: "ご到着が明日となりました。当日の流れをご確認ください。",
@@ -792,6 +800,14 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     stay: "ご滞在", nights: "{n}泊",
   },
   en: {
+    coSubject: "[yah.homes] Check-out is today at {co}",
+    coHeading: "Check-out is today",
+    coLead: "Thank you for staying with us. Check-out is today at {co}.",
+    coTitle: "Before you go",
+    coBody: "・Return the key to the key box.<br>・Please vacate the parking space by {co}.<br>・Check for belongings and large items (suitcases, clothing).",
+    coNoteTitle: "No cleaning needed",
+    coNote: "You do not need to clean or tidy up. Just leave.",
+    coBye: "We hope to see you again.",
     remSubject: "[yah.homes] Your stay starts tomorrow",
     remHeading: "See you tomorrow",
     remLead: "Your arrival is tomorrow. Here is what to expect on the day.",
@@ -808,6 +824,14 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     stay: "Your stay", nights: "{n} nights",
   },
   ko: {
+    coSubject: "[yah.homes] 오늘 {co} 체크아웃입니다",
+    coHeading: "오늘이 체크아웃일입니다",
+    coLead: "이용해 주셔서 감사합니다. 오늘 {co}가 체크아웃 시간입니다.",
+    coTitle: "나가시기 전에",
+    coBody: "・열쇠는 키박스에 넣어 주세요.<br>・주차장도 {co}까지 비워 주세요.<br>・분실물, 대형 폐기물(캐리어·의류 등)을 두고 가시지 않도록 확인해 주세요.",
+    coNoteTitle: "청소는 필요 없습니다",
+    coNote: "따로 청소하거나 정리하실 필요는 없습니다. 그대로 나가셔도 됩니다.",
+    coBye: "다시 뵐 수 있기를 기다리겠습니다.",
     remSubject: "[yah.homes] 내일 체크인 안내",
     remHeading: "내일 뵙겠습니다",
     remLead: "도착이 내일입니다. 당일 흐름을 확인해 주세요.",
@@ -824,6 +848,14 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     stay: "숙박", nights: "{n}박",
   },
   zh: {
+    coSubject: "[yah.homes] 今日 {co} 退房",
+    coHeading: "今天是退房日",
+    coLead: "感謝您的入住。今日 {co} 為退房時間。",
+    coTitle: "離開前請確認",
+    coBody: "・請將鑰匙放回密碼鎖盒。<br>・停車位也請於 {co} 前騰出。<br>・請確認是否遺留物品或大型垃圾（行李箱、衣物等）。",
+    coNoteTitle: "無需打掃",
+    coNote: "不需要特別清潔或整理，直接離開即可。",
+    coBye: "期待再次與您相見。",
     remSubject: "【yah.homes】明天入住提醒",
     remHeading: "明天見",
     remLead: "您的入住日就在明天，請確認當天的流程。",
@@ -840,6 +872,14 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     stay: "住宿", nights: "{n}晚",
   },
   th: {
+    coSubject: "[yah.homes] เช็คเอาท์วันนี้ เวลา {co}",
+    coHeading: "วันนี้เป็นวันเช็คเอาท์",
+    coLead: "ขอบคุณที่เข้าพักกับเรา วันนี้เวลา {co} คือเวลาเช็คเอาท์",
+    coTitle: "ก่อนออกจากที่พัก",
+    coBody: "・กรุณาใส่กุญแจกลับเข้ากล่องกุญแจ<br>・กรุณานำรถออกจากที่จอดภายในเวลา {co}<br>・กรุณาตรวจสอบสิ่งของและขยะชิ้นใหญ่ (กระเป๋าเดินทาง เสื้อผ้า) ที่อาจลืมไว้",
+    coNoteTitle: "ไม่ต้องทำความสะอาด",
+    coNote: "ไม่จำเป็นต้องทำความสะอาดหรือเก็บกวาด ออกจากที่พักได้เลย",
+    coBye: "หวังว่าจะได้พบกันอีก",
     remSubject: "[yah.homes] เข้าพักพรุ่งนี้",
     remHeading: "พบกันพรุ่งนี้",
     remLead: "วันเข้าพักของคุณคือพรุ่งนี้ กรุณาตรวจสอบรายละเอียดของวันนั้น",
@@ -858,7 +898,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
 };
 
 async function sendLifecycleMail(
-  kind: "reminder" | "review",
+  kind: "reminder" | "review" | "checkout",
   bookingId: string,
   b: BookingDoc & Record<string, unknown>,
 ): Promise<void> {
@@ -876,7 +916,22 @@ async function sendLifecycleMail(
     ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
   } catch { /* 既定値 */ }
 
-  const html = kind === "reminder"
+  const html = kind === "checkout"
+    ? mailHtml({
+        heading: L.coHeading,
+        badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
+        lead: L.coLead.replace("{co}", co),
+        rows: [
+          [L.stay, esc(P.name)],
+          [L.remCheckout, `${esc(b.checkout)}　〜${esc(co)}`],
+        ],
+        blocks: [
+          { title: L.coTitle, body: L.coBody.replace(/\{co\}/g, esc(co)) },
+          { title: L.coNoteTitle, body: esc(L.coNote) },
+        ],
+        cta: { label: L.remCta, href: myPage },
+      })
+    : kind === "reminder"
     ? mailHtml({
         heading: L.remHeading,
         badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
@@ -915,21 +970,26 @@ async function sendLifecycleMail(
     from: `"yah.homes" <${SMTP_USER.value()}>`,
     to: String(b.email),
     replyTo: SMTP_USER.value(),
-    subject: kind === "reminder" ? L.remSubject : L.revSubject,
+    subject: kind === "checkout" ? L.coSubject.replace("{co}", co)
+      : kind === "reminder" ? L.remSubject : L.revSubject,
     text: [
-      kind === "reminder" ? L.remHeading : L.revHeading, "",
-      kind === "reminder" ? L.remLead : L.revLead, "",
+      kind === "checkout" ? L.coHeading : kind === "reminder" ? L.remHeading : L.revHeading, "",
+      kind === "checkout" ? L.coLead.replace("{co}", co) : kind === "reminder" ? L.remLead : L.revLead, "",
       `${P.name}`, `${b.checkin} 〜 ${b.checkout}`,
-      kind === "reminder" ? `${L.remEntry}: ${L.remEntryBody}` : L.revNote, "",
-      kind === "reminder" ? myPage : bookPath,
+      kind === "checkout"
+        ? `${L.coTitle}: ${L.coBody.replace(/<br>/g, "\n").replace(/\{co\}/g, co)}\n${L.coNote}\n${L.coBye}`
+        : kind === "reminder" ? `${L.remEntry}: ${L.remEntryBody}` : L.revNote, "",
+      kind === "review" ? bookPath : myPage,
     ].join("\n"),
     html,
   });
 }
 
-/** 毎朝10時JST: 明日チェックインの予約へリマインド、昨日チェックアウトの予約へフォロー。 */
+/** 07:00 JST: 本日チェックアウトの予約へ退室のご案内。
+    10:00 JST: 明日チェックインの予約へリマインド、昨日チェックアウトの予約へフォロー。
+    退室案内だけ早いのは、チェックアウトが10:00で、10時の便では間に合わないため。 */
 export const guestLifecycleMailer = onSchedule(
-  { schedule: "0 10 * * *", timeZone: "Asia/Tokyo", region: REGION,
+  { schedule: "0 7,10 * * *", timeZone: "Asia/Tokyo", region: REGION,
     secrets: [SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
     serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async () => {
@@ -938,7 +998,7 @@ export const guestLifecycleMailer = onSchedule(
     const tomorrow = jst(1);
     const yesterday = jst(-1);
 
-    const run = async (kind: "reminder" | "review", field: "checkin" | "checkout", date: string, flag: string) => {
+    const run = async (kind: "reminder" | "review" | "checkout", field: "checkin" | "checkout", date: string, flag: string) => {
       const snap = await db.collection("bookings")
         .where("status", "==", "CONFIRMED").where(field, "==", date).get();
       let sent = 0;
@@ -956,6 +1016,11 @@ export const guestLifecycleMailer = onSchedule(
       logger.info(`lifecycle ${kind}: ${sent}/${snap.size} sent for ${date}`);
     };
 
+    const hourJst = Number(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hour12: false }));
+    if (hourJst < 9) {
+      await run("checkout", "checkout", jst(0), "checkoutSentAt");
+      return;
+    }
     await run("reminder", "checkin", tomorrow, "reminderSentAt");
     await run("review", "checkout", yesterday, "reviewSentAt");
   }

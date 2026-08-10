@@ -16,11 +16,14 @@ const FB_CONFIG = {
 /* 送信タイミング。自動＝システムが送る／手動＝運営がBeds24・OTAから送る。
    「前日リマインド」「レビュー依頼」は guestLifecycleMailer（毎日10:00 JST）が送信する。 */
 const TIMING = [
-  { t: "予約確定メッセージ", w: "ご予約が入った直後", trig: "予約成立（決済オーソリ確定 / OTA着信）", how: "自動", who: "全チャネル" },
-  { t: "宿泊者名簿のご登録", w: "ご予約直後 → 未登録ならチェックイン2日前", trig: "公式サイト予約の成立", how: "手動", who: "公式サイトのみ" },
-  { t: "チェックイン案内", w: "チェックイン前日 10:00 JST", trig: "翌日がチェックイン日の予約", how: "自動", who: "全チャネル" },
-  { t: "チェックアウト当日の案内", w: "チェックアウト当日の朝", trig: "当日がチェックアウト日の予約", how: "手動", who: "全チャネル" },
-  { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", how: "自動", who: "全チャネル" },
+  { t: "予約確定メッセージ", w: "ご予約が入った直後", trig: "予約成立（決済オーソリ確定 / OTA着信）", who: "全チャネル",
+    note: "宿泊者名簿のご登録（チェックイン2日前まで）も、このメールに含めて依頼します。" },
+  { t: "チェックイン案内", w: "チェックイン前日 10:00 JST", trig: "翌日がチェックイン日の予約", who: "全チャネル",
+    note: "キーボックスの暗証番号・入室手順・地図。" },
+  { t: "チェックアウト当日の案内", w: "チェックアウト当日 07:00 JST", trig: "当日がチェックアウト日の予約", who: "全チャネル",
+    note: "チェックアウトが10:00のため、10時の便では間に合わず07:00に送ります。" },
+  { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", who: "全チャネル",
+    note: "投稿先（レビューURL）は未決。決まるまでは、感想のご返信のみをお願いしています。" },
 ];
 
 /* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
@@ -96,14 +99,16 @@ const VARS = [
               <p class="tp-desc">どの文面を、いつ、誰に送るか。</p>
               <div class="tp-scroll">
                 <table class="tp-grid">
-                  <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>送信</th><th>対象</th></tr></thead>
+                  <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>対象</th></tr></thead>
                   <tbody>
                     {TIMING.map((r) => (
                       <tr>
-                        <td class="tp-strong">{r.t}</td>
+                        <td>
+                          <span class="tp-strong">{r.t}</span>
+                          <span class="tp-rownote">{r.note}</span>
+                        </td>
                         <td>{r.w}</td>
                         <td class="tp-dim">{r.trig}</td>
-                        <td><span class:list={["tp-how", r.how === "自動" ? "tp-auto" : "tp-manual"]}>{r.how}</span></td>
                         <td class="tp-dim">{r.who}</td>
                       </tr>
                     ))}
@@ -111,9 +116,9 @@ const VARS = [
                 </table>
               </div>
               <p class="tp-note">
-                <strong>自動</strong>はシステムが送ります（毎日10:00 JSTに対象を確認）。
-                <strong>手動</strong>は運営がBeds24・OTAのメッセージから送ります。
-              </p>
+            <strong>4通ともシステムが自動で送ります。</strong>運営が手で送る定型文はありません。
+            送信対象は毎日 07:00 と 10:00（JST）に確認し、1予約につき各1通だけ送ります。
+          </p>
             </section>
 
             <section class="tp-panel" data-panel="vars" hidden>
@@ -403,12 +408,7 @@ const VARS = [
   .tp-url { word-break: break-all; }
   .tp-url a { color: #111111; text-decoration: none; border-bottom: 1px solid #d7d7d7; }
   .tp-url a:hover { border-bottom-color: #111111; }
-  .tp-how {
-    display: inline-block; font-size: 0.68rem; padding: 0.15rem 0.5rem;
-    border-radius: 999px; white-space: nowrap;
-  }
-  .tp-auto { background: #111111; color: #ffffff; }
-  .tp-manual { background: #ffffff; color: #666666; border: 1px solid #d7d7d7; }
+  .tp-rownote { display: block; margin-top: 0.3rem; font-size: 0.72rem; color: #999999; line-height: 1.7; font-weight: 400; }
 
   #tp-list :global(.tp-field) { display: block; margin-bottom: 0.8rem; }
   #tp-list :global(.tp-field span) { display: block; font-size: 0.72rem; color: #888888; margin-bottom: 0.3rem; }
