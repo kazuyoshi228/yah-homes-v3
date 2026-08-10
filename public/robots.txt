@@ -3,6 +3,9 @@
 
 User-agent: *
 Allow: /
+# 入室案内（宿泊者専用・noindex）。検索結果に出さない。
+Disallow: /how-to/
+Disallow: /admin/
 
 # ── AI Search & LLM Crawlers (explicitly permitted) ──
 
@@ -48,4 +51,8 @@ User-agent: CCBot
 Allow: /
 
 # Sitemap
+# 入室案内は全クローラで除外
+User-agent: *
+Disallow: /how-to/
+
 Sitemap: https://yah.homes/sitemap-index.xml

@@ -25,7 +25,7 @@ const TIMING = [
 
 /* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
 const VALUES = [
-  { k: "propertyName", kiyokawa: "清川yah.", takasago: "yah homes.takasago" },
+  { k: "propertyName", kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" },
   { k: "checkinTime", kiyokawa: "16:00", takasago: "16:00" },
   { k: "checkoutTime", kiyokawa: "10:00", takasago: "10:00" },
   { k: "keyboxCode", kiyokawa: "／admin/secrets/ で管理", takasago: "／admin/secrets/ で管理", secret: true },
@@ -52,7 +52,7 @@ const VARS = [
   { k: "keyboxCode", d: "キーボックスの暗証番号" },
   { k: "mapUrl", d: "Google マップのURL" },
   { k: "phone", d: "問い合わせ電話番号" },
-  { k: "propertyName", d: "施設名（清川yah. / yah homes.takasago）" },
+  { k: "propertyName", d: "施設名（yah.homes kiyokawa / yah.homes takasago）" },
   { k: "registerDeadline", d: "宿泊者名簿の期限（チェックイン2日前）" },
   { k: "reviewUrl", d: "レビュー投稿先（未決）" },
   { k: "myPageUrl", d: "My Page（直販のみ）" },
@@ -141,7 +141,7 @@ const VARS = [
               <p class="tp-desc">差し込み記号に入る実際の値です。棟で違うものはここが正。</p>
               <div class="tp-scroll">
                 <table class="tp-grid">
-                  <thead><tr><th>差し込み記号</th><th>清川yah.</th><th>yah homes.takasago</th></tr></thead>
+                  <thead><tr><th>差し込み記号</th><th>yah.homes kiyokawa</th><th>yah.homes takasago</th></tr></thead>
                   <tbody>
                     {VALUES.map((r) => (
                       <tr>

@@ -383,7 +383,7 @@ yah.homes (operated by AIRSTAR)
 
 | 記号 | 内容 | 供給元 |
 |---|---|---|
-| `{{propertyName}}` | 施設名（清川yah. / yah homes.takasago） | 物件ファクト |
+| `{{propertyName}}` | 施設名（yah.homes kiyokawa / yah.homes takasago） | 物件ファクト |
 | `{{registerDeadline}}` | 名簿の期限（チェックイン2日前の日付） | 予約データから算出 |
 | `{{reviewUrl}}` | レビュー投稿先 | **要決定**（§5） |
 | `{{myPageUrl}}` | My Page（直販のみ） | 固定 |

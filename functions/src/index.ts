@@ -1025,6 +1025,29 @@ export const adminTemplates = onRequest(
 );
 
 
+
+// ─── 入室案内の暗証番号（/how-to/:prop から取得） ───
+// 番号を静的HTMLへ焼き込むと、gitとビルド成果物に残り、番号を変えるたび再デプロイが要る。
+// 実行時に property_secrets から読むことで、/admin/secrets の変更が即座にページへ反映される。
+// 認証は掛けない（OTA経由のお客様もURLだけで開くため）。したがって守っているのは
+// 「URLを知っていること」のみ＝Google Sitesと同水準。トークン化はv5 §9の未決事項。
+export const checkinInfo = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com", cors: true },
+  async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.set("X-Robots-Tag", "noindex, nofollow");
+    const prop = String(req.query.prop ?? "");
+    if (!["kiyokawa", "takasago"].includes(prop)) { res.status(400).json({ ok: false }); return; }
+    try {
+      const v = (await db.collection("property_secrets").doc(prop).get()).data() ?? {};
+      res.status(200).json({ ok: true, keyboxCode: v.keyboxCode ?? "" });
+    } catch (err) {
+      logger.error("checkinInfo failed", err);
+      res.status(500).json({ ok: false });
+    }
+  }
+);
+
 // ─── セキュリティ鍵番号の管理（/admin/secrets） ───
 // キーボックス番号は物理キーそのもの。property_facts は公開読み取りを許可しているため、
 // ここには絶対に置かず、専用コレクション property_secrets に隔離する
