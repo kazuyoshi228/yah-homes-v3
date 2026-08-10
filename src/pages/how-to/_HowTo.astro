@@ -11,15 +11,24 @@ interface Props {
   zip: string;
   addressJa: string;
   addressEn: string;
-  photo: string;
-  /** 鍵の位置（日／英） */
+  /** 玄関の位置を赤丸で示した外観写真 */
+  photoEntrance: string;
+  /** キーボックスの寄り写真 */
+  photoKeybox: string;
+  /** 駐車スペースの写真（ない場合は外観で代用） */
+  photoParking?: string;
   keyPlaceJa: string;
   keyPlaceEn: string;
-  /** 駐車場（日／英） */
   parkingJa: string;
   parkingEn: string;
+  /** 車庫の寸法（W×D, mm）。分かっている棟のみ */
+  garageSize?: { w: number; d: number };
 }
-const { prop, name, zip, addressJa, addressEn, photo, keyPlaceJa, keyPlaceEn, parkingJa, parkingEn } = Astro.props;
+const {
+  prop, name, zip, addressJa, addressEn,
+  photoEntrance, photoKeybox, photoParking,
+  keyPlaceJa, keyPlaceEn, parkingJa, parkingEn, garageSize,
+} = Astro.props;
 
 const CHECKIN_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/checkinInfo";
 const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
@@ -40,34 +49,61 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
       <h1 class="ht-title">{name}</h1>
       <p class="ht-sub">チェックイン案内 / How to check in</p>
 
-      <!-- 1. 鍵 — 到着して最初に必要になるため先頭に置く -->
-      <section class="ht-block ht-key">
+      <!-- 01 到着 — まず玄関の位置。赤丸が玄関ドア -->
+      <section class="ht-block">
         <p class="ht-step">01</p>
+        <h2 class="ht-h2">玄関の場所<span>Finding the entrance</span></h2>
+        <figure class="ht-fig">
+          <img class="ht-photo" src={photoEntrance} alt={`${name} の外観。赤い丸が玄関ドア`} loading="eager" />
+          <figcaption>赤い丸が玄関ドアです。<span class="ht-en">The red circle marks the front door.</span></figcaption>
+        </figure>
+      </section>
+
+      <!-- 02 鍵 — 到着して最初に必要になる情報 -->
+      <section class="ht-block">
+        <p class="ht-step">02</p>
         <h2 class="ht-h2">鍵のお受け取り<span>Getting the key</span></h2>
-        <p class="ht-text">{keyPlaceJa}<br /><span class="ht-en">{keyPlaceEn}</span></p>
+        <figure class="ht-fig">
+          <img class="ht-photo" src={photoKeybox} alt={`${name} のキーボックス`} loading="lazy" />
+          <figcaption>{keyPlaceJa}<span class="ht-en">{keyPlaceEn}</span></figcaption>
+        </figure>
         <div class="ht-code">
           <p class="ht-code-label">暗証番号 / PIN</p>
           <p class="ht-code-val" id="ht-code" aria-live="polite">••••</p>
           <p class="ht-code-note" id="ht-code-note">読み込み中...</p>
         </div>
         <p class="ht-text">
-          キーボックス内の鍵で解錠し、ご入室ください。ご滞在中は鍵をお持ちください。<br />
-          <span class="ht-en">Unlock the door with the key inside the box. Please keep the key with you during your stay.</span>
+          番号を合わせるとキーボックスが開きます。中の鍵で解錠し、ご入室ください。
+          ご滞在中は鍵をお持ちください。<br />
+          <span class="ht-en">Set the dials to the PIN to open the box. Unlock the door with the key inside and keep it with you during your stay.</span>
         </p>
       </section>
 
-      <!-- 2. 外観 -->
-      <section class="ht-block">
-        <p class="ht-step">02</p>
-        <h2 class="ht-h2">建物の外観<span>The building</span></h2>
-        <img class="ht-photo" src={photo} alt={`${name} の外観`} width="1300" height="1900" loading="eager" />
-        <p class="ht-text">{parkingJa}<br /><span class="ht-en">{parkingEn}</span></p>
-      </section>
-
-      <!-- 3. 場所 -->
+      <!-- 03 駐車場 -->
       <section class="ht-block">
         <p class="ht-step">03</p>
-        <h2 class="ht-h2">場所<span>Location</span></h2>
+        <h2 class="ht-h2">駐車場<span>Parking</span></h2>
+        {photoParking && (
+          <img class="ht-photo" src={photoParking} alt={`${name} の駐車スペース`} loading="lazy" />
+        )}
+        <p class="ht-text">{parkingJa}<br /><span class="ht-en">{parkingEn}</span></p>
+        {garageSize && (
+          <div class="ht-spec">
+            <p class="ht-spec-title">車庫のサイズ<span>Garage dimensions</span></p>
+            <p class="ht-spec-val">幅 {garageSize.w.toLocaleString()}mm × 奥行 {garageSize.d.toLocaleString()}mm</p>
+            <p class="ht-spec-val ht-en">W {garageSize.w.toLocaleString()}mm × D {garageSize.d.toLocaleString()}mm</p>
+            <p class="ht-spec-note">
+              お車がこの寸法に収まるかどうか、事前にご確認ください。収まらない場合は、周辺のコインパーキングをご利用ください。<br />
+              <span class="ht-en">Please check that your car fits within these dimensions. If not, please use a nearby coin parking.</span>
+            </p>
+          </div>
+        )}
+      </section>
+
+      <!-- 04 場所 -->
+      <section class="ht-block">
+        <p class="ht-step">04</p>
+        <h2 class="ht-h2">住所と地図<span>Address & map</span></h2>
         <p class="ht-text">
           〒{zip} {addressJa}<br />
           <span class="ht-en">{addressEn}</span>
@@ -127,7 +163,20 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
   .ht-code-val { font-size: 2.6rem; font-weight: 500; letter-spacing: 0.3em; color: #ffffff; font-variant-numeric: tabular-nums; text-indent: 0.3em; }
   .ht-code-note { margin-top: 0.6rem; font-size: 0.72rem; color: rgba(255, 255, 255, 0.6); line-height: 1.7; }
 
-  .ht-photo { width: 100%; height: auto; border-radius: 6px; display: block; margin-bottom: 1.25rem; }
+  .ht-fig { margin-bottom: 1.5rem; }
+  .ht-fig figcaption { margin-top: 0.7rem; font-size: 0.85rem; color: #444444; line-height: 1.9; }
+  .ht-fig figcaption .ht-en { display: block; }
+  .ht-photo { width: 100%; height: auto; border-radius: 6px; display: block; background: #f4f4f4; }
+  .ht-block > .ht-photo { margin-bottom: 1.25rem; }
+
+  /* 車庫の寸法 — 到着前に確認してもらう必要があるため、囲って目立たせる */
+  .ht-spec { border: 1px solid #e2e2e2; border-radius: 6px; padding: 1.1rem 1.25rem; }
+  .ht-spec-title { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #999999; margin-bottom: 0.6rem; }
+  .ht-spec-title span { text-transform: none; letter-spacing: 0; }
+  .ht-spec-title span::before { content: " / "; }
+  .ht-spec-val { font-size: 1.05rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
+  .ht-spec-val.ht-en { font-size: 0.85rem; font-weight: 400; margin-top: 0.15rem; }
+  .ht-spec-note { margin-top: 0.8rem; font-size: 0.8rem; color: #666666; line-height: 1.9; }
   .ht-map { position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; margin-bottom: 1.25rem; }
   .ht-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
   .ht-btn {

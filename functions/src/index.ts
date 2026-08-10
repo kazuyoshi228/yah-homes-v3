@@ -2013,12 +2013,14 @@ const MAIL_PROP = {
     image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
+    register: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", // 宿泊者名簿フォーム（旅館業法）
   },
   takasago: {
     name: "yah.homes takasago",
     image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
     address: "",
     map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778",
+    register: "https://zfrmz.jp/sZQlLvoM43I0Od6UZPzF", // 宿泊者名簿フォーム（旅館業法）
   },
   test: {
     name: "yah.homes test1（検証用）",
@@ -2030,6 +2032,12 @@ const MAIL_PROP = {
 
 const MAIL_L10N: Record<string, Record<string, string>> = {
   ja: {
+    registerTitle: "ご宿泊の前にお願いしたいこと",
+    registerLead: "宿泊者名簿のご登録（ご宿泊者 全員分）",
+    registerDue: "{d} までにお願いします",
+    registerBtn: "宿泊者名簿を登録する",
+    registerBody: "旅館業法により、ご宿泊されるすべての方の情報をいただくことが義務づけられています。日本国内に住所のない外国籍のお客様は、あわせてご宿泊者全員分のパスポート画像が必要です。",
+    registerWarn: "ご登録の確認後、入室方法をお送りします。ご登録がない場合、暗証番号をお送りできません。",
     subject: "【yah.homes】ご予約が確定しました", greetSuffix: " 様",
     lead: "yah.homes をご予約いただきありがとうございます。ご予約が確定しました。",
     bookingNo: "予約番号", checkTitle: "ご予約内容",
@@ -2042,7 +2050,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "お問い合わせ",
     ctaNote: "ご予約時のアカウントでログインすると、到着予定時刻の登録やご予約の確認ができます。",
     entryTitle: "入室について",
-    entryBody: "玄関のキーボックスでの受け渡しです。暗証番号と詳しい入室手順は、ご到着の3日前を目安にメールでお送りします。深夜のご到着でも問題ありません。",
+    entryBody: "玄関のキーボックスでの受け渡しです。暗証番号と詳しい入室手順は、ご到着の前日にメールでお送りします。深夜のご到着でも問題ありません。",
     placeTitle: "場所", placeBtn: "地図を開く",
     placeNote: "正確な住所は入室のご案内とあわせてお送りします。",
     safetyTitle: "安全のために",
@@ -2051,6 +2059,12 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes ／ ボンファイア株式会社",
   },
   en: {
+    registerTitle: "One thing before your stay",
+    registerLead: "Register the guest list (all guests)",
+    registerDue: "Please complete by {d}",
+    registerBtn: "Register guest list",
+    registerBody: "Japanese law requires us to collect details for every person staying. Guests without an address in Japan also need to submit a passport photo for each person.",
+    registerWarn: "We will send your entry instructions once we have your registration. Without it, we cannot send the key box PIN.",
     subject: "[yah.homes] Your booking is confirmed", greetSuffix: "",
     lead: "Thank you for booking with yah.homes. Your reservation is confirmed.",
     bookingNo: "Booking ID", checkTitle: "Booking details",
@@ -2072,6 +2086,12 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes / Bonfire Inc.",
   },
   ko: {
+    registerTitle: "숙박 전 부탁드릴 사항",
+    registerLead: "숙박자 명부 등록 (투숙객 전원)",
+    registerDue: "{d}까지 부탁드립니다",
+    registerBtn: "숙박자 명부 등록하기",
+    registerBody: "일본 여관업법에 따라 숙박하시는 모든 분의 정보를 받도록 되어 있습니다. 일본 내 주소가 없는 외국 국적 고객님은 전원의 여권 사진도 함께 제출해 주셔야 합니다.",
+    registerWarn: "등록이 확인되면 입실 방법을 보내드립니다. 등록이 없으면 키박스 비밀번호를 보내드릴 수 없습니다.",
     subject: "[yah.homes] 예약이 확정되었습니다", greetSuffix: " 님",
     lead: "yah.homes를 예약해 주셔서 감사합니다. 예약이 확정되었습니다.",
     bookingNo: "예약번호", checkTitle: "예약 내용",
@@ -2093,6 +2113,12 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes / Bonfire Inc.",
   },
   zh: {
+    registerTitle: "入住前的一項請求",
+    registerLead: "登記住宿者名冊（全體住宿者）",
+    registerDue: "請於 {d} 前完成",
+    registerBtn: "登記住宿者名冊",
+    registerBody: "依日本旅館業法規定，我們必須取得每一位住宿者的資料。在日本沒有住址的外籍旅客，另需提供全體住宿者的護照照片。",
+    registerWarn: "確認登記後，我們會寄送入住方式。未完成登記，恕無法提供密碼鎖號碼。",
     subject: "【yah.homes】您的預訂已確認", greetSuffix: " 您好",
     lead: "感謝您預訂 yah.homes，您的預訂已確認。",
     bookingNo: "預訂編號", checkTitle: "預訂內容",
@@ -2114,6 +2140,12 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     footer: "yah.homes / Bonfire Inc.",
   },
   th: {
+    registerTitle: "สิ่งที่ขอความร่วมมือก่อนเข้าพัก",
+    registerLead: "ลงทะเบียนรายชื่อผู้เข้าพัก (ทุกท่าน)",
+    registerDue: "กรุณาดำเนินการภายใน {d}",
+    registerBtn: "ลงทะเบียนรายชื่อผู้เข้าพัก",
+    registerBody: "กฎหมายญี่ปุ่นกำหนดให้เราต้องเก็บข้อมูลของผู้เข้าพักทุกท่าน ผู้เข้าพักที่ไม่มีที่อยู่ในญี่ปุ่นต้องส่งรูปหนังสือเดินทางของทุกท่านด้วย",
+    registerWarn: "เราจะส่งวิธีเข้าห้องพักหลังได้รับการลงทะเบียนแล้ว หากไม่ลงทะเบียน เราไม่สามารถส่งรหัสกล่องกุญแจให้ได้",
     subject: "[yah.homes] ยืนยันการจองของคุณแล้ว", greetSuffix: "",
     lead: "ขอบคุณที่จองที่พักกับ yah.homes การจองของคุณได้รับการยืนยันแล้ว",
     bookingNo: "หมายเลขการจอง", checkTitle: "รายละเอียดการจอง",
@@ -2138,10 +2170,11 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
 
 function buildConfirmationMail(
   lang: string,
-  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string },
+  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string },
 ): { subject: string; text: string; html: string } {
   const L = MAIL_L10N[lang] ?? MAIL_L10N.en;
-  const P = MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
+  const P: { name: string; image: string; address: string; map: string; register?: string } =
+    MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
   const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
   const no = d.id.slice(0, 8).toUpperCase();
   const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
@@ -2190,6 +2223,23 @@ function buildConfirmationMail(
       ✓&nbsp; ${esc(L.cancelFree.replace("{d}", d.freeCancel))} ${yen(0)}
     </div>
   </td></tr>
+
+  ${P.register ? `<tr><td style="padding:0 24px 22px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #111111;border-radius:6px;">
+      <tr><td style="padding:18px 20px;">
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#999999;margin-bottom:8px;">${esc(L.registerTitle)}</div>
+        <div style="font-size:16px;font-weight:600;color:#111111;line-height:1.6;margin-bottom:4px;">${esc(L.registerLead)}</div>
+        <div style="font-size:13px;font-weight:600;color:#111111;margin-bottom:12px;">${esc(L.registerDue.replace("{d}", d.registerDeadline))}</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+          <tr><td align="center" style="border-radius:6px;background:#111111;">
+            <a href="${esc(P.register)}" style="display:block;padding:14px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(L.registerBtn)}</a>
+          </td></tr>
+        </table>
+        <div style="font-size:12px;color:#666666;line-height:1.8;">${esc(L.registerBody)}</div>
+        <div style="font-size:12px;color:#111111;line-height:1.8;margin-top:8px;font-weight:500;">${esc(L.registerWarn)}</div>
+      </td></tr>
+    </table>
+  </td></tr>` : ""}
 
   ${P.image ? `<tr><td style="padding:0 24px 22px;">
     <img src="${esc(P.image)}" width="552" alt="${esc(P.name)}" style="display:block;width:100%;max-width:552px;height:auto;border-radius:8px;border:0;outline:none;text-decoration:none;" />
@@ -2248,6 +2298,12 @@ function buildConfirmationMail(
     `${d.name}${L.greetSuffix}`, "",
     L.lead, "",
     `${L.bookingNo}: ${no}`, "",
+    P.register ? `--- ${L.registerTitle} ---` : "",
+    P.register ? `${L.registerLead}` : "",
+    P.register ? `${L.registerDue.replace("{d}", d.registerDeadline)}` : "",
+    P.register ? `${P.register}` : "",
+    P.register ? `${L.registerBody}` : "",
+    P.register ? `${L.registerWarn}\n` : "",
     `--- ${L.checkTitle} ---`,
     `${L.house}: ${P.name}`,
     `${L.checkin}: ${d.checkin} ${ciWin}`,
@@ -2288,8 +2344,12 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
       const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
       ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
     } catch { /* 既定値のまま送る */ }
+    // 宿泊者名簿の期限＝チェックイン2日前（JST）。前日10:00の入室案内より前に締める。
+    const LOC: Record<string, string> = { ja: "ja-JP", en: "en-US", ko: "ko-KR", zh: "zh-TW", th: "th-TH" };
+    const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
+      .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
     const { subject, text, html } = buildConfirmationMail(lang, {
-      checkinTime: ci, checkoutTime: co,
+      checkinTime: ci, checkoutTime: co, registerDeadline,
       id: bookingId,
       name: String(b.name ?? ""),
       prop: b.prop,
