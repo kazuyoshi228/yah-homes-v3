@@ -794,11 +794,20 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
     remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
     remCta: "予約を確認する",
+    revTplTitle: "レビュー",
+    revCatClean: "清潔度",
+    revCatComm: "コミュニケーション",
+    revCatLoc: "ロケーション",
+    revCatOther: "その他",
+    revCommentLabel: "コメント",
+    revTplHint: "下のボタンを押すと、記入用の返信メールが開きます。★の数（1〜5）を調整し、コメントを添えてそのままお送りください。このメールへの普通のご返信でも、もちろん構いません。",
+    revTplAdjust: "（★を1〜5個に調整してください）",
+    revMailSubject: "【レビュー】ご滞在の感想（予約 {no}）",
+    revCta: "レビューを書いて返信する",
     revSubject: "【yah.homes】ご滞在はいかがでしたか",
     revHeading: "ご利用ありがとうございました",
     revLead: "先日はyah.homesにご宿泊いただきありがとうございました。お気づきの点があれば、このメールにご返信ください。良かった点も、直すべき点も、そのままお聞かせいただけると助かります。",
     revNote: "いただいたご意見は、次のお客様のために必ず反映します。実際に、大通りに面したロールスクリーンを遮光タイプに変更したのもお客様のご指摘がきっかけでした。",
-    revCta: "また泊まる",
     stay: "ご滞在", nights: "{n}泊",
   },
   en: {
@@ -820,11 +829,20 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
     remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
     remCta: "View your booking",
+    revTplTitle: "Your review",
+    revCatClean: "Cleanliness",
+    revCatComm: "Communication",
+    revCatLoc: "Location",
+    revCatOther: "Other",
+    revCommentLabel: "Comments",
+    revTplHint: "The button below opens a pre-filled reply. Adjust the stars (1–5), add your comments, and just hit send. A plain reply to this email works too, of course.",
+    revTplAdjust: "(adjust to 1–5 stars)",
+    revMailSubject: "[Review] My stay (booking {no})",
+    revCta: "Write your review",
     revSubject: "[yah.homes] How was your stay?",
     revHeading: "Thank you for staying with us",
     revLead: "Thank you for choosing yah.homes. If anything stood out — good or bad — just hit reply and let us know.",
     revNote: "We act on what we hear. The blackout roller blind facing the main street was added because a guest told us the light was too bright.",
-    revCta: "Book again",
     stay: "Your stay", nights: "{n} nights",
   },
   ko: {
@@ -846,11 +864,20 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
     remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
     remCta: "예약 확인하기",
+    revTplTitle: "리뷰",
+    revCatClean: "청결도",
+    revCatComm: "커뮤니케이션",
+    revCatLoc: "위치",
+    revCatOther: "기타",
+    revCommentLabel: "코멘트",
+    revTplHint: "아래 버튼을 누르면 작성용 회신 메일이 열립니다. 별 개수(1~5)를 조정하고 코멘트를 적어 그대로 보내 주세요. 이 메일에 일반 회신을 주셔도 물론 괜찮습니다.",
+    revTplAdjust: "(별을 1~5개로 조정해 주세요)",
+    revMailSubject: "[리뷰] 숙박 후기 (예약 {no})",
+    revCta: "리뷰 작성하고 회신하기",
     revSubject: "[yah.homes] 숙박은 어떠셨나요?",
     revHeading: "이용해 주셔서 감사합니다",
     revLead: "yah.homes를 이용해 주셔서 감사합니다. 좋았던 점도 아쉬웠던 점도, 이 메일에 회신해 편하게 알려주세요.",
     revNote: "보내주신 의견은 다음 고객님을 위해 반드시 반영합니다. 큰길 쪽 롤스크린을 암막 타입으로 바꾼 것도 고객님의 의견이 계기가 되었습니다.",
-    revCta: "다시 예약하기",
     stay: "숙박", nights: "{n}박",
   },
   zh: {
@@ -872,11 +899,20 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
     remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
     remCta: "查看預訂",
+    revTplTitle: "您的評價",
+    revCatClean: "清潔度",
+    revCatComm: "溝通",
+    revCatLoc: "位置",
+    revCatOther: "其他",
+    revCommentLabel: "意見",
+    revTplHint: "按下方按鈕會開啟已填好格式的回覆郵件。調整星數（1～5）、寫下您的意見後直接寄出即可。直接回覆這封郵件也完全沒問題。",
+    revTplAdjust: "（請將★調整為1～5個）",
+    revMailSubject: "【評價】住宿心得（預訂 {no}）",
+    revCta: "撰寫評價並回覆",
     revSubject: "【yah.homes】這次入住還滿意嗎",
     revHeading: "感謝您的入住",
     revLead: "感謝您選擇 yah.homes。無論是好的地方還是需要改進的地方，都歡迎直接回覆這封郵件告訴我們。",
     revNote: "您的意見我們一定會落實。面向大馬路的遮光捲簾，就是因為住客反映光線太亮才更換的。",
-    revCta: "再次預訂",
     stay: "住宿", nights: "{n}晚",
   },
   th: {
@@ -898,11 +934,20 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
     remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
     remCta: "ดูการจอง",
+    revTplTitle: "รีวิวของคุณ",
+    revCatClean: "ความสะอาด",
+    revCatComm: "การสื่อสาร",
+    revCatLoc: "ทำเลที่ตั้ง",
+    revCatOther: "อื่น ๆ",
+    revCommentLabel: "ความคิดเห็น",
+    revTplHint: "กดปุ่มด้านล่างเพื่อเปิดอีเมลตอบกลับที่เตรียมแบบฟอร์มไว้แล้ว ปรับจำนวนดาว (1–5) เขียนความคิดเห็น แล้วส่งได้เลย หรือจะตอบกลับอีเมลนี้ตามปกติก็ได้เช่นกัน",
+    revTplAdjust: "(ปรับดาวเป็น 1–5 ดวง)",
+    revMailSubject: "[รีวิว] การเข้าพัก (การจอง {no})",
+    revCta: "เขียนรีวิวและตอบกลับ",
     revSubject: "[yah.homes] การเข้าพักเป็นอย่างไรบ้าง",
     revHeading: "ขอบคุณที่เข้าพักกับเรา",
     revLead: "ขอบคุณที่เลือก yah.homes หากมีสิ่งใดที่ประทับใจหรือควรปรับปรุง กรุณาตอบกลับอีเมลนี้และบอกเราตรง ๆ",
     revNote: "เรานำความเห็นไปปรับปรุงจริง ม่านม้วนกันแสงฝั่งถนนใหญ่ก็เปลี่ยนเพราะผู้เข้าพักบอกว่าแสงจ้าเกินไป",
-    revCta: "จองอีกครั้ง",
     stay: "การเข้าพัก", nights: "{n} คืน",
   },
 };
@@ -1029,17 +1074,42 @@ async function buildLifecycleMail(
         ],
         cta: { label: L.remCta, href: myPage },
       })
-    : mailHtml({
-        heading: L.revHeading,
-        badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
-        lead: L.revLead,
-        rows: [
-          [L.stay, `${esc(P.name)}`],
-          [`${esc(b.checkin)} 〜 ${esc(b.checkout)}`, fixPlural(L.nights.replace("{n}", String(nights)))],
-        ],
-        blocks: [{ title: "—", body: esc(L.revNote) }],
-        cta: { label: L.revCta, href: bookPath },
-      });
+    : (() => {
+        // 返信で完結するレビュー。mailto で雛形入りの返信メールを開かせ、
+        // ★の数を調整して送ってもらう（ページ遷移もログインも要らない）。
+        const cats = [L.revCatClean, L.revCatComm, L.revCatLoc, L.revCatOther];
+        const mailtoBody = [
+          ...cats.map((c) => `${c}: ★★★★★`),
+          L.revTplAdjust, "",
+          `${L.revCommentLabel}:`, "", "", "",
+          `${L.stay}: ${P.name} (${b.checkin} - ${b.checkout})`,
+        ].join("\n");
+        const mailto = `mailto:${MAIL_FROM}?subject=${encodeURIComponent(L.revMailSubject.replace("{no}", no))}&body=${encodeURIComponent(mailtoBody)}`;
+        const starRow = (c: string) =>
+          `<tr><td style="padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#111111;">${esc(c)}</td>
+             <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-size:15px;letter-spacing:.18em;color:#d7d7d7;">★★★★★</td></tr>`;
+        return mailHtml({
+          heading: L.revHeading,
+          badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
+          lead: L.revLead,
+          rows: [
+            [L.stay, `${esc(P.name)}`],
+            [`${esc(b.checkin)} 〜 ${esc(b.checkout)}`, fixPlural(L.nights.replace("{n}", String(nights)))],
+          ],
+          blocks: [
+            {
+              title: L.revTplTitle,
+              body: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cats.map(starRow).join("")}
+                <tr><td style="padding:9px 0;font-size:13px;color:#111111;vertical-align:top;">${esc(L.revCommentLabel)}</td>
+                  <td style="padding:9px 0 0 12px;"><div style="border:1px solid #e8e8e8;border-radius:6px;min-height:56px;">&nbsp;</div></td></tr>
+              </table>
+              <div style="font-size:12px;color:#999999;line-height:1.8;margin-top:10px;">${esc(L.revTplHint)}</div>`,
+            },
+            { title: "—", body: esc(L.revNote) },
+          ],
+          cta: { label: L.revCta, href: mailto },
+        });
+      })();
 
   return {
     subject: kind === "checkout" ? L.coSubject.replace("{co}", co)
@@ -1052,8 +1122,12 @@ async function buildLifecycleMail(
         ? `${L.coTitle}: ${L.coBody.replace(/<br>/g, "\n").replace(/\{co\}/g, co)}\n${L.coNote}\n${L.coBye}`
         : kind === "reminder"
         ? `${keybox ? `${L.remCodeLabel}: ${keybox}\n` : ""}${L.remEntry}: ${keybox ? L.remEntryBodyCode : L.remEntryBody}`
-        : L.revNote, "",
-      kind === "review" ? bookPath : myPage,
+        : [
+            `--- ${L.revTplTitle} ---`,
+            ...[L.revCatClean, L.revCatComm, L.revCatLoc, L.revCatOther].map((c) => `${c}: ★★★★★`),
+            L.revTplAdjust, "", `${L.revCommentLabel}:`, "", L.revNote,
+          ].join("\n"), "",
+      myPage,
     ].join("\n"),
     html,
   };
@@ -1171,6 +1245,12 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "revSubject", label: "件名" },
     { key: "revHeading", label: "見出し" },
     { key: "revLead", label: "書き出し", multiline: true },
+    { key: "revCatClean", label: "評価項目1" },
+    { key: "revCatComm", label: "評価項目2" },
+    { key: "revCatLoc", label: "評価項目3" },
+    { key: "revCatOther", label: "評価項目4" },
+    { key: "revCommentLabel", label: "記載欄のラベル" },
+    { key: "revTplHint", label: "記入方法の説明", multiline: true },
     { key: "revNote", label: "補足", multiline: true },
     { key: "revCta", label: "ボタンの文字" },
   ],
@@ -2347,6 +2427,8 @@ function mailHtml(o: {
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 /** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
 const OPERATOR_PHONE = "050-1721-4419";
+/** メールの返信先（mailto の宛先にも使う） */
+const MAIL_FROM = "contact@mail.yah.homes";
 
 const MAIL_PROP = {
   kiyokawa: {
