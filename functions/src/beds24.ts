@@ -32,7 +32,7 @@ const jstToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
 const nights = (b: Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
 const isActive = (b: Booking) => b.status === "confirmed" || b.status === "new";
 const isGuest = (b: Booking) =>
-  b.status !== "black" && !/オーナー|yamada|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""}`);
+  b.status !== "black" && !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
 
 async function fetchBookings(token: string): Promise<Booking[]> {
   const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);

@@ -425,14 +425,18 @@ const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 // test = 検証用物件 yah.homes test1（デモ面にのみカードを出す）
 const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238, test: 346442 };
-// 書き込みに使う roomId。清川・高砂は未設定＝書込が成立しない（共有物件を含む
-// 書込トークンを運営会社と合意のうえ発行するまで、意図的に空のままにする）。
-const BOOKING_ROOM_IDS: Record<string, number> = { test: 715198 };
+// 書き込みに使う roomId。清川・高砂は運営会社アカウントからリンクされた物件で、
+// linkedProperties: true の書込トークン（2026-08-10 発行）で到達できる。
+const BOOKING_ROOM_IDS: Record<string, number> = {
+  kiyokawa: 580741,
+  takasago: 608871,
+  test: 715198,
+};
 
 // ─── Beds24 書き込み（予約作成）───
 // 書込を許可する物件の許可リスト。ここに無いIDへは書き込まない。
-// roomId 未設定（清川・高砂）と合わせて二重の防御になっている。
-const BEDS24_WRITE_ALLOWED = new Set<number>([346442]);
+// roomId 未設定と合わせた二重の防御は維持する（棟を増やすときは両方に足す）。
+const BEDS24_WRITE_ALLOWED = new Set<number>([278158, 291238, 346442]);
 
 let beds24WriteTokenCache: { token: string; expires: number } | null = null;
 
@@ -1038,7 +1042,7 @@ export const beds24DailyObserver = onSchedule(
       const nightsOf = (b: Beds24Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
       const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";
       const isGuest = (b: Beds24Booking) =>
-        b.status !== "black" && !/オーナー|yamada|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""}`);
+        b.status !== "black" && !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
 
       // ② 差分（Firestoreスナップショットと照合）
       const stateRef = db.collection("beds24_state").doc("latest");
