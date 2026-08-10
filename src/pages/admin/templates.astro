@@ -28,12 +28,12 @@ const VALUES = [
   { k: "propertyName", kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" },
   { k: "checkinTime", kiyokawa: "16:00", takasago: "16:00" },
   { k: "checkoutTime", kiyokawa: "10:00", takasago: "10:00" },
-  { k: "keyboxCode", kiyokawa: "／admin/secrets/ で管理", takasago: "／admin/secrets/ で管理", secret: true },
-  { k: "manualUrl", kiyokawa: "（入室マニュアル・清川）", takasago: "（入室マニュアル・高砂）", url: true },
-  { k: "mapUrl", kiyokawa: "（Google マップ・清川）", takasago: "（Google マップ・高砂）", url: true },
-  { k: "registerUrl", kiyokawa: "（宿泊者名簿フォーム・清川）", takasago: "（宿泊者名簿フォーム・高砂）", url: true },
-  { k: "phone", kiyokawa: "運営会社 共通", takasago: "運営会社 共通" },
-  { k: "myPageUrl", kiyokawa: "https://yah.homes/account/", takasago: "同左", url: true },
+  { k: "keyboxCode", kiyokawa: "/admin/secrets/ で管理（オーナー専用）", takasago: "同左", secret: true },
+  { k: "manualUrl", kiyokawa: "https://yah.homes/how-to/kiyokawa/", takasago: "https://yah.homes/how-to/takasago/" },
+  { k: "mapUrl", kiyokawa: "https://maps.app.goo.gl/DP6xuPWf132uRrv76", takasago: "https://maps.app.goo.gl/bf8zLf6qKxhSyAyA8" },
+  { k: "registerUrl", kiyokawa: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", takasago: "https://zfrmz.jp/sZQlLvoM43I0Od6UZPzF" },
+  { k: "phone", kiyokawa: "050-1721-4419", takasago: "050-1721-4419" },
+  { k: "myPageUrl", kiyokawa: "https://yah.homes/account/", takasago: "https://yah.homes/account/" },
   { k: "reviewUrl", kiyokawa: "未決", takasago: "未決", todo: true },
 ];
 
@@ -146,8 +146,13 @@ const VARS = [
                     {VALUES.map((r) => (
                       <tr>
                         <td><code>{`{{${r.k}}}`}</code></td>
-                        <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.kiyokawa}</td>
-                        <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.takasago}</td>
+                        {[r.kiyokawa, r.takasago].map((val) => (
+                          <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim", val.startsWith("http") && "tp-url"]}>
+                            {val.startsWith("http")
+                              ? <a href={val} target="_blank" rel="noopener">{val}</a>
+                              : val}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -393,6 +398,9 @@ const VARS = [
   .tp-strong { font-weight: 500; color: #111111; }
   .tp-dim { color: #888888; }
   .tp-todo { color: #b42318; }
+  .tp-url { word-break: break-all; }
+  .tp-url a { color: #111111; text-decoration: none; border-bottom: 1px solid #d7d7d7; }
+  .tp-url a:hover { border-bottom-color: #111111; }
   .tp-how {
     display: inline-block; font-size: 0.68rem; padding: 0.15rem 0.5rem;
     border-radius: 999px; white-space: nowrap;

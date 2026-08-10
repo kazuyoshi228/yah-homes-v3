@@ -1052,7 +1052,7 @@ export const checkinInfo = onRequest(
 // キーボックス番号は物理キーそのもの。property_facts は公開読み取りを許可しているため、
 // ここには絶対に置かず、専用コレクション property_secrets に隔離する
 // （Firestoreルールは既定deny。読み書きはこの関数＝Admin SDK 経由のみ）。
-// 閲覧・変更は管理者台帳のメンバー（運営会社を含む）。変更は必ず audit_logs に残す。
+// 閲覧・変更はオーナーのみ（運営会社は不可）。変更は必ず audit_logs に残す。
 export const adminSecrets = onRequest(
   { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
@@ -1068,6 +1068,8 @@ export const adminSecrets = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    // 鍵番号は物理キーそのもの。台帳メンバーではなく root オーナーのみに限定する。
+    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
 
     const PROPS = ["kiyokawa", "takasago"] as const;
     try {
