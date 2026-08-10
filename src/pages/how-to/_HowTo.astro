@@ -28,6 +28,9 @@ interface Props {
   /** 外観写真のキャプション（既定は赤丸の説明） */
   entranceCaptionJa?: string;
   entranceCaptionEn?: string;
+  /** 玄関を示す赤丸。x/y/r はいずれも写真の「幅」に対する%（y も幅基準なので真円になる）。
+      aspect は写真の 高さ÷幅。写真に描き込まず重ねるのは、写真を差し替えても位置だけ直せるため。 */
+  entranceMark?: { x: number; y: number; r: number; aspect: number };
 }
 const {
   prop, name, zip, addressJa, addressEn,
@@ -35,6 +38,7 @@ const {
   keyPlaceJa, keyPlaceEn, parkingJa, parkingEn, garageSize, parkingLargeCar,
   entranceCaptionJa = "赤い丸が玄関ドアです。",
   entranceCaptionEn = "The red circle marks the front door.",
+  entranceMark,
 } = Astro.props;
 
 const CHECKIN_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/checkinInfo";
@@ -61,7 +65,17 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
         <p class="ht-step">01</p>
         <h2 class="ht-h2">玄関の場所<span>Finding the entrance</span></h2>
         <figure class="ht-fig">
-          <img class="ht-photo" src={photoEntrance} alt={`${name} の外観`} loading="eager" />
+          <div class="ht-marked">
+            <img class="ht-photo" src={photoEntrance} alt={`${name} の外観`} loading="eager" />
+            {entranceMark && (
+              <svg class="ht-mark" viewBox={`0 0 100 ${100 * entranceMark.aspect}`} aria-hidden="true">
+                <circle
+                  cx={entranceMark.x} cy={entranceMark.y} r={entranceMark.r}
+                  fill="none" stroke="#ff1a1a" stroke-width="1.5"
+                />
+              </svg>
+            )}
+          </div>
           <figcaption>{entranceCaptionJa}<span class="ht-en">{entranceCaptionEn}</span></figcaption>
         </figure>
       </section>
@@ -182,6 +196,8 @@ const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)
   .ht-fig { margin-bottom: 1.5rem; }
   .ht-fig figcaption { margin-top: 0.7rem; font-size: 0.85rem; color: #444444; line-height: 1.9; }
   .ht-fig figcaption .ht-en { display: block; }
+  .ht-marked { position: relative; line-height: 0; }
+  .ht-mark { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .ht-photo { width: 100%; height: auto; border-radius: 6px; display: block; background: #f4f4f4; }
   .ht-block > .ht-photo { margin-bottom: 1.25rem; }
 
