@@ -1,6 +1,6 @@
 # 直接予約基盤 P1 設計書 v5（正本）
 
-更新 2026-08-08 ／ v4 を置き換え。v4 は `design_booking_p1_v4.md` に残す（経緯参照用）。
+更新 2026-08-10 ／ v4 を置き換え。v4 は `design_booking_p1_v4.md` に残す（経緯参照用）。
 **v5 の位置づけ**：v4 は「これから作るもの」を書いた設計書。v5 は**実装済みの事実**と**残作業**を分けて記述する。
 
 ---
@@ -14,7 +14,7 @@
 
 ---
 
-## 2. 現在地（2026-08-08 時点）
+## 2. 現在地（2026-08-10 時点）
 
 | 区分 | 状態 |
 |---|---|
@@ -22,8 +22,9 @@
 | 直販の作業線 | `release/book-p1-ms2` |
 | デモ | `https://yah-homes--book-demo-f2du8sdx.web.app`（BOOK_PREVIEW=1） |
 | Stripe | **テストモード**（`pk_test_` / `sk_test_`）。本番切替は未実施 |
-| Beds24書き込み | **検証物件のみ**（propertyId 346442 / roomId 715198）。清川・高砂は書込不能 |
-| 通しの検証 | 決済→Beds24書込→キャプチャ→CONFIRMED→確定メール まで成功 |
+| Beds24書き込み | **3棟すべて可能**（清川278158/580741・高砂291238/608871・検証346442/715198）。`linkedProperties: true` のトークンで到達 |
+| 通しの検証 | 決済→Beds24書込→キャプチャ→CONFIRMED→確定メール／セルフキャンセル→返金→Beds24取消 まで成功 |
+| 本番棟でのテスト | **未実施**（OTAと在庫同期するため、事前共有と日程の選定が必要） |
 
 ---
 
@@ -35,6 +36,7 @@
 - `/book/complete/`：確定までポーリング（8秒で進捗・25秒で「メールでご連絡」に切替）
 - `/account`（My Page）：確定メールと同一構成のカード。到着予定時刻の登録
 - `/admin/`：menu・bookings・users・properties・inbox・partners
+- `/operators/menu`：運営会社向け（直販予約・メッセージ〈準備中〉・受信箱・パートナー申請）
 
 ### 3-2 サーバー（Cloud Functions・asia-northeast1）
 | 関数 | 役割 |
@@ -91,11 +93,13 @@ QUOTE_ISSUED → PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONF
 - 期限後・無連絡不泊：宿泊料金の全額
 - 判定は**サーバー時刻**。クライアントの時計は使わない
 
-### 5-2 現状（運営側のみ実装済み）
+### 5-2 運営側（`/admin/bookings` の返金）
 `/admin/bookings` の返金で、Stripe返金 → Beds24取消 → 日付ロック解放 → `CANCELLED` → 監査ログ、が一気通貫。Beds24取消に失敗した場合は返金を行わず「要対応」メールを送る。
 
-### 5-3 セルフキャンセル（承認済み・未実装）
-仕様は `docs/spec_self_cancel_202608.md`。決定事項は以下。
+### 5-3 セルフキャンセル（**実装済み**・2026-08-10）
+仕様は `docs/spec_self_cancel_202608.md`。My Page のボタン → 返金額を明示した確認ダイアログ →
+`CANCELLING` へCAS → Beds24取消 → Stripe返金 → ロック解放 → `CANCELLED` → 確認メール（5言語）。
+Beds24 を先に取り消すのは、返金だけ通って部屋が残る状態を作らないため。決定事項は以下。
 
 | # | 決定 |
 |---|---|
@@ -113,7 +117,8 @@ QUOTE_ISSUED → PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONF
 
 - ゲスト：Google（主）＋メールリンク（WebView対策）。パスワードなし
 - 管理：`admin_users` 台帳をリクエスト毎に照合（Claims失効ラグ対策）
-- オーナー限定：返金・物件ファクト・問い合わせ受信箱（`kazuyoshi.yamada@bonfire.co.jp`）
+- オーナー限定：返金・物件ファクト・管理者台帳の編集（`kazuyoshi.yamada@bonfire.co.jp`）
+- 台帳メンバー（運営会社を含む）：直販予約管理・お問い合わせ受信箱・パートナー申請管理
 - Firestore はクライアント直書き全面禁止。公開読み取りは `property_facts` のみ
 
 ---
@@ -122,7 +127,7 @@ QUOTE_ISSUED → PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONF
 
 標準eコマース（`begin_checkout` → `add_payment_info` → `purchase`）＋独自イベント。`purchase` はサーバー側 Measurement Protocol で送信（離脱・広告ブロック・重複でCVが歪むため）。個人情報は送らない。
 
-独自イベント：`availability_requested` / `availability_response`（duration_ms・cache_status）/ `_deduped` / `_aborted` / `_failed` / `availability_result_viewed` / `sold_out_viewed` / `alternative_property_shown` / `_selected` / `alternative_dates_shown` / `_selected` / `inventory_revalidated` / `booking_complete_viewed`
+独自イベント：`availability_requested` / `availability_response`（duration_ms・cache_status）/ `_deduped` / `_aborted` / `_failed` / `availability_result_viewed` / `sold_out_viewed` / `alternative_property_shown` / `_selected` / `alternative_dates_shown` / `_selected` / `inventory_revalidated` / `booking_complete_viewed` / `cancel_started` / `cancel_confirmed` / `cancel_failed`
 
 ---
 
@@ -138,20 +143,21 @@ QUOTE_ISSUED → PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONF
 | 4 | **`/admin/*` に X-Frame-Options: DENY** | 未実装（0件） |
 | 5 | ~~無料期限を8日前23:59に変更~~ | **完了**（2026-08-10） |
 | 6 | ~~セルフキャンセル実装~~ | **完了**（2026-08-10）。My Page・確認ダイアログ・確認メール5言語・計測 |
-| 7 | `/admin/inbox` の Function 本番デプロイ | 未実施 |
+| 7 | ~~`/admin/inbox` の Function 本番デプロイ~~ | **完了**（2026-08-10）。閲覧は台帳メンバー |
+| 8 | **本番棟での通しテスト** | 未実施。OTAと在庫同期するため、400日先の平日で1件・即キャンセル・OTA側の反映確認をセットで行う |
 
 ### 8-2 公開後すみやかに
 
 | # | 項目 |
 |---|---|
-| 8 | **自動テストが1つも無い**（v4 §11 の5層テストは全て手動検証で代替中） |
-| 9 | kill switch（未実装・0件） |
-| 10 | `bookings_mirror` の日次突合ロジック |
-| 11 | SPF/DKIM/DMARC の確認 |
-| 12 | `beds24Webhook` URLトークンのローテーション手順（Runbook） |
-| 13 | ~~LCPモバイル2.5s未満の実測~~ → 実測480msで達成（2026-08-10） |
-| 14 | ~~WebView×OS×言語の実機認証テスト~~ → 対象外（発注者判断・2026-08-10） |
-| 15 | 高砂の正確な住所（確定メールに未記載・地図リンクのみ） |
+| 9 | **自動テストが1つも無い**（v4 §11 の5層テストは全て手動検証で代替中） |
+| 10 | kill switch（未実装・0件） |
+| 11 | `bookings_mirror` の日次突合ロジック |
+| 12 | SPF/DKIM/DMARC の確認 |
+| 13 | `beds24Webhook` URLトークンのローテーション手順（Runbook） |
+| 14 | ~~LCPモバイル2.5s未満の実測~~ → 実測480msで達成（2026-08-10） |
+| 15 | ~~WebView×OS×言語の実機認証テスト~~ → 対象外（発注者判断・2026-08-10） |
+| 16 | 高砂の正確な住所（確定メールに未記載・地図リンクのみ） |
 
 ---
 
@@ -161,6 +167,7 @@ QUOTE_ISSUED → PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONF
 |---|---|---|
 | 1 | 契約当事者・MoR（A案：当社Stripe維持＋代理受領） | 方針決定済・**面談合意待ち** |
 | 2 | 名簿の既存収集フローと直販ゲストへの適用 | **運営会社確認待ち** |
+| — | 直販サイトを行うこと自体 | **合意済み**（2026-08-10） |
 | 3 | Beds24のrate/offer選択・取消API挙動 | **実機で確認済**（offers/取消とも動作確認） |
 | 4 | 障害パターンの収束先 | 承認済（§4） |
 | 5 | メール一次送信者の最終確認 | 未クローズ |
