@@ -83,65 +83,87 @@ const VARS = [
       </div>
 
       <div id="tp-app" hidden>
-        <details class="tp-vars" open>
-          <summary>いつ送るか（送信タイミング）</summary>
-          <div class="tp-scroll">
-            <table class="tp-grid">
-              <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>送信</th><th>対象</th></tr></thead>
-              <tbody>
-                {TIMING.map((r) => (
-                  <tr>
-                    <td class="tp-strong">{r.t}</td>
-                    <td>{r.w}</td>
-                    <td class="tp-dim">{r.trig}</td>
-                    <td><span class:list={["tp-how", r.how === "自動" ? "tp-auto" : "tp-manual"]}>{r.how}</span></td>
-                    <td class="tp-dim">{r.who}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div class="tp-layout">
+          <aside class="tp-side">
+            <nav class="tp-nav" aria-label="定型メール">
+              <p class="tp-side-group">ガイド</p>
+              <button type="button" class="tp-navlink" data-nav="timing">定型メール一覧</button>
+              <button type="button" class="tp-navlink" data-nav="vars">差し込み記号</button>
+              <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
+              <p class="tp-side-group">メール文面</p>
+              <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
+            </nav>
+          </aside>
+
+          <div class="tp-main">
+            <section class="tp-panel" data-panel="timing" hidden>
+              <h2 class="tp-h2">定型メール一覧</h2>
+              <p class="tp-desc">どの文面を、いつ、誰に送るか。</p>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>送信</th><th>対象</th></tr></thead>
+                  <tbody>
+                    {TIMING.map((r) => (
+                      <tr>
+                        <td class="tp-strong">{r.t}</td>
+                        <td>{r.w}</td>
+                        <td class="tp-dim">{r.trig}</td>
+                        <td><span class:list={["tp-how", r.how === "自動" ? "tp-auto" : "tp-manual"]}>{r.how}</span></td>
+                        <td class="tp-dim">{r.who}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p class="tp-note">
+                <strong>自動</strong>はシステムが送ります（毎日10:00 JSTに対象を確認）。
+                <strong>手動</strong>は運営がBeds24・OTAのメッセージから送ります。
+              </p>
+            </section>
+
+            <section class="tp-panel" data-panel="vars" hidden>
+              <h2 class="tp-h2">差し込み記号</h2>
+              <p class="tp-desc">本文に <code>{"{{ }}"}</code> で書くと、送信時に実際の値へ置き換わります。</p>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>記号</th><th>入る内容</th></tr></thead>
+                  <tbody>
+                    {VARS.map((v) => (
+                      <tr><td><code>{`{{${v.k}}}`}</code></td><td class="tp-dim">{v.d}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="tp-panel" data-panel="values" hidden>
+              <h2 class="tp-h2">情報テーブル</h2>
+              <p class="tp-desc">差し込み記号に入る実際の値です。棟で違うものはここが正。</p>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>差し込み記号</th><th>清川yah.</th><th>yah homes.takasago</th></tr></thead>
+                  <tbody>
+                    {VALUES.map((r) => (
+                      <tr>
+                        <td><code>{`{{${r.k}}}`}</code></td>
+                        <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.kiyokawa}</td>
+                        <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.takasago}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p class="tp-note">
+                URLと電話番号は、物件ファクト（<a href="/admin/properties/">/admin/properties</a>）が正です。
+                キーボックス番号だけは公開範囲が違うため、<a href="/admin/secrets/">セキュリティ鍵番号管理</a>で別に管理します。
+                <strong class="tp-todo">レビューの投稿先は未決</strong>です。決まるまで、レビュー依頼の文面では触れないでください。
+              </p>
+            </section>
+
+            <div id="tp-list"></div>
+            <p class="tp-status" id="tp-status" role="status"></p>
           </div>
-          <p class="tp-note">
-            <strong>自動</strong>はシステムが送ります（毎日10:00 JSTに対象を確認）。
-            <strong>手動</strong>は運営がBeds24・OTAのメッセージから送ります。
-          </p>
-        </details>
-
-        <details class="tp-vars">
-          <summary>差し込み記号の一覧</summary>
-          <table class="tp-vars-table">
-            {VARS.map((v) => (
-              <tr><th>{`{{${v.k}}}`}</th><td>{v.d}</td></tr>
-            ))}
-          </table>
-          <p class="tp-note">本文にそのまま書くと、送信時に実際の値へ置き換わります。</p>
-        </details>
-
-        <details class="tp-vars">
-          <summary>差し込み記号に入る値（棟ごと）</summary>
-          <div class="tp-scroll">
-            <table class="tp-grid">
-              <thead><tr><th>差し込み記号</th><th>清川yah.</th><th>yah homes.takasago</th></tr></thead>
-              <tbody>
-                {VALUES.map((r) => (
-                  <tr>
-                    <td><code>{`{{${r.k}}}`}</code></td>
-                    <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.kiyokawa}</td>
-                    <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim"]}>{r.takasago}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p class="tp-note">
-            URLと電話番号は、物件ファクト（<a href="/admin/properties/">/admin/properties</a>）が正です。
-            キーボックス番号だけは公開範囲が違うため、<a href="/admin/secrets/">セキュリティ鍵番号管理</a>で別に管理します。
-            <strong class="tp-todo">レビューの投稿先は未決</strong>です。決まるまで、レビュー依頼の文面では触れないでください。
-          </p>
-        </details>
-
-        <div id="tp-list"></div>
-        <p class="tp-status" id="tp-status" role="status"></p>
+        </div>
       </div>
     </div>
   </section>
@@ -156,7 +178,6 @@ const VARS = [
     const $ = (id) => document.getElementById(id);
     const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmt = (ms) => (ms ? new Date(ms).toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" }) : "—");
-    const PROP = { kiyokawa: "清川", takasago: "高砂", both: "両物件" };
 
     async function api(method, body) {
       const token = await auth.currentUser.getIdToken();
@@ -169,12 +190,33 @@ const VARS = [
       return res.json();
     }
 
+    const KIND_SHORT = { "予約確定（OTA）": "確定", "チェックイン案内": "入室", チェックアウト: "退室", "名簿依頼（直販）": "名簿" };
+
+    function show(key) {
+      document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
+      document.querySelectorAll("[data-nav]").forEach((el) => {
+        el.classList.toggle("is-active", el.dataset.nav === key);
+        el.setAttribute("aria-current", el.dataset.nav === key ? "true" : "false");
+      });
+      if (location.hash.slice(1) !== key) history.replaceState(null, "", `#${key}`);
+      document.querySelector(".tp-main").scrollIntoView({ block: "start", behavior: "instant" });
+    }
+
     function render(items) {
+      $("tp-side-mails").innerHTML = items.map((t, i) => `
+        <button type="button" class="tp-navlink tp-navmail" data-nav="${esc(t.id)}">
+          <span class="tp-navnum">${i + 1}</span>
+          <span class="tp-navtext">
+            ${esc(t.title)}
+            <span class="tp-navtags">${esc(KIND_SHORT[t.kind] ?? t.kind)}${t.lang ? ` / ${esc(t.lang.toUpperCase())}` : ""}</span>
+          </span>
+        </button>`).join("");
+
       $("tp-list").innerHTML = items.map((t) => `
-        <article class="tp-card">
+        <section class="tp-panel" data-panel="${esc(t.id)}" hidden>
           <header class="tp-head">
             <div>
-              <h2 class="tp-name">${esc(t.title)}</h2>
+              <h2 class="tp-h2">${esc(t.title)}</h2>
               <p class="tp-meta">
                 <span class="tp-tag">${esc(t.kind)}</span>
                 ${t.lang ? `<span class="tp-tag tp-lang">${esc(t.lang.toUpperCase())}</span>` : ""}
@@ -190,14 +232,18 @@ const VARS = [
           </label>
           <label class="tp-field">
             <span>本文</span>
-            <textarea class="tp-body" data-body="${esc(t.id)}" rows="16" spellcheck="false">${esc(t.body)}</textarea>
+            <textarea class="tp-body" data-body="${esc(t.id)}" rows="20" spellcheck="false">${esc(t.body)}</textarea>
           </label>
           <div class="tp-actions">
             <button type="button" class="tp-btn tp-save" data-save="${esc(t.id)}">保存する</button>
             <button type="button" class="tp-btn-sub" data-copy="${esc(t.id)}">本文をコピー</button>
             <span class="tp-saved" data-saved="${esc(t.id)}"></span>
           </div>
-        </article>`).join("");
+        </section>`).join("");
+
+      document.querySelectorAll("[data-nav]").forEach((btn) =>
+        btn.addEventListener("click", () => show(btn.dataset.nav))
+      );
 
       document.querySelectorAll("[data-body]").forEach((ta) =>
         ta.addEventListener("input", () => {
@@ -215,7 +261,7 @@ const VARS = [
           const r = await api("POST", { id, body, subject });
           document.querySelector(`[data-saved="${id}"]`).textContent = r.ok ? "保存しました" : `保存に失敗しました（${r.error ?? ""}）`;
           btn.disabled = false;
-          if (r.ok) load();
+          if (r.ok) load(id);
         })
       );
 
@@ -229,12 +275,16 @@ const VARS = [
       );
     }
 
-    async function load() {
+    async function load(keep) {
       $("tp-status").textContent = "読み込み中...";
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
-        render(j.items || []);
+        const items = j.items || [];
+        render(items);
+        const hash = location.hash.slice(1);
+        const valid = ["timing", "vars", "values", ...items.map((t) => t.id)];
+        show(valid.includes(keep) ? keep : valid.includes(hash) ? hash : "timing");
         $("tp-status").textContent = "";
       } catch (e) {
         $("tp-status").textContent =
@@ -275,6 +325,45 @@ const VARS = [
   }
   .tp-btn-sub:hover { border-color: #111111; }
 
+  /* サイドバー */
+  .tp-layout { display: grid; grid-template-columns: 232px 1fr; gap: 2.5rem; align-items: start; }
+  .tp-side { position: sticky; top: 6rem; }
+  .tp-nav { display: flex; flex-direction: column; gap: 0.1rem; }
+  .tp-side-group {
+    font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #aaaaaa; margin: 1.4rem 0 0.6rem; padding-left: 0.75rem;
+  }
+  .tp-side-group:first-child { margin-top: 0; }
+  .tp-side :global(.tp-navlink) {
+    display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
+    font-family: inherit; font-size: 0.82rem; line-height: 1.55; color: #555555;
+    background: none; border: none; border-left: 2px solid transparent;
+    padding: 0.55rem 0.6rem 0.55rem 0.75rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .tp-side :global(.tp-navlink:hover) { color: #111111; }
+  .tp-side :global(.tp-navlink.is-active) { color: #111111; font-weight: 500; border-left-color: #111111; background: #fafafa; }
+  .tp-side :global(.tp-navnum) {
+    flex-shrink: 0; font-size: 0.68rem; color: #bbbbbb; font-variant-numeric: tabular-nums; min-width: 0.9em;
+  }
+  .tp-side :global(.tp-navlink.is-active .tp-navnum) { color: #111111; }
+  .tp-side :global(.tp-navtext) { display: block; }
+  .tp-side :global(.tp-navtags) {
+    display: block; margin-top: 0.15rem; font-size: 0.66rem; font-weight: 400;
+    letter-spacing: 0.06em; color: #aaaaaa;
+  }
+  .tp-side-empty { font-size: 0.76rem; color: #aaaaaa; padding-left: 0.75rem; }
+
+  .tp-main { min-width: 0; }
+  .tp-main :global(.tp-panel[hidden]) { display: none; }
+  .tp-h2 { font-size: 1.15rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  .tp-desc { font-size: 0.8rem; color: #777777; line-height: 1.85; margin-bottom: 1.5rem; }
+  .tp-desc code { font-size: 0.78rem; color: #111111; }
+
+  @media (max-width: 820px) {
+    .tp-layout { grid-template-columns: 1fr; gap: 1.75rem; }
+    .tp-side { position: static; border-bottom: 1px solid #ededed; padding-bottom: 1.25rem; }
+  }
+
   .tp-vars { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 1.75rem; }
   .tp-vars summary { font-size: 0.82rem; font-weight: 500; color: #111111; cursor: pointer; }
   .tp-vars-table { width: 100%; border-collapse: collapse; margin: 0.9rem 0; }
@@ -284,10 +373,8 @@ const VARS = [
   }
   .tp-vars-table td { padding: 0.35rem 0; font-size: 0.76rem; color: #777777; }
 
-  #tp-list :global(.tp-card) { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.5rem; margin-bottom: 1.5rem; }
-  #tp-list :global(.tp-head) { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.9rem; }
-  #tp-list :global(.tp-name) { font-size: 1rem; font-weight: 500; color: #111111; }
-  #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+    #tp-list :global(.tp-head) { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+    #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
   #tp-list :global(.tp-tag) {
     font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
   }
