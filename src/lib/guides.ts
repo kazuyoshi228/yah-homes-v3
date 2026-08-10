@@ -46,6 +46,14 @@ export interface Guide {
 const FEED_URL = "https://magazine.yah.mobi/feeds/homes.json";
 export const GUIDES_PREVIEW = process.env.GUIDES_PREVIEW === "1";
 
+/* フィードが取れないときは既定でビルドを落とす。
+   以前は警告だけ出して「ガイド0本」で成功扱いにしていたため、
+   フィードが一時的に落ちた回のビルドをデプロイした結果、
+   本番から記事64ページが消え、一覧からのリンクが全部404になった（2026-08 実測）。
+   記事を持たないビルドを成果物にしないことが唯一の防波堤なので、
+   空を許すのは GUIDES_ALLOW_EMPTY=1 を明示したときだけにする。 */
+const ALLOW_EMPTY = process.env.GUIDES_ALLOW_EMPTY === "1";
+
 // magazine の Lang → yah.homes の Locale
 const LANG_MAP: Record<string, Locale> = { ja: "ja", en: "en", ko: "ko", "zh-TW": "zh", th: "th" };
 
@@ -68,13 +76,12 @@ async function fetchFeed(): Promise<Guide[]> {
     // CDNキャッシュ（300秒）で公開直後の記事が落ちるのを防ぐ（クエリでキャッシュキーを分ける）
     res = await fetch(`${FEED_URL}?ts=${Date.now()}`);
   } catch (e) {
-    // フィード未デプロイ期間の通常ビルドを壊さない（配信開始後は GUIDES_STRICT=1 で厳格化）
-    if (process.env.GUIDES_STRICT === "1") throw e;
+    if (!ALLOW_EMPTY) throw new Error(`[guides] feed unreachable: ${e}`);
     console.warn(`[guides] feed unreachable (${e}) — building without guides`);
     return [];
   }
   if (!res.ok) {
-    if (process.env.GUIDES_STRICT === "1") throw new Error(`[guides] feed HTTP ${res.status}`);
+    if (!ALLOW_EMPTY) throw new Error(`[guides] feed HTTP ${res.status}`);
     console.warn(`[guides] feed HTTP ${res.status} — building without guides`);
     return [];
   }
@@ -84,7 +91,7 @@ async function fetchFeed(): Promise<Guide[]> {
     if (!Array.isArray(raw)) throw new Error("feed is not an array");
   } catch (e) {
     // フィード未デプロイ時はSPAのHTMLが返る（rewrite未設定）→ JSONにならない
-    if (process.env.GUIDES_STRICT === "1") throw e;
+    if (!ALLOW_EMPTY) throw new Error(`[guides] feed not valid JSON: ${e}`);
     console.warn(`[guides] feed not valid JSON (${e}) — building without guides`);
     return [];
   }

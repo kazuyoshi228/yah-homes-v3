@@ -20,8 +20,10 @@ export default defineConfig({
   integrations: [
     react(),
     sitemap({
-      // 管理画面（/admin/*）と thankyou はインデックス対象外。sitemapから除外する。
-      filter: (page) => !page.includes("/admin") && !page.includes("/thankyou") && !page.includes("/partners"),
+      // 管理画面（/admin/*）・thankyou・入室案内（/how-to/* = 宿泊者専用）はインデックス対象外。
+      filter: (page) =>
+        !page.includes("/admin") && !page.includes("/thankyou") &&
+        !page.includes("/partners") && !page.includes("/how-to"),
     }),
   ],
   vite: {
