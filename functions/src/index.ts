@@ -1000,6 +1000,21 @@ function expandMailVars(L: Record<string, string>, vars: Record<string, string>)
   return out;
 }
 
+
+// ─── メール送信ログ（/admin/mail-log） ───
+// お客様宛メールを送るたびに1行記録する。「届いていない」調査の一次資料。
+// 記録の失敗は握りつぶす（ログのために送信を止めない）。
+function logMail(kind: string, to: string, ok: boolean, extra?: { bookingId?: string; lang?: string; subject?: string; error?: string }): void {
+  db.collection("mail_logs").add({
+    kind, to, ok,
+    bookingId: extra?.bookingId ?? null,
+    lang: extra?.lang ?? null,
+    subject: (extra?.subject ?? "").slice(0, 200),
+    error: (extra?.error ?? "").slice(0, 300),
+    at: FieldValue.serverTimestamp(),
+  }).catch(() => { /* noop */ });
+}
+
 async function buildLifecycleMail(
   kind: "reminder" | "review" | "checkout",
   bookingId: string,
@@ -1143,11 +1158,17 @@ async function sendLifecycleMail(
     host: "smtp.gmail.com", port: 465, secure: true,
     auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
   });
-  await transporter.sendMail({
-    from: `"yah.homes" <${SMTP_USER.value()}>`,
-    to: String(b.email), replyTo: SMTP_USER.value(),
-    subject, text, html,
-  });
+  try {
+    await transporter.sendMail({
+      from: `"yah.homes" <${SMTP_USER.value()}>`,
+      to: String(b.email), replyTo: SMTP_USER.value(),
+      subject, text, html,
+    });
+    logMail(kind === "reminder" ? "checkin" : kind, String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
+  } catch (err) {
+    logMail(kind === "reminder" ? "checkin" : kind, String(b.email), false, { bookingId, lang: String(b.lang ?? ""), subject, error: String(err) });
+    throw err; // 呼び出し側の失敗処理（再送フラグを立てない）を維持する
+  }
 }
 
 /** 07:00 JST: 本日チェックアウトの予約へ退室のご案内。
@@ -1184,10 +1205,14 @@ export const guestLifecycleMailer = onSchedule(
     const hourJst = Number(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hour12: false }));
     if (hourJst < 9) {
       await run("checkout", "checkout", jst(0), "checkoutSentAt");
+      await db.collection("ops").doc("lifecycle").set({ lastRunAt: FieldValue.serverTimestamp() }, { merge: true })
+        .catch(() => { /* noop */ });
       return;
     }
     await run("reminder", "checkin", tomorrow, "reminderSentAt");
     await run("review", "checkout", yesterday, "reviewSentAt");
+    await db.collection("ops").doc("lifecycle").set({ lastRunAt: FieldValue.serverTimestamp() }, { merge: true })
+      .catch(() => { /* ハートビート失敗は無視 */ });
   }
 );
 
@@ -1453,6 +1478,84 @@ async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<v
 
 
 
+
+
+// ─── 運用ビューAPI（/admin/mail-log・/admin/audit・/admin/health が読む） ───
+export const adminOps = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+    secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY] },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Authorization");
+    }
+    res.set("Cache-Control", "no-store");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const email = await verifyAdmin(req as { headers: Record<string, unknown> });
+    if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+
+    const view = String(req.query.view ?? "");
+    try {
+      if (view === "mail") {
+        const snap = await db.collection("mail_logs").orderBy("at", "desc").limit(200).get();
+        res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
+        return;
+      }
+      if (view === "audit") {
+        const snap = await db.collection("audit_logs").orderBy("at", "desc").limit(200).get();
+        res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
+        return;
+      }
+      if (view === "health") {
+        const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+
+        // Beds24 読み取りトークン
+        try {
+          const r = await fetch("https://api.beds24.com/v2/authentication/details", { headers: { token: BEDS24_TOKEN.value() } });
+          const j = (await r.json()) as { validToken?: boolean };
+          checks.push({ name: "Beds24 トークン", ok: j.validToken === true, detail: j.validToken ? "有効" : "無効・要再発行" });
+        } catch (e) { checks.push({ name: "Beds24 トークン", ok: false, detail: `照会失敗 ${String(e).slice(0, 80)}` }); }
+
+        // Stripe モード
+        const sk = STRIPE_SECRET_KEY.value();
+        checks.push({ name: "Stripe", ok: true, detail: sk.startsWith("sk_live_") ? "本番モード" : "テストモード（公開前に本番キーへ）" });
+
+        // 自動メール便（cron）の最終実行
+        try {
+          const hb = (await db.collection("ops").doc("lifecycle").get()).data();
+          const last = hb?.lastRunAt?.toMillis?.() ?? 0;
+          const hours = last ? (Date.now() - last) / 3600000 : Infinity;
+          checks.push({ name: "自動メール便（7時・10時）", ok: hours < 26, detail: last ? `最終実行 ${new Date(last).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}` : "実行記録なし（次回実行で記録開始）" });
+        } catch { checks.push({ name: "自動メール便（7時・10時）", ok: false, detail: "照会失敗" }); }
+
+        // 直近24時間のメール送信失敗
+        try {
+          const since = new Date(Date.now() - 24 * 3600000);
+          const snap = await db.collection("mail_logs").where("at", ">", since).get();
+          const fail = snap.docs.filter((d) => d.data().ok === false).length;
+          checks.push({ name: "メール送信（24時間）", ok: fail === 0, detail: `${snap.size}件送信・失敗${fail}件` });
+        } catch { checks.push({ name: "メール送信（24時間）", ok: false, detail: "照会失敗" }); }
+
+        // 要対応の予約
+        try {
+          const snap = await db.collection("bookings").where("status", "in", ["PENDING", "MANUAL_REVIEW", "CANCELLING"]).get();
+          checks.push({ name: "要対応の予約", ok: snap.size === 0, detail: snap.size ? `${snap.size}件（直販予約管理へ）` : "なし" });
+        } catch { checks.push({ name: "要対応の予約", ok: false, detail: "照会失敗" }); }
+
+        res.status(200).json({ ok: true, checks });
+        return;
+      }
+      res.status(400).json({ ok: false, error: "invalid_view" });
+    } catch (err) {
+      logger.error("adminOps failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
 
 // ─── 入室案内の暗証番号（/how-to/:prop から取得） ───
 // 番号を静的HTMLへ焼き込むと、gitとビルド成果物に残り、番号を変えるたび再デプロイが要る。
@@ -2821,8 +2924,10 @@ async function buildConfirmationMailFor(
 
 /** 予約確定メール（お客様宛・予約言語で送る）。失敗しても確定は取り消さない。 */
 async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
+  let subj = "";
   try {
     const { subject, text, html } = await buildConfirmationMailFor(bookingId, b);
+    subj = subject;
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
@@ -2832,8 +2937,10 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
       to: String(b.email), replyTo: SMTP_USER.value(),
       subject, text, html,
     });
+    logMail("confirm", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject: subj });
   } catch (err) {
     logger.error("sendConfirmationMail failed", err); // 送信失敗で予約は取り消さない
+    logMail("confirm", String(b.email), false, { bookingId, lang: String(b.lang ?? ""), subject: subj, error: String(err) });
   }
 }
 
@@ -2962,8 +3069,10 @@ async function sendCancellationMail(
       to: String(b.email), replyTo: SMTP_USER.value(),
       subject, text, html,
     });
+    logMail("cancel", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
   } catch (err) {
     logger.error("sendCancellationMail failed", err);
+    logMail("cancel", String(b.email), false, { bookingId, lang: String(b.lang ?? ""), error: String(err) });
   }
 }
 
