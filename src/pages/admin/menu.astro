@@ -3,16 +3,19 @@
    稼働中の画面と、枠だけの画面を明示的に分ける。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 
-/* バッジ: Admin＝オーナーのみ ／ Operator＝管理者台帳のメンバー（運営会社を含む） */
-const LIVE = [
-  { href: "/admin/bookings/", title: "直販予約 管理", role: "operator" },
-  { href: "/admin/partners/", title: "パートナー申請 管理", role: "operator" },
-  { href: "/admin/inbox/", title: "お問い合わせ受信箱", role: "operator" },
-  { href: "/admin/templates/", title: "定型メール管理", role: "operator" },
-  { href: "/admin/mail-preview/", title: "メールテンプレート", role: "operator" },
-  { href: "/admin/properties/", title: "物件ファクト管理", role: "admin" },
-  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
-  { href: "/admin/users/", title: "管理者台帳", role: "admin" },
+/* Admin専用＝オーナーのみ ／ Admin+Operator＝管理者台帳のメンバー（運営会社を含む） */
+const OPERATOR = [
+  { href: "/admin/bookings/", title: "直販予約 管理" },
+  { href: "/admin/partners/", title: "パートナー申請 管理" },
+  { href: "/admin/inbox/", title: "お問い合わせ受信箱" },
+  { href: "/admin/templates/", title: "定型メール管理" },
+  { href: "/admin/mail-preview/", title: "メールテンプレート" },
+  { href: "/operators/menu/", title: "運営メニュー" },
+];
+const ADMIN = [
+  { href: "/admin/properties/", title: "物件ファクト管理" },
+  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理" },
+  { href: "/admin/users/", title: "管理者台帳" },
 ];
 
 ---
@@ -29,23 +32,22 @@ const LIVE = [
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
       <h1 class="am-title">管理メニュー</h1>
+      <h2 class="am-h2">Admin 専用</h2>
       <div class="am-grid">
-        {LIVE.map((it) => (
+        {ADMIN.map((it) => (
           <a class="am-card" href={it.href}>
-            <h3 class="am-card-title">
-              {it.title}
-              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
-                {it.role === "admin" ? "Admin" : "Operator"}
-              </span>
-            </h3>
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-admin">Admin</span></h3>
           </a>
         ))}
-        <a class="am-card" href="/operators/menu/">
-          <h3 class="am-card-title">
-            運営メニュー
-            <span class="am-badge am-badge-operator">Operator</span>
-          </h3>
-        </a>
+      </div>
+
+      <h2 class="am-h2">Admin ＋ Operator</h2>
+      <div class="am-grid">
+        {OPERATOR.map((it) => (
+          <a class="am-card" href={it.href}>
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
+          </a>
+        ))}
       </div>
     </div>
   </section>
@@ -56,6 +58,11 @@ const LIVE = [
   .am-container { max-width: 880px; margin: 0 auto; }
   .am-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
   .am-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .am-h2 {
+    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888;
+    margin: 2rem 0 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eeeeee;
+  }
+  .am-h2:first-of-type { margin-top: 0; }
   .am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
   .am-card {
     display: block; border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.1rem 1.3rem;
