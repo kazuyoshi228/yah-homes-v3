@@ -526,6 +526,22 @@ async function cancelBeds24Booking(beds24Id: number): Promise<void> {
   if (!j?.[0]?.success) throw new Error(`beds24 cancel failed: ${JSON.stringify(j?.[0]?.errors ?? j).slice(0, 200)}`);
 }
 
+/** キャンセルの経緯を Beds24 の予約に内部メモとして残す（運営がBeds24だけ見ていても分かるように）。
+    メモの失敗でキャンセル処理は止めない。 */
+async function noteBeds24Cancellation(beds24Id: number, text: string): Promise<void> {
+  try {
+    const r = await fetch(`${BEDS24_API}/bookings/messages`, {
+      method: "POST",
+      headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+      body: JSON.stringify([{ bookingId: beds24Id, message: text.slice(0, 500), source: "internalNote" }]),
+    });
+    const j = (await r.json()) as Array<{ success?: boolean }>;
+    if (!j?.[0]?.success) logger.warn("beds24 internalNote failed", { beds24Id });
+  } catch (err) {
+    logger.warn("beds24 internalNote failed", { beds24Id, err: String(err).slice(0, 120) });
+  }
+}
+
 /** Beds24 に予約を作成し、Beds24側の予約IDを返す。 */
 async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<number> {
   const target = beds24WriteTarget(b.prop);
@@ -3209,6 +3225,8 @@ export const accountApi = onRequest(
           if (v.beds24Id) {
             try {
               await cancelBeds24Booking(Number(v.beds24Id));
+              await noteBeds24Cancellation(Number(v.beds24Id),
+                `【直販】お客様ご自身でキャンセル（公式サイト My Page）。返金処理も自動で実行済み。予約 ${idStr.slice(0, 8).toUpperCase()}／対応不要です。`);
             } catch (e) {
               await notifyError(
                 `[要対応] お客様のキャンセル操作で Beds24 の取り消しに失敗しました。返金は行っていません。\n` +
@@ -3480,6 +3498,8 @@ export const adminBookings = onRequest(
           if (v.beds24Id) {
             try {
               await cancelBeds24Booking(Number(v.beds24Id));
+              await noteBeds24Cancellation(Number(v.beds24Id),
+                `【直販】運営がキャンセル・返金（¥${Number(refundAmount).toLocaleString("en-US")}）を実行。予約 ${idStr.slice(0, 8).toUpperCase()}／対応不要です。`);
             } catch (e) {
               beds24CancelError = String(e).slice(0, 160);
               await notifyError(
