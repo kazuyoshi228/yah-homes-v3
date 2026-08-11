@@ -22,10 +22,10 @@ const FB_CONFIG = {
 <SiteLayout lang="ja" path={path} title={`${title} | yah.homes`} description={title} noindex={true} solidNav>
   <section class="op">
     <div class="op-container">
-      <p class="op-eyebrow">Admin</p>
+      <a class="op-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="op-title">{title}</h1>
 
-      <div id="op-login" class="op-login">
+      <div id="op-login" class="op-login" hidden>
         <button id="op-login-btn" class="op-btn">Googleでログイン</button>
         <p class="op-status" id="op-login-status"></p>
       </div>
@@ -151,4 +151,5 @@ const FB_CONFIG = {
   #op-body :global(.op-nowrap) { white-space: nowrap; }
   #op-body :global(.op-break) { word-break: break-all; }
   #op-body :global(.op-mono) { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+  a.op-eyebrow { display: block; text-decoration: none; }
 </style>

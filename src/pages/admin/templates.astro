@@ -74,9 +74,9 @@ const VARS = [
 >
   <section class="tp">
     <div class="tp-container">
-      <p class="tp-eyebrow">Admin</p>
+      <a class="tp-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="tp-title">定型メール管理</h1>
-      <div id="tp-login" class="tp-login">
+      <div id="tp-login" class="tp-login" hidden>
         <p class="tp-note">ご登録のアカウントでログインしてください。</p>
         <button id="tp-login-btn" class="tp-btn">Googleでログイン</button>
         <p class="tp-status" id="tp-login-status"></p>
@@ -506,4 +506,5 @@ const VARS = [
   }
   #tp-list :global(.tp-actions) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
   #tp-list :global(.tp-saved) { font-size: 0.78rem; color: #555555; }
+  a.tp-eyebrow { display: block; text-decoration: none; }
 </style>

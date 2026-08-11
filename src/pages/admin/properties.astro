@@ -103,14 +103,14 @@ const HOUSES = [
 >
   <section class="ap">
     <div class="ap-container">
-      <p class="ap-eyebrow">Admin</p>
+      <a class="ap-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="ap-title">物件ファクト管理</h1>
       <p class="ap-lead">
         ここが物件情報の<strong>唯一の正</strong>です。保存した内容は、トップページ・予約ページ・物件詳細ページのすべてに反映されます。
         サイトは静的に生成しているため、保存したあとに<strong>再ビルド</strong>が必要です（下記参照）。
       </p>
 
-      <div id="ap-login" class="ap-login">
+      <div id="ap-login" class="ap-login" hidden>
         <button id="ap-login-btn" class="ap-btn">Googleでログイン</button>
         <p class="ap-status" id="ap-login-status"></p>
       </div>
@@ -282,7 +282,7 @@ const HOUSES = [
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   .ap-table thead th { padding: 0.6rem 0.75rem; border-bottom: 2px solid #111111; font-weight: 500; color: #111111; }
   .ap-th-label { width: 42%; text-align: left; }
-  .ap-th-house { text-align: center; min-width: 150px; }
+  .ap-th-house { text-align: left; min-width: 150px; }
   .ap-table :global(.ap-section) th {
     padding: 1.4rem 0 0.5rem; font-size: 0.7rem; letter-spacing: 0.08em; color: #999999;
     font-weight: 400; text-align: left; border-bottom: none;
@@ -292,10 +292,10 @@ const HOUSES = [
     font-weight: 400; color: #333333; text-align: left; white-space: nowrap;
   }
   .ap-table :global(.ap-indent) { padding-left: 1rem; color: #777777; font-size: 0.8rem; }
-  .ap-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f0f0f0; text-align: center; white-space: nowrap; }
+  .ap-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f0f0f0; text-align: left; white-space: nowrap; }
   .ap-table td input, .ap-table td select {
     width: 100%; max-width: 110px; padding: 0.4rem 0.5rem; font-family: inherit; font-size: 0.85rem;
-    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px; text-align: center;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px; text-align: left;
   }
   .ap-table td select { text-align: left; }
   .ap-unit { font-size: 0.72rem; color: #aaaaaa; margin-left: 0.3rem; }
@@ -307,4 +307,5 @@ const HOUSES = [
   .ap-btn:disabled { opacity: 0.5; }
   .ap-saved { font-size: 0.78rem; color: #555555; }
   .ap-status { font-size: 0.82rem; color: #333333; min-height: 1.4em; }
+  a.ap-eyebrow { display: block; text-decoration: none; }
 </style>

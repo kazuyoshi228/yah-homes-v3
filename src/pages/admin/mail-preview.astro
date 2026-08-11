@@ -38,14 +38,14 @@ const KINDS = [
 >
   <section class="mp">
     <div class="mp-container">
-      <p class="mp-eyebrow">Admin</p>
+      <a class="mp-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="mp-title">メールテンプレート</h1>
       <p class="mp-lead">
         お客様に届くメールそのものです。仮の予約（清川・4名・2泊）で描画しています。
         文言は<a href="/admin/templates/">定型メール管理</a>の保存内容が反映されます。
       </p>
 
-      <div id="mp-login" class="mp-login">
+      <div id="mp-login" class="mp-login" hidden>
         <p class="mp-note">ご登録のアカウントでログインしてください。</p>
         <button id="mp-login-btn" class="mp-btn">Googleでログイン</button>
         <p class="mp-status" id="mp-login-status"></p>
@@ -250,4 +250,5 @@ const KINDS = [
     .mp-layout { grid-template-columns: 1fr; gap: 1.75rem; }
     .mp-side { position: static; border-bottom: 1px solid #ededed; padding-bottom: 1.25rem; }
   }
+  a.mp-eyebrow { display: block; text-decoration: none; }
 </style>

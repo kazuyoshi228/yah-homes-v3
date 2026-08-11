@@ -25,10 +25,10 @@ const FB_CONFIG = {
 >
   <section class="pa">
     <div class="pa-container">
-      <p class="pa-eyebrow">Admin</p>
+      <a class="pa-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="pa-title">パートナー申請 管理</h1>
 
-      <div id="pa-login" class="pa-login">
+      <div id="pa-login" class="pa-login" hidden>
         <p class="pa-note">Googleアカウント（kazuyoshi.yamada@bonfire.co.jp）でログインしてください。</p>
         <button id="pa-login-btn" class="pa-btn">Googleでログイン</button>
         <p class="pa-status" id="pa-login-status"></p>
@@ -361,4 +361,5 @@ const FB_CONFIG = {
     font-size: 0.85rem;
     line-height: 2;
   }
+  a.pa-eyebrow { display: block; text-decoration: none; }
 </style>

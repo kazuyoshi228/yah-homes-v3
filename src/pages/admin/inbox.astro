@@ -23,14 +23,14 @@ const FB_CONFIG = {
 >
   <section class="ai">
     <div class="ai-container">
-      <p class="ai-eyebrow">Admin</p>
+      <a class="ai-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="ai-title">お問い合わせ受信箱</h1>
       <p class="ai-lead">
         サイトのお問い合わせフォームから届いたご相談の一覧です。個人情報を含むため、この画面はオーナーのみが開けます。
         返信はメールソフトで行い、ここでは対応状況とメモを記録します。
       </p>
 
-      <div id="ai-login" class="ai-login">
+      <div id="ai-login" class="ai-login" hidden>
         <p class="ai-note">オーナーアカウントでログインしてください。</p>
         <button id="ai-login-btn" class="ai-btn">Googleでログイン</button>
         <p class="ai-status" id="ai-login-status"></p>
@@ -209,4 +209,5 @@ const FB_CONFIG = {
     padding: 0.4rem 0.6rem; font-family: inherit; font-size: 0.75rem; color: #111111;
     border: 1px solid #d7d7d7; border-radius: 4px; background: #ffffff;
   }
+  a.ai-eyebrow { display: block; text-decoration: none; }
 </style>

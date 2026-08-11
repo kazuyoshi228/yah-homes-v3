@@ -1,0 +1,18 @@
+---
+/* /admin/specs — システム仕様書（置き場。中身はこれから） */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+---
+<SiteLayout lang="ja" path="/admin/specs" title="システム仕様書 | yah.homes" description="システム仕様書" noindex={true} solidNav>
+  <section class="sp">
+    <div class="sp-container">
+      <a class="sp-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="sp-title">システム仕様書</h1>
+    </div>
+  </section>
+</SiteLayout>
+<style>
+  .sp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .sp-container { max-width: 880px; margin: 0 auto; }
+  .sp-eyebrow { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; text-decoration: none; }
+  .sp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; }
+</style>

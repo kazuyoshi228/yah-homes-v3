@@ -23,10 +23,10 @@ const FB_CONFIG = {
 >
   <section class="ab">
     <div class="ab-container">
-      <p class="ab-eyebrow">Admin</p>
+      <a class="ab-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="ab-title">直販予約 管理</h1>
 
-      <div id="ab-login" class="ab-login">
+      <div id="ab-login" class="ab-login" hidden>
         <p class="ab-note">管理者アカウントでログインしてください。</p>
         <button id="ab-login-btn" class="ab-btn">Googleでログイン</button>
         <p class="ab-status" id="ab-login-status"></p>
@@ -195,4 +195,5 @@ const FB_CONFIG = {
   .ab-table :global(.ab-badge[data-s="CONFIRMED"]) { background: #111111; color: #ffffff; }
   .ab-table :global(.ab-badge[data-s="MANUAL_REVIEW"]),
   .ab-table :global(.ab-badge[data-s="CAPTURE_RETRY"]) { background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; }
+  a.ab-eyebrow { display: block; text-decoration: none; }
 </style>
