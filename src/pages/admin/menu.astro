@@ -3,58 +3,16 @@
    稼働中の画面と、枠だけの画面を明示的に分ける。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 
-const ROOT_ONLY = "kazuyoshi.yamada@bonfire.co.jp";
-
+/* バッジ: Admin＝オーナーのみ ／ Operator＝管理者台帳のメンバー（運営会社を含む） */
 const LIVE = [
-  {
-    href: "/admin/bookings/",
-    title: "直販予約 管理",
-    desc: "自社サイト経由の予約を一覧で確認します。要対応（保留中）の絞り込み、対応メモ、返金の実行ができます。",
-    access: "管理者台帳のメンバー（返金はオーナーのみ）",
-  },
-  {
-    href: "/admin/partners/",
-    title: "パートナー申請 管理",
-    desc: "インフルエンサー向けページからの申請を管理します。ステータス変更で確定メールが自動送信されます。",
-    access: "管理者台帳のメンバー",
-  },
-  {
-    href: "/admin/properties/",
-    title: "物件ファクト管理（SSoT）",
-    desc: "定員・寝室・ベッド構成・水回り・Airbnb評価の唯一の正。ここを直すとサイト全体の表示が変わります（反映には再ビルドが必要）。",
-    access: "オーナーのみ",
-    owner: true,
-  },
-  {
-    href: "/admin/inbox/",
-    title: "お問い合わせ受信箱",
-    desc: "サイトのお問い合わせフォームから届いたご相談の一覧です。対応状況とメモを記録できます。返信はメールソフトで行います。",
-    access: "管理者台帳のメンバー",
-  },
-  {
-    href: "/admin/templates/",
-    title: "定型メール管理（SSoT）",
-    desc: "お客様へ送る定型文の唯一の正。予約確定・チェックイン案内・チェックアウト案内。差し込み記号は {{ }} で書きます。",
-    access: "管理者台帳のメンバー",
-  },
-  {
-    href: "/admin/mail-preview/",
-    title: "メールテンプレート",
-    desc: "お客様に届く4通のメールを、実際のデザインのまま確認できます。言語を切り替えて見比べられます。",
-    access: "管理者台帳のメンバー",
-  },
-  {
-    href: "/admin/secrets/",
-    title: "セキュリティ鍵番号管理",
-    desc: "各棟のキーボックス暗証番号。定型メールの {{keyboxCode}} と入室案内ページ（/how-to/）はここが正です。既定では伏せ字で、変更は記録に残ります。",
-    access: "オーナーのみ",
-  },
-  {
-    href: "/admin/users/",
-    title: "管理者台帳",
-    desc: "管理画面にアクセスできるメンバーと、通知メール（申請・定点観測・予約）の受け取り設定を管理します。",
-    access: "閲覧は台帳メンバー・編集はオーナーのみ",
-  },
+  { href: "/admin/bookings/", title: "直販予約 管理", role: "operator" },
+  { href: "/admin/partners/", title: "パートナー申請 管理", role: "operator" },
+  { href: "/admin/inbox/", title: "お問い合わせ受信箱", role: "operator" },
+  { href: "/admin/templates/", title: "定型メール管理", role: "operator" },
+  { href: "/admin/mail-preview/", title: "メールテンプレート", role: "operator" },
+  { href: "/admin/properties/", title: "物件ファクト管理", role: "admin" },
+  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
+  { href: "/admin/users/", title: "管理者台帳", role: "admin" },
 ];
 
 ---
@@ -71,38 +29,24 @@ const LIVE = [
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
       <h1 class="am-title">管理メニュー</h1>
-      <p class="am-lead">
-        各画面は Google アカウントでのログインが必要です。アクセスできるメンバーは
-        <a href="/admin/users/">管理者台帳</a> で管理します。
-      </p>
-
-      <h2 class="am-h2">稼働中</h2>
       <div class="am-grid">
         {LIVE.map((it) => (
           <a class="am-card" href={it.href}>
             <h3 class="am-card-title">
               {it.title}
-              {it.owner && <span class="am-owner">オーナー限定</span>}
+              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
+                {it.role === "admin" ? "Admin" : "Operator"}
+              </span>
             </h3>
-            <p class="am-card-desc">{it.desc}</p>
-            <p class="am-card-access">{it.access}</p>
           </a>
         ))}
-      </div>
-
-      <h2 class="am-h2">運営会社向け</h2>
-      <div class="am-grid">
         <a class="am-card" href="/operators/menu/">
-          <h3 class="am-card-title">運営メニュー</h3>
-          <p class="am-card-desc">運営会社が日々使う画面だけを並べたメニューです。直販予約・メッセージ・お問い合わせ受信箱・パートナー申請。</p>
-          <p class="am-card-access">管理者台帳のメンバー</p>
+          <h3 class="am-card-title">
+            運営メニュー
+            <span class="am-badge am-badge-operator">Operator</span>
+          </h3>
         </a>
       </div>
-
-      <p class="am-note">
-        物件ファクト管理（サイト全体の表示に直結するため）と管理者台帳の編集（権限そのものを扱うため）は、
-        {ROOT_ONLY} のみが行えます。
-      </p>
     </div>
   </section>
 </SiteLayout>
@@ -112,27 +56,20 @@ const LIVE = [
   .am-container { max-width: 880px; margin: 0 auto; }
   .am-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
   .am-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
-  .am-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
-  .am-lead a { color: #111111; }
-  .am-h2 {
-    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888;
-    margin: 2rem 0 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eeeeee;
-  }
   .am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
   .am-card {
-    display: block; border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.4rem;
+    display: block; border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.1rem 1.3rem;
     text-decoration: none; transition: border-color 0.2s;
   }
   .am-card:hover { border-color: #111111; }
   .am-card-title {
-    font-size: 0.95rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem;
-    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    font-size: 0.95rem; font-weight: 500; color: #111111; margin: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
   }
-  .am-owner {
-    font-size: 0.65rem; font-weight: 400; color: #ffffff; background: #111111;
-    padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap;
+  .am-badge {
+    font-size: 0.62rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.18rem 0.55rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
   }
-  .am-card-desc { font-size: 0.8rem; color: #555555; line-height: 1.8; margin-bottom: 0.6rem; }
-  .am-card-access { font-size: 0.72rem; color: #aaaaaa; }
-  .am-note { margin-top: 2rem; font-size: 0.76rem; color: #888888; line-height: 1.8; }
+  .am-badge-admin { color: #ffffff; background: #111111; }
+  .am-badge-operator { color: #666666; background: #ffffff; border: 1px solid #d7d7d7; }
 </style>
