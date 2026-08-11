@@ -26,7 +26,7 @@ flowchart TB
 
     subgraph Airstar 運営
         OP[スタッフ（Beds24受信箱で作業）]
-        GM[zeal.aspiration.partner@gmail.com]
+        GM[airstar.sugimoto@gmail.com（転送先・指定済み）]
     end
 
     CONTACT[contact@mail.yah.homes]
@@ -37,7 +37,7 @@ flowchart TB
     AA -->|チャネルメッセージ（スマート送信）| GA
     GA <-->|メッセージ双方向| INBOX
     INBOX <--> OP
-    AA -.->|返信先=Gmail（メールに切替時）| GM
+    AA -.->|返信先=zeal.aspiration.partner@gmail.com| GM
 
     %% 直販経路（実装済み・公開待ち）
     GD -->|予約| SITE
