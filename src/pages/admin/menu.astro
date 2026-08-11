@@ -16,9 +16,11 @@ const OPERATOR = [
 const ADMIN = [
   { href: "/admin/properties/", title: "物件ファクト管理" },
   { href: "/admin/secrets/", title: "セキュリティ鍵番号管理" },
-  { href: "/admin/users/", title: "管理者台帳" },
-  { href: "/admin/audit/", title: "変更履歴" },
+];
+const SYSTEM = [
   { href: "/admin/health/", title: "システムヘルス" },
+  { href: "/admin/audit/", title: "変更履歴" },
+  { href: "/admin/users/", title: "管理者台帳" },
 ];
 
 ---
@@ -49,6 +51,15 @@ const ADMIN = [
         {OPERATOR.map((it) => (
           <a class="am-card" href={it.href}>
             <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
+          </a>
+        ))}
+      </div>
+
+      <h2 class="am-h2">システム管理</h2>
+      <div class="am-grid">
+        {SYSTEM.map((it) => (
+          <a class="am-card" href={it.href}>
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-admin">Admin</span></h3>
           </a>
         ))}
       </div>
