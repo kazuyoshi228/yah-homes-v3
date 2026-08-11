@@ -23,7 +23,9 @@ const TIMING = [
   { t: "チェックアウト当日の案内", w: "チェックアウト当日 07:00 JST", trig: "当日がチェックアウト日の予約", who: "全チャネル",
     note: "チェックアウトが10:00のため、10時の便では間に合わず07:00に送ります。" },
   { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", who: "全チャネル",
-    note: "投稿先（レビューURL）は未決。決まるまでは、感想のご返信のみをお願いしています。" },
+    note: "本文の星評価テンプレートに記入して返信してもらう形式。" },
+  { t: "キャンセル確認", w: "キャンセル成立の直後", trig: "My Pageのセルフキャンセル / 管理画面の返金", who: "公式サイトのみ",
+    note: "支払済み・キャンセル料・返金額の内訳つき。返金の反映目安も案内します。" },
 ];
 
 /* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
@@ -90,6 +92,8 @@ const VARS = [
               <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
               <p class="tp-side-group">メール文面</p>
               <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
+              <p class="tp-side-group">その他定型文</p>
+              <div id="tp-side-other"></div>
             </nav>
           </aside>
 
@@ -200,7 +204,7 @@ const VARS = [
     let LANG = localStorage.getItem("yh-tpl-lang") || "ja";
 
     const LANG_LABEL = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
-    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4" };
+    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4", cancel: "5" };
 
     function show(key) {
       document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
@@ -262,16 +266,18 @@ const VARS = [
     }
 
     function render() {
-      $("tp-side-mails").innerHTML = DATA.kinds.map((k) => {
+      const navBtn = (k) => {
         const n = DATA.items.filter((x) => x.kind === k.kind && Object.values(x.strings).some(Boolean)).length;
         return `
         <button type="button" class="tp-navlink tp-navmail" data-nav="${esc(k.kind)}">
-          <span class="tp-navnum">${KIND_NUM[k.kind]}</span>
+          <span class="tp-navnum">${KIND_NUM[k.kind] ?? ""}</span>
           <span class="tp-navtext">${esc(k.label)}
             <span class="tp-navtags">5言語${n ? ` / ${n}言語で変更あり` : ""}</span>
           </span>
         </button>`;
-      }).join("");
+      };
+      $("tp-side-mails").innerHTML = DATA.kinds.filter((k) => k.group !== "other").map(navBtn).join("");
+      $("tp-side-other").innerHTML = DATA.kinds.filter((k) => k.group === "other").map(navBtn).join("");
 
       $("tp-list").innerHTML = DATA.kinds.map((k) => panelFor(k.kind)).join("");
 

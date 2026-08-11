@@ -958,11 +958,11 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
 // テンプレートが持つのは「文言キーの上書き辞書」だけ。HTMLの骨格・表・ボタンの配置は
 // コードが持ち続ける。編集でレイアウトが壊れないこと、テンプレートが欠けても
 // 必ず送れることの2点を、この形で担保する。
-export type MailKind = "confirm" | "checkin" | "checkout" | "review";
+export type MailKind = "confirm" | "checkin" | "checkout" | "review" | "cancel";
 
 /** その通・その言語のコード既定（＝テンプレート未設定時に出る文言） */
 export function mailDefaults(kind: MailKind, lang: string): Record<string, string> {
-  const src = kind === "confirm" ? MAIL_L10N : LIFECYCLE_L10N;
+  const src = kind === "confirm" ? MAIL_L10N : kind === "cancel" ? CANCEL_L10N : LIFECYCLE_L10N;
   return { ...(src[lang] ?? src.en) };
 }
 
@@ -1241,6 +1241,15 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "coNote", label: "掃除について・本文", multiline: true },
     { key: "coBye", label: "結び" },
   ],
+  cancel: [
+    { key: "subject", label: "件名" },
+    { key: "lead", label: "書き出し" },
+    { key: "refundNote", label: "返金の説明（返金がある場合）", multiline: true },
+    { key: "noRefundNote", label: "返金なしの説明（期限超過の場合）", multiline: true },
+    { key: "again", label: "結び（再訪の誘い）", multiline: true },
+    { key: "cta", label: "ボタンの文字" },
+    { key: "contact", label: "問い合わせ文" },
+  ],
   review: [
     { key: "revSubject", label: "件名" },
     { key: "revHeading", label: "見出し" },
@@ -1255,10 +1264,15 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "revCta", label: "ボタンの文字" },
   ],
 };
-const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review"];
+const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review", "cancel"];
 const MAIL_KIND_LABEL: Record<MailKind, string> = {
   confirm: "予約確定メッセージ", checkin: "チェックイン案内",
   checkout: "チェックアウト当日の案内", review: "レビューのお願い",
+  cancel: "キャンセル確認",
+};
+/** サイドバーの区分。main=滞在の流れ4通 / other=その他定型文 */
+const MAIL_KIND_GROUP: Record<MailKind, "main" | "other"> = {
+  confirm: "main", checkin: "main", checkout: "main", review: "main", cancel: "other",
 };
 const MAIL_LANGS = ["ja", "en", "ko", "zh", "th"];
 /** 本文で使える差し込み記号。保存時にこれ以外を弾く。 */
@@ -1292,7 +1306,7 @@ export const adminTemplates = onRequest(
         res.status(200).json({
           ok: true,
           vars: MAIL_VARS,
-          kinds: MAIL_KINDS.map((k) => ({ kind: k, label: MAIL_KIND_LABEL[k], fields: MAIL_FIELDS[k] })),
+          kinds: MAIL_KINDS.map((k) => ({ kind: k, label: MAIL_KIND_LABEL[k], group: MAIL_KIND_GROUP[k], fields: MAIL_FIELDS[k] })),
           langs: MAIL_LANGS,
           items: MAIL_KINDS.flatMap((kind) =>
             MAIL_LANGS.map((lang) => {
@@ -1424,6 +1438,7 @@ function dummyBooking(lang: string, to = "guest@example.com"): BookingDoc & Reco
 async function buildPreviewMail(kind: MailKind, lang: string): Promise<{ subject: string; html: string }> {
   const b = dummyBooking(lang);
   if (kind === "confirm") return buildConfirmationMailFor("PREVIEW0-0000", b);
+  if (kind === "cancel") return buildCancellationMail("PREVIEW0-0000", b, Number(b.total)); // 全額返金の例
   const { subject, html } = await buildLifecycleMail(kind === "checkin" ? "reminder" : kind, "PREVIEW0-0000", b);
   return { subject, html };
 }
@@ -1432,6 +1447,7 @@ async function buildPreviewMail(kind: MailKind, lang: string): Promise<{ subject
 async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<void> {
   const dummy = dummyBooking(lang, to);
   if (kind === "confirm") { await sendConfirmationMail("TESTTEST-0000", dummy); return; }
+  if (kind === "cancel") { await sendCancellationMail("TESTTEST-0000", dummy, Number(dummy.total)); return; }
   await sendLifecycleMail(kind === "checkin" ? "reminder" : kind, "TESTTEST-0000", dummy);
 }
 
@@ -2860,17 +2876,22 @@ const CANCEL_L10N: Record<string, Record<string, string>> = {
 };
 
 /** キャンセル確認メール（お客様宛・確定メールと同じカード構成）。失敗しても取消は成立させる。 */
-async function sendCancellationMail(
+async function buildCancellationMail(
   bookingId: string,
   b: BookingDoc & Record<string, unknown>,
   refundAmount: number,
-): Promise<void> {
-  try {
+): Promise<{ subject: string; text: string; html: string }> {
+  {
     const lang = String(b.lang ?? "en");
-    const L = CANCEL_L10N[lang] ?? CANCEL_L10N.en;
     const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
     const yen = (n: number) => `¥${Number(n).toLocaleString("en-US")}`;
     const no = bookingId.slice(0, 8).toUpperCase();
+    const L = expandMailVars(await mailStrings("cancel", lang), {
+      guestName: String(b.name ?? ""), bookingNo: no, propertyName: P.name,
+      checkin: String(b.checkin), checkout: String(b.checkout),
+      guests: String(b.guests ?? ""), phone: OPERATOR_PHONE,
+      myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+    });
     const total = Number(b.total);
     const fee = total - refundAmount;
     const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
@@ -2921,13 +2942,25 @@ async function sendCancellationMail(
       L.again, bookPath, "", L.contact, "", L.footer,
     ].join("\n");
 
+    return { subject: L.subject, text, html };
+  }
+}
+
+async function sendCancellationMail(
+  bookingId: string,
+  b: BookingDoc & Record<string, unknown>,
+  refundAmount: number,
+): Promise<void> {
+  try {
+    const { subject, text, html } = await buildCancellationMail(bookingId, b, refundAmount);
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
     });
     await transporter.sendMail({
-      from: `"yah.homes" <${SMTP_USER.value()}>`, to: String(b.email),
-      replyTo: SMTP_USER.value(), subject: L.subject, text, html,
+      from: `"yah.homes" <${SMTP_USER.value()}>`,
+      to: String(b.email), replyTo: SMTP_USER.value(),
+      subject, text, html,
     });
   } catch (err) {
     logger.error("sendCancellationMail failed", err);
