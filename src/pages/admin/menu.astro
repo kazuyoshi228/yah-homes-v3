@@ -3,19 +3,20 @@
    稼働中の画面と、枠だけの画面を明示的に分ける。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 
-/* Admin専用＝オーナーのみ ／ Admin+Operator＝管理者台帳のメンバー（運営会社を含む） */
+/* SSoT＝唯一の正（ここを直すと全系統に反映される） ／ 運営管理＝日々の運用画面 ／
+   バッジ: Admin＝オーナーのみ・Operator＝管理者台帳のメンバー（運営会社を含む） */
+const SSOT = [
+  { href: "/admin/properties/", title: "物件ファクト管理", role: "admin" },
+  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
+  { href: "/admin/templates/", title: "定型メール管理", role: "operator" },
+];
 const OPERATOR = [
   { href: "/admin/bookings/", title: "直販予約 管理" },
   { href: "/admin/partners/", title: "パートナー申請 管理" },
   { href: "/admin/inbox/", title: "お問い合わせ受信箱" },
-  { href: "/admin/templates/", title: "定型メール管理" },
   { href: "/admin/mail-preview/", title: "メールテンプレート" },
   { href: "/admin/mail-log/", title: "メール送信ログ" },
   { href: "/operators/menu/", title: "運営メニュー" },
-];
-const ADMIN = [
-  { href: "/admin/properties/", title: "物件ファクト管理" },
-  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理" },
 ];
 const SYSTEM = [
   { href: "/admin/health/", title: "システムヘルス" },
@@ -37,16 +38,21 @@ const SYSTEM = [
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
       <h1 class="am-title">管理メニュー</h1>
-      <h2 class="am-h2">Admin 専用</h2>
+      <h2 class="am-h2">SSoT</h2>
       <div class="am-grid">
-        {ADMIN.map((it) => (
+        {SSOT.map((it) => (
           <a class="am-card" href={it.href}>
-            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-admin">Admin</span></h3>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
+                {it.role === "admin" ? "Admin" : "Operator"}
+              </span>
+            </h3>
           </a>
         ))}
       </div>
 
-      <h2 class="am-h2">Admin ＋ Operator</h2>
+      <h2 class="am-h2">運営管理</h2>
       <div class="am-grid">
         {OPERATOR.map((it) => (
           <a class="am-card" href={it.href}>
