@@ -51,7 +51,7 @@ const A = {
     nightsUnit: "{n} nights", guestsUnit: "{g} adults",
     detailTitle: "Booking details", cancelFeeTitle: "Cancellation fee",
     cancelFreeRow: "Until {d}", cancelAfterRow: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).",
-    changeNote: "To change your dates or party size, please cancel this booking and make a new one. Within the free cancellation period there is no extra cost.",
+    changeNote: "To change your dates or number of guests, please contact us through the contact form. Cancelling and rebooking also works — within the free cancellation period there is no extra cost.",
     cancelBtn: "Cancel this booking",
     cancelBtnAfter: "Cancel without refund",
     cancelFreeUntil: "Free cancellation until {d}",
@@ -91,7 +91,7 @@ const A = {
     nightsUnit: "{n}泊", guestsUnit: "大人{g}名",
     detailTitle: "ご予約内容", cancelFeeTitle: "キャンセル料",
     cancelFreeRow: "{d} まで", cancelAfterRow: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。",
-    changeNote: "日程・人数の変更をご希望の場合は、一度キャンセルのうえ、あらためてご予約ください。無料キャンセル期間内であれば追加のご負担はありません。",
+    changeNote: "日程・人数の変更をご希望の場合は、お問い合わせフォームよりご連絡ください。一度キャンセルのうえ、あらためてご予約いただくことも可能です（無料キャンセル期間内であれば追加のご負担はありません）。",
     cancelBtn: "このご予約をキャンセルする",
     cancelBtnAfter: "返金なしでキャンセルする",
     cancelFreeUntil: "{d} まで無料でキャンセルいただけます",
@@ -131,7 +131,7 @@ const A = {
     nightsUnit: "{n}박", guestsUnit: "성인 {g}명",
     detailTitle: "예약 내용", cancelFeeTitle: "취소 수수료",
     cancelFreeRow: "{d}까지", cancelAfterRow: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.",
-    changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요. 무료 취소 기간 내라면 추가 부담은 없습니다.",
+    changeNote: "날짜나 인원 변경을 원하시면 문의 양식으로 연락해 주세요. 예약을 취소하신 후 다시 예약하셔도 됩니다(무료 취소 기간 내라면 추가 부담은 없습니다).",
     cancelBtn: "이 예약 취소하기",
     cancelBtnAfter: "환불 없이 취소하기",
     cancelFreeUntil: "{d}까지 무료로 취소하실 수 있습니다",
@@ -171,7 +171,7 @@ const A = {
     nightsUnit: "{n}晚", guestsUnit: "成人{g}人",
     detailTitle: "預訂內容", cancelFeeTitle: "取消費用",
     cancelFreeRow: "{d} 前", cancelAfterRow: "{d} 起", cancelNote: "取消期限以日本時間為準。",
-    changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂。在免費取消期限內不會產生額外費用。",
+    changeNote: "如需變更日期或人數，請透過聯絡表單與我們聯繫。也可以先取消本次預訂後重新預訂（在免費取消期限內不會產生額外費用）。",
     cancelBtn: "取消此訂單",
     cancelBtnAfter: "不退款並取消",
     cancelFreeUntil: "{d} 前可免費取消",
@@ -211,7 +211,7 @@ const A = {
     nightsUnit: "{n} คืน", guestsUnit: "ผู้ใหญ่ {g} ท่าน",
     detailTitle: "รายละเอียดการจอง", cancelFeeTitle: "ค่าธรรมเนียมการยกเลิก",
     cancelFreeRow: "ถึง {d}", cancelAfterRow: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)",
-    changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม",
+    changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณาติดต่อเราผ่านแบบฟอร์มติดต่อ หรือจะยกเลิกแล้วจองใหม่ก็ได้ (ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม)",
     cancelBtn: "ยกเลิกการจองนี้",
     cancelBtnAfter: "ยกเลิกโดยไม่รับเงินคืน",
     cancelFreeUntil: "ยกเลิกฟรีได้ถึง {d}",
@@ -376,6 +376,7 @@ const uiA = {
         <p class="ac-block-title">${uiA.cancel}</p>
         <p class="ac-note">${info}</p>
         <p class="ac-note ac-changenote">${uiA.changeNote}</p>
+        <a class="ac-textlink" href="${uiA.contactHref}">${uiA.contact}</a>
         <button type="button" class="ac-outline ac-cancel-open" data-cancel="${esc(b.id)}">
           ${free ? uiA.cancelBtn : uiA.cancelBtnAfter}
         </button>
@@ -729,4 +730,9 @@ const uiA = {
     #ac-list :global(.ac-card .ac-bar-no) { text-align: left; }
     #ac-list :global(.ac-card .ac-hero) { aspect-ratio: 4 / 3; }
   }
+  :global(.ac-textlink) {
+    display: inline-block; margin-top: 0.5rem; font-size: 0.78rem; color: #111111;
+    border-bottom: 1px solid #d7d7d7; text-decoration: none;
+  }
+  :global(.ac-textlink:hover) { border-bottom-color: #111111; }
 </style>

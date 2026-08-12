@@ -542,6 +542,22 @@ async function noteBeds24Cancellation(beds24Id: number, text: string): Promise<v
   }
 }
 
+/** Beds24 の予約に内部メモを残す。運営がBeds24画面（Infoタブ）で経緯を追えるようにする。
+    記録の失敗でキャンセル・返金を止めない。 */
+async function noteBeds24(beds24Id: number, message: string): Promise<void> {
+  try {
+    const r = await fetch(`${BEDS24_API}/bookings/messages`, {
+      method: "POST",
+      headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+      body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 900), source: "internalNote" }]),
+    });
+    const j = (await r.json()) as Array<{ success?: boolean }>;
+    if (!j?.[0]?.success) logger.warn("noteBeds24 not saved", { beds24Id });
+  } catch (err) {
+    logger.warn("noteBeds24 failed", { beds24Id, err: String(err).slice(0, 120) });
+  }
+}
+
 /** Beds24 に予約を作成し、Beds24側の予約IDを返す。 */
 async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<number> {
   const target = beds24WriteTarget(b.prop);
@@ -968,6 +984,75 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
   },
 };
 
+
+
+// ─── Beds24側キャンセルの検知（毎朝9時JST） ───
+// 運営会社がBeds24上で直販予約をキャンセルしても、Firestore・Stripe・在庫ロックは
+// それを知らない。返金されず部屋も塞がったままになるため、毎日照合して差分を通知する。
+// 自動で返金はしない（金銭の自動実行はオーナー判断を挟む・v5 §8-1の思想）。
+export const beds24CancelWatcher = onSchedule(
+  { schedule: "0 9 * * *", timeZone: "Asia/Tokyo", region: REGION,
+    secrets: [BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
+    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  async () => {
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    // これから泊まる CONFIRMED だけを見る（過去分は照合しても意味がない）
+    const snap = await db.collection("bookings")
+      .where("status", "==", "CONFIRMED").where("checkout", ">=", today).get();
+    const targets = snap.docs.filter((d) => d.data().beds24Id);
+    if (!targets.length) { logger.info("cancelWatcher: 対象なし"); return; }
+
+    const token = await beds24WriteToken();
+    const mismatched: string[] = [];
+    for (const d of targets) {
+      const v = d.data() as BookingDoc & Record<string, unknown>;
+      try {
+        const r = await fetch(`${BEDS24_API}/bookings?id=${v.beds24Id}`, { headers: { token } });
+        const j = (await r.json()) as { data?: Array<{ status?: string }> };
+        const st = j.data?.[0]?.status ?? "";
+        // Beds24側で消えている / cancelled になっている＝こちらの CONFIRMED と食い違う
+        if (!j.data?.length || st === "cancelled") {
+          mismatched.push(
+            `・${d.id.slice(0, 8).toUpperCase()}／${v.name}様／${v.prop}／${v.checkin}〜${v.checkout}／` +
+            `¥${Number(v.total).toLocaleString("en-US")}／Beds24 ${v.beds24Id}（${st || "見つかりません"}）`,
+          );
+          await d.ref.set({ beds24Mismatch: true, beds24MismatchAt: FieldValue.serverTimestamp() }, { merge: true });
+        }
+      } catch (err) {
+        logger.warn("cancelWatcher 照会失敗", { bookingId: d.id, err: String(err).slice(0, 120) });
+      }
+    }
+
+    logger.info(`cancelWatcher: ${targets.length}件照合 / 不一致 ${mismatched.length}件`);
+    if (!mismatched.length) return;
+
+    const body =
+      `Beds24 側でキャンセル（または削除）されているのに、yah.homes 側が「確定」のままの予約があります。\n` +
+      `返金と在庫の解放が行われていません。管理画面から返金するか、Beds24側を元に戻してください。\n\n` +
+      mismatched.join("\n");
+    try {
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com", port: 465, secure: true,
+        auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+      });
+      await transporter.sendMail({
+        from: `"yah.homes 予約" <${SMTP_USER.value()}>`,
+        to: await notifyRecipients("notifyBookings"),
+        subject: `【要対応】Beds24とのキャンセル不一致 ${mismatched.length}件`,
+        text: body,
+        html: mailHtml({
+          heading: "Beds24とのキャンセル不一致",
+          lead: "Beds24側でキャンセルされた予約が、yah.homes側で確定のままです。返金と在庫解放が未実行です。",
+          blocks: [{ title: "対象", body: mismatched.map(esc).join("<br>") }],
+          cta: { label: "直販予約 管理を開く", href: `${SITE_URL}/admin/bookings/` },
+          variant: "alert",
+        }),
+      });
+    } catch (err) {
+      logger.error("cancelWatcher 通知失敗", err);
+    }
+  }
+);
 
 // ─── 定型メールのSSoT（/admin/templates が送信文言を支配する） ───
 // 設計は docs/spec_mail_templates_ssot_202608.md。
@@ -2604,7 +2689,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     checkin: "チェックイン", checkout: "チェックアウト", stay: "お客様のご予約", guestsRow: "宿泊者の内訳",
     house: "お部屋", arrival: "到着予定時刻", checkinWindow: "{ci}〜（時間の制限はありません）", checkoutWindow: "〜{co}",
     nights: "{n}泊", guests: "大人{g}名",
-    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、一度キャンセルのうえ、あらためてご予約ください。無料キャンセル期間内であれば追加のご負担はありません。",
+    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、お問い合わせフォームよりご連絡ください。一度キャンセルのうえ、あらためてご予約いただくことも可能です（無料キャンセル期間内であれば追加のご負担はありません）。",
     payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
     payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
     ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "お問い合わせ",
@@ -3225,6 +3310,10 @@ export const accountApi = onRequest(
           if (v.beds24Id) {
             try {
               await cancelBeds24Booking(Number(v.beds24Id));
+              await noteBeds24(Number(v.beds24Id),
+                `【直販】お客様がMy Pageからキャンセルしました（${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}）\n` +
+                `予約ID: ${idStr}／${v.checkin}〜${v.checkout}／${v.name}様\n` +
+                `返金処理はyah.homes側で自動実行します。Beds24での操作は不要です。`);
               await noteBeds24Cancellation(Number(v.beds24Id),
                 `【直販】お客様ご自身でキャンセル（公式サイト My Page）。返金処理も自動で実行済み。予約 ${idStr.slice(0, 8).toUpperCase()}／対応不要です。`);
             } catch (e) {
@@ -3498,6 +3587,11 @@ export const adminBookings = onRequest(
           if (v.beds24Id) {
             try {
               await cancelBeds24Booking(Number(v.beds24Id));
+              await noteBeds24(Number(v.beds24Id),
+                `【直販】管理画面から返金・キャンセルしました（${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}）\n` +
+                `予約ID: ${idStr}／${v.checkin}〜${v.checkout}／${v.name}様\n` +
+                `返金額: ¥${Number(refundAmount).toLocaleString("en-US")}（実行者 ${email}）\n` +
+                `お客様にはキャンセル確認メールを送信済みです。`);
               await noteBeds24Cancellation(Number(v.beds24Id),
                 `【直販】運営がキャンセル・返金（¥${Number(refundAmount).toLocaleString("en-US")}）を実行。予約 ${idStr.slice(0, 8).toUpperCase()}／対応不要です。`);
             } catch (e) {
