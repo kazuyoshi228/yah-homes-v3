@@ -1424,6 +1424,8 @@ export const adminTemplates = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    // 文面はお客様への体験に直結するため、編集はオーナーのみに限定する。
+    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
 
     try {
       if (req.method === "GET") {

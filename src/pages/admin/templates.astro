@@ -77,7 +77,7 @@ const VARS = [
       <a class="tp-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="tp-title">定型メール管理</h1>
       <div id="tp-login" class="tp-login" hidden>
-        <p class="tp-note">ご登録のアカウントでログインしてください。</p>
+        <p class="tp-note">オーナーのアカウントでログインしてください。</p>
         <button id="tp-login-btn" class="tp-btn">Googleでログイン</button>
         <p class="tp-status" id="tp-login-status"></p>
       </div>
@@ -196,7 +196,7 @@ const VARS = [
         headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (res.status === 401) throw new Error("unauthorized");
+      if (res.status === 401 || res.status === 403) throw new Error("unauthorized");
       return res.json();
     }
 
@@ -352,7 +352,7 @@ const VARS = [
         $("tp-status").textContent = "";
       } catch (e) {
         $("tp-status").textContent =
-          e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";
+          e.message === "unauthorized" ? "この画面はオーナー専用です。" : "読み込みに失敗しました。";
       }
     }
 
