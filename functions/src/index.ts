@@ -149,41 +149,14 @@ export const contact = onRequest(
     logger.error("contact mail notification failed", err);
   }
 
-  // 送信者向け自動返信（英語・非致命 — 通知/保存とは独立して失敗を許容）
+  // 送信者向け自動返信（5言語・非致命 — 通知/保存とは独立して失敗を許容）
   // 件名にユーザー入力を含めない（差し込みは本文の名前とメッセージ引用のみ）
   try {
+    const { subject, text, html } = await buildContactReply(langStr, nameStr, messageStr);
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: emailStr,
-      replyTo: SMTP_USER.value(),
-      subject: "Thank you for contacting yah.homes",
-      text: [
-        `Dear ${nameStr},`,
-        ``,
-        `Thank you for reaching out to yah.homes.`,
-        `We have received your inquiry, and a member of our team will get back to you within 2–3 business days.`,
-        ``,
-        `For your reference, here is a copy of your message:`,
-        ``,
-        `---`,
-        messageStr,
-        `---`,
-        ``,
-        `If you have any urgent questions, simply reply to this email.`,
-        ``,
-        `Warm regards,`,
-        `yah.homes`,
-        `Whole-house rentals in Fukuoka, Japan`,
-        `https://yah.homes`,
-        `Operated by Bonfire Inc.`,
-      ].join("\n"),
-      html: mailHtml({
-        heading: "Thank you for contacting yah.homes",
-        lead: `Dear ${nameStr}, we have received your inquiry. A member of our team will get back to you within 2–3 business days.`,
-        blocks: [{ title: "Your message", body: esc(messageStr) }],
-        cta: { label: "See availability", href: `${SITE_URL}/book/` },
-        note: "If you have any urgent questions, simply reply to this email.",
-      }),
+      to: emailStr, replyTo: SMTP_USER.value(),
+      subject, text, html,
     });
   } catch (err) {
     logger.error("contact auto-reply failed", err);
@@ -192,6 +165,49 @@ export const contact = onRequest(
   res.status(200).json({ ok: true });
   }
 );
+
+const CONTACT_L10N: Record<string, Record<string, string>> = {
+  ja: {
+    subject: "【yah.homes】お問い合わせありがとうございます",
+    heading: "お問い合わせありがとうございます",
+    lead: "{name} 様、お問い合わせを承りました。2〜3営業日以内に担当よりご連絡いたします。",
+    msgTitle: "いただいた内容",
+    cta: "空室を見る",
+    note: "お急ぎの場合は、このメールにそのままご返信ください。",
+  },
+  en: {
+    subject: "Thank you for contacting yah.homes",
+    heading: "Thank you for contacting yah.homes",
+    lead: "Dear {name}, we have received your inquiry. A member of our team will get back to you within 2–3 business days.",
+    msgTitle: "Your message",
+    cta: "See availability",
+    note: "If you have any urgent questions, simply reply to this email.",
+  },
+  ko: {
+    subject: "[yah.homes] 문의해 주셔서 감사합니다",
+    heading: "문의해 주셔서 감사합니다",
+    lead: "{name} 님, 문의를 접수했습니다. 2~3영업일 이내에 담당자가 연락드리겠습니다.",
+    msgTitle: "보내주신 내용",
+    cta: "빈방 보기",
+    note: "급하신 경우 이 메일에 그대로 회신해 주세요.",
+  },
+  zh: {
+    subject: "【yah.homes】感謝您的來信",
+    heading: "感謝您的來信",
+    lead: "{name} 您好，我們已收到您的詢問，將於 2～3 個工作天內與您聯繫。",
+    msgTitle: "您的訊息",
+    cta: "查詢空房",
+    note: "如有急事，請直接回覆這封郵件。",
+  },
+  th: {
+    subject: "[yah.homes] ขอบคุณที่ติดต่อเรา",
+    heading: "ขอบคุณที่ติดต่อเรา",
+    lead: "เรียนคุณ {name} เราได้รับข้อความของคุณแล้ว ทีมงานจะติดต่อกลับภายใน 2–3 วันทำการ",
+    msgTitle: "ข้อความของคุณ",
+    cta: "ดูห้องว่าง",
+    note: "หากมีเรื่องเร่งด่วน กรุณาตอบกลับอีเมลฉบับนี้ได้เลย",
+  },
+};
 
 // ─── パートナー日程申請フォーム（/ja/partners/・design_partners_page.md §4.5-1） ───
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
@@ -1059,11 +1075,12 @@ export const beds24CancelWatcher = onSchedule(
 // テンプレートが持つのは「文言キーの上書き辞書」だけ。HTMLの骨格・表・ボタンの配置は
 // コードが持ち続ける。編集でレイアウトが壊れないこと、テンプレートが欠けても
 // 必ず送れることの2点を、この形で担保する。
-export type MailKind = "confirm" | "checkin" | "checkout" | "review" | "cancel";
+export type MailKind = "confirm" | "checkin" | "checkout" | "review" | "cancel" | "contact";
 
 /** その通・その言語のコード既定（＝テンプレート未設定時に出る文言） */
 export function mailDefaults(kind: MailKind, lang: string): Record<string, string> {
-  const src = kind === "confirm" ? MAIL_L10N : kind === "cancel" ? CANCEL_L10N : LIFECYCLE_L10N;
+  const src = kind === "confirm" ? MAIL_L10N : kind === "cancel" ? CANCEL_L10N
+    : kind === "contact" ? CONTACT_L10N : LIFECYCLE_L10N;
   return { ...(src[lang] ?? src.en) };
 }
 
@@ -1376,6 +1393,14 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "cta", label: "ボタンの文字" },
     { key: "contact", label: "問い合わせ文" },
   ],
+  contact: [
+    { key: "subject", label: "件名" },
+    { key: "heading", label: "見出し" },
+    { key: "lead", label: "書き出し（{name}にお名前が入る）", multiline: true },
+    { key: "msgTitle", label: "引用ブロックの見出し" },
+    { key: "cta", label: "ボタンの文字" },
+    { key: "note", label: "結びの注記", multiline: true },
+  ],
   review: [
     { key: "revSubject", label: "件名" },
     { key: "revHeading", label: "見出し" },
@@ -1390,15 +1415,17 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "revCta", label: "ボタンの文字" },
   ],
 };
-const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review", "cancel"];
+const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review", "cancel", "contact"];
 const MAIL_KIND_LABEL: Record<MailKind, string> = {
   confirm: "予約確定メッセージ", checkin: "チェックイン案内",
   checkout: "チェックアウト当日の案内", review: "レビューのお願い",
+  contact: "お問い合わせ自動返信",
   cancel: "キャンセル確認",
 };
 /** サイドバーの区分。main=滞在の流れ4通 / other=その他定型文 */
 const MAIL_KIND_GROUP: Record<MailKind, "main" | "other"> = {
-  confirm: "main", checkin: "main", checkout: "main", review: "main", cancel: "other",
+  confirm: "main", checkin: "main", checkout: "main", review: "main",
+  cancel: "other", contact: "other",
 };
 const MAIL_LANGS = ["ja", "en", "ko", "zh", "th"];
 /** 本文で使える差し込み記号。保存時にこれ以外を弾く。 */
@@ -1547,6 +1574,35 @@ export const adminMailPreview = onRequest(
   }
 );
 
+const DUMMY_INQUIRY: Record<string, string> = {
+  ja: "9月の連休に4名で泊まりたいのですが、駐車場は空いていますか。",
+  en: "We are 4 people looking to stay in September. Is the parking space available?",
+  ko: "9월 연휴에 4명이 숙박하고 싶은데 주차 공간이 있나요?",
+  zh: "我們9月連假想4人入住，請問還有停車位嗎？",
+  th: "เราต้องการเข้าพัก 4 คนในเดือนกันยายน ที่จอดรถยังว่างไหมคะ",
+};
+
+/** お問い合わせ自動返信の組み立て（実送信・プレビュー・テストで共用） */
+async function buildContactReply(lang: string, name: string, message: string): Promise<{ subject: string; text: string; html: string }> {
+  const CL = await mailStrings("contact", lang);
+  return {
+    subject: CL.subject,
+    text: [
+      CL.heading, "",
+      CL.lead.replace("{name}", name), "",
+      `--- ${CL.msgTitle} ---`, message, "---", "",
+      CL.note, "", "yah.homes",
+    ].join("\n"),
+    html: mailHtml({
+      heading: CL.heading,
+      lead: CL.lead.replace("{name}", name),
+      blocks: [{ title: CL.msgTitle, body: esc(message) }],
+      cta: { label: CL.cta, href: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/` },
+      note: CL.note,
+    }),
+  };
+}
+
 /** プレビュー・テスト送信で使う仮の予約。実データに触れずに実物の見た目を出すため。 */
 const DUMMY_NAME: Record<string, string> = {
   ja: "山田 太郎", en: "Taro Yamada", ko: "야마다 타로", zh: "山田 太郎", th: "ทาโร่ ยามาดะ",
@@ -1567,6 +1623,7 @@ async function buildPreviewMail(kind: MailKind, lang: string): Promise<{ subject
   const b = dummyBooking(lang);
   if (kind === "confirm") return buildConfirmationMailFor("PREVIEW0-0000", b);
   if (kind === "cancel") return buildCancellationMail("PREVIEW0-0000", b, Number(b.total)); // 全額返金の例
+  if (kind === "contact") return buildContactReply(lang, String(b.name), DUMMY_INQUIRY[lang] ?? DUMMY_INQUIRY.en);
   const { subject, html } = await buildLifecycleMail(kind === "checkin" ? "reminder" : kind, "PREVIEW0-0000", b);
   return { subject, html };
 }
@@ -1576,6 +1633,15 @@ async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<v
   const dummy = dummyBooking(lang, to);
   if (kind === "confirm") { await sendConfirmationMail("TESTTEST-0000", dummy); return; }
   if (kind === "cancel") { await sendCancellationMail("TESTTEST-0000", dummy, Number(dummy.total)); return; }
+  if (kind === "contact") {
+    const { subject, text, html } = await buildContactReply(lang, String(dummy.name), DUMMY_INQUIRY[lang] ?? DUMMY_INQUIRY.en);
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    await transporter.sendMail({ from: `"yah.homes" <${SMTP_USER.value()}>`, to, replyTo: SMTP_USER.value(), subject, text, html });
+    return;
+  }
   await sendLifecycleMail(kind === "checkin" ? "reminder" : kind, "TESTTEST-0000", dummy);
 }
 
@@ -2022,10 +2088,12 @@ export const beds24DailyObserver = onSchedule(
       // ① 取得（過去90日到着〜18ヶ月先・キャンセル込み）
       const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
       const to = new Date(Date.now() + 550 * 86400000).toISOString().slice(0, 10);
-      const bookings = await beds24FetchAll(
+      // TEITEN_PROPS に無い物件（検証用 test1 等）は観測対象外＝ここで除外する。
+      // 除外しないと prop が undefined になり Firestore への状態保存が失敗する。
+      const bookings = (await beds24FetchAll(
         `https://beds24.com/api/v2/bookings?arrivalFrom=${from}&arrivalTo=${to}&pageSize=200&includeCancelled=true`,
         BEDS24_TOKEN.value()
-      );
+      )).filter((b) => TEITEN_PROPS[b.propertyId]);
 
       const nightsOf = (b: Beds24Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
       const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";

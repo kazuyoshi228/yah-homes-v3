@@ -22,6 +22,8 @@ const TIMING = [
     note: "キーボックスの暗証番号・入室手順・地図。" },
   { t: "チェックアウト当日の案内", w: "チェックアウト当日 07:00 JST", trig: "当日がチェックアウト日の予約", who: "全チャネル",
     note: "チェックアウトが10:00のため、10時の便では間に合わず07:00に送ります。" },
+  { t: "お問い合わせ自動返信", w: "フォーム送信の直後", trig: "お問い合わせフォームの送信", who: "問い合わせた方",
+    note: "サイトの言語で自動返信します（5言語）。運営には別途通知が飛びます。" },
   { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", who: "全チャネル",
     note: "本文の星評価テンプレートに記入して返信してもらう形式。" },
   { t: "キャンセル確認", w: "キャンセル成立の直後", trig: "My Pageのセルフキャンセル / 管理画面の返金", who: "公式サイトのみ",
@@ -204,7 +206,7 @@ const VARS = [
     let LANG = localStorage.getItem("yh-tpl-lang") || "ja";
 
     const LANG_LABEL = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
-    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4", cancel: "5" };
+    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4", cancel: "5", contact: "6" };
 
     function show(key) {
       document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
