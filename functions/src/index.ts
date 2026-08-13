@@ -2138,7 +2138,7 @@ export const beds24DailyObserver = onSchedule(
       // ② 差分（Firestoreスナップショットと照合）
       const stateRef = db.collection("beds24_state").doc("latest");
       const prevDoc = await stateRef.get();
-      const prev = (prevDoc.data() as { bookings: Record<string, { status: string; arrival: string; n: number; prop: string }>; date: string | null } | undefined)
+      const prev = (prevDoc.data() as { bookings: Record<string, { status: string; arrival: string; n: number; prop: string; guest?: boolean }>; date: string | null } | undefined)
         ?? { bookings: {}, date: null };
 
       const events: { new: string[]; cancelled: string[]; changed: string[]; deleted: string[] } = { new: [], cancelled: [], changed: [], deleted: [] };
@@ -2148,14 +2148,16 @@ export const beds24DailyObserver = onSchedule(
         if (!isGuest(b)) continue;
         const p = prev.bookings[String(b.id)];
         const label = `${TEITEN_PROPS[b.propertyId]} ${b.arrival}〜${nightsOf(b)}泊 ${b.firstName ?? ""} ${b.lastName ?? ""} [${b.referer || b.apiSource || "?"}] ${b.country2 || ""}`;
-        if (!p && active(b)) events.new.push(label);
+        const wasActive = p != null && (p.status === "confirmed" || p.status === "new");
+        if (!wasActive && active(b)) events.new.push(label); // 新ID・request/inquiryからの確定・キャンセル復活を含む
         else if (p && p.status !== "cancelled" && b.status === "cancelled") events.cancelled.push(label);
-        else if (p && active(b) && (p.arrival !== b.arrival || p.n !== nightsOf(b)))
+        else if (wasActive && active(b) && (p.arrival !== b.arrival || p.n !== nightsOf(b)))
           events.changed.push(`${label}（旧: ${p.arrival}〜${p.n}泊）`);
       }
       // 物理削除の検知: 前回スナップショットに居たのに今回のAPI結果から消えた予約（テスト予約の削除等）
       for (const [id, p] of Object.entries(prev.bookings)) {
         if (seenIds.has(id) || p.status === "cancelled") continue;
+        if (p.guest === false) continue; // オーナー利用・テスト等は新規にも数えていないので差引もしない
         events.deleted.push(`${p.prop} ${p.arrival}〜${p.n}泊 (ID:${id})`);
       }
 
@@ -2179,7 +2181,15 @@ export const beds24DailyObserver = onSchedule(
       const kNew = tally(events.new, "清川"), kCxl = tally(events.cancelled, "清川");
       const tNew = tally(events.new, "高砂"), tCxl = tally(events.cancelled, "高砂");
 
-      // ③ シート記入（初回・同日再実行はスキップ＝冪等）
+      // ③ 状態保存（差分計算の直後＝シート/メール失敗でも翌日の二重計上を防ぐ。
+      // 保存後に後段が失敗した場合、その日の行は空欄になるがエラーメールで検知でき、常に安全側）
+      const snap: Record<string, { status: string; arrival: string; n: number; prop: string; guest: boolean }> = {};
+      for (const b of bookings) snap[String(b.id)] = { status: b.status, arrival: b.arrival, n: nightsOf(b), prop: TEITEN_PROPS[b.propertyId], guest: isGuest(b) };
+      await stateRef.set({ bookings: snap, date: today, updatedAt: FieldValue.serverTimestamp() });
+      await db.collection("beds24_state").doc("daily").collection("snapshots").doc(today)
+        .set({ bookings: snap, date: today, createdAt: FieldValue.serverTimestamp() });
+
+      // ④ シート記入（初回・同日再実行はスキップ＝冪等）
       const handoff = await ga4HandoffClicksYesterday();
       const clicks = handoff?.click_airbnb ?? null;
       let sheetNote = "（初回 or 同日再実行につきシート記入スキップ）";
@@ -2216,7 +2226,7 @@ export const beds24DailyObserver = onSchedule(
       }
 
 
-      // ④ サマリメール（特記: 適正帯28〜33%逸脱・3泊以上・キャンセル塊）
+      // ⑤ サマリメール（特記: 適正帯28〜33%逸脱・3泊以上・キャンセル塊）
       const notes: string[] = [];
       if (fwdRate < 28) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を下回り`);
       if (fwdRate > 33) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を上回り`);
@@ -2224,7 +2234,7 @@ export const beds24DailyObserver = onSchedule(
       if (events.cancelled.length >= 3) notes.push(`キャンセル${events.cancelled.length}件（塊）`);
 
       await mail(
-        `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 清川+${kNew.g}組${kNew.n}泊・高砂+${tNew.g}組${tNew.n}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
+        `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 清川${kNew.g - kCxl.g - kDel.g >= 0 ? "+" : ""}${kNew.g - kCxl.g - kDel.g}組${kNew.n - kCxl.n - kDel.n}泊・高砂${tNew.g - tCxl.g - tDel.g >= 0 ? "+" : ""}${tNew.g - tCxl.g - tDel.g}組${tNew.n - tCxl.n - tDel.n}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
         [
           `=== Beds24 日次観測 ${today}（前回: ${prev.date ?? "初回"}）===`, ``,
           `【サマリ（定点シート形式）】`,
@@ -2245,12 +2255,6 @@ export const beds24DailyObserver = onSchedule(
         ].join("\n")
       );
 
-      // ⑤ 状態保存（latest＋日次履歴）
-      const snap: Record<string, { status: string; arrival: string; n: number; prop: string }> = {};
-      for (const b of bookings) snap[String(b.id)] = { status: b.status, arrival: b.arrival, n: nightsOf(b), prop: TEITEN_PROPS[b.propertyId] };
-      await stateRef.set({ bookings: snap, date: today, updatedAt: FieldValue.serverTimestamp() });
-      await db.collection("beds24_state").doc("daily").collection("snapshots").doc(today)
-        .set({ bookings: snap, date: today, createdAt: FieldValue.serverTimestamp() });
       logger.info(`beds24DailyObserver done: new=${events.new.length} cxl=${events.cancelled.length} fwd=${fwdTotal}`);
     } catch (err) {
       logger.error("beds24DailyObserver failed", err);
