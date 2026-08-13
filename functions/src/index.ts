@@ -2122,7 +2122,10 @@ export const beds24DailyObserver = onSchedule(
       const nightsOf = (b: Beds24Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
       const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";
       const isGuest = (b: Beds24Booking) =>
-        b.status !== "black" && !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
+        b.status !== "black" &&
+        !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`) &&
+        // API直作成（P1開発テスト等）は観測対象外。MS3本稼働時は直販refererをここでホワイトリスト化する
+        !(!b.referer && /^api$/i.test(b.apiSource ?? ""));
 
       // ② 差分（Firestoreスナップショットと照合）
       const stateRef = db.collection("beds24_state").doc("latest");
@@ -2130,8 +2133,10 @@ export const beds24DailyObserver = onSchedule(
       const prev = (prevDoc.data() as { bookings: Record<string, { status: string; arrival: string; n: number; prop: string }>; date: string | null } | undefined)
         ?? { bookings: {}, date: null };
 
-      const events: { new: string[]; cancelled: string[]; changed: string[] } = { new: [], cancelled: [], changed: [] };
+      const events: { new: string[]; cancelled: string[]; changed: string[]; deleted: string[] } = { new: [], cancelled: [], changed: [], deleted: [] };
+      const seenIds = new Set<string>();
       for (const b of bookings) {
+        seenIds.add(String(b.id));
         if (!isGuest(b)) continue;
         const p = prev.bookings[String(b.id)];
         const label = `${TEITEN_PROPS[b.propertyId]} ${b.arrival}〜${nightsOf(b)}泊 ${b.firstName ?? ""} ${b.lastName ?? ""} [${b.referer || b.apiSource || "?"}] ${b.country2 || ""}`;
@@ -2139,6 +2144,11 @@ export const beds24DailyObserver = onSchedule(
         else if (p && p.status !== "cancelled" && b.status === "cancelled") events.cancelled.push(label);
         else if (p && active(b) && (p.arrival !== b.arrival || p.n !== nightsOf(b)))
           events.changed.push(`${label}（旧: ${p.arrival}〜${p.n}泊）`);
+      }
+      // 物理削除の検知: 前回スナップショットに居たのに今回のAPI結果から消えた予約（テスト予約の削除等）
+      for (const [id, p] of Object.entries(prev.bookings)) {
+        if (seenIds.has(id) || p.status === "cancelled") continue;
+        events.deleted.push(`${p.prop} ${p.arrival}〜${p.n}泊 (ID:${id})`);
       }
 
       // 先付け残高（今日以降の泊数・棟別）
@@ -2157,6 +2167,7 @@ export const beds24DailyObserver = onSchedule(
         const rows = list.filter((l) => l.startsWith(prop));
         return { g: rows.length, n: rows.reduce((s2, l) => s2 + (Number(l.match(/〜(\d+)泊/)?.[1]) || 0), 0) };
       };
+      const kDel = tally(events.deleted, "清川"), tDel = tally(events.deleted, "高砂");
       const kNew = tally(events.new, "清川"), kCxl = tally(events.cancelled, "清川");
       const tNew = tally(events.new, "高砂"), tCxl = tally(events.cancelled, "高砂");
 
@@ -2174,8 +2185,8 @@ export const beds24DailyObserver = onSchedule(
         const row = ((col.values || []) as string[][]).findIndex((r) => (r[0] || "").trim() === dstr) + 1;
         if (row > 0) {
           const data = [
-            { range: `B${row}`, values: [[kNew.g - kCxl.g]] }, { range: `C${row}`, values: [[kNew.n - kCxl.n]] },
-            { range: `E${row}`, values: [[tNew.g - tCxl.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n]] },
+            { range: `B${row}`, values: [[kNew.g - kCxl.g - kDel.g]] }, { range: `C${row}`, values: [[kNew.n - kCxl.n - kDel.n]] },
+            { range: `E${row}`, values: [[tNew.g - tCxl.g - tDel.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n - tDel.n]] },
             { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
             { range: `M${row}`, values: [[fwd.清川 + fwd.高砂]] },
           ];
@@ -2209,8 +2220,8 @@ export const beds24DailyObserver = onSchedule(
         [
           `=== Beds24 日次観測 ${today}（前回: ${prev.date ?? "初回"}）===`, ``,
           `【サマリ（定点シート形式）】`,
-          `清川　　　　: ${kNew.g - kCxl.g >= 0 ? "+" : ""}${kNew.g - kCxl.g}組 ${kNew.n - kCxl.n >= 0 ? "+" : ""}${kNew.n - kCxl.n}泊`,
-          `高砂　　　　: ${tNew.g - tCxl.g >= 0 ? "+" : ""}${tNew.g - tCxl.g}組 ${tNew.n - tCxl.n >= 0 ? "+" : ""}${tNew.n - tCxl.n}泊`,
+          `清川　　　　: ${kNew.g - kCxl.g - kDel.g >= 0 ? "+" : ""}${kNew.g - kCxl.g - kDel.g}組 ${kNew.n - kCxl.n - kDel.n >= 0 ? "+" : ""}${kNew.n - kCxl.n - kDel.n}泊`,
+          `高砂　　　　: ${tNew.g - tCxl.g - tDel.g >= 0 ? "+" : ""}${tNew.g - tCxl.g - tDel.g}組 ${tNew.n - tCxl.n - tDel.n >= 0 ? "+" : ""}${tNew.n - tCxl.n - tDel.n}泊`,
           `CV数(日次): ${handoff?.total ?? "取得失敗（GA4）"}（前日の全キーイベント合計）`,
           `  内訳 click_airbnb: ${clicks ?? "—"} / click_booking_com: ${handoff?.click_booking_com ?? "—"} / click_booking_calendar: ${handoff?.click_booking_calendar ?? "—"}`,
           `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
@@ -2218,6 +2229,7 @@ export const beds24DailyObserver = onSchedule(
           `先付け 合計 : ${fwdTotal}泊 (${fwdRate}%)`, ``,
           `新規予約 ${events.new.length}件:`, ...events.new.map((l) => `  + ${l}`), ``,
           `キャンセル ${events.cancelled.length}件:`, ...events.cancelled.map((l) => `  - ${l}`), ``,
+          ...(events.deleted.length ? [`物理削除 ${events.deleted.length}件（テスト予約の削除等・差引済み）:`, ...events.deleted.map((l) => `  - ${l}`), ``] : []),
           ...(events.changed.length ? [`変更 ${events.changed.length}件:`, ...events.changed.map((l) => `  * ${l}`), ``] : []),
           `先付け残高: 清川${fwd.清川}泊 / 高砂${fwd.高砂}泊 / 計${fwdTotal}泊（${fwdRate}%）`,
           sheetNote, ``,
