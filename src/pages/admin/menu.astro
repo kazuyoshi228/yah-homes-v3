@@ -47,7 +47,13 @@ const SYSTEM = [
   <section class="am">
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
-      <h1 class="am-title">管理メニュー</h1>
+      <div class="am-head">
+        <h1 class="am-title">管理メニュー</h1>
+        <div class="am-me" id="am-me" hidden>
+          <span class="am-email" id="am-email"></span>
+          <button type="button" class="am-out" id="am-out">ログアウト</button>
+        </div>
+      </div>
       <div id="am-body" hidden>
       <h2 class="am-h2" data-sec="ssot">SSoT</h2>
       <div class="am-grid" data-secgrid="ssot">
@@ -87,12 +93,15 @@ const SYSTEM = [
 
 <script define:vars={{ OPS_ENDPOINT, FB_CONFIG }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
-    const { getAuth, onAuthStateChanged } = await import(
+    const { getAuth, signOut, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     onAuthStateChanged(auth, async (user) => {
       if (!user) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+      document.getElementById("am-email").textContent = user.email ?? "";
+      document.getElementById("am-me").hidden = false;
+      document.getElementById("am-out").addEventListener("click", () => signOut(auth).then(() => location.replace("/admin/")));
       let isAdmin = false;
       try {
         const token = await user.getIdToken();
@@ -119,6 +128,14 @@ const SYSTEM = [
   .am { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
   .am-container { max-width: 880px; margin: 0 auto; }
   .am-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .am-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .am-me { display: flex; align-items: center; gap: 0.9rem; }
+  .am-email { font-size: 0.76rem; color: #888888; word-break: break-all; }
+  .am-out {
+    font-family: inherit; font-size: 0.72rem; color: #666666; background: none;
+    border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.3rem 0.75rem; cursor: pointer; white-space: nowrap;
+  }
+  .am-out:hover { color: #111111; border-color: #111111; }
   .am-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
   .am-h2 {
     font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888;
