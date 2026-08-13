@@ -343,6 +343,7 @@ const VARS = [
     });
 
     onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("tp-login").hidden = !!user;
       $("tp-app").hidden = !user;
       ME = user?.email ?? "";

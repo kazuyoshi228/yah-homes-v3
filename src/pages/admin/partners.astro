@@ -222,6 +222,7 @@ const FB_CONFIG = {
     });
 
     onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       if (user) {
         loginBox.hidden = true;
         appBox.hidden = false;

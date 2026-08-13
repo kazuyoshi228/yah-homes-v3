@@ -117,6 +117,7 @@ const FB_CONFIG = {
       catch { $("op-login-status").textContent = "ログインに失敗しました。"; }
     });
     onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("op-login").hidden = !!user;
       $("op-app").hidden = !user;
       if (user) load();

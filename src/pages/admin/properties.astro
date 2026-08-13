@@ -260,6 +260,7 @@ const HOUSES = [
     });
 
     onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("ap-login").hidden = !!user;
       $("ap-app").hidden = !user;
       if (user) load();
