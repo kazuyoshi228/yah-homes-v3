@@ -20,6 +20,7 @@ import nodemailer from "nodemailer";
 initializeApp();
 const db = getFirestore();
 
+const GCP_PROJECT = "yah-homes";
 const REGION = "asia-northeast1";
 
 // メール通知用シークレット（`firebase functions:secrets:set` で登録）
@@ -1741,6 +1742,249 @@ export const adminOps = onRequest(
   }
 );
 
+
+// ─── メッセージ（Airbnb同等・予約ごとのスレッド） ───
+// 仕様: docs/spec_admin_messages.md
+// 読み取りはクライアントが Firestore を直接購読する（リアルタイム・ルールで保護）。
+// 書き込みは必ずこのAPIを通す（文字数・連投制限・通知・Beds24複製・翻訳をサーバで強制）。
+
+const MSG_MAX = 2000;          // 1通の上限
+const MSG_RATE_WINDOW = 60000; // 1分あたり
+const MSG_RATE_MAX = 5;
+
+/** 予約からスレッドを作る（無ければ）。予約確定時とメッセージ送信時に呼ぶ。 */
+async function ensureThread(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
+  const ref = db.collection("threads").doc(bookingId);
+  if ((await ref.get()).exists) return;
+  await ref.set({
+    uid: String(b.uid ?? ""), prop: String(b.prop ?? ""),
+    guestName: String(b.name ?? ""), guestEmail: String(b.email ?? ""),
+    checkin: String(b.checkin ?? ""), checkout: String(b.checkout ?? ""),
+    lang: String(b.lang ?? "en"), beds24Id: b.beds24Id ?? null,
+    lastMessageAt: null, lastFrom: null,
+    unreadForGuest: 0, unreadForHost: 0,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/** 原文を日本語へ（運営が読むため）／日本語を相手の言語へ。失敗しても送信は止めない。 */
+async function translateText(text: string, target: string): Promise<string> {
+  // APIキーは持たず、Functions のサービスアカウントで直接呼ぶ（鍵の管理が不要）。
+  // Cloud Translation API が未有効・権限なしでも、訳が出ないだけで送信は成立させる。
+  try {
+    const token = await gcpAccessToken("https://www.googleapis.com/auth/cloud-platform");
+    const r = await fetch(
+      `https://translation.googleapis.com/v3/projects/${GCP_PROJECT}/locations/global:translateText`,
+      { method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [text.slice(0, 2000)], targetLanguageCode: target, mimeType: "text/plain" }) },
+    );
+    if (!r.ok) { logger.warn("translate http", { status: r.status }); return ""; }
+    const j = (await r.json()) as { translations?: Array<{ translatedText?: string; detectedLanguageCode?: string }> };
+    const t = j.translations?.[0];
+    if (!t?.translatedText) return "";
+    if ((t.detectedLanguageCode ?? "").startsWith(target.split("-")[0])) return ""; // 同じ言語なら訳は不要
+    return t.translatedText;
+  } catch (err) {
+    logger.warn("translate failed", { err: String(err).slice(0, 120) });
+    return "";
+  }
+}
+
+export const messagesApi = onRequest(
+  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH] },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+    res.set("Cache-Control", "no-store");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ ok: false, error: "method_not_allowed" }); return; }
+
+    // 認証: ゲスト（uid）か、管理者台帳のメンバーか
+    const authz = String(req.headers["authorization"] ?? "");
+    const m = /^Bearer (.+)$/.exec(authz);
+    if (!m) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    let uid = "", email = "";
+    try {
+      const decoded = await getAuth().verifyIdToken(m[1]);
+      uid = decoded.uid; email = (decoded.email ?? "").toLowerCase();
+    } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    const isStaff = !!email && (isAdmin(email) || !!(await getAdminUser(email)));
+
+    const { action, bookingId, body } = (req.body ?? {}) as Record<string, unknown>;
+    const idStr = String(bookingId ?? "");
+    if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+
+    try {
+      const bref = db.collection("bookings").doc(idStr);
+      const bsnap = await bref.get();
+      if (!bsnap.exists) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+      const b = bsnap.data() as BookingDoc & Record<string, unknown>;
+
+      // 所有者チェック: 自分の予約か、運営か。これ以外は一切触れない。
+      const isOwnerGuest = !!b.uid && b.uid === uid;
+      if (!isOwnerGuest && !isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+      const from: "guest" | "host" = isOwnerGuest && !isStaff ? "guest" : (isStaff ? "host" : "guest");
+
+      await ensureThread(idStr, b);
+      const tref = db.collection("threads").doc(idStr);
+
+      if (action === "read") {
+        await tref.update(from === "guest" ? { unreadForGuest: 0 } : { unreadForHost: 0 });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      if (action !== "send") { res.status(400).json({ ok: false, error: "invalid_action" }); return; }
+      const text = String(body ?? "").trim();
+      if (!text) { res.status(400).json({ ok: false, error: "empty" }); return; }
+      if (text.length > MSG_MAX) { res.status(400).json({ ok: false, error: "too_long" }); return; }
+
+      // 連投制限（同一スレッド・同一送信者）
+      const since = new Date(Date.now() - MSG_RATE_WINDOW);
+      const recent = await tref.collection("messages")
+        .where("from", "==", from).where("at", ">", since).get();
+      if (recent.size >= MSG_RATE_MAX) { res.status(429).json({ ok: false, error: "rate_limited" }); return; }
+
+      const guestLang = String(b.lang ?? "en");
+      // 運営が読むための日本語訳／お客様が読むための現地語訳
+      const translated = from === "guest"
+        ? (guestLang === "ja" ? "" : await translateText(text, "ja"))
+        : (guestLang === "ja" ? "" : await translateText(text, guestLang === "zh" ? "zh-TW" : guestLang));
+
+      const msg = await tref.collection("messages").add({
+        from, body: text,
+        translated: translated || null,
+        author: from === "host" ? email : null,
+        at: FieldValue.serverTimestamp(),
+      });
+      await tref.update({
+        lastMessageAt: FieldValue.serverTimestamp(), lastFrom: from,
+        lastBody: text.slice(0, 120),
+        ...(from === "guest" ? { unreadForHost: FieldValue.increment(1) } : { unreadForGuest: FieldValue.increment(1) }),
+      });
+
+      // 通知と Beds24 複製は、送信の成否を左右しない
+      notifyMessage(idStr, b, from, text, translated).catch((e: unknown) => logger.warn("notifyMessage failed", { e: String(e).slice(0, 120) }));
+      if (b.beds24Id) {
+        const label = from === "guest" ? "【直販ゲスト】" : "【yah.homes 運営】";
+        noteBeds24Message(Number(b.beds24Id), from, `${label}${text}`).catch(() => { /* 複製失敗は無視 */ });
+      }
+
+      res.status(200).json({ ok: true, id: msg.id });
+    } catch (err) {
+      logger.error("messagesApi failed", err);
+      res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+/** メッセージの相手へ通知する。5分以内の連投は1通にまとめる。 */
+const MSG_NOTIFY_L10N: Record<string, Record<string, string>> = {
+  ja: { subject: "【yah.homes】メッセージが届いています", heading: "メッセージが届いています",
+        lead: "yah.homes からご返信しました。My Page からご確認・ご返信いただけます。",
+        title: "メッセージ", cta: "My Page で開く",
+        note: "このメールには返信できません。ご返信は My Page からお願いいたします。" },
+  en: { subject: "[yah.homes] You have a new message", heading: "You have a new message",
+        lead: "We have replied to you. You can read and reply from My Page.",
+        title: "Message", cta: "Open My Page",
+        note: "This email cannot receive replies. Please reply from My Page." },
+  ko: { subject: "[yah.homes] 새 메시지가 도착했습니다", heading: "새 메시지가 도착했습니다",
+        lead: "yah.homes에서 답변드렸습니다. My Page에서 확인하고 답장하실 수 있습니다.",
+        title: "메시지", cta: "My Page 열기",
+        note: "이 메일에는 회신할 수 없습니다. 답장은 My Page에서 부탁드립니다." },
+  zh: { subject: "【yah.homes】您有一則新訊息", heading: "您有一則新訊息",
+        lead: "yah.homes 已回覆您。可於 My Page 查看並回覆。",
+        title: "訊息", cta: "開啟 My Page",
+        note: "本郵件無法回覆，請至 My Page 回覆。" },
+  th: { subject: "[yah.homes] คุณมีข้อความใหม่", heading: "คุณมีข้อความใหม่",
+        lead: "yah.homes ได้ตอบกลับคุณแล้ว สามารถอ่านและตอบกลับได้ที่ My Page",
+        title: "ข้อความ", cta: "เปิด My Page",
+        note: "อีเมลฉบับนี้ไม่สามารถตอบกลับได้ กรุณาตอบกลับผ่าน My Page" },
+};
+
+async function notifyMessage(
+  bookingId: string, b: BookingDoc & Record<string, unknown>,
+  from: "guest" | "host", text: string, translated: string,
+): Promise<void> {
+  const tref = db.collection("threads").doc(bookingId);
+  const t = (await tref.get()).data() ?? {};
+  const key = from === "guest" ? "notifiedHostAt" : "notifiedGuestAt";
+  const last = t[key]?.toMillis?.() ?? 0;
+  if (Date.now() - last < 5 * 60000) return; // 5分以内はまとめる（通知は出さない）
+  await tref.set({ [key]: FieldValue.serverTimestamp() }, { merge: true });
+
+  const no = bookingId.slice(0, 8).toUpperCase();
+  const P = MAIL_PROP[String(b.prop)] ?? { name: String(b.prop), image: "", address: "", map: "" };
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+  });
+
+  if (from === "host") {
+    // お客様へ（本文はお客様の言語の訳を優先して見せる）
+    const lang = String(b.lang ?? "en");
+    const L = MSG_NOTIFY_L10N[lang] ?? MSG_NOTIFY_L10N.en;
+    const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/#messages`;
+    const shown = translated || text;
+    try {
+      await transporter.sendMail({
+        from: `"yah.homes" <${SMTP_USER.value()}>`,
+        to: String(b.email), replyTo: `no-reply@mail.yah.homes`,
+        subject: L.subject,
+        text: [L.heading, "", L.lead, "", `--- ${L.title} ---`, shown, "", L.note, myPage].join("\n"),
+        html: mailHtml({
+          heading: L.heading, badge: `${lang === "ja" ? "予約番号" : "Booking"}|${no}`,
+          lead: L.lead,
+          rows: [[P.name, `${esc(String(b.checkin))} 〜 ${esc(String(b.checkout))}`]],
+          blocks: [{ title: L.title, body: esc(shown) }],
+          cta: { label: L.cta, href: myPage }, note: L.note,
+        }),
+      });
+      logMail("message", String(b.email), true, { bookingId, lang, subject: L.subject });
+    } catch (err) {
+      logMail("message", String(b.email), false, { bookingId, error: String(err) });
+    }
+    return;
+  }
+
+  // 運営へ
+  const body = translated ? `${text}\n\n【訳】${translated}` : text;
+  await transporter.sendMail({
+    from: `"yah.homes メッセージ" <${SMTP_USER.value()}>`,
+    to: await notifyRecipients("notifyBookings"),
+    replyTo: `no-reply@mail.yah.homes`,
+    subject: `【メッセージ】${String(b.name ?? "")}様（${P.name} ${String(b.checkin)}〜）`,
+    text: `${body}\n\n${SITE_URL}/admin/messages/#${bookingId}`,
+    html: mailHtml({
+      heading: "お客様からメッセージが届きました",
+      badge: `予約番号|${no}`,
+      rows: [["お客様", esc(String(b.name ?? ""))], [P.name, `${esc(String(b.checkin))} 〜 ${esc(String(b.checkout))}`]],
+      blocks: [{ title: "メッセージ", body: esc(text) + (translated ? `<br><br><span style="color:#888888;">【訳】${esc(translated)}</span>` : "") }],
+      cta: { label: "返信する", href: `${SITE_URL}/admin/messages/#${bookingId}` },
+      note: "このメールには返信できません。返信は管理画面から行ってください。",
+    }),
+  });
+}
+
+/** Beds24 の予約へメッセージを複製する（Airbnb等と同じ受信箱に並べる） */
+async function noteBeds24Message(beds24Id: number, from: "guest" | "host", message: string): Promise<void> {
+  const r = await fetch(`${BEDS24_API}/bookings/messages`, {
+    method: "POST",
+    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+    body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 900), source: from }]),
+  });
+  const j = (await r.json()) as Array<{ success?: boolean }>;
+  if (!j?.[0]?.success) logger.warn("beds24 message mirror not saved", { beds24Id });
+}
+
 // ─── 入室案内の暗証番号（/how-to/:prop から取得） ───
 // 番号を静的HTMLへ焼き込むと、gitとビルド成果物に残り、番号を変えるたび再デプロイが要る。
 // 実行時に property_secrets から読むことで、/admin/secrets の変更が即座にページへ反映される。
@@ -2131,7 +2375,7 @@ export const beds24DailyObserver = onSchedule(
       const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";
       const isGuest = (b: Beds24Booking) =>
         b.status !== "black" &&
-        !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`) &&
+        !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`) &&
         // API直作成（P1開発テスト等）は観測対象外。MS3本稼働時は直販refererをここでホワイトリスト化する
         !(!b.referer && /^api$/i.test(b.apiSource ?? ""));
 
@@ -2648,6 +2892,7 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
     const c4 = (await ref.get()).data() as BookingDoc;
     await transition(ref, { status: ["RESERVATION_PENDING"], stateVersion: c4.stateVersion },
       { status: "CONFIRMED", beds24Id, confirmedAt: FieldValue.serverTimestamp() });
+    await ensureThread(bookingId, c2).catch((e) => logger.warn("ensureThread failed", { e: String(e).slice(0, 120) }));
     await sendConfirmationMail(bookingId, c2);
     await sendPurchaseEvent({
       id: bookingId, uid: cur.uid, prop: cur.prop, total: cur.total, guests: cur.guests,
@@ -3392,13 +3637,30 @@ export const accountApi = onRequest(
 
       if (req.method === "POST") {
         const { action, bookingId, arrival, reason } = (req.body ?? {}) as Record<string, unknown>;
+
+        if (action === "profile") {
+        // プロフィールの保存（任意入力・本人のみ）。予約時の初期値と緊急連絡に使う。
+        const { profile } = (req.body ?? {}) as Record<string, unknown>;
+        const p = (profile ?? {}) as Record<string, unknown>;
+        const str = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
+        const clean = {
+          nameJa: str(p.nameJa, 60), nameRoman: str(p.nameRoman, 60),
+          phone: str(p.phone, 30), country: str(p.country, 60),
+          birthday: /^\d{4}-\d{2}-\d{2}$/.test(String(p.birthday ?? "")) ? String(p.birthday) : "",
+          lang: ["ja", "en", "ko", "zh", "th"].includes(String(p.lang)) ? String(p.lang) : "",
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        await db.collection("guest_profiles").doc(uid).set(clean, { merge: true });
+        res.status(200).json({ ok: true });
+        return;
+      }
+
         const idStr = typeof bookingId === "string" ? bookingId : "";
         if (!idStr || (action !== "arrival" && action !== "cancel")) {
           res.status(400).json({ ok: false, error: "invalid_input" }); return;
         }
 
-        // ── セルフキャンセル（v5 §5-3 / spec_self_cancel_202608.md）──
-        if (action === "cancel") {
+      if (action === "cancel") {
           const ref = db.collection("bookings").doc(idStr);
           const v = (await ref.get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
           if (!v || v.uid !== uid) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
@@ -3519,6 +3781,8 @@ export const accountApi = onRequest(
           return;
         }
 
+
+        // ── セルフキャンセル（v5 §5-3 / spec_self_cancel_202608.md）──
         const arrStr = typeof arrival === "string" && /^(\d{2}:\d{2}|24:00\+|)$/.test(arrival) ? arrival : "";
 
         const ref = db.collection("bookings").doc(idStr);

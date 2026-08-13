@@ -25,14 +25,14 @@ const REPORT_TO = "kazuyoshi.yamada@bonfire.co.jp";
 type Booking = {
   id: number; propertyId: number; status: string; arrival: string; departure: string;
   firstName?: string; lastName?: string; referer?: string; apiSource?: string;
-  country2?: string; bookingTime?: string; numAdult?: number; numChild?: number;
+  country2?: string; bookingTime?: string; cancelTime?: string; numAdult?: number; numChild?: number;
 };
 
 const jstToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
 const nights = (b: Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
 const isActive = (b: Booking) => b.status === "confirmed" || b.status === "new";
 const isGuest = (b: Booking) =>
-  b.status !== "black" && !/オーナー|yamada|sugimoto|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
+  b.status !== "black" && !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
 
 async function fetchBookings(token: string): Promise<Booking[]> {
   const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
@@ -46,7 +46,7 @@ async function fetchBookings(token: string): Promise<Booking[]> {
     out.push(...r.data);
     next = r.pages?.nextPageExists ? r.pages.nextPageLink : null;
   }
-  return out;
+  return out.filter((b) => PROPS[b.propertyId]); // 本番2物件のみ（テスト物件を除外）
 }
 
 async function googleToken(scopes: string[]): Promise<string> {
@@ -109,13 +109,14 @@ export const beds24WeeklyReport = onSchedule(
   async () => {
     const today = jstToday();
     try {
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toLocaleDateString("sv-SE", { timeZone: TZ });
       const bookings = await fetchBookings(BEDS24_TOKEN.value());
       const weekly = bookings.filter(
         (b) => isGuest(b) && isActive(b) && (b.bookingTime ?? "").slice(0, 10) >= weekAgo
       );
+      // キャンセルは「今週キャンセルされたもの」= cancelTime 基準（無い場合のみ bookingTime で近似）
       const cxl = bookings.filter(
-        (b) => isGuest(b) && b.status === "cancelled" && (b.bookingTime ?? "").slice(0, 10) >= weekAgo
+        (b) => isGuest(b) && b.status === "cancelled" && ((b.cancelTime || b.bookingTime) ?? "").slice(0, 10) >= weekAgo
       );
       const fwd = forwardNights(bookings, today);
       const fwdTotal = fwd.清川 + fwd.高砂;
@@ -124,9 +125,9 @@ export const beds24WeeklyReport = onSchedule(
       const nat = (b: Booking): string => {
         if (b.country2) return b.country2;
         const name = `${b.firstName ?? ""} ${b.lastName ?? ""}`;
-        if (/[가-힯]/.test(name)) return "KR?";
-        if (/[぀-ヿ]/.test(name)) return "JP?";
-        if (/[一-鿿]/.test(name)) return "中華圏?";
+        if (/[가-힣]/.test(name)) return "KR?";
+        if (/[぀-ヿ]/.test(name)) return "JP?"; // かな含み＝日本
+        if (/[一-鿿]/.test(name)) return "漢字圏(日/中)?"; // 漢字のみは日中の判別不能
         return "不明";
       };
       const byNat: Record<string, { g: number; n: number }> = {};
@@ -186,7 +187,9 @@ export const beds24WeeklyReport = onSchedule(
       }
 
       const weeklyNights = weekly.reduce((s, b) => s + nights(b), 0);
-      const ratio = clickTotal > 0 ? ((weekly.length / clickTotal) * 100).toFixed(0) : "—";
+      // 基準帯23〜28%は click_airbnb→Airbnb予約 で校正済みのため、分子はAirbnb経由のみ
+      const airbnbBookings = weekly.filter((b) => /airbnb/i.test(b.referer ?? "")).length;
+      const ratio = clickTotal > 0 ? ((airbnbBookings / clickTotal) * 100).toFixed(0) : "—";
 
       const body = [
         `■ 週間サマリ（予約日ベース・過去7日）`,
@@ -202,7 +205,7 @@ export const beds24WeeklyReport = onSchedule(
         `■ 広告 市場別（adsタブ・7日）`,
         ...adsLines,
         ``,
-        `■ 手渡し→予約比率: ${ratio}%（基準帯23〜28%）`,
+        `■ 手渡し→予約比率: ${ratio}%（Airbnb予約${airbnbBookings}÷click_airbnb${clickTotal}・基準帯23〜28%）`,
         ``,
         `明細（新規）:`,
         ...weekly.map((b) => `  + ${label(b)}`),
