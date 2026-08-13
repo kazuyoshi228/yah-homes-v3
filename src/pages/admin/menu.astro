@@ -11,6 +11,14 @@ const SSOT = [
   { href: "/admin/templates/", title: "定型メール管理", role: "admin" },
   { href: "/admin/internal-mails/", title: "社内向け定型メール", role: "admin" },
 ];
+const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
 const OPERATOR = [
   { href: "/admin/bookings/", title: "直販予約 管理" },
   { href: "/admin/partners/", title: "パートナー申請 管理" },
@@ -40,10 +48,11 @@ const SYSTEM = [
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
       <h1 class="am-title">管理メニュー</h1>
-      <h2 class="am-h2">SSoT</h2>
-      <div class="am-grid">
+      <div id="am-body" hidden>
+      <h2 class="am-h2" data-sec="ssot">SSoT</h2>
+      <div class="am-grid" data-secgrid="ssot">
         {SSOT.map((it) => (
-          <a class="am-card" href={it.href}>
+          <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
             <h3 class="am-card-title">
               {it.title}
               <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
@@ -54,26 +63,57 @@ const SYSTEM = [
         ))}
       </div>
 
-      <h2 class="am-h2">運営管理</h2>
-      <div class="am-grid">
+      <h2 class="am-h2" data-sec="ops">運営管理</h2>
+      <div class="am-grid" data-secgrid="ops">
         {OPERATOR.map((it) => (
-          <a class="am-card" href={it.href}>
+          <a class="am-card" href={it.href} data-role="operator">
             <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
           </a>
         ))}
       </div>
 
-      <h2 class="am-h2">システム管理</h2>
-      <div class="am-grid">
+      <h2 class="am-h2" data-sec="sys">システム管理</h2>
+      <div class="am-grid" data-secgrid="sys">
         {SYSTEM.map((it) => (
-          <a class="am-card" href={it.href}>
+          <a class="am-card" href={it.href} data-role="admin">
             <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-admin">Admin</span></h3>
           </a>
         ))}
       </div>
+      </div>
     </div>
   </section>
 </SiteLayout>
+
+<script define:vars={{ OPS_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+      let isAdmin = false;
+      try {
+        const token = await user.getIdToken();
+        const r = await fetch(`${OPS_ENDPOINT}?view=me`, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.status === 401) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+        const j = await r.json();
+        isAdmin = !!j.isAdmin;
+      } catch { /* 判定できないときは OPERATOR 相当に倒す（見せすぎない） */ }
+
+      // 権限外のカードを取り除き、空になったセクションは見出しごと隠す
+      document.querySelectorAll("[data-role]").forEach((el) => {
+        if (el.dataset.role === "admin" && !isAdmin) el.remove();
+      });
+      document.querySelectorAll("[data-secgrid]").forEach((grid) => {
+        const head = document.querySelector(`[data-sec="${grid.dataset.secgrid}"]`);
+        if (!grid.querySelector(".am-card")) { grid.remove(); head?.remove(); }
+      });
+      document.getElementById("am-body").hidden = false;
+    });
+  });
+</script>
 
 <style>
   .am { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }

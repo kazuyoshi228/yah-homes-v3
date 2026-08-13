@@ -1676,17 +1676,25 @@ export const adminOps = onRequest(
 
     const view = String(req.query.view ?? "");
     try {
+      if (view === "me") {
+        // ログイン中の本人の権限。メニューの出し分けに使う（機微情報は返さない）。
+        res.status(200).json({ ok: true, email, isAdmin: isAdmin(email) });
+        return;
+      }
       if (view === "mail") {
+        if (requireAdmin(email, res)) return;
         const snap = await db.collection("mail_logs").orderBy("at", "desc").limit(200).get();
         res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
         return;
       }
       if (view === "audit") {
+        if (requireAdmin(email, res)) return;
         const snap = await db.collection("audit_logs").orderBy("at", "desc").limit(200).get();
         res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
         return;
       }
       if (view === "health") {
+        if (requireAdmin(email, res)) return;
         const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
 
         // Beds24 読み取りトークン
