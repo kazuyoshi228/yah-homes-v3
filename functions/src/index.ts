@@ -1155,10 +1155,16 @@ async function buildLifecycleMail(
   // 「別途お送りしています／ご返信ください」の予備文面に切り替える。
   let keybox = "";
   if (kind === "reminder") {
-    try {
-      const sec = await db.collection("property_secrets").doc(b.prop === "test" ? "kiyokawa" : String(b.prop)).get();
-      keybox = String(sec.data()?.keyboxCode ?? "");
-    } catch { /* カードなしで送る */ }
+    // プレビュー・テスト送信では本物の番号を読まない（レイアウト確認が目的であり、
+    // 実値を出すと /admin/secrets の権限制限を迂回できてしまう）。
+    if (String(bookingId).startsWith("PREVIEW") || String(bookingId).startsWith("TESTTEST")) {
+      keybox = "0000";
+    } else {
+      try {
+        const sec = await db.collection("property_secrets").doc(b.prop === "test" ? "kiyokawa" : String(b.prop)).get();
+        keybox = String(sec.data()?.keyboxCode ?? "");
+      } catch { /* カードなしで送る */ }
+    }
   }
 
   // 内部の kind 名（reminder）と、画面・テンプレートの通名（checkin）を対応させる
@@ -1452,7 +1458,7 @@ export const adminTemplates = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 文面はお客様への体験に直結するため、編集はオーナーのみに限定する。
-    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+    if (requireAdmin(email, res)) return;
 
     try {
       if (req.method === "GET") {
@@ -1558,6 +1564,7 @@ export const adminMailPreview = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    if (requireAdmin(email, res)) return;
 
     const kind = String(req.query.kind ?? "") as MailKind;
     const lang = String(req.query.lang ?? "ja");
@@ -1769,7 +1776,7 @@ export const adminSecrets = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 鍵番号は物理キーそのもの。台帳メンバーではなく root オーナーのみに限定する。
-    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+    if (requireAdmin(email, res)) return;
 
     const PROPS = ["kiyokawa", "takasago"] as const;
     try {
@@ -1825,7 +1832,24 @@ export const adminSecrets = onRequest(
 
 // ─── パートナー申請 管理API（/admin/partners・design_partners_page.md §4.6） ───
 // 認証: Firebase Auth（Google）IDトークン検証＋許可メール限定。個人情報を扱うためFunction経由のみ。
-const PARTNERS_ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"]; // rootオーナー（削除不可・台帳に依らず常に有効）
+/* 権限は2階層のみ。用語は ADMIN / OPERATOR で統一する（旧: owner / root / PARTNERS_ADMIN）。
+   ADMIN    … 台帳から削除できない固定アカウント。鍵番号・文面・物件・返金・台帳編集・再デプロイ。
+   OPERATOR … 管理者台帳のメンバー。予約閲覧・問い合わせ対応など日々の運用のみ。
+   判定は必ず isAdmin() / requireAdmin() を通す（各APIに条件を手書きしない）。 */
+const ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"];
+const PARTNERS_ADMIN_EMAILS = ADMIN_EMAILS; // 後方互換（通知宛先の既定値として参照）
+
+/** ADMIN か（台帳の role には依存しない・固定アカウントのみ） */
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email);
+}
+
+/** ADMIN でなければ 403 を返して true。呼び出し側は `if (requireAdmin(email, res)) return;` で使う。 */
+function requireAdmin(email: string, res: { status: (n: number) => { json: (b: unknown) => void } }): boolean {
+  if (isAdmin(email)) return false;
+  res.status(403).json({ ok: false, error: "admin_only" });
+  return true;
+}
 
 // 管理者台帳（/admin/users）: { name, role: "owner"|"operator", notifyPartners, notifyTeiten, notifyBookings }
 async function getAdminUser(email: string): Promise<{ role: string } | null> {
@@ -1854,7 +1878,7 @@ async function verifyAdmin(req: { headers: Record<string, unknown> }): Promise<s
     const decoded = await getAuth().verifyIdToken(m[1]);
     const email = (decoded.email ?? "").toLowerCase();
     if (!decoded.email_verified) return null;
-    if (PARTNERS_ADMIN_EMAILS.includes(email)) return email;
+    if (isAdmin(email)) return email;
     if (await getAdminUser(email)) return email; // 台帳メンバー（operator以上）
     return null;
   } catch {
@@ -3532,7 +3556,7 @@ export const adminUsers = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    const isRoot = PARTNERS_ADMIN_EMAILS.includes(email);
+    const isRoot = isAdmin(email);
 
     try {
       if (req.method === "GET") {
@@ -3543,17 +3567,17 @@ export const adminUsers = onRequest(
             notifyPartners: v.notifyPartners === true, notifyTeiten: v.notifyTeiten === true,
             notifyBookings: v.notifyBookings === true };
         });
-        res.status(200).json({ ok: true, root: PARTNERS_ADMIN_EMAILS, isRoot, items });
+        res.status(200).json({ ok: true, root: ADMIN_EMAILS, isRoot, items });
         return;
       }
 
       if (req.method === "POST") {
-        if (!isRoot) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+        if (requireAdmin(email, res)) return;
         const { action, email: target, name, role, notifyPartners, notifyTeiten, notifyBookings } =
           (req.body ?? {}) as Record<string, unknown>;
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
         if (!/^\S+@\S+\.\S+$/.test(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
-        if (PARTNERS_ADMIN_EMAILS.includes(targetStr)) { res.status(400).json({ ok: false, error: "root_protected" }); return; }
+        if (isAdmin(targetStr)) { res.status(400).json({ ok: false, error: "root_protected" }); return; }
 
         const ref = db.collection("admin_users").doc(targetStr);
         if (action === "delete") {
@@ -3602,7 +3626,7 @@ export const adminBookings = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    const isRoot = PARTNERS_ADMIN_EMAILS.includes(email);
+    const isRoot = isAdmin(email);
 
     try {
       if (req.method === "GET") {
@@ -3642,7 +3666,7 @@ export const adminBookings = onRequest(
 
         // 返金（rootオーナーのみ・v4 §8-5）
         if (action === "refund") {
-          if (!isRoot) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+          if (requireAdmin(email, res)) return;
           if (!v.paymentIntentId) { res.status(400).json({ ok: false, error: "no_payment" }); return; }
           const amt = Number(amount);
           const refundAmount = Number.isInteger(amt) && amt > 0 && amt <= v.total ? amt : v.total;
@@ -3732,7 +3756,7 @@ export const adminProperties = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 物件ファクトは表示の正本のため、編集・閲覧ともrootオーナー限定（2026-08-08 発注者指示）
-    if (!PARTNERS_ADMIN_EMAILS.includes(email)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+    if (requireAdmin(email, res)) return;
 
     try {
       if (req.method === "GET") {
@@ -3819,6 +3843,7 @@ export const adminRebuild = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
+    if (requireAdmin(email, res)) return;
 
     try {
       const r = await fetch("https://api.github.com/repos/kazuyoshi228/yah-homes-v2/dispatches", {

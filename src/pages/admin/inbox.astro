@@ -73,7 +73,7 @@ const FB_CONFIG = {
         body: body ? JSON.stringify(body) : undefined,
       });
       if (res.status === 401) throw new Error("unauthorized");
-      if (res.status === 403) throw new Error("owner_only");
+      if (res.status === 403) throw new Error("admin_only");
       return res.json();
     }
 
@@ -140,7 +140,7 @@ const FB_CONFIG = {
         $("ai-status").textContent = "";
       } catch (e) {
         $("ai-status").textContent =
-          e.message === "owner_only"
+          e.message === "admin_only"
             ? "この画面はオーナーのみが閲覧できます。"
             : e.message === "unauthorized"
               ? "ログインが必要です。"
