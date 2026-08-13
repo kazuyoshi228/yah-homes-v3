@@ -21,6 +21,7 @@ export function getStaticPaths() {
 const { lang } = Astro.props as { lang: Locale };
 
 const ACCOUNT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/accountApi";
+const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
 const BOOK_PATH = localizedPath(lang, "/book");
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
 const FB_CONFIG = {
@@ -32,6 +33,31 @@ const FB_CONFIG = {
 
 const A = {
   en: {
+    tabBookings: "Bookings",
+    tabMessages: "Messages",
+    tabProfile: "Profile",
+    msgTitle: "Messages",
+    msgPick: "Choose a booking to see the conversation.",
+    msgEmpty: "No messages yet. Feel free to ask us anything.",
+    msgPlaceholder: "Type your message",
+    msgSend: "Send",
+    msgYou: "You",
+    msgHost: "yah.homes",
+    msgSending: "Sending...",
+    msgFail: "Could not send. Please try again.",
+    profTitle: "Profile",
+    profLead: "Saved details are filled in automatically next time you book.",
+    profNameJa: "Name",
+    profNameRoman: "Name (roman letters)",
+    profEmail: "Email",
+    profEmailNote: "Used as your login. Contact us to change it.",
+    profPhone: "Phone",
+    profCountry: "Country",
+    profBirthday: "Date of birth",
+    profLang: "Language for emails",
+    profSave: "Save",
+    profSaved: "Saved",
+    profOptional: "All optional.",
     title: "My Page", lead: "View and manage your bookings.",
     signIn: "Sign in with Google", signInEmail: "Send sign-in link", signInLead: "Sign in with the account you used to book.",
     emailSent: "We sent a sign-in link. Please open it on this device.", emailFail: "Could not send the link.",
@@ -72,6 +98,31 @@ const A = {
     error: "Could not load your bookings. Please try again shortly.",
   },
   ja: {
+    tabBookings: "予約",
+    tabMessages: "メッセージ",
+    tabProfile: "プロフィール",
+    msgTitle: "メッセージ",
+    msgPick: "ご予約を選ぶと、そのやり取りが表示されます。",
+    msgEmpty: "まだメッセージはありません。何でもお気軽にお尋ねください。",
+    msgPlaceholder: "メッセージを入力",
+    msgSend: "送信",
+    msgYou: "お客様",
+    msgHost: "yah.homes",
+    msgSending: "送信中...",
+    msgFail: "送信できませんでした。もう一度お試しください。",
+    profTitle: "プロフィール",
+    profLead: "ご登録いただくと、次回のご予約で自動的に入力されます。",
+    profNameJa: "お名前",
+    profNameRoman: "お名前（ローマ字）",
+    profEmail: "メールアドレス",
+    profEmailNote: "ログインに使用するため変更できません。変更をご希望の場合はご連絡ください。",
+    profPhone: "電話番号",
+    profCountry: "国・地域",
+    profBirthday: "生年月日",
+    profLang: "メールの言語",
+    profSave: "保存する",
+    profSaved: "保存しました",
+    profOptional: "すべて任意です。",
     title: "My Page", lead: "ご予約の確認・変更ができます。",
     signIn: "Googleでログイン", signInEmail: "ログイン用リンクを送る", signInLead: "ご予約時に使用されたアカウント、またはメールアドレスでログインしてください。",
     emailSent: "ログイン用のリンクをお送りしました。この端末で開いてください。", emailFail: "リンクを送信できませんでした。",
@@ -112,6 +163,31 @@ const A = {
     error: "ご予約を読み込めませんでした。時間をおいてお試しください。",
   },
   ko: {
+    tabBookings: "예약",
+    tabMessages: "메시지",
+    tabProfile: "프로필",
+    msgTitle: "메시지",
+    msgPick: "예약을 선택하시면 대화가 표시됩니다.",
+    msgEmpty: "아직 메시지가 없습니다. 무엇이든 편하게 문의해 주세요.",
+    msgPlaceholder: "메시지를 입력하세요",
+    msgSend: "보내기",
+    msgYou: "고객님",
+    msgHost: "yah.homes",
+    msgSending: "보내는 중...",
+    msgFail: "보내지 못했습니다. 다시 시도해 주세요.",
+    profTitle: "프로필",
+    profLead: "등록해 두시면 다음 예약 시 자동으로 입력됩니다.",
+    profNameJa: "이름",
+    profNameRoman: "이름(로마자)",
+    profEmail: "이메일",
+    profEmailNote: "로그인에 사용되므로 변경할 수 없습니다. 변경을 원하시면 연락해 주세요.",
+    profPhone: "전화번호",
+    profCountry: "국가·지역",
+    profBirthday: "생년월일",
+    profLang: "메일 언어",
+    profSave: "저장",
+    profSaved: "저장했습니다",
+    profOptional: "모두 선택 사항입니다.",
     title: "My Page", lead: "예약 확인・변경이 가능합니다.",
     signIn: "Google로 로그인", signInEmail: "로그인 링크 보내기", signInLead: "예약 시 사용하신 계정 또는 이메일로 로그인해 주세요.",
     emailSent: "로그인 링크를 보내드렸습니다. 이 기기에서 열어 주세요.", emailFail: "링크를 보내지 못했습니다.",
@@ -152,6 +228,31 @@ const A = {
     error: "예약을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
   },
   zh: {
+    tabBookings: "預訂",
+    tabMessages: "訊息",
+    tabProfile: "個人資料",
+    msgTitle: "訊息",
+    msgPick: "選擇預訂即可查看對話。",
+    msgEmpty: "目前尚無訊息。有任何問題歡迎詢問。",
+    msgPlaceholder: "請輸入訊息",
+    msgSend: "送出",
+    msgYou: "您",
+    msgHost: "yah.homes",
+    msgSending: "傳送中...",
+    msgFail: "傳送失敗，請再試一次。",
+    profTitle: "個人資料",
+    profLead: "填寫後，下次預訂時會自動帶入。",
+    profNameJa: "姓名",
+    profNameRoman: "姓名（羅馬拼音）",
+    profEmail: "電子郵件",
+    profEmailNote: "作為登入帳號，無法變更。如需變更請與我們聯繫。",
+    profPhone: "電話號碼",
+    profCountry: "國家・地區",
+    profBirthday: "出生日期",
+    profLang: "郵件語言",
+    profSave: "儲存",
+    profSaved: "已儲存",
+    profOptional: "皆為選填。",
     title: "My Page", lead: "可查詢與變更您的訂單。",
     signIn: "使用 Google 登入", signInEmail: "寄送登入連結", signInLead: "請使用預訂時所用的帳號或電子郵件登入。",
     emailSent: "已寄送登入連結，請在此裝置上開啟。", emailFail: "無法寄送連結。",
@@ -192,6 +293,31 @@ const A = {
     error: "無法載入訂單，請稍後再試。",
   },
   th: {
+    tabBookings: "การจอง",
+    tabMessages: "ข้อความ",
+    tabProfile: "โปรไฟล์",
+    msgTitle: "ข้อความ",
+    msgPick: "เลือกการจองเพื่อดูบทสนทนา",
+    msgEmpty: "ยังไม่มีข้อความ สอบถามได้ตามสะดวก",
+    msgPlaceholder: "พิมพ์ข้อความ",
+    msgSend: "ส่ง",
+    msgYou: "คุณ",
+    msgHost: "yah.homes",
+    msgSending: "กำลังส่ง...",
+    msgFail: "ส่งไม่สำเร็จ กรุณาลองอีกครั้ง",
+    profTitle: "โปรไฟล์",
+    profLead: "เมื่อบันทึกแล้ว ระบบจะกรอกให้อัตโนมัติในการจองครั้งถัดไป",
+    profNameJa: "ชื่อ",
+    profNameRoman: "ชื่อ (อักษรโรมัน)",
+    profEmail: "อีเมล",
+    profEmailNote: "ใช้สำหรับเข้าสู่ระบบ จึงไม่สามารถเปลี่ยนได้ หากต้องการเปลี่ยนกรุณาติดต่อเรา",
+    profPhone: "เบอร์โทรศัพท์",
+    profCountry: "ประเทศ/ภูมิภาค",
+    profBirthday: "วันเกิด",
+    profLang: "ภาษาของอีเมล",
+    profSave: "บันทึก",
+    profSaved: "บันทึกแล้ว",
+    profOptional: "ทั้งหมดเป็นตัวเลือก",
     title: "My Page", lead: "ตรวจสอบและจัดการการจองของคุณ",
     signIn: "เข้าสู่ระบบด้วย Google", signInEmail: "ส่งลิงก์เข้าสู่ระบบ", signInLead: "กรุณาเข้าสู่ระบบด้วยบัญชีหรืออีเมลที่ใช้ตอนจอง",
     emailSent: "ส่งลิงก์เข้าสู่ระบบแล้ว กรุณาเปิดบนอุปกรณ์นี้", emailFail: "ส่งลิงก์ไม่สำเร็จ",
@@ -256,6 +382,31 @@ const HOUSE_IMAGES = {
   test: PROPERTIES.kiyokawa.exterior,
 };
 const uiA = {
+  tabBookings: A.tabBookings,
+  tabMessages: A.tabMessages,
+  tabProfile: A.tabProfile,
+  msgTitle: A.msgTitle,
+  msgPick: A.msgPick,
+  msgEmpty: A.msgEmpty,
+  msgPlaceholder: A.msgPlaceholder,
+  msgSend: A.msgSend,
+  msgYou: A.msgYou,
+  msgHost: A.msgHost,
+  msgSending: A.msgSending,
+  msgFail: A.msgFail,
+  profTitle: A.profTitle,
+  profLead: A.profLead,
+  profNameJa: A.profNameJa,
+  profNameRoman: A.profNameRoman,
+  profEmail: A.profEmail,
+  profEmailNote: A.profEmailNote,
+  profPhone: A.profPhone,
+  profCountry: A.profCountry,
+  profBirthday: A.profBirthday,
+  profLang: A.profLang,
+  profSave: A.profSave,
+  profSaved: A.profSaved,
+  profOptional: A.profOptional,
   loading: A.loading, empty: A.empty, error: A.error,
   upcoming: A.upcoming, past: A.past,
   checkin: A.checkin, checkout: A.checkout, guests: A.guests, total: A.total, bookingNo: A.bookingNo,
@@ -318,13 +469,52 @@ const uiA = {
           <span class="ac-user" id="ac-user"></span>
           <button type="button" class="ac-link" id="ac-signout">{A.signOut}</button>
         </div>
-        <div id="ac-list"></div>
+
+        <nav class="ac-tabs" role="tablist">
+          <button type="button" class="ac-tab is-active" data-tab="bookings">{A.tabBookings}</button>
+          <button type="button" class="ac-tab" data-tab="messages">
+            {A.tabMessages}<span class="ac-badge" id="ac-badge" hidden></span>
+          </button>
+          <button type="button" class="ac-tab" data-tab="profile">{A.tabProfile}</button>
+        </nav>
+
+        <div id="ac-list" data-panel="bookings"></div>
+
+        <div data-panel="messages" hidden>
+          <div class="ac-msg-picker" id="ac-msg-picker"></div>
+          <div class="ac-thread" id="ac-thread"></div>
+          <div class="ac-compose" id="ac-compose" hidden>
+            <textarea id="ac-msg-input" rows="2" maxlength="2000" placeholder={A.msgPlaceholder}></textarea>
+            <button type="button" class="ac-btn" id="ac-msg-send">{A.msgSend}</button>
+          </div>
+          <p class="ac-status" id="ac-msg-status"></p>
+        </div>
+
+        <div data-panel="profile" hidden>
+          <p class="ac-panel-note">{A.profLead} {A.profOptional}</p>
+          <div class="ac-form">
+            <label>{A.profNameJa}<input id="pf-nameJa" type="text" maxlength="60" /></label>
+            <label>{A.profNameRoman}<input id="pf-nameRoman" type="text" maxlength="60" /></label>
+            <label>{A.profEmail}<input id="pf-email" type="email" disabled /><span class="ac-hint">{A.profEmailNote}</span></label>
+            <label>{A.profPhone}<input id="pf-phone" type="tel" maxlength="30" /></label>
+            <label>{A.profCountry}<input id="pf-country" type="text" maxlength="60" /></label>
+            <label>{A.profBirthday}<input id="pf-birthday" type="date" /></label>
+            <label>{A.profLang}
+              <select id="pf-lang">
+                <option value="ja">日本語</option><option value="en">English</option>
+                <option value="ko">한국어</option><option value="zh">繁體中文</option><option value="th">ไทย</option>
+              </select>
+            </label>
+          </div>
+          <button type="button" class="ac-btn" id="pf-save">{A.profSave}</button>
+          <p class="ac-status" id="pf-status"></p>
+        </div>
       </div>
     </div>
   </section>
 </SiteLayout>
 
-<script define:vars={{ ACCOUNT_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang }}>
+<script define:vars={{ ACCOUNT_ENDPOINT, MESSAGES_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang }}>
   const $ = (id) => document.getElementById(id);
   const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const yen = (n) => `¥${Number(n).toLocaleString("en-US")}`;
@@ -553,12 +743,144 @@ const uiA = {
     }
   }
 
+  // ── メッセージ（Firestore を直接購読してリアルタイム表示。書き込みはAPI経由）──
+  let fs = null, fsm = null, msgUnsub = null, threadUnsub = null, activeBooking = "";
+  const threadMeta = {};   // bookingId → { unreadForGuest }
+
+  function fmtTime(ts) {
+    const d = ts?.toDate ? ts.toDate() : null;
+    return d ? d.toLocaleString(lang === "en" ? "en-US" : "ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  }
+
+  function renderPicker() {
+    const list = cache.filter((b) => b.status !== "CANCELLED");
+    $("ac-msg-picker").innerHTML = list.map((b) => {
+      const un = threadMeta[b.id]?.unreadForGuest || 0;
+      return `<button type="button" class="ac-pick${b.id === activeBooking ? " is-active" : ""}" data-pick="${esc(b.id)}">
+        ${un ? '<span class="ac-pick-dot"></span>' : ""}${esc(uiA[b.prop] || b.prop)} ${esc(b.checkin)}
+      </button>`;
+    }).join("");
+    document.querySelectorAll("[data-pick]").forEach((el) =>
+      el.addEventListener("click", () => openThread(el.dataset.pick)));
+    const total = Object.values(threadMeta).reduce((n, t) => n + (t.unreadForGuest || 0), 0);
+    const badge = $("ac-badge");
+    badge.hidden = !total; badge.textContent = String(total);
+  }
+
+  async function watchThreads(uid) {
+    if (!fs) {
+      fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      fs = fsm.getFirestore();
+    }
+    if (threadUnsub) threadUnsub();
+    const q = fsm.query(fsm.collection(fs, "threads"), fsm.where("uid", "==", uid));
+    threadUnsub = fsm.onSnapshot(q, (snap) => {
+      snap.forEach((d) => { threadMeta[d.id] = d.data(); });
+      renderPicker();
+    }, () => { /* 権限エラー等は黙って無視（メッセージ無しとして扱う） */ });
+  }
+
+  async function openThread(bookingId) {
+    activeBooking = bookingId;
+    renderPicker();
+    $("ac-compose").hidden = false;
+    if (msgUnsub) msgUnsub();
+    const q = fsm.query(fsm.collection(fs, "threads", bookingId, "messages"), fsm.orderBy("at", "asc"));
+    msgUnsub = fsm.onSnapshot(q, (snap) => {
+      if (snap.empty) { $("ac-thread").innerHTML = `<p class="ac-status">${uiA.msgEmpty}</p>`; return; }
+      $("ac-thread").innerHTML = snap.docs.map((d) => {
+        const m = d.data();
+        const mine = m.from === "guest";
+        return `<div class="ac-bub ${mine ? "ac-bub-guest" : "ac-bub-host"}">
+          <p class="ac-bub-meta">${mine ? esc(uiA.msgYou) : esc(uiA.msgHost)} ${fmtTime(m.at)}</p>
+          <div class="ac-bub-body">${esc(m.body)}${m.translated ? `<div class="ac-bub-tr">${esc(m.translated)}</div>` : ""}</div>
+        </div>`;
+      }).join("");
+      $("ac-thread").scrollTop = $("ac-thread").scrollHeight;
+    }, () => { $("ac-thread").innerHTML = `<p class="ac-status">${uiA.error}</p>`; });
+    // 既読にする
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(MESSAGES_ENDPOINT, { method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "read", bookingId }) });
+    } catch { /* 既読の失敗は表示に影響しない */ }
+  }
+
+  async function sendMessage() {
+    const el = $("ac-msg-input"); const body = el.value.trim();
+    if (!body || !activeBooking) return;
+    const btn = $("ac-msg-send"); btn.disabled = true;
+    $("ac-msg-status").textContent = uiA.msgSending;
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", bookingId: activeBooking, body }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "fail");
+      el.value = ""; $("ac-msg-status").textContent = "";
+    } catch { $("ac-msg-status").textContent = uiA.msgFail; }
+    btn.disabled = false;
+  }
+
+  async function loadProfile(user) {
+    $("pf-email").value = user.email || "";
+    try {
+      if (!fs) { fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"); fs = fsm.getFirestore(); }
+      const d = await fsm.getDoc(fsm.doc(fs, "guest_profiles", user.uid));
+      const v = d.exists() ? d.data() : {};
+      for (const k of ["nameJa", "nameRoman", "phone", "country", "birthday"]) {
+        if (v[k]) $(`pf-${k}`).value = v[k];
+      }
+      $("pf-lang").value = v.lang || lang;
+    } catch { $("pf-lang").value = lang; }
+  }
+
+  async function saveProfile() {
+    const btn = $("pf-save"); btn.disabled = true;
+    $("pf-status").textContent = "";
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const profile = {
+        nameJa: $("pf-nameJa").value, nameRoman: $("pf-nameRoman").value,
+        phone: $("pf-phone").value, country: $("pf-country").value,
+        birthday: $("pf-birthday").value, lang: $("pf-lang").value,
+      };
+      const r = await fetch(ACCOUNT_ENDPOINT, { method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "profile", profile }) });
+      const j = await r.json();
+      $("pf-status").textContent = j.ok ? uiA.profSaved : uiA.error;
+    } catch { $("pf-status").textContent = uiA.error; }
+    btn.disabled = false;
+  }
+
+  function showTab(name) {
+    document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== name; });
+    document.querySelectorAll("[data-tab]").forEach((el) => el.classList.toggle("is-active", el.dataset.tab === name));
+    if (name === "messages" && !activeBooking) {
+      const first = cache.find((b) => b.status !== "CANCELLED");
+      if (first) openThread(first.id);
+      else $("ac-thread").innerHTML = `<p class="ac-status">${uiA.msgPick}</p>`;
+    }
+    if (location.hash.slice(1) !== name) history.replaceState(null, "", `#${name}`);
+  }
+
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
             sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
     );
     auth = getAuth(initializeApp(FB_CONFIG));
+
+    document.querySelectorAll("[data-tab]").forEach((el) =>
+      el.addEventListener("click", () => showTab(el.dataset.tab)));
+    $("ac-msg-send").addEventListener("click", sendMessage);
+    $("ac-msg-input").addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") sendMessage();
+    });
+    $("pf-save").addEventListener("click", saveProfile);
 
     $("ac-google").addEventListener("click", async () => {
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
@@ -595,7 +917,15 @@ const uiA = {
       $("ac-app").hidden = !user;
       if (user) {
         $("ac-user").textContent = user.email || "";
-        load();
+        load().then(() => {
+          watchThreads(user.uid);
+          const h = location.hash.slice(1);
+          if (["bookings", "messages", "profile"].includes(h)) showTab(h);
+        });
+        loadProfile(user);
+      } else {
+        if (msgUnsub) msgUnsub();
+        if (threadUnsub) threadUnsub();
       }
     });
   });
@@ -604,6 +934,59 @@ const uiA = {
 <style>
   .ac { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
   .ac-container { max-width: 720px; margin: 0 auto; }
+
+  /* タブ */
+  .ac-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #e8e8e8; margin-bottom: 1.75rem; }
+  .ac-tab {
+    font-family: inherit; font-size: 0.85rem; color: #888888; background: none; border: none;
+    border-bottom: 2px solid transparent; padding: 0.7rem 1rem; cursor: pointer; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .ac-tab:hover { color: #111111; }
+  .ac-tab.is-active { color: #111111; font-weight: 500; border-bottom-color: #111111; }
+  .ac-badge {
+    min-width: 1.15rem; height: 1.15rem; padding: 0 0.3rem; border-radius: 999px;
+    background: #111111; color: #ffffff; font-size: 0.66rem; display: inline-flex;
+    align-items: center; justify-content: center; font-weight: 500;
+  }
+
+  /* メッセージ */
+  .ac-msg-picker { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 1.25rem; }
+  :global(.ac-pick) {
+    font-family: inherit; font-size: 0.76rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.35rem 0.8rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+  }
+  :global(.ac-pick.is-active) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.ac-pick-dot) { width: 6px; height: 6px; border-radius: 50%; background: #b42318; }
+  .ac-thread { min-height: 140px; margin-bottom: 1rem; }
+  :global(.ac-bub) { max-width: 82%; margin-bottom: 0.9rem; }
+  :global(.ac-bub-guest) { margin-left: auto; }
+  :global(.ac-bub-meta) { font-size: 0.68rem; color: #aaaaaa; margin-bottom: 0.25rem; }
+  :global(.ac-bub-guest .ac-bub-meta) { text-align: right; }
+  :global(.ac-bub-body) {
+    font-size: 0.86rem; line-height: 1.85; color: #111111; white-space: pre-wrap;
+    border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem;
+  }
+  :global(.ac-bub-guest .ac-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.ac-bub-tr) { font-size: 0.76rem; color: #999999; margin-top: 0.4rem; line-height: 1.7; }
+  :global(.ac-bub-guest .ac-bub-tr) { color: rgba(255,255,255,0.65); }
+  .ac-compose { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .ac-compose textarea {
+    flex: 1; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.86rem; line-height: 1.7;
+    border: 1px solid #d7d7d7; border-radius: 6px; resize: none; box-sizing: border-box;
+  }
+
+  /* プロフィール */
+  .ac-form { display: grid; gap: 1rem; margin: 1.5rem 0; }
+  .ac-form label { display: block; font-size: 0.78rem; color: #555555; }
+  .ac-form input, .ac-form select {
+    display: block; width: 100%; margin-top: 0.35rem; padding: 0.6rem 0.8rem;
+    font-family: inherit; font-size: 0.88rem; color: #111111; background: #ffffff;
+    border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+  }
+  .ac-form input:disabled { background: #f7f7f7; color: #888888; }
+  .ac-hint { display: block; margin-top: 0.3rem; font-size: 0.72rem; color: #aaaaaa; line-height: 1.7; }
   .ac-title { font-size: clamp(1.5rem, 3.5vw, 2.2rem); font-weight: 500; color: #111111; margin-bottom: 0.6rem; }
   .ac-lead { font-size: 0.9rem; color: #555555; line-height: 1.8; margin-bottom: 2.5rem; }
   .ac-signin { border: 1px solid #e8e8e8; border-radius: 4px; padding: 2rem; }
