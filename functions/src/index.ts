@@ -118,7 +118,7 @@ export const contact = onRequest(
     res.status(400).json({ ok: false, error: "invalid_name" });
     return;
   }
-  if (!/^\S+@\S+\.\S+$/.test(emailStr) || emailStr.length > 320) {
+  if (!isSafeEmail(emailStr)) {
     res.status(400).json({ ok: false, error: "invalid_email" });
     return;
   }
@@ -196,6 +196,24 @@ export const contact = onRequest(
   res.status(200).json({ ok: true });
   }
 );
+
+/* メールアドレスの検証。ここを緩くすると、フォームが「yah.homes の名前で
+   任意の相手に送れる踏み台」になる（実測でカンマ区切りが通っていた・P0-4）。
+   このアドレスは to / replyTo に入るため、ヘッダを割れる文字を1つも通さない。
+   ドメインの評価が落ちると、無人運営で唯一の入室手段である案内メールが
+   迷惑メール判定される＝暗証番号が届かなくなる。 */
+function isSafeEmail(v: string): boolean {
+  if (!v || v.length > 254) return false;
+  // 制御文字・改行（ヘッダ挿入）、カンマ・セミコロン（複数宛先）、山括弧（表示名の偽装）
+  if (/[\x00-\x1f\x7f,;<>"'\\()\[\]]/.test(v)) return false;
+  if (v.includes("..") || v.startsWith(".") || v.includes("@.")) return false;
+  const m = /^([A-Za-z0-9!#$%&*+/=?^_`{|}~.-]+)@([A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+)$/.exec(v);
+  if (!m) return false;
+  // ドメインは丸ごとではなくラベル単位で見る（"b-.co" のような形を通さない）
+  const labels = m[2].split(".");
+  if (labels.some((l) => !l || l.startsWith("-") || l.endsWith("-"))) return false;
+  return m[1].length <= 64;
+}
 
 const CONTACT_L10N: Record<string, Record<string, string>> = {
   ja: {
@@ -338,7 +356,7 @@ export const partnersApply = onRequest(
     const messageStr = typeof message === "string" ? message.trim().slice(0, 5000) : "";
 
     if (!nameStr || nameStr.length > 200) { res.status(400).json({ ok: false, error: "invalid_name" }); return; }
-    if (!/^\S+@\S+\.\S+$/.test(emailStr) || emailStr.length > 320) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
+    if (!isSafeEmail(emailStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
     if (!/^https?:\/\/\S+/.test(mediaStr) || mediaStr.length > 500) { res.status(400).json({ ok: false, error: "invalid_media_url" }); return; }
     if (!propStr) { res.status(400).json({ ok: false, error: "invalid_property" }); return; }
     if (!isMonToWed(date1Str) || !isMonToWed(date2Str)) { res.status(400).json({ ok: false, error: "invalid_date" }); return; }
@@ -2854,6 +2872,21 @@ export const bookCreate = onRequest(
       const dup = await db.collection("bookings").where("idempotencyKey", "==", idempotencyKey).limit(1).get();
       if (!dup.empty) {
         const d = dup.docs[0].data() as BookingDoc & { clientSecret?: string };
+        // 冪等キーは「同じ申込みの再送」を1件にまとめるためのもの。
+        // 中身が違うのに同じキーで来たら、それは別の申込み（画面の作り直し・キーの使い回し）。
+        // ここで内容を照合しないと、新しい日程のつもりのお客様に前の予約の決済を返してしまい、
+        // 違う日程・違う金額のまま決済が成立する（P0-3）。
+        const same = d.prop === prop && d.checkin === checkin && d.checkout === checkout &&
+          Number(d.guests) === guests && String(d.uid ?? "") === uid;
+        if (!same) {
+          logger.warn("idempotency key reused with different input", {
+            bookingId: dup.docs[0].id, idempotencyKey,
+            had: { prop: d.prop, checkin: d.checkin, checkout: d.checkout, guests: d.guests },
+            got: { prop, checkin, checkout, guests },
+          });
+          res.status(409).json({ ok: false, error: "idempotency_conflict" });
+          return;
+        }
         res.status(200).json({ ok: true, bookingId: dup.docs[0].id, clientSecret: d.clientSecret ?? null, duplicate: true });
         return;
       }
@@ -4108,7 +4141,7 @@ export const adminUsers = onRequest(
         const { action, email: target, name, role, notifyPartners, notifyTeiten, notifyBookings } =
           (req.body ?? {}) as Record<string, unknown>;
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
-        if (!/^\S+@\S+\.\S+$/.test(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
+        if (!isSafeEmail(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
         if (isAdmin(targetStr)) { res.status(400).json({ ok: false, error: "root_protected" }); return; }
 
         const ref = db.collection("admin_users").doc(targetStr);

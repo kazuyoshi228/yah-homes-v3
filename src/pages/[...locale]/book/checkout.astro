@@ -516,11 +516,16 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 
   // ── 決済（Stripe Payment Element・v4 §8-1） ──
   // 入力が揃うまでボタンは無効。押下時に bookCreate → PaymentIntent → 決済フォーム表示 → 確定。
-  let idempotencyKey = sessionStorage.getItem("yah_book_key");
+  // 冪等キーは「この申込み」に紐づける。セッション単位で1本にすると、同じタブで
+  // 日程を選び直したときに前の予約のキーを使い回してしまい、サーバが別物と判断して
+  // 弾く（以前は前の予約の決済がそのまま返り、違う日程・違う金額で決済が成立していた）。
+  const bookingKeyName = `yah_book_key:${prop}_${checkin}_${checkout}_${guests}`;
+  let idempotencyKey = sessionStorage.getItem(bookingKeyName);
   if (!idempotencyKey) {
     idempotencyKey = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
-    sessionStorage.setItem("yah_book_key", idempotencyKey);
+    sessionStorage.setItem(bookingKeyName, idempotencyKey);
   }
+  sessionStorage.removeItem("yah_book_key");   // 旧方式の残骸を掃除する
   let stripe = null, elements = null, clientSecret = null, currentUser = null;
   // 予約開始時のサーバー再検証で金額が動いた場合、一度提示して再同意を得る（v4 §4）
   let displayedTotal = null, priceAcknowledged = false;
@@ -623,7 +628,10 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         track("booking_draft_failed", { prop, error_type: String(j.error ?? "unknown"), seconds: elapsed() });
         // 受付の可否は理由を出す（「失敗しました」で終わらせない）
         const ERRS = { unavailable: uiStrings.soldOut, over_capacity: uiStrings.errOverCapacity,
-          too_late: uiStrings.errTooLate, too_far: uiStrings.errTooFar };
+          too_late: uiStrings.errTooLate, too_far: uiStrings.errTooFar,
+          // 同じキーで別内容が来た＝古いキーが残っている。捨てて押し直せば通る
+          idempotency_conflict: uiStrings.payFailed };
+        if (j.error === "idempotency_conflict") sessionStorage.removeItem(bookingKeyName);
         $("co-pay-status").textContent = ERRS[j.error] ?? uiStrings.payFailed;
         btn.disabled = false;
         return;
