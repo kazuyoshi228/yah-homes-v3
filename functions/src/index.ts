@@ -248,7 +248,10 @@ const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, ei
 /* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
    Firestore が読めないときも予約を止めないよう、既定値へ倒す。
    OTA経由の予約には効かない（そちらは Beds24 側の設定が効く）。 */
-const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "18:00", maxMonths: 12 };
+/* 既定は「前日23:59まで」＝運営会社（Airstar）の OTA 側の締めと同一。
+   前日10:00の定期ジョブに間に合わない予約は、確定時に入室案内を即送る
+   （sendReminderIfLate）ので、この時間まで開けても案内は必ず届く。 */
+const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "23:59", maxMonths: 12 };
 async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number }> {
   const fallback = {
     capacity: PROPERTY_CAPACITY[prop] ?? 1,
@@ -3009,6 +3012,11 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
       { status: "CONFIRMED", beds24Id, confirmedAt: FieldValue.serverTimestamp() });
     await ensureThread(bookingId, c2).catch((e) => logger.warn("ensureThread failed", { e: String(e).slice(0, 120) }));
     await sendConfirmationMail(bookingId, c2);
+    // 直前予約の救済。入室案内（暗証番号つき）を配るジョブは前日10:00にしか走らないため、
+    // その時刻を過ぎてから確定した予約には案内が一通も届かない＝玄関で開けられない。
+    // 該当する場合はここで即送り、reminderSentAt を立ててジョブ側と二重送信しないようにする。
+    await sendReminderIfLate(bookingId, ref).catch((e) =>
+      logger.error("late reminder failed", { bookingId, e: String(e).slice(0, 200) }));
     await sendPurchaseEvent({
       id: bookingId, uid: cur.uid, prop: cur.prop, total: cur.total, guests: cur.guests,
       nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
@@ -3509,6 +3517,25 @@ async function buildConfirmationMailFor(
 }
 
 /** 予約確定メール（お客様宛・予約言語で送る）。失敗しても確定は取り消さない。 */
+/* 入室案内が定期ジョブに間に合わない予約かどうかを判定し、間に合わないなら即送る。
+   ジョブ: 毎日10:00 JST に「翌日チェックイン」の予約へ送信（guestLifecycleMailer）。
+   したがって「チェックイン前日の10:00」を過ぎて確定した予約は取りこぼす。 */
+const REMINDER_JOB_HOUR_JST = 10;
+function reminderJobMissed(checkin: string): boolean {
+  const jobAt = Date.parse(`${checkin}T${String(REMINDER_JOB_HOUR_JST).padStart(2, "0")}:00:00+09:00`) - 86400000;
+  return Date.now() > jobAt;
+}
+async function sendReminderIfLate(
+  bookingId: string, ref: FirebaseFirestore.DocumentReference,
+): Promise<void> {
+  const v = (await ref.get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
+  if (!v || v.status !== "CONFIRMED" || v.reminderSentAt) return;
+  if (!reminderJobMissed(String(v.checkin))) return;   // ジョブが拾えるので任せる
+  await sendLifecycleMail("reminder", bookingId, v);
+  await ref.update({ reminderSentAt: FieldValue.serverTimestamp(), reminderSentImmediate: true });
+  logger.info("late booking: reminder sent immediately", { bookingId, checkin: v.checkin });
+}
+
 async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<void> {
   let subj = "";
   try {
