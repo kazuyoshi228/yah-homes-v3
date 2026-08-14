@@ -23,6 +23,29 @@ const db = getFirestore();
 const GCP_PROJECT = "yah-homes";
 const REGION = "asia-northeast1";
 
+/* 同時起動数の上限。暴走・連打時に課金と下流API（Beds24・Stripe・SMTP）の消費へ
+   天井を作るための保険。2棟・1日数十予約の規模には十分に大きい。
+   引き上げるのは「本物の客が429で弾かれた」実測が出てからにする。 */
+const MAX_INSTANCES = 10;
+
+/* 素朴なレート制限。インスタンスのメモリに持つので厳密ではないが、
+   maxInstances と組み合わせると全体の上限が決まる（10インスタンス × 下記の上限）。
+   目的は連打で Beds24 の API 枠を食い潰させないこと。ログインの要る画面には掛けない。 */
+const rateBuckets = new Map<string, number[]>();
+function rateLimited(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const hits = (rateBuckets.get(key) ?? []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  rateBuckets.set(key, hits);
+  if (rateBuckets.size > 5000) rateBuckets.clear();   // メモリの上限（雑に捨てる）
+  return hits.length > max;
+}
+/** 呼び出し元のIP。Cloud Functions は X-Forwarded-For の先頭が実クライアント。 */
+function clientIp(req: { headers: Record<string, unknown>; ip?: string }): string {
+  const xf = String(req.headers["x-forwarded-for"] ?? "");
+  return (xf.split(",")[0] || String(req.ip ?? "")).trim() || "unknown";
+}
+
 // メール通知用シークレット（`firebase functions:secrets:set` で登録）
 // SMTP_USER: 送信元 Gmail/Workspace アドレス / SMTP_PASS: アプリパスワード /
 // CONTACT_NOTIFY_TO: 通知の宛先アドレス
@@ -46,12 +69,12 @@ function corsOrigin(origin: string | undefined): string | null {
   return null;
 }
 
-export const health = onRequest({ region: REGION }, (_req, res) => {
+export const health = onRequest({ region: REGION, maxInstances: MAX_INSTANCES }, (_req, res) => {
   res.status(200).json({ status: "ok", service: "yah.homes", ts: Date.now() });
 });
 
 export const contact = onRequest(
-  { region: REGION, secrets: [SMTP_USER, SMTP_PASS, CONTACT_NOTIFY_TO] },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, CONTACT_NOTIFY_TO] },
   async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
   if (origin) {
@@ -63,6 +86,13 @@ export const contact = onRequest(
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
+    return;
+  }
+
+  // 無認証でメールを飛ばせる口。スパムの連投を止める。
+  if (rateLimited(`contact:${clientIp(req)}`, 5, 600000)) {
+    res.set("Retry-After", "600");
+    res.status(429).json({ ok: false, error: "too_many_requests" });
     return;
   }
   if (req.method !== "POST") {
@@ -226,7 +256,7 @@ function isMonToWed(dateStr: string): boolean {
 }
 
 export const partnersApply = onRequest(
-  { region: REGION, secrets: [SMTP_USER, SMTP_PASS] },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -730,7 +760,7 @@ const ALL_PROPS: PropSlug[] = ["kiyokawa", "takasago"];
 //   ?prop=kiyokawa[&checkin=...]                → 従来の1棟モード（代替日の照会などで使用）
 // minInstances: 1 — コールドスタート（実測で+0.77秒）が p95 の主因のため常時1台を温める。
 export const bookingApi = onRequest(
-  { region: REGION, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com", minInstances: 1 },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com", minInstances: 1 },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -738,6 +768,13 @@ export const bookingApi = onRequest(
       res.set("Vary", "Origin");
     }
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    // 連打で Beds24 の API 枠を食い潰させない。人が日程を選ぶ操作としては十分な余裕がある。
+    if (rateLimited(`avail:${clientIp(req)}`, 60, 60000)) {
+      res.set("Retry-After", "60");
+      res.status(429).json({ ok: false, error: "too_many_requests" });
+      return;
+    }
 
     // props= は "all"（本番2棟）またはカンマ区切りの棟リスト（デモは検証用物件を足す）
     const propsParam = String(req.query.props ?? "");
@@ -1452,7 +1489,7 @@ const MAIL_VARS = [
 ];
 
 export const adminTemplates = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
     secrets: [SMTP_USER, SMTP_PASS] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -1560,7 +1597,7 @@ export const adminTemplates = onRequest(
 );
 
 export const adminMailPreview = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -1668,7 +1705,7 @@ async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<v
 
 // ─── 運用ビューAPI（/admin/mail-log・/admin/audit・/admin/health が読む） ───
 export const adminOps = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
     secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -1801,7 +1838,7 @@ async function translateText(text: string, target: string): Promise<string> {
 }
 
 export const messagesApi = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
     secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -2007,10 +2044,15 @@ async function noteBeds24Message(beds24Id: number, from: "guest" | "host", messa
 // 認証は掛けない（OTA経由のお客様もURLだけで開くため）。したがって守っているのは
 // 「URLを知っていること」のみ＝Google Sitesと同水準。トークン化はv5 §9の未決事項。
 export const checkinInfo = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com", cors: true },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com", cors: true },
   async (req, res) => {
     res.set("Cache-Control", "no-store");
     res.set("X-Robots-Tag", "noindex, nofollow");
+    if (rateLimited(`checkin:${clientIp(req)}`, 20, 60000)) {
+      res.set("Retry-After", "60");
+      res.status(429).json({ ok: false, error: "too_many_requests" });
+      return;
+    }
     const prop = String(req.query.prop ?? "");
     if (!["kiyokawa", "takasago"].includes(prop)) { res.status(400).json({ ok: false }); return; }
     try {
@@ -2029,7 +2071,7 @@ export const checkinInfo = onRequest(
 // （Firestoreルールは既定deny。読み書きはこの関数＝Admin SDK 経由のみ）。
 // 閲覧・変更はオーナーのみ（運営会社は不可）。変更は必ず audit_logs に残す。
 export const adminSecrets = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2154,7 +2196,7 @@ async function verifyAdmin(req: { headers: Record<string, unknown> }): Promise<s
   }
 }
 
-export const partnersAdmin = onRequest({ region: REGION, secrets: [SMTP_USER, SMTP_PASS] }, async (req, res) => {
+export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS] }, async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
   if (origin) {
     res.set("Access-Control-Allow-Origin", origin);
@@ -2531,7 +2573,7 @@ export { beds24WeeklyReport } from "./beds24.js";
 // ─── MS1: Beds24 Webhook → Firestore ミラー（v4 §8・全チャネルの予約を自社DBへ） ───
 // 受信は即ACK。ペイロードは信用せず webhook_events に保存し、正データはAPIで取り直す。
 export const beds24Webhook = onRequest(
-  { region: REGION, secrets: [BEDS24_TOKEN, BEDS24_WEBHOOK_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, BEDS24_WEBHOOK_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     if (req.method !== "POST" && req.method !== "GET") {
       res.status(405).send("method_not_allowed");
@@ -2648,7 +2690,7 @@ async function transition(
 
 /** 予約開始: 検証 → pending作成 → PaymentIntent（manual capture）→ client_secret を返す */
 export const bookCreate = onRequest(
-  { region: REGION, secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2772,7 +2814,7 @@ export const bookCreate = onRequest(
 
 /** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
 export const stripeWebhook = onRequest(
-  { region: REGION, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) { res.status(400).send("missing_signature"); return; }
@@ -3595,7 +3637,7 @@ async function notifyError(text: string): Promise<void> {
 
 // ─── MS3.5: My Page API（自分の予約一覧・到着予定時刻の追記・v4 §6） ───
 export const accountApi = onRequest(
-  { region: REGION, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS],
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS],
     serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -3672,7 +3714,15 @@ export const accountApi = onRequest(
         const str = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
         const clean = {
           nameJa: str(p.nameJa, 60), nameRoman: str(p.nameRoman, 60),
-          phone: str(p.phone, 30), country: str(p.country, 60),
+          phone: str(p.phone, 30), phoneCc: str(p.phoneCc, 8), country: str(p.country, 60),
+          // プロフィール写真。画面で 256px の JPEG に縮めてから送られる。
+          // Storage を開けずに済ませるため Firestore に持たせる（1件20KB前後）。
+          // 形式と上限を必ずサーバで見る（任意のデータURLを詰め込ませない）。
+          photo: (() => {
+            const v = String(p.photo ?? "");
+            if (!v) return "";
+            return /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v) && v.length <= 200000 ? v : "";
+          })(),
           birthday: /^\d{4}-\d{2}-\d{2}$/.test(String(p.birthday ?? "")) ? String(p.birthday) : "",
           lang: ["ja", "en", "ko", "zh", "th"].includes(String(p.lang)) ? String(p.lang) : "",
           updatedAt: FieldValue.serverTimestamp(),
@@ -3858,7 +3908,7 @@ export const accountApi = onRequest(
 
 // ─── 管理者台帳API（/admin/users・編集はrootオーナーのみ・v4 §8-5b） ───
 export const adminUsers = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -3928,7 +3978,7 @@ export const adminUsers = onRequest(
 // ─── 直販予約の管理API（/admin/bookings・v4 §8-5） ───
 // 一覧＝台帳メンバー、返金＝rootオーナーのみ。全金銭操作を audit_logs に記録。
 export const adminBookings = onRequest(
-  { region: REGION, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4057,7 +4107,7 @@ const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "
   "spotOhoriCarMin", "spotOhoriM"] as const;
 
 export const adminProperties = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4144,7 +4194,7 @@ export const adminProperties = onRequest(
 // 静的サイトのため、Firestoreの変更をページへ反映するにはビルドが必要。
 // GitHub Actions の repository_dispatch を叩き、deploy.yml が本番へデプロイする。
 export const adminRebuild = onRequest(
-  { region: REGION, secrets: [GITHUB_DISPATCH_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [GITHUB_DISPATCH_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4185,7 +4235,7 @@ export const adminRebuild = onRequest(
 // 本文に個人情報を含むため Function 経由のみ。閲覧は管理者台帳のメンバーに限る
 // （運営会社が問い合わせに直接対応できるよう開放・2026-08-08 発注者判断）。
 export const adminInbox = onRequest(
-  { region: REGION, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {

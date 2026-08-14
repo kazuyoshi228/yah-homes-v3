@@ -82,7 +82,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
             <span class="ms-item-time">${fmt(t.lastMessageAt)}</span>
           </span>
           <span class="ms-item-sub">${esc(PROP[t.prop] ?? t.prop)} ${esc(t.checkin || "")}</span>
-          <span class="ms-item-body">${esc(t.lastBody || "")}</span>
+          <span class="ms-item-body">${t.lastBody ? `${t.lastFrom === "guest" ? "お客様" : "運営"}: ${esc(t.lastBody)}` : ""}</span>
         </button>`).join("");
       document.querySelectorAll("[data-open]").forEach((el) =>
         el.addEventListener("click", () => open(el.dataset.open)));
@@ -105,7 +105,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
         $("ms-thread").innerHTML = snap.docs.map((d) => {
           const m = d.data(); const host = m.from === "host";
           return `<div class="ms-bub ${host ? "ms-bub-host" : "ms-bub-guest"}">
-            <p class="ms-bub-meta">${host ? esc(m.author || "yah.homes") : "お客様"} ${fmt(m.at)}</p>
+            <p class="ms-bub-meta">${host ? `運営${m.author ? `（${esc(m.author)}）` : ""}` : `お客様${t.guestName ? `（${esc(t.guestName)}）` : ""}`} ${fmt(m.at)}</p>
             <div class="ms-bub-body">${esc(m.body)}${m.translated ? `<div class="ms-bub-tr">${esc(m.translated)}</div>` : ""}</div>
           </div>`;
         }).join("");
