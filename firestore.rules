@@ -11,10 +11,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 管理者台帳のメンバーか（メッセージ・プロフィールの閲覧に使う）
+    // 運営（ADMIN または OPERATOR）か。メッセージ・プロフィールの閲覧に使う。
+    // ADMIN は台帳に登録せずコード側の固定（functions の ADMIN_EMAILS）なので、
+    // ここでも同じアドレスを明示する。両者を揃えて管理すること。
     function isStaff() {
       return request.auth != null
-        && exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email));
+        && (request.auth.token.email == "kazuyoshi.yamada@bonfire.co.jp"
+            || exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email)));
     }
 
     // メッセージのスレッド。読み取りだけ直接許可してリアルタイム購読を成立させる。
