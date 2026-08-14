@@ -834,7 +834,10 @@ export const bookingApi = onRequest(
     if (checkin || checkout) {
       const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
       const guests = Number(req.query.guests ?? 0);
-      const maxCap = Math.max(...props.map((k) => PROPERTY_CAPACITY[k]));
+      // 定員・締切・先の上限は property_facts が正（/admin/properties）。
+      // ここを定数のままにすると、検索では選べるのに決済で弾かれる、が起きる。
+      const rules = Object.fromEntries(await Promise.all(props.map(async (k) => [k, await bookingRules(k)] as const)));
+      const maxCap = Math.max(...props.map((k) => rules[k].capacity));
       if (!isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
           !Number.isInteger(guests) || guests < 1 || guests > maxCap) {
         res.status(400).json({ ok: false, error: "invalid_quote_params" });
@@ -844,9 +847,10 @@ export const bookingApi = onRequest(
         // 複数棟でも直列に待たない（各棟のBeds24呼び出しを並列化）
         const results = await Promise.all(
           props.map(async (k) => {
-            // 定員超過の棟はBeds24を叩かずに満室扱い
-            if (guests > PROPERTY_CAPACITY[k]) {
-              return { data: { id: k, prop: k, available: false, reason: "over_capacity" }, cached: true };
+            // 受け付けられない棟はBeds24を叩かずに理由つきで返す（満室と混ぜない）
+            const w = checkBookingWindow(checkin, guests, rules[k]);
+            if (!w.ok) {
+              return { data: { id: k, prop: k, available: false, reason: w.error }, cached: true };
             }
             return quoteFor(k, checkin, checkout, guests);
           }),
