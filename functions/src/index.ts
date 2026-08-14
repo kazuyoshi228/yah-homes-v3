@@ -924,7 +924,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remLead: "ご到着が明日となりました。当日の流れをご確認ください。",
     remCheckin: "チェックイン", remCheckout: "チェックアウト", remGuests: "人数", remArrival: "到着予定時刻",
     remPlace: "場所", remEntry: "入室について",
-    remEntryBody: "玄関のキーボックスでの受け渡しです。暗証番号は別途お送りしています。届いていない場合はこのメールにご返信ください。",
+    remEntryBody: "玄関のキーボックスでの受け渡しです。暗証番号は別途お送りしています。届いていない場合は My Page のメッセージからご連絡ください。",
     remCodeLabel: "暗証番号 / PIN",
     remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
     remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
@@ -960,7 +960,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remLead: "Your arrival is tomorrow. Here is what to expect on the day.",
     remCheckin: "Check-in", remCheckout: "Check-out", remGuests: "Guests", remArrival: "Estimated arrival",
     remPlace: "Location", remEntry: "Getting in",
-    remEntryBody: "Self check-in with a key box at the entrance. The code has been sent separately — just reply to this email if you have not received it.",
+    remEntryBody: "Self check-in with a key box at the entrance. The code has been sent separately — if you have not received it, message us from My Page.",
     remCodeLabel: "PIN",
     remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
     remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
@@ -996,7 +996,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remLead: "내일 도착 예정이시네요. 당일 안내 사항을 미리 확인해 주세요.",
     remCheckin: "체크인", remCheckout: "체크아웃", remGuests: "인원", remArrival: "도착 예정 시각",
     remPlace: "위치", remEntry: "입실 안내",
-    remEntryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 별도로 보내드렸습니다. 받지 못하셨다면 이 메일에 회신해 주세요.",
+    remEntryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 별도로 보내드렸습니다. 받지 못하셨다면 My Page 메시지로 연락해 주세요.",
     remCodeLabel: "비밀번호",
     remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
     remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
@@ -1032,7 +1032,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remLead: "您的入住日就在明天，請確認當天的流程。",
     remCheckin: "入住", remCheckout: "退房", remGuests: "人數", remArrival: "預計抵達時間",
     remPlace: "位置", remEntry: "入住方式",
-    remEntryBody: "以門口密碼鎖自助入住。密碼已另行寄送，若未收到請直接回覆這封郵件。",
+    remEntryBody: "以門口密碼鎖自助入住。密碼已另行寄送，若未收到請透過 My Page 訊息與我們聯繫。",
     remCodeLabel: "密碼",
     remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
     remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
@@ -1068,7 +1068,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remLead: "วันเข้าพักของคุณคือพรุ่งนี้ กรุณาตรวจสอบรายละเอียดของวันนั้น",
     remCheckin: "เช็คอิน", remCheckout: "เช็คเอาท์", remGuests: "จำนวนผู้เข้าพัก", remArrival: "เวลาถึงโดยประมาณ",
     remPlace: "สถานที่", remEntry: "การเข้าที่พัก",
-    remEntryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู รหัสได้ส่งแยกไปแล้ว หากยังไม่ได้รับกรุณาตอบกลับอีเมลนี้",
+    remEntryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู รหัสได้ส่งแยกไปแล้ว หากยังไม่ได้รับ กรุณาติดต่อเราผ่านข้อความใน My Page",
     remCodeLabel: "รหัส",
     remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
     remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
@@ -1379,7 +1379,12 @@ async function sendLifecycleMail(
   try {
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email), replyTo: SMTP_USER.value(),
+      to: String(b.email),
+      // お客様との連絡は My Page のメッセージに集約する（2026-08-14 発注者指示）。
+      // 例外はレビュー依頼だけ。あの通は mailto で★入りの返信を書かせる仕組みそのものなので、
+      // no-reply にすると機能が死ぬ。/review ページの実装（docs/design_reviews_page.md・承認待ち）
+      // と一緒に My Page へ寄せること。
+      replyTo: kind === "review" ? SMTP_USER.value() : "no-reply@mail.yah.homes",
       subject, text, html,
     });
     logMail(kind === "reminder" ? "checkin" : kind, String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
@@ -3193,7 +3198,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "正確な住所は入室のご案内とあわせてお送りします。",
     safetyTitle: "安全のために",
     safetyBody: "当社からメールやお電話で、カード情報の再入力や追加のお支払いをお願いすることはありません。そのようなご連絡を受け取られた場合は、リンクを開かずに下記までご連絡ください。",
-    contactTitle: "ご不明な点", contactBody: "このメールにご返信いただくか、contact@mail.yah.homes までご連絡ください。2〜3営業日以内にご連絡いたします。",
+    contactTitle: "ご不明な点", contactBody: "My Page のメッセージからご連絡ください。ご予約ごとにやり取りが残ります。",
     footer: "yah.homes ／ ボンファイア株式会社",
   },
   en: {
@@ -3220,7 +3225,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "The exact address is sent together with the check-in instructions.",
     safetyTitle: "Staying safe",
     safetyBody: "We will never email or call you to re-enter your card details or ask for an extra payment. If you receive such a message, do not open the link and contact us below.",
-    contactTitle: "Questions?", contactBody: "Reply to this email or write to contact@mail.yah.homes. We answer within 2–3 business days.",
+    contactTitle: "Questions?", contactBody: "Message us from My Page — each booking has its own thread.",
     footer: "yah.homes / Bonfire Inc.",
   },
   ko: {
@@ -3247,7 +3252,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "정확한 주소는 입실 안내와 함께 보내드립니다.",
     safetyTitle: "안전 안내",
     safetyBody: "당사는 메일이나 전화로 카드 정보 재입력이나 추가 결제를 요청하지 않습니다. 그런 연락을 받으시면 링크를 열지 마시고 아래로 연락해 주세요.",
-    contactTitle: "문의", contactBody: "이 메일에 회신하시거나 contact@mail.yah.homes로 연락해 주세요. 2~3영업일 이내에 답변드립니다.",
+    contactTitle: "문의", contactBody: "My Page 메시지로 연락해 주세요. 예약별로 대화가 남습니다.",
     footer: "yah.homes / Bonfire Inc.",
   },
   zh: {
@@ -3274,7 +3279,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "詳細地址將與入住說明一併寄送。",
     safetyTitle: "安全提醒",
     safetyBody: "本公司不會以郵件或電話要求您重新輸入信用卡資訊或額外付款。若收到此類訊息，請勿開啟連結並與我們聯繫。",
-    contactTitle: "有任何問題", contactBody: "請回覆這封郵件，或來信 contact@mail.yah.homes。我們會在 2～3 個工作天內回覆。",
+    contactTitle: "有任何問題", contactBody: "請透過 My Page 訊息與我們聯繫，每筆預訂都有獨立的對話紀錄。",
     footer: "yah.homes / Bonfire Inc.",
   },
   th: {
@@ -3301,7 +3306,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     placeNote: "ที่อยู่โดยละเอียดจะส่งพร้อมกับคำแนะนำการเช็คอิน",
     safetyTitle: "เพื่อความปลอดภัย",
     safetyBody: "เราจะไม่ส่งอีเมลหรือโทรขอให้คุณกรอกข้อมูลบัตรใหม่หรือชำระเงินเพิ่ม หากได้รับข้อความลักษณะนี้ กรุณาอย่าเปิดลิงก์และติดต่อเราตามด้านล่าง",
-    contactTitle: "หากมีข้อสงสัย", contactBody: "ตอบกลับอีเมลฉบับนี้ หรือเขียนถึงเราที่ contact@mail.yah.homes เราจะตอบภายใน 2–3 วันทำการ",
+    contactTitle: "หากมีข้อสงสัย", contactBody: "กรุณาติดต่อเราผ่านข้อความใน My Page แต่ละการจองจะมีห้องสนทนาแยกกัน",
     footer: "yah.homes / Bonfire Inc.",
   },
 };
@@ -3547,7 +3552,7 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
     });
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email), replyTo: SMTP_USER.value(),
+      to: String(b.email), replyTo: "no-reply@mail.yah.homes",
       subject, text, html,
     });
     logMail("confirm", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject: subj });
@@ -3564,35 +3569,35 @@ const CANCEL_L10N: Record<string, Record<string, string>> = {
     refundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。",
     noRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。",
     again: "またのご利用をお待ちしております。日程を改めてのご予約はこちらから承ります。",
-    cta: "空室を見る", contact: "ご不明な点は、このメールにご返信ください。", footer: "yah.homes ／ ボンファイア株式会社" },
+    cta: "空室を見る", contact: "ご不明な点は My Page のメッセージからご連絡ください。", footer: "yah.homes ／ ボンファイア株式会社" },
   en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "", bookingNo: "Booking ID",
     lead: "We have cancelled your booking.", refundTitle: "Refund",
     paid: "Paid", fee: "Cancellation fee", refund: "Refund",
     refundNote: "We are refunding to the card you used. Depending on your card issuer, it can take from a few days to about a month to appear.",
     noRefundNote: "The free cancellation deadline had passed, so no refund applies.",
     again: "We hope to welcome you another time. You can book new dates any time.",
-    cta: "See availability", contact: "Just reply to this email if you have any questions.", footer: "yah.homes / Bonfire Inc." },
+    cta: "See availability", contact: "If you have any questions, message us from My Page.", footer: "yah.homes / Bonfire Inc." },
   ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님", bookingNo: "예약번호",
     lead: "예약 취소를 접수했습니다.", refundTitle: "환불",
     paid: "결제 완료 금액", fee: "취소 수수료", refund: "환불 금액",
     refundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 반영까지 며칠에서 한 달 정도 걸릴 수 있습니다.",
     noRefundNote: "무료 취소 기한이 지나 환불은 없습니다.",
     again: "다음 기회에 다시 모시겠습니다. 새로운 날짜로 언제든지 예약하실 수 있습니다.",
-    cta: "빈방 보기", contact: "궁금하신 점은 이 메일에 회신해 주세요.", footer: "yah.homes / Bonfire Inc." },
+    cta: "빈방 보기", contact: "궁금하신 점은 My Page 메시지로 연락해 주세요.", footer: "yah.homes / Bonfire Inc." },
   zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好", bookingNo: "預訂編號",
     lead: "已受理您的預訂取消。", refundTitle: "退款",
     paid: "已付金額", fee: "取消費用", refund: "退款金額",
     refundNote: "將退款至您使用的信用卡。依發卡機構作業，反映時間可能需要數日至一個月左右。",
     noRefundNote: "已超過免費取消期限，故不予退款。",
     again: "期待再次為您服務，隨時歡迎重新選擇日期預訂。",
-    cta: "查詢空房", contact: "如有任何問題，請直接回覆這封郵件。", footer: "yah.homes / Bonfire Inc." },
+    cta: "查詢空房", contact: "如有任何問題，請透過 My Page 訊息與我們聯繫。", footer: "yah.homes / Bonfire Inc." },
   th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "", bookingNo: "หมายเลขการจอง",
     lead: "เราได้ยกเลิกการจองของคุณแล้ว", refundTitle: "การคืนเงิน",
     paid: "ชำระแล้ว", fee: "ค่าธรรมเนียมการยกเลิก", refund: "จำนวนเงินคืน",
     refundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ ขึ้นอยู่กับผู้ออกบัตร อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน",
     noRefundNote: "เลยกำหนดยกเลิกฟรีแล้ว จึงไม่มีการคืนเงิน",
     again: "หวังว่าจะได้ต้อนรับคุณอีกครั้ง คุณสามารถจองวันใหม่ได้ตลอดเวลา",
-    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาตอบกลับอีเมลฉบับนี้", footer: "yah.homes / Bonfire Inc." },
+    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาติดต่อเราผ่านข้อความใน My Page", footer: "yah.homes / Bonfire Inc." },
 };
 
 /** キャンセル確認メール（お客様宛・確定メールと同じカード構成）。失敗しても取消は成立させる。 */
@@ -3679,7 +3684,7 @@ async function sendCancellationMail(
     });
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email), replyTo: SMTP_USER.value(),
+      to: String(b.email), replyTo: "no-reply@mail.yah.homes",
       subject, text, html,
     });
     logMail("cancel", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
