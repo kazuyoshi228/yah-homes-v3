@@ -102,7 +102,7 @@ const FB_CONFIG = {
       try {
         const token = await auth.currentUser.getIdToken();
         const res = await fetch(`${OPS_ENDPOINT}?view=${view}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (res.status === 401) throw new Error("unauthorized");
+        if (res.status === 401 || res.status === 403) throw new Error("unauthorized");
         const j = await res.json();
         if (!j.ok) throw new Error(j.error || "load");
         render(j);

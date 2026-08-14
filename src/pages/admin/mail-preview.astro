@@ -135,7 +135,7 @@ const KINDS = [
         const res = await fetch(`${PREVIEW_ENDPOINT}?kind=${encodeURIComponent(kind)}&lang=${encodeURIComponent(lang)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.status === 401) throw new Error("unauthorized");
+        if (res.status === 401 || res.status === 403) throw new Error("unauthorized");
         const j = await res.json();
         if (!j.ok) throw new Error(j.error || "load");
         $("mp-subject").textContent = j.subject;

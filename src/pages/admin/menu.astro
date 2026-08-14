@@ -29,7 +29,6 @@ const OPERATOR = [
   { href: "/admin/inbox/", title: "お問い合わせ受信箱" },
   { href: "/admin/mail-preview/", title: "メールテンプレート" },
   { href: "/admin/mail-log/", title: "メール送信ログ" },
-  { href: "/operators/menu/", title: "運営メニュー" },
 ];
 const SYSTEM = [
   { href: "/admin/health/", title: "システムヘルス" },
@@ -85,8 +84,13 @@ const SYSTEM = [
       <h2 class="am-h2" data-sec="ops">運営管理</h2>
       <div class="am-grid" data-secgrid="ops">
         {OPERATOR.map((it) => (
-          <a class="am-card" href={it.href} data-role="operator">
-            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
+          <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
+                {it.role === "admin" ? "Admin" : "Operator"}
+              </span>
+            </h3>
           </a>
         ))}
       </div>

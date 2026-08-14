@@ -1657,7 +1657,7 @@ export const adminMailPreview = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    if (requireAdmin(email, res)) return;
+    // メールの実物プレビュー（読み取り専用）。OPERATOR も閲覧可（2026-08-14 発注者指示）。
 
     const kind = String(req.query.kind ?? "") as MailKind;
     const lang = String(req.query.lang ?? "ja");
@@ -1775,7 +1775,8 @@ export const adminOps = onRequest(
         return;
       }
       if (view === "mail") {
-        if (requireAdmin(email, res)) return;
+        // OPERATOR も閲覧可（運営会社が「案内は届いたか」を自分で確認できるように・2026-08-14 発注者指示）。
+        // 宛先メールアドレスが見える点は許容の判断。verifyAdmin が台帳メンバーであることは保証している。
         const snap = await db.collection("mail_logs").orderBy("at", "desc").limit(200).get();
         res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
         return;
