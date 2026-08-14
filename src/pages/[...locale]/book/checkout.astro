@@ -24,6 +24,10 @@ const t = BOOK_STRINGS[lang];
 
 const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
 const BOOK_PATH = localizedPath(lang, "/book");
+const TERMS_PATH = localizedPath(lang, "/legal/terms");
+const PRIVACY_PATH = localizedPath(lang, "/legal/privacy");
+// 同意証跡の版。terms.astro の EFFECTIVE と functions 側の TERMS_VERSION に必ず揃えること。
+const TERMS_VERSION = "2026-08-14";
 const BOOK_CREATE_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookCreate";
 // Stripe 公開可能キー（公開値・サンドボックス）。本番切替時に pk_live_ へ差し替える。
 const STRIPE_PK = "pk_test_51U1ezXCR3mSNjUnaxifg4YIA8iE0tZxdjgTR3m4rpzmTKeFbomvmKMKffQG6VaQL5x8JHG8QWdnkpUrcnIVBQ6Ec001T7tpweI";
@@ -63,7 +67,9 @@ const C = {
     leadGuest: "Lead guest (if different)", optional: "optional",
     arrival: "Estimated arrival time", arrivalNote: "Self check-in with a secure key box — you can arrive at any time, there is no cut-off.", arrivalAny: "Not decided", arrivalLate: "After midnight",
     rulesTitle: "House rules", rules: ["No parties or events", "Stated number of guests only — towels and bedding are prepared for the number you book", "Outdoor security camera at the entrance", "No smoking indoors"],
-    rulesAgree: "I agree to the house rules",
+    rulesAgree: "I agree to the {terms} (including the house rules above) and the {privacy}.",
+    termsLink: "Terms of Accommodation and Use", privacyLink: "Privacy Policy",
+    rulesRequired: "Please agree to the terms to continue.",
     marketing: "Send me occasional offers and coupons",
     trustReply: "We reply within 2–3 business days", operator: "Operated by Bonfire Inc.",
     confirmTitle: "Final confirmation", payBtn: "Confirm and pay", paySoon: "Card payment is being set up. It will be enabled shortly.",
@@ -85,7 +91,9 @@ const C = {
     leadGuest: "宿泊代表者名（予約者と異なる場合）", optional: "任意",
     arrival: "到着予定時刻", arrivalNote: "セキュリティキーボックスでの受け渡しのため、到着時刻の制限はありません。", arrivalAny: "未定", arrivalLate: "24:00以降",
     rulesTitle: "ハウスルール", rules: ["パーティー・イベントはご遠慮ください。", "ご申告の人数でのご利用をお願いします。タオル・寝具はご申告の人数分ご用意いたします。", "玄関に屋外防犯カメラを設置しています。", "屋内は禁煙です。"],
-    rulesAgree: "ハウスルールに同意します",
+    rulesAgree: "{terms}（上記ハウスルールを含みます）および{privacy}に同意します",
+    termsLink: "宿泊約款・利用規約", privacyLink: "プライバシーポリシー",
+    rulesRequired: "お手続きには、約款へのご同意が必要です。",
     marketing: "お得な情報・クーポンを受け取る",
     trustReply: "2〜3営業日以内にご連絡いたします", operator: "運営: ボンファイア株式会社",
     confirmTitle: "最終確認", payBtn: "同意してお支払いへ", paySoon: "カード決済は準備中です。まもなく有効になります。",
@@ -107,7 +115,9 @@ const C = {
     leadGuest: "숙박 대표자명(예약자와 다른 경우)", optional: "선택",
     arrival: "도착 예정 시각", arrivalNote: "보안 키박스를 통한 셀프 체크인이므로 도착 시각에 제한이 없습니다.", arrivalAny: "미정", arrivalLate: "24:00 이후",
     rulesTitle: "하우스 룰", rules: ["파티・이벤트는 삼가 주세요", "신고하신 인원으로 이용해 주세요. 수건・침구는 신고하신 인원수만큼 준비해 드립니다", "현관에 실외 방범 카메라가 있습니다", "실내는 금연입니다"],
-    rulesAgree: "하우스 룰에 동의합니다",
+    rulesAgree: "{terms}(위 하우스 룰 포함) 및 {privacy}에 동의합니다",
+    termsLink: "숙박약관 및 이용약관", privacyLink: "개인정보 처리방침",
+    rulesRequired: "진행하시려면 약관에 동의해 주세요.",
     marketing: "혜택・쿠폰 정보를 받아보기",
     trustReply: "2~3영업일 이내에 연락드립니다", operator: "운영: Bonfire Inc.",
     confirmTitle: "최종 확인", payBtn: "동의하고 결제로", paySoon: "카드 결제는 준비 중입니다. 곧 이용하실 수 있습니다.",
@@ -129,7 +139,9 @@ const C = {
     leadGuest: "入住代表人姓名（與訂購人不同時）", optional: "選填",
     arrival: "預計抵達時間", arrivalNote: "採用密碼鑰匙盒自助入住，抵達時間沒有限制。", arrivalAny: "未定", arrivalLate: "24:00 之後",
     rulesTitle: "住宿規則", rules: ["請勿舉辦派對或活動", "請依申報人數入住，毛巾與寢具將依申報人數準備", "玄關設有室外監視器", "室內禁菸"],
-    rulesAgree: "我同意住宿規則",
+    rulesAgree: "我同意{terms}（含上述住宿規則）與{privacy}",
+    termsLink: "住宿約款與使用條款", privacyLink: "私隱政策",
+    rulesRequired: "請先同意約款後再繼續。",
     marketing: "接收優惠與折扣資訊",
     trustReply: "我們將於2〜3個工作天內回覆", operator: "營運: Bonfire Inc.",
     confirmTitle: "最終確認", payBtn: "同意並前往付款", paySoon: "信用卡付款準備中，即將開放。",
@@ -151,7 +163,9 @@ const C = {
     leadGuest: "ชื่อผู้เข้าพักหลัก (หากต่างจากผู้จอง)", optional: "ไม่บังคับ",
     arrival: "เวลาที่คาดว่าจะถึง", arrivalNote: "เช็คอินด้วยตนเองผ่านตู้เก็บกุญแจนิรภัย จึงไม่มีข้อจำกัดเรื่องเวลาที่มาถึง", arrivalAny: "ยังไม่ระบุ", arrivalLate: "หลังเที่ยงคืน",
     rulesTitle: "กฎของที่พัก", rules: ["ไม่อนุญาตให้จัดปาร์ตี้หรืออีเวนต์", "กรุณาเข้าพักตามจำนวนที่แจ้ง เราจะจัดเตรียมผ้าเช็ดตัวและเครื่องนอนตามจำนวนที่แจ้งไว้", "มีกล้องวงจรปิดภายนอกที่ทางเข้า", "ห้ามสูบบุหรี่ภายในบ้าน"],
-    rulesAgree: "ฉันยอมรับกฎของที่พัก",
+    rulesAgree: "ฉันยอมรับ{terms} (รวมกฎของที่พักข้างต้น) และ{privacy}",
+    termsLink: "ข้อกำหนดการเข้าพักและการใช้บริการ", privacyLink: "นโยบายความเป็นส่วนตัว",
+    rulesRequired: "กรุณายอมรับข้อกำหนดเพื่อดำเนินการต่อ",
     marketing: "รับข้อเสนอและคูปองพิเศษ",
     trustReply: "เราจะติดต่อกลับภายใน 2–3 วันทำการ", operator: "ดำเนินการโดย Bonfire Inc.",
     confirmTitle: "ยืนยันครั้งสุดท้าย", payBtn: "ยอมรับและชำระเงิน", paySoon: "ระบบชำระเงินกำลังเตรียมการ จะเปิดให้ใช้งานเร็ว ๆ นี้",
@@ -174,6 +188,7 @@ const uiStrings = {
   freeUntil: C.freeUntil("{d}"),
   soldOut: t.soldOut,
 };
+const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 ---
 
 <SiteLayout
@@ -300,7 +315,16 @@ const uiStrings = {
             <ul class="co-rules">
               {C.rules.map((r) => <li>{r}</li>)}
             </ul>
-            <label class="co-check"><input type="checkbox" id="cf-rules" /> {C.rulesAgree}</label>
+            <label class="co-check">
+              <input type="checkbox" id="cf-rules" />
+              <span>
+                {agreeParts.map((part) =>
+                  part === "{terms}" ? <a href={TERMS_PATH} target="_blank" rel="noopener">{C.termsLink}</a>
+                  : part === "{privacy}" ? <a href={PRIVACY_PATH} target="_blank" rel="noopener">{C.privacyLink}</a>
+                  : part
+                )}
+              </span>
+            </label>
             <label class="co-check"><input type="checkbox" id="cf-marketing" /> {C.marketing}</label>
           </section>
 
@@ -322,7 +346,7 @@ const uiStrings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang }}>
+<script define:vars={{ AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang, TERMS_VERSION }}>
   const $ = (id) => document.getElementById(id);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
 
@@ -571,6 +595,7 @@ const uiStrings = {
           leadGuest: $("cf-lead").value.trim(),
           arrival: $("cf-arrival").value,
           rulesAccepted: $("cf-rules").checked,
+          termsVersion: TERMS_VERSION,
           marketingOptIn: $("cf-marketing").checked,
         }),
       });
@@ -707,6 +732,7 @@ const uiStrings = {
   .co-phone { display: grid; grid-template-columns: 110px 1fr; gap: 0.5rem; }
   .co-hint { font-size: 0.72rem; color: #aaaaaa; margin-top: 0.3rem; }
   .co-rules { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.9; color: #333333; }
+  .co-check a { color: #111111; text-decoration: underline; text-underline-offset: 2px; }
   .co-check { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: #333333; margin-bottom: 0.6rem; line-height: 1.6; }
   .co-sec-final {
     background: #111111;

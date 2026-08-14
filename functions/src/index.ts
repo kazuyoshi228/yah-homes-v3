@@ -842,6 +842,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCodeLabel: "暗証番号 / PIN",
     remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
     remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
+    remHelp: "お困りのとき", remHelpBody: "鍵が取り出せない、場所が分からないなど、その場でお困りの際はお電話ください。",
     remCta: "予約を確認する",
     revTplTitle: "レビュー",
     revCatClean: "清潔度",
@@ -877,6 +878,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCodeLabel: "PIN",
     remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
     remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
+    remHelp: "Need help?", remHelpBody: "If you cannot get the key out or you cannot find the house, please call us.",
     remCta: "View your booking",
     revTplTitle: "Your review",
     revCatClean: "Cleanliness",
@@ -912,6 +914,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCodeLabel: "비밀번호",
     remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
     remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
+    remHelp: "곤란하실 때는", remHelpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 전화해 주세요.",
     remCta: "예약 확인하기",
     revTplTitle: "리뷰",
     revCatClean: "청결도",
@@ -947,6 +950,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCodeLabel: "密碼",
     remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
     remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
+    remHelp: "遇到問題時", remHelpBody: "若無法取出鑰匙或找不到位置，請撥打電話與我們聯繫。",
     remCta: "查看預訂",
     revTplTitle: "您的評價",
     revCatClean: "清潔度",
@@ -982,6 +986,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remCodeLabel: "รหัส",
     remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
     remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
+    remHelp: "หากพบปัญหา", remHelpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเรา",
     remCta: "ดูการจอง",
     revTplTitle: "รีวิวของคุณ",
     revCatClean: "ความสะอาด",
@@ -1208,6 +1213,8 @@ async function buildLifecycleMail(
         codeCard: keybox ? { label: L.remCodeLabel, code: keybox } : undefined,
         blocks: [
           { title: L.remEntry, body: `${esc(keybox ? L.remEntryBodyCode : L.remEntryBody)}<br>${esc(L.remArrivalNote)}` },
+          // 無人運営なので、その場で詰まったときの電話を必ず載せる（案内の最後ではなく入室の直後に置く）
+          { title: L.remHelp, body: `${esc(L.remHelpBody)}<br><a href="tel:+815017214419" style="color:#111111;font-weight:600;">${esc(OPERATOR_PHONE)}</a>` },
           ...(P.address || P.map
             ? [{ title: L.remPlace, body: `${P.address ? `<strong>${esc(P.address)}</strong><br>` : ""}${P.map ? `<a href="${esc(P.map)}" style="color:#111111;">${esc(P.map)}</a>` : ""}` }]
             : []),
@@ -1378,6 +1385,8 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "remEntryBodyCode", label: "入室について・本文（暗証番号カードの下に出る）", multiline: true },
     { key: "remEntryBody", label: "入室について・予備文面（番号が読めなかった場合）", multiline: true },
     { key: "remArrivalNote", label: "到着時刻の注記", multiline: true },
+    { key: "remHelp", label: "お困りのとき・見出し" },
+    { key: "remHelpBody", label: "お困りのとき・本文", multiline: true },
     { key: "remPlace", label: "場所・見出し" },
     { key: "remCta", label: "ボタンの文字" },
   ],
@@ -1817,7 +1826,7 @@ export const messagesApi = onRequest(
     } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     const isStaff = !!email && (isAdmin(email) || !!(await getAdminUser(email)));
 
-    const { action, bookingId, body } = (req.body ?? {}) as Record<string, unknown>;
+    const { action, bookingId, body, as } = (req.body ?? {}) as Record<string, unknown>;
     const idStr = String(bookingId ?? "");
     if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
 
@@ -1830,7 +1839,14 @@ export const messagesApi = onRequest(
       // 所有者チェック: 自分の予約か、運営か。これ以外は一切触れない。
       const isOwnerGuest = !!b.uid && b.uid === uid;
       if (!isOwnerGuest && !isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
-      const from: "guest" | "host" = isOwnerGuest && !isStaff ? "guest" : (isStaff ? "host" : "guest");
+      // 送信元は「どの画面から出したか」で決める。
+      // 運営が自分名義で予約を持つ検証ケースでは両方に当てはまるため、
+      // 資格だけで機械的に決めると全部 host になり、会話が片側に寄る。
+      // 画面が as を申告し、サーバはその資格があるかだけを検証する。
+      const asStr = as === "guest" || as === "host" ? as : null;
+      const from: "guest" | "host" = asStr ?? (isStaff ? "host" : "guest");
+      if (from === "guest" && !isOwnerGuest) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+      if (from === "host" && !isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
 
       await ensureThread(idStr, b);
       const tref = db.collection("threads").doc(idStr);
@@ -2666,6 +2682,9 @@ export const bookCreate = onRequest(
     const arrival = typeof b.arrival === "string" ? b.arrival.slice(0, 10) : "";
     const langStr = typeof b.lang === "string" && ["en", "ja", "ko", "zh", "th"].includes(b.lang) ? b.lang : "en";
     const rulesAccepted = b.rulesAccepted === true;
+    // 同意した約款の版。改ざんを防ぐため、サーバが知っている版のみ受け付ける。
+    // 古い版を名乗る値が来たら現行版として記録せず、そのまま残して後から照合できるようにする。
+    const termsVersion = TERMS_VERSIONS.includes(String(b.termsVersion)) ? String(b.termsVersion) : TERMS_VERSION_CURRENT;
     const marketingOptIn = b.marketingOptIn === true;
     const idempotencyKey = typeof b.idempotencyKey === "string" ? b.idempotencyKey.slice(0, 100) : "";
     // GA4のclient_id・広告のgclid/UTM（購買行動の突合用・個人情報ではない）
@@ -2713,7 +2732,7 @@ export const bookCreate = onRequest(
         name, phone, leadGuest: leadGuest || null, arrival: arrival || null, lang: langStr,
         status: "PAYMENT_PENDING", stateVersion: 0, operationId, idempotencyKey,
         roomId: q.data?.[0]?.roomId ?? null,
-        policyVersion: "2026-08-08", freeCancelUntilAt,
+        policyVersion: "2026-08-08", termsVersion, freeCancelUntilAt,
         clientId: clientId || null, gclid: gclid || null, utm, authProvider: authProvider || null,
         createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
       });
@@ -2721,8 +2740,10 @@ export const bookCreate = onRequest(
       // 同意証跡（v4 §4.5-1/2）
       await db.collection("consents").add({
         uid, email, bookingId: ref.id,
-        houseRules: { accepted: true, version: "2026-08-08" },
-        marketing: { optIn: marketingOptIn, version: "2026-08-08" },
+        // 約款（ハウスルールを別表1として内包）への同意。1クリックに統合済み。
+        terms: { accepted: rulesAccepted, version: termsVersion },
+        houseRules: { accepted: rulesAccepted, version: termsVersion },  // 旧キー（既存データとの互換）
+        marketing: { optIn: marketingOptIn, version: termsVersion },
         lang: langStr, createdAt: FieldValue.serverTimestamp(),
       });
 
@@ -3010,6 +3031,12 @@ function mailHtml(o: {
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 /** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
+/* 宿泊約款の版。src/pages/[...locale]/legal/terms.astro の EFFECTIVE と
+   checkout.astro の TERMS_VERSION に必ず揃える。改定時は CURRENT を更新し、
+   旧版は TERMS_VERSIONS に残す（過去の同意証跡がどの版だったか照合できるように）。 */
+const TERMS_VERSION_CURRENT = "2026-08-14";
+const TERMS_VERSIONS = [TERMS_VERSION_CURRENT];
+
 const OPERATOR_PHONE = "050-1721-4419";
 /** メールの返信先（mailto の宛先にも使う） */
 const MAIL_FROM = "contact@mail.yah.homes";

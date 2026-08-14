@@ -19,9 +19,11 @@ const FB_CONFIG = {
   appId: "1:18500698213:web:8b4cf08b97d916c216068c",
 };
 
-const OPERATOR = [
+const SUPPORT = [
   { href: "/admin/bookings/", title: "直販予約 管理" },
   { href: "/admin/messages/", title: "メッセージ" },
+];
+const OPERATOR = [
   { href: "/admin/partners/", title: "パートナー申請 管理" },
   { href: "/admin/inbox/", title: "お問い合わせ受信箱" },
   { href: "/admin/mail-preview/", title: "メールテンプレート" },
@@ -56,6 +58,15 @@ const SYSTEM = [
         </div>
       </div>
       <div id="am-body" hidden>
+      <h2 class="am-h2" data-sec="cs">Customer Support</h2>
+      <div class="am-grid" data-secgrid="cs">
+        {SUPPORT.map((it) => (
+          <a class="am-card am-card-dark" href={it.href} data-role="operator">
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
+          </a>
+        ))}
+      </div>
+
       <h2 class="am-h2" data-sec="ssot">SSoT</h2>
       <div class="am-grid" data-secgrid="ssot">
         {SSOT.map((it) => (
@@ -149,6 +160,10 @@ const SYSTEM = [
     text-decoration: none; transition: border-color 0.2s;
   }
   .am-card:hover { border-color: #111111; }
+  .am-card-dark { background: #111111; border-color: #111111; }
+  .am-card-dark:hover { border-color: #555555; }
+  .am-card-dark .am-card-title { color: #ffffff; }
+  .am-card-dark .am-badge-operator { color: rgba(255,255,255,0.75); background: none; border-color: rgba(255,255,255,0.35); }
   .am-card-title {
     font-size: 0.95rem; font-weight: 500; color: #111111; margin: 0;
     display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;

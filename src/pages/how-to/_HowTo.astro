@@ -66,7 +66,8 @@ const UI: Record<Lang, Record<string, string>> = {
     largeTitle: "大型車もご利用いただけます",
     largeBody: "アルファードなどの大型車も駐車可能です。",
     helpTitle: "お困りのとき",
-    helpBody: "鍵が取り出せない、場所が分からないなど、お困りの際はご予約いただいたサイトのメッセージからご連絡ください。",
+    helpBody: "鍵が取り出せない、場所が分からないなど、お困りの際は下記へお電話ください。ご予約いただいたサイトのメッセージからでもご連絡いただけます。",
+    helpCall: "電話でのご連絡",
   },
   en: {
     eyebrow: "Check-in guide", sub: "Getting to the house",
@@ -84,7 +85,8 @@ const UI: Record<Lang, Record<string, string>> = {
     largeTitle: "Large vehicles welcome",
     largeBody: "Large vehicles such as the Toyota Alphard can be parked here.",
     helpTitle: "Need help?",
-    helpBody: "If you cannot get the key out, or you cannot find the house, please message us through your booking site.",
+    helpBody: "If you cannot get the key out, or you cannot find the house, please call us. You can also message us through your booking site.",
+    helpCall: "Call us",
   },
   ko: {
     eyebrow: "체크인 안내", sub: "도착까지의 흐름",
@@ -102,7 +104,8 @@ const UI: Record<Lang, Record<string, string>> = {
     largeTitle: "대형차도 이용 가능합니다",
     largeBody: "알파드 등 대형차도 주차하실 수 있습니다.",
     helpTitle: "곤란하실 때는",
-    helpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 예약하신 사이트의 메시지로 연락해 주세요.",
+    helpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 아래로 전화해 주세요. 예약하신 사이트의 메시지로도 연락하실 수 있습니다.",
+    helpCall: "전화 연락",
   },
   zh: {
     eyebrow: "入住指南", sub: "抵達前的流程",
@@ -120,7 +123,8 @@ const UI: Record<Lang, Record<string, string>> = {
     largeTitle: "大型車亦可停放",
     largeBody: "Alphard 等大型車輛也可停放。",
     helpTitle: "遇到問題時",
-    helpBody: "若無法取出鑰匙或找不到位置，請透過您預訂的網站訊息與我們聯繫。",
+    helpBody: "若無法取出鑰匙或找不到位置，請撥打下方電話。亦可透過您預訂的網站訊息與我們聯繫。",
+    helpCall: "電話聯繫",
   },
   th: {
     eyebrow: "คู่มือเช็คอิน", sub: "ขั้นตอนก่อนถึงที่พัก",
@@ -138,7 +142,8 @@ const UI: Record<Lang, Record<string, string>> = {
     largeTitle: "รองรับรถขนาดใหญ่",
     largeBody: "รถขนาดใหญ่เช่น Toyota Alphard ก็สามารถจอดได้",
     helpTitle: "หากพบปัญหา",
-    helpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาติดต่อเราผ่านข้อความในเว็บไซต์ที่คุณจอง",
+    helpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเราตามหมายเลขด้านล่าง หรือติดต่อผ่านข้อความในเว็บไซต์ที่คุณจองก็ได้",
+    helpCall: "โทรหาเรา",
   },
 };
 
@@ -242,6 +247,7 @@ const garage = garageSize
       <section class="ht-block ht-help">
         <h2 class="ht-h2"><span data-t="helpTitle"></span></h2>
         <p class="ht-text" data-t="helpBody"></p>
+        <p class="ht-call"><span data-t="helpCall"></span>：<a href="tel:+815017214419">050-1721-4419</a></p>
       </section>
     </div>
   </section>
@@ -357,7 +363,9 @@ const garage = garageSize
   .ht-spec-val { font-size: 1.05rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
   .ht-spec-note { margin-top: 0.8rem; font-size: 0.8rem; color: #666666; line-height: 1.9; }
   .ht-spec-title + .ht-spec-note { margin-top: 0; }
-  .ht-help .ht-text { margin-bottom: 0; }
+  .ht-help .ht-text { margin-bottom: 0.6rem; }
+  .ht-call { font-size: 1rem; color: #111111; margin: 0; }
+  .ht-call a { font-weight: 600; color: #111111; text-decoration: none; border-bottom: 1px solid #111111; }
 
   @media (max-width: 640px) {
     .ht { padding: 5.5rem 1.25rem 4rem; }

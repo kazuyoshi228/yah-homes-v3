@@ -116,7 +116,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
         const token = await auth.currentUser.getIdToken();
         await fetch(MESSAGES_ENDPOINT, { method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "read", bookingId: id }) });
+          body: JSON.stringify({ action: "read", bookingId: id, as: "host" }) });
       } catch { /* 既読の失敗は表示に影響しない */ }
       if (location.hash.slice(1) !== id) history.replaceState(null, "", `#${id}`);
     }
@@ -129,7 +129,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
         const token = await auth.currentUser.getIdToken();
         const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "send", bookingId: active, body }) });
+          body: JSON.stringify({ action: "send", bookingId: active, body, as: "host" }) });
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || "fail");
         el.value = ""; $("ms-status").textContent = "";
