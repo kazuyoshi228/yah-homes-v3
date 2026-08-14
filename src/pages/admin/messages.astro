@@ -104,6 +104,15 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
         if (snap.empty) { $("ms-thread").innerHTML = '<p class="ms-empty">まだやり取りはありません。</p>'; return; }
         $("ms-thread").innerHTML = snap.docs.map((d) => {
           const m = d.data(); const host = m.from === "host";
+          if (m.system) {
+            return `<div class="ms-bub ms-bub-sys">
+              <p class="ms-bub-meta">自動送信 ${fmt(m.at)}</p>
+              <div class="ms-sys-body">
+                ${m.title ? `<p class="ms-sys-title">${esc(m.title)}</p>` : ""}
+                <pre class="ms-sys-text">${esc(m.body)}</pre>
+              </div>
+            </div>`;
+          }
           return `<div class="ms-bub ${host ? "ms-bub-host" : "ms-bub-guest"}">
             <p class="ms-bub-meta">${host ? `運営${m.author ? `（${esc(m.author)}）` : ""}` : `お客様${t.guestName ? `（${esc(t.guestName)}）` : ""}`} ${fmt(m.at)}</p>
             <div class="ms-bub-body">${esc(m.body)}${m.translated ? `<div class="ms-bub-tr">${esc(m.translated)}</div>` : ""}</div>
@@ -208,6 +217,13 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
     border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem;
   }
   :global(.ms-bub-host .ms-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.ms-bub-sys) { max-width: 100%; }
+  :global(.ms-sys-body) { border: 1px solid #ececec; border-radius: 8px; background: #fafafa; padding: 0.9rem 1rem; }
+  :global(.ms-sys-title) { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  :global(.ms-sys-text) {
+    font-family: inherit; font-size: 0.8rem; line-height: 1.9; color: #555555;
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+  }
   :global(.ms-bub-tr) { font-size: 0.76rem; color: #999999; margin-top: 0.4rem; line-height: 1.7; }
   :global(.ms-bub-host .ms-bub-tr) { color: rgba(255,255,255,0.65); }
 

@@ -45,7 +45,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "Sending...",
     msgFail: "Could not send. Please try again.",
-    msgBack: "All messages",
+    msgAuto: "Sent automatically",     msgBack: "All messages",
     msgOpen: "View booking",
     msgNone: "You have no bookings yet.",
     profTitle: "Profile",
@@ -113,7 +113,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "送信中...",
     msgFail: "送信できませんでした。もう一度お試しください。",
-    msgBack: "一覧へ",
+    msgAuto: "自動送信",     msgBack: "一覧へ",
     msgOpen: "予約を開く",
     msgNone: "ご予約がまだありません。",
     profTitle: "プロフィール",
@@ -181,7 +181,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "보내는 중...",
     msgFail: "보내지 못했습니다. 다시 시도해 주세요.",
-    msgBack: "목록으로",
+    msgAuto: "자동 발송",     msgBack: "목록으로",
     msgOpen: "예약 보기",
     msgNone: "아직 예약이 없습니다.",
     profTitle: "프로필",
@@ -249,7 +249,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "傳送中...",
     msgFail: "傳送失敗，請再試一次。",
-    msgBack: "返回列表",
+    msgAuto: "自動傳送",     msgBack: "返回列表",
     msgOpen: "查看預訂",
     msgNone: "目前尚無預訂。",
     profTitle: "個人資料",
@@ -317,7 +317,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "กำลังส่ง...",
     msgFail: "ส่งไม่สำเร็จ กรุณาลองอีกครั้ง",
-    msgBack: "กลับไปที่รายการ",
+    msgAuto: "ส่งอัตโนมัติ",     msgBack: "กลับไปที่รายการ",
     msgOpen: "ดูการจอง",
     msgNone: "ยังไม่มีการจอง",
     profTitle: "โปรไฟล์",
@@ -409,6 +409,7 @@ const uiA = {
   msgHost: A.msgHost,
   msgSending: A.msgSending,
   msgFail: A.msgFail,
+  msgAuto: A.msgAuto,
   msgBack: A.msgBack,
   msgOpen: A.msgOpen,
   msgNone: A.msgNone,
@@ -939,6 +940,16 @@ const PHONE_CC = [
       $("ac-thread").innerHTML = snap.docs.map((d) => {
         const m = d.data();
         const mine = m.from === "guest";
+        // 自動送信ぶんは控えとして残しているものなので、会話の吹き出しとは分けて見せる
+        if (m.system) {
+          return `<div class="ac-bub ac-bub-sys">
+            <p class="ac-bub-meta">${esc(uiA.msgAuto)} ${fmtTime(m.at)}</p>
+            <div class="ac-sys-body">
+              ${m.title ? `<p class="ac-sys-title">${esc(m.title)}</p>` : ""}
+              <pre class="ac-sys-text">${esc(m.body)}</pre>
+            </div>
+          </div>`;
+        }
         return `<div class="ac-bub ${mine ? "ac-bub-guest" : "ac-bub-host"}">
           <p class="ac-bub-meta">${mine ? esc(uiA.msgYou) : esc(uiA.msgHost)} ${fmtTime(m.at)}</p>
           <div class="ac-bub-body">${esc(m.body)}${m.translated ? `<div class="ac-bub-tr">${esc(m.translated)}</div>` : ""}</div>
@@ -1229,6 +1240,13 @@ const PHONE_CC = [
     border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem;
   }
   :global(.ac-bub-host .ac-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.ac-bub-sys) { max-width: 100%; }
+  :global(.ac-sys-body) { border: 1px solid #ececec; border-radius: 8px; background: #fafafa; padding: 0.9rem 1rem; }
+  :global(.ac-sys-title) { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  :global(.ac-sys-text) {
+    font-family: inherit; font-size: 0.8rem; line-height: 1.9; color: #555555;
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+  }
   :global(.ac-bub-tr) { font-size: 0.76rem; color: #999999; margin-top: 0.4rem; line-height: 1.7; }
   :global(.ac-bub-host .ac-bub-tr) { color: rgba(255,255,255,0.65); }
   .ac-compose { display: flex; gap: 0.5rem; align-items: flex-end; }
