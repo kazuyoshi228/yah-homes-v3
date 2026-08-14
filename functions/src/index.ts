@@ -248,10 +248,11 @@ const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, ei
 /* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
    Firestore が読めないときも予約を止めないよう、既定値へ倒す。
    OTA経由の予約には効かない（そちらは Beds24 側の設定が効く）。 */
-const BOOKING_RULE_DEFAULTS = { cutoffTime: "18:00", maxMonths: 12 };
-async function bookingRules(prop: string): Promise<{ capacity: number; cutoffTime: string; maxMonths: number }> {
+const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "18:00", maxMonths: 12 };
+async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number }> {
   const fallback = {
     capacity: PROPERTY_CAPACITY[prop] ?? 1,
+    cutoffDays: BOOKING_RULE_DEFAULTS.cutoffDays,
     cutoffTime: BOOKING_RULE_DEFAULTS.cutoffTime,
     maxMonths: BOOKING_RULE_DEFAULTS.maxMonths,
   };
@@ -260,9 +261,12 @@ async function bookingRules(prop: string): Promise<{ capacity: number; cutoffTim
     if (!f) return fallback;
     const cap = Number(f.capacity);
     const mon = Number(f.bookingMaxMonths);
+    const days = Number(f.bookingCutoffDays);
     const cut = String(f.bookingCutoffTime ?? "");
     return {
       capacity: Number.isInteger(cap) && cap > 0 ? cap : fallback.capacity,
+      // 0 も有効な設定（当日まで受ける）なので >= 0 で見る
+      cutoffDays: Number.isInteger(days) && days >= 0 ? days : fallback.cutoffDays,
       cutoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cut) ? cut : fallback.cutoffTime,
       maxMonths: Number.isInteger(mon) && mon > 0 ? mon : fallback.maxMonths,
     };
@@ -270,12 +274,13 @@ async function bookingRules(prop: string): Promise<{ capacity: number; cutoffTim
 }
 /** 予約を受け付けてよい日程か。理由つきで返す（画面に何が起きたか出せるように）。 */
 function checkBookingWindow(
-  checkin: string, guests: number, r: { capacity: number; cutoffTime: string; maxMonths: number },
+  checkin: string, guests: number, r: { capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number },
 ): { ok: true } | { ok: false; error: string } {
   if (guests > r.capacity) return { ok: false, error: "over_capacity" };
-  // 締切 = チェックイン前日の cutoffTime（JST）。これを過ぎた日程は受け付けない。
-  // 前日10:00に暗証番号を配るジョブが走るため、それより後の予約は案内が届かない。
-  const cutoffAt = Date.parse(`${checkin}T${r.cutoffTime}:00+09:00`) - 86400000;
+  // 締切 = チェックインの cutoffDays 日前の cutoffTime（JST）。過ぎた日程は受け付けない。
+  // 既定は「前日18:00」。前日10:00に暗証番号を配るジョブが走るため、
+  // cutoffDays を 0（当日まで受ける）にするなら、案内メールの即時送信を別途入れること。
+  const cutoffAt = Date.parse(`${checkin}T${r.cutoffTime}:00+09:00`) - r.cutoffDays * 86400000;
   if (Date.now() > cutoffAt) return { ok: false, error: "too_late" };
   const limit = new Date(Date.now() + r.maxMonths * 30 * 86400000).toISOString().slice(0, 10);
   if (checkin > limit) return { ok: false, error: "too_far" };
@@ -4209,6 +4214,13 @@ export const adminProperties = onRequest(
           const t = String(v.bookingCutoffTime ?? "").trim();
           if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffTime" }); return; }
           if (t) doc.bookingCutoffTime = t;
+          const dRaw = String(v.bookingCutoffDays ?? "").trim();
+          if (dRaw) {
+            const dNum = Number(dRaw);
+            // 0＝当日まで受ける。前日10:00の案内メールに乗らないので、当日は別途の即時送信が要る。
+            if (!Number.isInteger(dNum) || dNum < 0 || dNum > 90) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffDays" }); return; }
+            doc.bookingCutoffDays = dNum;
+          }
           const mRaw = String(v.bookingMaxMonths ?? "").trim();
           if (mRaw) {
             const m = Number(mRaw);
