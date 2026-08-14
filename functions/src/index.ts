@@ -711,6 +711,43 @@ const quoteCache: Record<string, { data: Record<string, unknown>; expires: numbe
 const QUOTE_TTL_MS = 20_000;
 
 /** 1棟ぶんの見積り。Beds24 offers を叩き、表示用に20秒だけキャッシュする。 */
+/* 「なぜ取れないのか」を Beds24 のカレンダーから引く。
+   これまで満室・最低泊数割れ・API障害を全部「満室」の1つに畳んでいたため、
+   最低泊数で落ちたお客様は「この宿は空いていない」と誤解して離脱し、
+   こちら側のログにも原因が残らなかった（最も単価の高い日程ほど起きる）。 */
+async function unavailableReason(
+  slug: PropSlug, checkin: string, checkout: string, nights: number,
+): Promise<{ reason: string; minStay?: number }> {
+  try {
+    const r = await fetch(
+      `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}` +
+        `&startDate=${checkin}&endDate=${checkout}&includeNumAvail=true&includeMinStay=true`,
+      { headers: { token: BEDS24_TOKEN.value() } },
+    );
+    const j = (await r.json()) as {
+      success?: boolean;
+      data?: Array<{ calendar?: Array<{ from: string; to: string; numAvail?: number; minStay?: number }> }>;
+    };
+    if (!j.success || !j.data?.length) return { reason: "unavailable" };
+    // 判定は「チェックアウト当日を除く滞在日」で行う（最終日は在庫を消費しない）
+    const last = new Date(Date.parse(`${checkout}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    let soldOut = false;
+    let need = 0;
+    for (const room of j.data) {
+      for (const seg of room.calendar ?? []) {
+        if (seg.to < checkin || seg.from > last) continue;
+        if ((seg.numAvail ?? 0) < 1) soldOut = true;
+        if (seg.from <= checkin && (seg.minStay ?? 0) > need) need = seg.minStay ?? 0;
+      }
+    }
+    if (soldOut) return { reason: "sold_out" };
+    if (need > nights) return { reason: "min_stay", minStay: need };
+    return { reason: "unavailable" };
+  } catch {
+    return { reason: "unavailable" };   // 理由の照会に失敗しても「満室」とは言い切らない
+  }
+}
+
 async function quoteFor(
   slug: PropSlug,
   checkin: string,
@@ -734,8 +771,13 @@ async function quoteFor(
   const offer = room?.offers?.[0];
 
   let data: Record<string, unknown>;
-  if (!j.success || !offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
-    data = { id: slug, prop: slug, available: false };
+  if (!j.success && !j.data) {
+    // Beds24 が落ちているときに「満室」と言わない（本物の空室を潰す）
+    data = { id: slug, prop: slug, available: false, reason: "upstream_failed" };
+  } else if (!offer || typeof offer.price !== "number" || (offer.unitsAvailable ?? 0) < 1) {
+    const nightsQ = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
+    const why = await unavailableReason(slug, checkin, checkout, nightsQ);
+    data = { id: slug, prop: slug, available: false, reason: why.reason, ...(why.minStay ? { minStay: why.minStay } : {}) };
   } else {
     const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86400000);
     const now = Date.now();
@@ -929,6 +971,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
     remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
     remHelp: "お困りのとき", remHelpBody: "鍵が取り出せない、場所が分からないなど、その場でお困りの際はお電話ください。",
+    remManual: "入室の手順（写真つき）", remManualBody: "住所・玄関の場所・鍵の開け方・駐車場を写真でご案内しています。ご到着前にご覧ください。",
     remCta: "予約を確認する",
     revTplTitle: "レビュー",
     revCatClean: "清潔度",
@@ -965,6 +1008,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
     remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
     remHelp: "Need help?", remHelpBody: "If you cannot get the key out or you cannot find the house, please call us.",
+    remManual: "Step-by-step guide (with photos)", remManualBody: "The address, the entrance, how to open the key box, and parking — all with photos. Worth a look before you arrive.",
     remCta: "View your booking",
     revTplTitle: "Your review",
     revCatClean: "Cleanliness",
@@ -1001,6 +1045,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
     remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
     remHelp: "곤란하실 때는", remHelpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 전화해 주세요.",
+    remManual: "입실 안내 (사진 포함)", remManualBody: "주소・현관 위치・열쇠 여는 법・주차장을 사진으로 안내해 드립니다. 도착 전에 확인해 주세요.",
     remCta: "예약 확인하기",
     revTplTitle: "리뷰",
     revCatClean: "청결도",
@@ -1037,6 +1082,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
     remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
     remHelp: "遇到問題時", remHelpBody: "若無法取出鑰匙或找不到位置，請撥打電話與我們聯繫。",
+    remManual: "入住步驟（附照片）", remManualBody: "以照片說明地址、玄關位置、開鎖方式與停車場。抵達前建議先看一下。",
     remCta: "查看預訂",
     revTplTitle: "您的評價",
     revCatClean: "清潔度",
@@ -1073,6 +1119,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
     remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
     remHelp: "หากพบปัญหา", remHelpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเรา",
+    remManual: "ขั้นตอนการเข้าพัก (มีรูปประกอบ)", remManualBody: "อธิบายที่อยู่ ตำแหน่งประตู วิธีเปิดกล่องกุญแจ และที่จอดรถพร้อมรูปภาพ ควรดูก่อนเดินทางมาถึง",
     remCta: "ดูการจอง",
     revTplTitle: "รีวิวของคุณ",
     revCatClean: "ความสะอาด",
@@ -1299,6 +1346,8 @@ async function buildLifecycleMail(
         codeCard: keybox ? { label: L.remCodeLabel, code: keybox } : undefined,
         blocks: [
           { title: L.remEntry, body: `${esc(keybox ? L.remEntryBodyCode : L.remEntryBody)}<br>${esc(L.remArrivalNote)}` },
+          // 写真つきの手順ページ。暗証番号の数字だけでは、玄関の場所も車庫の寸法も伝わらない
+          ...(P.manual ? [{ title: L.remManual, body: `${esc(L.remManualBody)}<br><a href="${esc(P.manual)}" style="color:#111111;">${esc(P.manual)}</a>` }] : []),
           // 無人運営なので、その場で詰まったときの電話を必ず載せる（案内の最後ではなく入室の直後に置く）
           { title: L.remHelp, body: `${esc(L.remHelpBody)}<br><a href="tel:+815017214419" style="color:#111111;font-weight:600;">${esc(OPERATOR_PHONE)}</a>` },
           ...(P.address || P.map
@@ -1477,6 +1526,8 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "remEntryBodyCode", label: "入室について・本文（暗証番号カードの下に出る）", multiline: true },
     { key: "remEntryBody", label: "入室について・予備文面（番号が読めなかった場合）", multiline: true },
     { key: "remArrivalNote", label: "到着時刻の注記", multiline: true },
+    { key: "remManual", label: "入室の手順・見出し" },
+    { key: "remManualBody", label: "入室の手順・本文", multiline: true },
     { key: "remHelp", label: "お困りのとき・見出し" },
     { key: "remHelpBody", label: "お困りのとき・本文", multiline: true },
     { key: "remPlace", label: "場所・見出し" },
@@ -3795,7 +3846,9 @@ export const accountApi = onRequest(
         // PAYMENT_PENDING は「決済に進まず離脱した下書き」なので、進行中の1時間だけ見せる。
         // VOIDED / PAYMENT_FAILED は課金が無く、お客様にとって予約ではないので出さない。
         const HIDDEN = new Set(["VOIDED", "PAYMENT_FAILED"]);
-        const DRAFT_TTL_MS = 60 * 60 * 1000;
+        // 1時間は短すぎた。3Dセキュアで弾かれた・席を外した程度で消え、
+        // お客様は「予約できたのか分からない」まま問い合わせに回る。翌日まで残す。
+        const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
         const items = snap.docs
           .filter((d) => {
             const v = d.data();

@@ -84,7 +84,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "セルフチェックインはできますか？",
-            a: "はい。どちらもセキュリティロックを採用しています。解錠コードは、公式サイトからのご予約ならメールで、Airbnb・Booking.com からのご予約なら各サービスのメッセージで、ご到着の3日前を目安にお送りします。対面での受け渡しはありません。到着時刻の制限もないため、深夜のご到着でも問題ありません。",
+            a: "はい。どちらもセキュリティロックを採用しています。解錠コードは、公式サイトからのご予約ならメールで、Airbnb・Booking.com からのご予約なら各サービスのメッセージで、ご到着の前日にお送りします。対面での受け渡しはありません。到着時刻の制限もないため、深夜のご到着でも問題ありません。",
           },
           {
             q: "福岡空港から宿までのアクセスは？",
@@ -204,7 +204,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "Is self check-in available?",
-            a: "Yes. Both properties use a security lock system. If you book on this site we email the code; if you book via Airbnb or Booking.com it arrives in that platform\u2019s messages — about 3 days before arrival. Nobody needs to meet you, and there is no arrival time limit, so late-night arrivals are fine.",
+            a: "Yes. Both properties use a security lock system. If you book on this site we email the code; if you book via Airbnb or Booking.com it arrives in that platform\u2019s messages — the day before arrival. Nobody needs to meet you, and there is no arrival time limit, so late-night arrivals are fine.",
           },
           {
             q: "How do I get from Fukuoka Airport to the properties?",
@@ -324,7 +324,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "셀프 체크인이 가능한가요?",
-            a: "네. 보안 잠금 시스템을 사용합니다. 공식 사이트에서 예약하신 경우에는 메일로, Airbnb・Booking.com 예약은 각 서비스 메시지로, 도착 3일 전을 기준으로 도어 코드를 보내드립니다. 대면 절차는 없으며 도착 시간 제한도 없어 늦은 밤 도착도 괜찮습니다.",
+            a: "네. 보안 잠금 시스템을 사용합니다. 공식 사이트에서 예약하신 경우에는 메일로, Airbnb・Booking.com 예약은 각 서비스 메시지로, 도착 전날에 도어 코드를 보내드립니다. 대면 절차는 없으며 도착 시간 제한도 없어 늦은 밤 도착도 괜찮습니다.",
           },
           {
             q: "후쿠오카 공항에서 숙소까지 어떻게 가나요?",
@@ -568,7 +568,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "สามารถเช็คอินด้วยตนเองได้หรือไม่?",
-            a: "ได้ ทั้งสองหลังใช้ระบบล็อคนิรภัย หากจองผ่านเว็บไซต์ทางการเราจะส่งรหัสทางอีเมล หากจองผ่าน Airbnb หรือ Booking.com จะส่งผ่านข้อความของแพลตฟอร์มนั้น โดยประมาณ 3 วันก่อนวันเข้าพัก ไม่ต้องพบเจอใคร และไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
+            a: "ได้ ทั้งสองหลังใช้ระบบล็อคนิรภัย หากจองผ่านเว็บไซต์ทางการเราจะส่งรหัสทางอีเมล หากจองผ่าน Airbnb หรือ Booking.com จะส่งผ่านข้อความของแพลตฟอร์มนั้น ในวันก่อนวันเข้าพัก ไม่ต้องพบเจอใคร และไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
           },
           {
             q: "เดินทางจากสนามบินฟุกุโอกะไปที่พักอย่างไร?",

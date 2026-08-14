@@ -19,6 +19,8 @@ export interface BookStrings {
   searching: string;
   soldOut: string;
   soldOutHint: string;
+  minStay: string;      // {n} に必要泊数
+  upstreamFailed: string;
   /** 定員超過（満室ではない。{n}=その棟の定員） */
   overCapacity: string;
   overCapacityHint: string;
@@ -65,6 +67,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     overCapacity: "Up to {n} guests",
     overCapacityHint: "This house sleeps {n}. Please reduce the number of guests, or choose the other house — changing dates will not change the capacity.",
     soldOutHint: "Try different dates or the other house.",
+    minStay: "These dates need a minimum stay of {n} nights",
+    upstreamFailed: "We could not check availability just now. Please try again in a moment.",
     totalLabel: "Total",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
     approx: "approx.",
@@ -102,6 +106,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     overCapacity: "この棟は最大{n}名までです",
     overCapacityHint: "ご人数を{n}名以下にするか、もう一方の棟をご検討ください。日程を変えても定員は変わりません。",
     soldOutHint: "日付を変更するか、もう一方の棟をご検討ください。",
+    minStay: "この日程は{n}泊からのご予約となります",
+    upstreamFailed: "ただいま空室を確認できませんでした。少し時間をおいてお試しください。",
     totalLabel: "合計",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
     approx: "約",
@@ -139,6 +145,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     overCapacity: "이 숙소는 최대 {n}명까지입니다",
     overCapacityHint: "인원을 {n}명 이하로 변경하시거나 다른 숙소를 확인해 주세요. 날짜를 바꿔도 정원은 동일합니다.",
     soldOutHint: "날짜를 변경하거나 다른 동을 확인해 주세요.",
+    minStay: "이 일정은 {n}박부터 예약하실 수 있습니다",
+    upstreamFailed: "지금은 예약 가능 여부를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     totalLabel: "합계",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
     approx: "약",
@@ -176,6 +184,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     overCapacity: "本棟最多可住{n}人",
     overCapacityHint: "請將人數調整為{n}人以下，或改選另一棟。更換日期並不會改變可住人數。",
     soldOutHint: "請更換日期，或查看另一棟。",
+    minStay: "此日期最少需連住 {n} 晚",
+    upstreamFailed: "目前無法確認空房狀況，請稍後再試。",
     totalLabel: "總金額",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
     approx: "約",
@@ -213,6 +223,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     overCapacity: "ที่พักนี้รองรับได้สูงสุด {n} ท่าน",
     overCapacityHint: "กรุณาลดจำนวนผู้เข้าพักให้ไม่เกิน {n} ท่าน หรือเลือกอีกหลังหนึ่ง การเปลี่ยนวันที่ไม่ได้เปลี่ยนจำนวนที่รองรับ",
     soldOutHint: "กรุณาเปลี่ยนวันที่ หรือดูอีกหลังหนึ่ง",
+    minStay: "วันที่นี้ต้องเข้าพักอย่างน้อย {n} คืน",
+    upstreamFailed: "ขณะนี้ไม่สามารถตรวจสอบห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
     totalLabel: "ราคารวม",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,
     approx: "ประมาณ",

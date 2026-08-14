@@ -23,7 +23,7 @@ const breadcrumb = breadcrumbJsonLd([
 ]);
 ---
 
-<SiteLayout lang={lang} path="/properties/kiyokawa" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
+<SiteLayout lang={lang} path="/properties/kiyokawa" title={meta.title} description={meta.description} ogImage={meta.ogImage} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
   <PropertyDetail
     lang={lang}
     propertyKey="kiyokawa"

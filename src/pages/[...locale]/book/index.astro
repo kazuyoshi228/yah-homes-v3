@@ -173,6 +173,8 @@ const strings = {
   searching: t.searching,
   soldOut: t.soldOut,
   soldOutHint: t.soldOutHint,
+  minStay: t.minStay,
+  upstreamFailed: t.upstreamFailed,
   overCapacity: t.overCapacity,
   overCapacityHint: t.overCapacityHint,
   totalLabel: t.totalLabel,
@@ -509,7 +511,17 @@ const strings = {
       return;
     }
     if (!p || !p.available) {
-      track("sold_out_viewed", { prop: house.key, checkin: state.checkin, nights, guests: state.guests });
+      // 満室・最低泊数割れ・API障害を1つに畳まない。理由が違えば次の行動も違う
+      const why = p?.reason ?? "";
+      track("sold_out_viewed", { prop: house.key, checkin: state.checkin, nights, guests: state.guests, reason: why || "unknown" });
+      if (why === "min_stay" && p?.minStay) {
+        box.innerHTML = `<p class="bk-quote-out">${strings.minStay.replace("{n}", String(p.minStay))}</p>`;
+        return;
+      }
+      if (why === "upstream_failed") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.upstreamFailed}</p>`;
+        return;
+      }
       box.innerHTML = `<p class="bk-quote-out">${strings.recovery.soldOutTitle}</p>
         <p class="bk-quote-hint" data-recovery="${house.key}">…</p>`;
       const other = HOUSES.find((h) => h.key !== house.key);
