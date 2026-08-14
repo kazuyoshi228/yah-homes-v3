@@ -70,6 +70,9 @@ const C = {
     rulesAgree: "I agree to the {terms} (including the house rules above) and the {privacy}.",
     termsLink: "Terms of Accommodation and Use", privacyLink: "Privacy Policy",
     rulesRequired: "Please agree to the terms to continue.",
+    errOverCapacity: "That is more guests than this house can take. Please check the number.",
+    errTooLate: "Bookings for these dates have closed. Please contact us and we will see what we can do.",
+    errTooFar: "These dates are not open for booking yet.",
     marketing: "Send me occasional offers and coupons",
     trustReply: "We reply within 2–3 business days", operator: "Operated by Bonfire Inc.",
     confirmTitle: "Final confirmation", payBtn: "Confirm and pay", paySoon: "Card payment is being set up. It will be enabled shortly.",
@@ -94,6 +97,9 @@ const C = {
     rulesAgree: "{terms}（上記ハウスルールを含みます）および{privacy}に同意します",
     termsLink: "宿泊約款・利用規約", privacyLink: "プライバシーポリシー",
     rulesRequired: "お手続きには、約款へのご同意が必要です。",
+    errOverCapacity: "この棟のご利用可能人数を超えています。人数をご確認ください。",
+    errTooLate: "この日程はお申し込みの期限を過ぎています。恐れ入りますが、お問い合わせよりご相談ください。",
+    errTooFar: "この日程はまだ受付を開始しておりません。",
     marketing: "お得な情報・クーポンを受け取る",
     trustReply: "2〜3営業日以内にご連絡いたします", operator: "運営: ボンファイア株式会社",
     confirmTitle: "最終確認", payBtn: "同意してお支払いへ", paySoon: "カード決済は準備中です。まもなく有効になります。",
@@ -118,6 +124,9 @@ const C = {
     rulesAgree: "{terms}(위 하우스 룰 포함) 및 {privacy}에 동의합니다",
     termsLink: "숙박약관 및 이용약관", privacyLink: "개인정보 처리방침",
     rulesRequired: "진행하시려면 약관에 동의해 주세요.",
+    errOverCapacity: "이 동의 수용 인원을 초과했습니다. 인원을 확인해 주세요.",
+    errTooLate: "이 일정은 예약 마감되었습니다. 문의로 연락 주시면 확인해 드리겠습니다.",
+    errTooFar: "이 일정은 아직 예약을 받고 있지 않습니다.",
     marketing: "혜택・쿠폰 정보를 받아보기",
     trustReply: "2~3영업일 이내에 연락드립니다", operator: "운영: Bonfire Inc.",
     confirmTitle: "최종 확인", payBtn: "동의하고 결제로", paySoon: "카드 결제는 준비 중입니다. 곧 이용하실 수 있습니다.",
@@ -142,6 +151,9 @@ const C = {
     rulesAgree: "我同意{terms}（含上述住宿規則）與{privacy}",
     termsLink: "住宿約款與使用條款", privacyLink: "私隱政策",
     rulesRequired: "請先同意約款後再繼續。",
+    errOverCapacity: "已超過本棟可入住人數，請確認人數。",
+    errTooLate: "此日期已截止受理，請透過聯絡表單與我們洽詢。",
+    errTooFar: "此日期尚未開放預訂。",
     marketing: "接收優惠與折扣資訊",
     trustReply: "我們將於2〜3個工作天內回覆", operator: "營運: Bonfire Inc.",
     confirmTitle: "最終確認", payBtn: "同意並前往付款", paySoon: "信用卡付款準備中，即將開放。",
@@ -166,6 +178,9 @@ const C = {
     rulesAgree: "ฉันยอมรับ{terms} (รวมกฎของที่พักข้างต้น) และ{privacy}",
     termsLink: "ข้อกำหนดการเข้าพักและการใช้บริการ", privacyLink: "นโยบายความเป็นส่วนตัว",
     rulesRequired: "กรุณายอมรับข้อกำหนดเพื่อดำเนินการต่อ",
+    errOverCapacity: "จำนวนผู้เข้าพักเกินที่บ้านหลังนี้รองรับได้ กรุณาตรวจสอบจำนวน",
+    errTooLate: "ปิดรับจองสำหรับวันที่นี้แล้ว กรุณาติดต่อเราเพื่อสอบถาม",
+    errTooFar: "ยังไม่เปิดรับจองสำหรับวันที่นี้",
     marketing: "รับข้อเสนอและคูปองพิเศษ",
     trustReply: "เราจะติดต่อกลับภายใน 2–3 วันทำการ", operator: "ดำเนินการโดย Bonfire Inc.",
     confirmTitle: "ยืนยันครั้งสุดท้าย", payBtn: "ยอมรับและชำระเงิน", paySoon: "ระบบชำระเงินกำลังเตรียมการ จะเปิดให้ใช้งานเร็ว ๆ นี้",
@@ -187,6 +202,7 @@ const uiStrings = {
   priceChanged: { en: "The total has been updated to the latest price. Please review it and continue.", ja: "最新の料金に更新しました。金額をご確認のうえ、もう一度お進みください。", ko: "최신 요금으로 업데이트했습니다. 금액을 확인하신 후 다시 진행해 주세요.", zh: "已更新為最新金額，請確認後再繼續。", th: "อัปเดตเป็นราคาล่าสุดแล้ว กรุณาตรวจสอบแล้วดำเนินการต่อ" }[lang],
   freeUntil: C.freeUntil("{d}"),
   soldOut: t.soldOut,
+  errOverCapacity: C.errOverCapacity, errTooLate: C.errTooLate, errTooFar: C.errTooFar,
 };
 const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 ---
@@ -605,7 +621,10 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           success: false, price_changed: false, availability_changed: j.error === "unavailable",
         });
         track("booking_draft_failed", { prop, error_type: String(j.error ?? "unknown"), seconds: elapsed() });
-        $("co-pay-status").textContent = j.error === "unavailable" ? uiStrings.soldOut : uiStrings.payFailed;
+        // 受付の可否は理由を出す（「失敗しました」で終わらせない）
+        const ERRS = { unavailable: uiStrings.soldOut, over_capacity: uiStrings.errOverCapacity,
+          too_late: uiStrings.errTooLate, too_far: uiStrings.errTooFar };
+        $("co-pay-status").textContent = ERRS[j.error] ?? uiStrings.payFailed;
         btn.disabled = false;
         return;
       }

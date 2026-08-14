@@ -244,6 +244,43 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
 const PARTNERS_NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp";
 const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, either: 7, both: 6, test: 7 };
+
+/* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
+   Firestore が読めないときも予約を止めないよう、既定値へ倒す。
+   OTA経由の予約には効かない（そちらは Beds24 側の設定が効く）。 */
+const BOOKING_RULE_DEFAULTS = { cutoffTime: "18:00", maxMonths: 12 };
+async function bookingRules(prop: string): Promise<{ capacity: number; cutoffTime: string; maxMonths: number }> {
+  const fallback = {
+    capacity: PROPERTY_CAPACITY[prop] ?? 1,
+    cutoffTime: BOOKING_RULE_DEFAULTS.cutoffTime,
+    maxMonths: BOOKING_RULE_DEFAULTS.maxMonths,
+  };
+  try {
+    const f = (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).data();
+    if (!f) return fallback;
+    const cap = Number(f.capacity);
+    const mon = Number(f.bookingMaxMonths);
+    const cut = String(f.bookingCutoffTime ?? "");
+    return {
+      capacity: Number.isInteger(cap) && cap > 0 ? cap : fallback.capacity,
+      cutoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cut) ? cut : fallback.cutoffTime,
+      maxMonths: Number.isInteger(mon) && mon > 0 ? mon : fallback.maxMonths,
+    };
+  } catch { return fallback; }
+}
+/** 予約を受け付けてよい日程か。理由つきで返す（画面に何が起きたか出せるように）。 */
+function checkBookingWindow(
+  checkin: string, guests: number, r: { capacity: number; cutoffTime: string; maxMonths: number },
+): { ok: true } | { ok: false; error: string } {
+  if (guests > r.capacity) return { ok: false, error: "over_capacity" };
+  // 締切 = チェックイン前日の cutoffTime（JST）。これを過ぎた日程は受け付けない。
+  // 前日10:00に暗証番号を配るジョブが走るため、それより後の予約は案内が届かない。
+  const cutoffAt = Date.parse(`${checkin}T${r.cutoffTime}:00+09:00`) - 86400000;
+  if (Date.now() > cutoffAt) return { ok: false, error: "too_late" };
+  const limit = new Date(Date.now() + r.maxMonths * 30 * 86400000).toISOString().slice(0, 10);
+  if (checkin > limit) return { ok: false, error: "too_far" };
+  return { ok: true };
+}
 const PROPERTY_LABEL: Record<string, string> = { kiyokawa: "清川", takasago: "高砂", either: "どちらでも", both: "両棟はしご泊", test: "検証用" };
 
 /** チェックイン可能は月・火・水のみ（2泊とも平日で完結・§4-1確定文言）。
@@ -2751,6 +2788,11 @@ export const bookCreate = onRequest(
         return;
       }
 
+      // 受付の可否（定員・締切・先の上限）。正本は property_facts（/admin/properties）。
+      // 在庫の問い合わせより前に見る（弾く予約で Beds24 を叩かない）。
+      const win = checkBookingWindow(checkin, guests, await bookingRules(prop));
+      if (!win.ok) { res.status(400).json({ ok: false, error: win.error }); return; }
+
       // 金額はサーバー側で再見積り（改ざん防止・v4 §8-1）
       const q = await fetch(
         `${BEDS24_API}/inventory/rooms/offers?propertyId=${BOOKING_PROP_IDS[prop]}&arrival=${checkin}&departure=${checkout}&numAdults=${guests}`,
@@ -4158,6 +4200,18 @@ export const adminProperties = onRequest(
         const ns = String(v.nearestStation ?? "").trim();
         if (ns) doc.nearestStation = ns.slice(0, 40);
         // チェックイン/アウト時刻（"16:00" 形式）
+        // 直販の予約ルール（bookCreate が読む。未設定なら既定値で動く）
+        {
+          const t = String(v.bookingCutoffTime ?? "").trim();
+          if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffTime" }); return; }
+          if (t) doc.bookingCutoffTime = t;
+          const mRaw = String(v.bookingMaxMonths ?? "").trim();
+          if (mRaw) {
+            const m = Number(mRaw);
+            if (!Number.isInteger(m) || m < 1 || m > 36) { res.status(400).json({ ok: false, error: "invalid_bookingMaxMonths" }); return; }
+            doc.bookingMaxMonths = m;
+          }
+        }
         for (const f of ["checkinTime", "checkoutTime"] as const) {
           const t = String(v[f] ?? "").trim();
           if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }

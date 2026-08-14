@@ -85,6 +85,15 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "checkoutTime", label: "チェックアウト時刻", type: "time" },
     ],
   },
+  {
+    // 直販サイト（yah.homes）の予約フローにだけ効く。OTA経由は Beds24 側の設定が効く。
+    // 二重に持つことになるので、Beds24 の現在値を下に並べて食い違いに気づけるようにしている。
+    label: "直販の予約ルール",
+    rows: [
+      { key: "bookingCutoffTime", label: "予約の締切（前日のこの時刻まで）", type: "time" },
+      { key: "bookingMaxMonths", label: "受付の上限", unit: "ヶ月先まで", type: "num" },
+    ],
+  },
 ];
 const FIELD_KEYS = SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
 const HOUSES = [
