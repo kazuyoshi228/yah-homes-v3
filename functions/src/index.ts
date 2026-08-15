@@ -4338,7 +4338,8 @@ export const adminProperties = onRequest(
         // 取得日のみの更新
         if (typeof ratingAsOf === "string" && !prop) {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(ratingAsOf)) { res.status(400).json({ ok: false, error: "invalid_date" }); return; }
-          await db.collection("property_facts").doc("meta").set({ ratingAsOf, updatedAt: FieldValue.serverTimestamp(), updatedBy: email }, { merge: true });
+          // 同上。公開コレクションなので updatedBy は持たせない
+          await db.collection("property_facts").doc("meta").set({ ratingAsOf, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
           await db.collection("audit_logs").add({ actor: email, action: "facts_rating_as_of", value: ratingAsOf, at: FieldValue.serverTimestamp() });
           res.status(200).json({ ok: true });
           return;
@@ -4392,7 +4393,9 @@ export const adminProperties = onRequest(
         doc.rating = rating;
         doc.reviewCount = reviewCount;
         doc.updatedAt = FieldValue.serverTimestamp();
-        doc.updatedBy = email;
+        // updatedBy は書かない。property_facts は公開読み取り（サイト表示用）のため、
+        // 書くと管理者のメールアドレスが world-readable になる。
+        // 「誰が更新したか」は下の audit_logs に残るので情報は失われない。
 
         await db.collection("property_facts").doc(propStr).set(doc, { merge: true });
         await db.collection("audit_logs").add({ actor: email, action: "facts_update", target: propStr, at: FieldValue.serverTimestamp() });
