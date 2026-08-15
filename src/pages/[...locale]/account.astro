@@ -1332,7 +1332,7 @@ const PHONE_CC = [
   /* プロフィール */
   #ac-list :global(.ac-tel) { display: inline-block; margin-top: 0.5rem; font-size: 1rem; font-weight: 600; color: #111111; text-decoration: none; border-bottom: 1px solid #111111; }
 
-  .ac-form { display: grid; gap: 1rem; margin: 1.5rem 0; }
+  .ac-form { display: grid; gap: 1rem; margin: 1.5rem 0; max-width: 720px; }
   .ac-form label { display: block; font-size: 0.78rem; color: #555555; }
   .ac-form input, .ac-form select {
     display: block; width: 100%; margin-top: 0.35rem; padding: 0.6rem 0.8rem;
@@ -1340,7 +1340,7 @@ const PHONE_CC = [
     border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
   }
   /* プロフィール写真 */
-  .ac-photo { display: flex; align-items: center; gap: 1.25rem; margin: 1.75rem 0 0.5rem; }
+  .ac-photo { display: flex; align-items: center; gap: 1.25rem; margin: 1.75rem 0 0.5rem; max-width: 720px; }
   .ac-avatar {
     width: 84px; height: 84px; border-radius: 50%; flex: none;
     background: #f2f2f2 center/cover no-repeat; border: 1px solid #e8e8e8;
@@ -1399,7 +1399,8 @@ const PHONE_CC = [
   }
   #ac-list :global(.ac-h2) { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888; margin: 2rem 0 0.75rem; }
   /* 予約確認メールと同じ構成: 黒ヘッダー → 写真 → 情報パネル（メールのカードと同義） */
-  #ac-list :global(.ac-card) { border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; margin-bottom: 1.75rem; background: #ffffff; }
+  /* 予約カード・プロフィールは読み物なので 720px に収める（ページ自体は 1080px・メッセージは全幅） */
+  #ac-list :global(.ac-card) { max-width: 720px; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; margin-bottom: 1.75rem; background: #ffffff; }
   #ac-list :global(.ac-card[data-s="CANCELLED"]) { opacity: 0.75; }
   #ac-list :global(.ac-card .ac-bar) {
     display: flex; justify-content: space-between; align-items: center; gap: 1rem;
