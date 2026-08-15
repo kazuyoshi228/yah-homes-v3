@@ -512,7 +512,7 @@ const PHONE_CC = [
   solidNav
 >
   <section class="ac">
-    <div class="ac-container" id="ac-container">
+    <div class="ac-container">
       <h1 class="ac-title">{A.title}</h1>
       <p class="ac-lead">{A.lead}</p>
 
@@ -1167,9 +1167,6 @@ const PHONE_CC = [
 
   function showTab(name) {
     document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== name; });
-    // 予約・プロフィールは読み物なので 720px。メッセージだけは一覧＋会話の2カラムで、
-    // メール本文（黒ヘッダーの表・写真）が入るため運営画面と同じ幅まで広げる。
-    $("ac-container").classList.toggle("is-wide", name === "messages");
     document.querySelectorAll("[data-tab]").forEach((el) => el.classList.toggle("is-active", el.dataset.tab === name));
     if (name === "messages" && !activeBooking) {
       const first = cache.find((b) => b.status !== "CANCELLED");
@@ -1246,8 +1243,7 @@ const PHONE_CC = [
 
 <style>
   .ac { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
-  .ac-container { max-width: 720px; margin: 0 auto; transition: max-width 0.15s ease; }
-  .ac-container.is-wide { max-width: 1080px; }
+  .ac-container { max-width: 1080px; margin: 0 auto; }
 
   /* タブ */
   .ac-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #e8e8e8; margin-bottom: 1.75rem; }
