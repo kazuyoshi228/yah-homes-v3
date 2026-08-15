@@ -1727,7 +1727,7 @@ export const adminMailPreview = onRequest(
     if (origin) {
       res.set("Access-Control-Allow-Origin", origin);
       res.set("Vary", "Origin");
-      res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
     }
     res.set("Cache-Control", "no-store");
@@ -1736,6 +1736,47 @@ export const adminMailPreview = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // メールの実物プレビュー（読み取り専用）。OPERATOR も閲覧可（2026-08-14 発注者指示）。
+
+    /* 実物のテスト送信。実在の予約からメールを組み立て、宛先は「操作した本人」に固定する。
+       お客様には絶対に飛ばさない。送信済みフラグ（reminderSentAt 等）も立てず、
+       スレッドへの控えも残さない＝本番の配信計画に一切影響しない。
+       ADMIN 限定（OPERATOR はプレビューまで）。 */
+    if (req.method === "POST") {
+      if (requireAdmin(email, res)) return;
+      const { kind: kindRaw, bookingId } = (req.body ?? {}) as Record<string, unknown>;
+      const kindStr = String(kindRaw ?? "");
+      const idStr = String(bookingId ?? "");
+      if (!idStr || !["confirm", "checkin", "checkout", "review", "cancel"].includes(kindStr)) {
+        res.status(400).json({ ok: false, error: "invalid_target" }); return;
+      }
+      try {
+        const snap = await db.collection("bookings").doc(idStr).get();
+        if (!snap.exists) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+        const b = snap.data() as BookingDoc & Record<string, unknown>;
+        const built = kindStr === "confirm" ? await buildConfirmationMailFor(idStr, b)
+          // 返金額は実際のキャンセル処理でしか決まらないため、テストでは0で組む
+          : kindStr === "cancel" ? await buildCancellationMail(idStr, b, 0)
+          : await buildLifecycleMail(kindStr === "checkin" ? "reminder" : (kindStr as "review" | "checkout"), idStr, b);
+        const transporter = nodemailer.createTransport({
+          host: "smtp.gmail.com", port: 465, secure: true,
+          auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+        });
+        await transporter.sendMail({
+          from: `"yah.homes" <${SMTP_USER.value()}>`,
+          to: email, replyTo: "no-reply@mail.yah.homes",
+          subject: `[テスト送信] ${built.subject}`,
+          text: built.text, html: built.html,
+        });
+        await db.collection("audit_logs").add({
+          actor: email, action: "mail_test_send", target: `${kindStr}:${idStr}`, at: FieldValue.serverTimestamp(),
+        });
+        res.status(200).json({ ok: true, sentTo: email, subject: built.subject });
+      } catch (err) {
+        logger.error("adminMailPreview test send failed", err);
+        res.status(500).json({ ok: false, error: "internal" });
+      }
+      return;
+    }
 
     const kind = String(req.query.kind ?? "") as MailKind;
     const lang = String(req.query.lang ?? "ja");
@@ -2294,12 +2335,19 @@ async function getAdminUser(email: string): Promise<{ role: string } | null> {
 
 /** 通知宛先: root ＋ 該当フラグONの台帳メンバー（ハードコード宛先を廃止・v4 §8-5b） */
 async function notifyRecipients(kind: "notifyPartners" | "notifyTeiten" | "notifyBookings"): Promise<string> {
-  const set = new Set<string>(PARTNERS_ADMIN_EMAILS);
+  /* 宛先は管理者台帳（/admin/notify-emails）が正。
+     以前はここに ADMIN を必ず混ぜていたため、台帳で外しても届き続けていた。
+     ただし「誰にも届かない」は事故なので、台帳に該当者がいないときだけ ADMIN に倒す。 */
+  const set = new Set<string>();
   try {
     const snap = await db.collection("admin_users").where(kind, "==", true).get();
     snap.forEach((d) => set.add(d.id));
   } catch (err) {
     logger.warn("notifyRecipients fallback", err);
+  }
+  if (set.size === 0) {
+    logger.warn("notifyRecipients: no recipient in ledger, falling back to ADMIN", { kind });
+    return PARTNERS_ADMIN_EMAILS.join(", ");
   }
   return [...set].join(", ");
 }

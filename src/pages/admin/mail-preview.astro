@@ -90,6 +90,15 @@ const KINDS = [
             <div class="mp-stage" id="mp-stage" data-w="desktop">
               <iframe id="mp-frame" title="メールのプレビュー" sandbox="allow-same-origin"></iframe>
             </div>
+            <div class="mp-test" id="mp-test" hidden>
+              <p class="mp-test-title">実物のテスト送信</p>
+              <p class="mp-test-note">実在のご予約からメールを組み立て、<strong>ログイン中のご自身のアドレスにだけ</strong>送ります。お客様には届きません。送信済みの記録も残らないため、本番の配信予定に影響しません。</p>
+              <div class="mp-test-row">
+                <input type="text" id="mp-test-id" placeholder="予約番号（例 3IW0UFXG）" maxlength="40" />
+                <button type="button" class="mp-btn" id="mp-test-send">自分宛に送る</button>
+              </div>
+              <p class="mp-status" id="mp-test-status" role="status"></p>
+            </div>
             <p class="mp-status" id="mp-status" role="status"></p>
             <p class="mp-note mp-foot">
               差し込みの値は仮のものです（お名前・日程・料金）。実際の送信では予約の内容が入ります。
@@ -108,6 +117,39 @@ const KINDS = [
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);
+
+    // 実物のテスト送信は ADMIN 限定。台帳メンバー（OPERATOR）にはボタンを出さない。
+    const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+    let isAdmin = false;
+    async function loadRole() {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(`${OPS_ENDPOINT}?view=me`, { headers: { Authorization: `Bearer ${token}` } });
+        isAdmin = !!(await r.json()).isAdmin;
+      } catch { isAdmin = false; }   // 判定できないときは出さない（見せすぎない）
+    }
+
+    async function testSend() {
+      const id = $("mp-test-id").value.trim();
+      if (!id) { $("mp-test-status").textContent = "予約番号を入力してください。"; return; }
+      const btn = $("mp-test-send"); btn.disabled = true;
+      $("mp-test-status").textContent = "送信中...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(PREVIEW_ENDPOINT, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, bookingId: id }),
+        });
+        const j = await r.json();
+        $("mp-test-status").textContent = j.ok
+          ? `送信しました → ${j.sentTo}（件名: ${j.subject}）`
+          : j.error === "not_found" ? "その予約番号が見つかりません。"
+          : j.error === "admin_only" ? "この操作は ADMIN のみです。"
+          : "送信できませんでした。";
+      } catch { $("mp-test-status").textContent = "送信できませんでした。"; }
+      btn.disabled = false;
+    }
 
     let lang = localStorage.getItem("yh-mp-lang") || "ja";
     let kind = location.hash.slice(1) || "confirm";
@@ -139,6 +181,8 @@ const KINDS = [
         const j = await res.json();
         if (!j.ok) throw new Error(j.error || "load");
         $("mp-subject").textContent = j.subject;
+        $("mp-test").hidden = !isAdmin;
+
         // sandbox に allow-scripts を付けないので、メール内のJSは実行されない。
         // allow-same-origin は本文の高さを測るためだけに許可している。
         const fr = $("mp-frame");
@@ -169,11 +213,14 @@ const KINDS = [
       catch { $("mp-login-status").textContent = "ログインに失敗しました。"; }
     });
 
-    onAuthStateChanged(auth, (user) => {
+    $("mp-test-send").addEventListener("click", testSend);
+
+    onAuthStateChanged(auth, async (user) => {
       if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("mp-login").hidden = !!user;
       $("mp-app").hidden = !user;
-      if (user) load();
+      await loadRole();
+      load();
     });
   });
 </script>
@@ -229,6 +276,15 @@ const KINDS = [
   }
   .mp-sublabel { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 0.25rem; }
   .mp-subject { font-size: 0.95rem; font-weight: 500; color: #111111; line-height: 1.5; }
+  .mp-test { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1rem 1.1rem; margin-top: 1.25rem; }
+  .mp-test[hidden] { display: none; }
+  .mp-test-title { font-size: 0.85rem; font-weight: 500; color: #111111; margin-bottom: 0.4rem; }
+  .mp-test-note { font-size: 0.76rem; color: #777777; line-height: 1.8; margin-bottom: 0.8rem; }
+  .mp-test-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .mp-test-row input {
+    flex: 1; min-width: 200px; padding: 0.55rem 0.75rem; font-family: inherit; font-size: 0.85rem;
+    border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+  }
   .mp-widths { display: flex; gap: 0.3rem; }
   .mp-w {
     font-family: inherit; font-size: 0.72rem; color: #666666; background: none;
