@@ -636,19 +636,26 @@ async function cancelBeds24Booking(beds24Id: number): Promise<void> {
   if (!j?.[0]?.success) throw new Error(`beds24 cancel failed: ${JSON.stringify(j?.[0]?.errors ?? j).slice(0, 200)}`);
 }
 
-/** キャンセルの経緯を Beds24 の予約に内部メモとして残す（運営がBeds24だけ見ていても分かるように）。
-    メモの失敗でキャンセル処理は止めない。 */
+/** キャンセルの経緯を Beds24 に残す（運営がBeds24だけ見ていても分かるように）。
+    2本立てにする理由: internalNote は予約のInfoタブにしか出ず、運営会社が日常的に見ている
+    メッセージ受信箱の一覧には並ばない（2026-08-15 発注者指摘・実画面で確認）。
+    受信箱に出るのは guest ソースのメッセージだけなので、通知はそちらで送り、
+    経緯の記録として internalNote も残す。失敗してもキャンセル処理は止めない。 */
 async function noteBeds24Cancellation(beds24Id: number, text: string): Promise<void> {
-  try {
+  const post = async (source: string, message: string) => {
     const r = await fetch(`${BEDS24_API}/bookings/messages`, {
       method: "POST",
       headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-      body: JSON.stringify([{ bookingId: beds24Id, message: text.slice(0, 500), source: "internalNote" }]),
+      body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 500), source }]),
     });
     const j = (await r.json()) as Array<{ success?: boolean }>;
-    if (!j?.[0]?.success) logger.warn("beds24 internalNote failed", { beds24Id });
+    if (!j?.[0]?.success) logger.warn("beds24 cancel note failed", { beds24Id, source });
+  };
+  try {
+    await post("guest", `【直販システム】このご予約はキャンセルされました。\n${text}`);
+    await post("internalNote", text);
   } catch (err) {
-    logger.warn("beds24 internalNote failed", { beds24Id, err: String(err).slice(0, 120) });
+    logger.warn("beds24 cancel note failed", { beds24Id, err: String(err).slice(0, 120) });
   }
 }
 
