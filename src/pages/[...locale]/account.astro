@@ -903,13 +903,29 @@ const PHONE_CC = [
   // 中身の高さに合わせて iframe を伸ばす（スクロールバーを出さない）
   function fitFrames(root) {
     root.querySelectorAll("iframe[srcdoc]").forEach((f) => {
+      if (f.dataset.fitted) return;
+      f.dataset.fitted = "1";
       const fit = () => {
         try {
-          const h = f.contentDocument?.body?.scrollHeight;
+          const d = f.contentDocument;
+          if (!d?.body) return;
+          const h = Math.max(d.body.scrollHeight, d.documentElement.scrollHeight);
           if (h) f.style.height = `${h + 8}px`;
-        } catch { f.style.height = "480px"; }   // 読めないときは固定高で妥協する
+        } catch { f.style.height = "1600px"; }   // 読めないときは長めに取る（切れるよりマシ）
       };
-      f.addEventListener("load", fit);
+      // 画像が入る本文なので、読み込み完了の時点ではまだ高さが確定していない。
+      // load → 画像1枚ごと → 本文の変化、の3段で追いかける。
+      f.addEventListener("load", () => {
+        fit();
+        try {
+          const d = f.contentDocument;
+          d.querySelectorAll("img").forEach((im) => {
+            if (!im.complete) { im.addEventListener("load", fit); im.addEventListener("error", fit); }
+          });
+          if (window.ResizeObserver) new ResizeObserver(fit).observe(d.body);
+        } catch { /* 読めないときは load 時の値のままにする */ }
+        [200, 800, 2000].forEach((ms) => setTimeout(fit, ms));   // 最後の保険
+      });
       fit();
     });
   }
@@ -982,7 +998,7 @@ const PHONE_CC = [
           // sandbox に allow-scripts を与えないのでスクリプトは動かない。
           // allow-same-origin は高さの実測にだけ使う。リンクは別タブで開く。
           const frame = h
-            ? `<iframe class="ac-sys-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy" srcdoc="${escAttr(`<base target="_blank"><div style="margin:0">${h}</div>`)}"></iframe>`
+            ? `<iframe class="ac-sys-frame" scrolling="no" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy" srcdoc="${escAttr(`<base target="_blank"><style>html,body{margin:0;overflow:hidden}img{max-width:100%;height:auto}</style><div style="margin:0">${h}</div>`)}"></iframe>`
             : `<pre class="ac-sys-text">${esc(m.body)}</pre>`;
           return `<div class="ac-bub ac-bub-sys">
             <p class="ac-bub-meta">${esc(uiA.msgAuto)} ${fmtTime(m.at)}</p>
