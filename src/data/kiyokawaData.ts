@@ -141,7 +141,7 @@ export interface KiyokawaTranslations {
 export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
   en: {
     hero: {
-      propertyName: "yah. Kiyokawa",
+      propertyName: "yah.homes kiyokawa",
       tagline: "Newly built single family home in the vibrant Kiyokawa district.",
       area: "Kiyokawa, Chuo-ku, Fukuoka",
       capacity: "Up to 7 guests · 3 Bedrooms",
@@ -485,7 +485,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
 
   ja: {
     hero: {
-      propertyName: "yah. 清川",
+      propertyName: "yah.homes kiyokawa",
       tagline: "那珂川のほとり、清川の街に佇む新築一棟貸しの宿。",
       area: "福岡市中央区清川",
       capacity: "最大7名様 · 寝室3室",
@@ -830,7 +830,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
 
   ko: {
     hero: {
-      propertyName: "yah. 기요카와",
+      propertyName: "yah.homes kiyokawa",
       tagline: "활기찬 기요카와 지구에 새로 지어진 단독 주택.",
       area: "기요카와, 추오구, 후쿠오카",
       capacity: "최대 7인 · 침실 3개",
@@ -1147,7 +1147,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
 
   zh: {
     hero: {
-      propertyName: "yah. 清川",
+      propertyName: "yah.homes kiyokawa",
       tagline: "位於充滿活力的清川地區，全新打造的獨棟民宅。",
       area: "清川，中央區，福岡",
       capacity: "最多 7 人 · 3 間臥室",
@@ -1464,7 +1464,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
 
   th: {
     hero: {
-      propertyName: "yah. คิโยคาวะ",
+      propertyName: "yah.homes kiyokawa",
       tagline: "บ้านเดี่ยวสร้างใหม่ในย่านคิโยคาวะที่คึกคัก",
       area: "คิโยคาวะ, เขตชูโอ, ฟุกุโอกะ",
       capacity: "รับได้สูงสุด 7 คน · 3 ห้องนอน",

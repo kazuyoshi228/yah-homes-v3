@@ -125,7 +125,7 @@ export interface TakasagoTranslations {
 export const takasagoData: Record<Lang, TakasagoTranslations> = {
   en: {
     hero: {
-      propertyName: "yah. Takasago",
+      propertyName: "yah.homes takasago",
       tagline: "A stylish whole-house stay in the heart of Fukuoka's Takasago district.",
       area: "Takasago, Chuo-ku, Fukuoka",
       capacity: "Up to 6 guests · 3 Bedrooms",
@@ -466,7 +466,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   ja: {
     hero: {
-      propertyName: "yah. 高砂",
+      propertyName: "yah.homes takasago",
       tagline: "福岡市中央区・高砂の静かな住宅街に佇む、一棟貸しの宿。",
       area: "福岡市中央区高砂",
       capacity: "最大6名 · 寝室3室",
@@ -809,7 +809,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   ko: {
     hero: {
-      propertyName: "yah. 다카사고",
+      propertyName: "yah.homes takasago",
       tagline: "후쿠오카 다카사고 지구 중심에 위치한 세련된 단독 주택.",
       area: "다카사고, 추오구, 후쿠오카",
       capacity: "최대 6인 · 침실 3개",
@@ -1123,7 +1123,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   zh: {
     hero: {
-      propertyName: "yah. 高砂",
+      propertyName: "yah.homes takasago",
       tagline: "位於福岡高砂地區中心的時尚整棟住宅。",
       area: "高砂，中央區，福岡",
       capacity: "最多 6 人 · 3 間臥室",
