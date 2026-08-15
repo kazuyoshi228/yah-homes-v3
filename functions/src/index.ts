@@ -2085,7 +2085,7 @@ export const messagesApi = onRequest(
       });
       await tref.update({
         lastMessageAt: FieldValue.serverTimestamp(), lastFrom: from,
-        lastBody: text.slice(0, 120),
+        lastBody: text.slice(0, 120), lastSystem: false,   // 人が書いたもの
         ...(from === "guest" ? { unreadForHost: FieldValue.increment(1) } : { unreadForGuest: FieldValue.increment(1) }),
       });
 
@@ -3698,7 +3698,8 @@ async function mirrorMailToThread(
       at: FieldValue.serverTimestamp(),
     });
     await tref.set({
-      lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "host", lastBody: title,
+      // 自動送信の控え。一覧では「運営」ではなく「自動送信」と出し、手で返信したものと区別する
+      lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "host", lastBody: title, lastSystem: true,
     }, { merge: true });
   } catch (err) {
     logger.warn("mirrorMailToThread failed", { bookingId, kind, err: String(err).slice(0, 160) });

@@ -947,7 +947,7 @@ const PHONE_CC = [
         </span>
         <span class="ac-row-date">${esc(b.checkin)} — ${esc(b.checkout)}</span>
         <span class="ac-row-no">${esc(b.id.slice(0, 8).toUpperCase())}</span>
-        <span class="ac-row-snip">${t.lastBody ? `${esc(t.lastFrom === "guest" ? uiA.msgYou : uiA.msgHost)}: ${esc(t.lastBody)}` : ""}</span>
+        <span class="ac-row-snip">${t.lastBody ? `${esc(t.lastSystem ? uiA.msgAuto : t.lastFrom === "guest" ? uiA.msgYou : uiA.msgHost)}: ${esc(t.lastBody)}` : ""}</span>
       </button>`;
     }).join("") : `<p class="ac-status">${uiA.msgNone}</p>`;
     document.querySelectorAll("[data-pick]").forEach((el) =>

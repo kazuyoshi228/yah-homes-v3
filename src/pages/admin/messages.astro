@@ -82,7 +82,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
             <span class="ms-item-time">${fmt(t.lastMessageAt)}</span>
           </span>
           <span class="ms-item-sub">${esc(PROP[t.prop] ?? t.prop)} ${esc(t.checkin || "")}</span>
-          <span class="ms-item-body">${t.lastBody ? `${t.lastFrom === "guest" ? "お客様" : "運営"}: ${esc(t.lastBody)}` : ""}</span>
+          <span class="ms-item-body">${t.lastBody ? `${t.lastSystem ? "自動送信" : t.lastFrom === "guest" ? "お客様" : "運営"}: ${esc(t.lastBody)}` : ""}</span>
         </button>`).join("");
       document.querySelectorAll("[data-open]").forEach((el) =>
         el.addEventListener("click", () => open(el.dataset.open)));
