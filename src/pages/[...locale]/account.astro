@@ -47,7 +47,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "Sending...",
     msgFail: "Could not send. Please try again.",
-    msgAuto: "Sent automatically",     msgBack: "All messages",
+    msgAuto: "Sent automatically",     msgShowBooking: "Show booking", msgHideBooking: "Close", msgBookingDetail: "Open booking details",     msgBack: "All messages",
     msgOpen: "View booking",
     msgNone: "You have no bookings yet.",
     profTitle: "Profile",
@@ -116,7 +116,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "送信中...",
     msgFail: "送信できませんでした。もう一度お試しください。",
-    msgAuto: "自動送信",     msgBack: "一覧へ",
+    msgAuto: "自動送信",     msgShowBooking: "予約を表示", msgHideBooking: "閉じる", msgBookingDetail: "予約の詳細へ",     msgBack: "一覧へ",
     msgOpen: "予約を開く",
     msgNone: "ご予約がまだありません。",
     profTitle: "プロフィール",
@@ -185,7 +185,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "보내는 중...",
     msgFail: "보내지 못했습니다. 다시 시도해 주세요.",
-    msgAuto: "자동 발송",     msgBack: "목록으로",
+    msgAuto: "자동 발송",     msgShowBooking: "예약 보기", msgHideBooking: "닫기", msgBookingDetail: "예약 상세로",     msgBack: "목록으로",
     msgOpen: "예약 보기",
     msgNone: "아직 예약이 없습니다.",
     profTitle: "프로필",
@@ -254,7 +254,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "傳送中...",
     msgFail: "傳送失敗，請再試一次。",
-    msgAuto: "自動傳送",     msgBack: "返回列表",
+    msgAuto: "自動傳送",     msgShowBooking: "顯示預訂", msgHideBooking: "關閉", msgBookingDetail: "查看預訂詳情",     msgBack: "返回列表",
     msgOpen: "查看預訂",
     msgNone: "目前尚無預訂。",
     profTitle: "個人資料",
@@ -323,7 +323,7 @@ const A = {
     msgHost: "yah.homes",
     msgSending: "กำลังส่ง...",
     msgFail: "ส่งไม่สำเร็จ กรุณาลองอีกครั้ง",
-    msgAuto: "ส่งอัตโนมัติ",     msgBack: "กลับไปที่รายการ",
+    msgAuto: "ส่งอัตโนมัติ",     msgShowBooking: "ดูการจอง", msgHideBooking: "ปิด", msgBookingDetail: "ไปที่รายละเอียดการจอง",     msgBack: "กลับไปที่รายการ",
     msgOpen: "ดูการจอง",
     msgNone: "ยังไม่มีการจอง",
     profTitle: "โปรไฟล์",
@@ -418,6 +418,9 @@ const uiA = {
   msgFail: A.msgFail,
   resumePath: RESUME_PATH,
   msgAuto: A.msgAuto,
+  msgShowBooking: A.msgShowBooking,
+  msgHideBooking: A.msgHideBooking,
+  msgBookingDetail: A.msgBookingDetail,
   msgBack: A.msgBack,
   msgOpen: A.msgOpen,
   msgNone: A.msgNone,
@@ -559,6 +562,7 @@ const PHONE_CC = [
               </div>
               <p class="ac-status" id="ac-msg-status"></p>
             </section>
+            <aside class="ac-mx-booking" id="ac-mx-booking" hidden></aside>
           </div>
         </div>
 
@@ -970,6 +974,42 @@ const PHONE_CC = [
     }, () => { /* 権限エラー等は黙って無視（メッセージ無しとして扱う） */ });
   }
 
+  /* Airbnb の「予約を表示」と同じ。会話の右に、いま話している予約の要点を出す。
+     操作（キャンセル等）はここに複製せず、予約タブへ1リンクで送る（正本を2枚にしない）。 */
+  let bookingPanelOpen = false;
+  function toggleBookingPanel() {
+    bookingPanelOpen = !bookingPanelOpen;
+    const el = $("ac-mx-booking");
+    el.hidden = !bookingPanelOpen;
+    $("ac-mx").classList.toggle("has-booking", bookingPanelOpen);
+    const btn = document.getElementById("ac-conv-booking");
+    if (btn) btn.textContent = bookingPanelOpen ? uiA.msgHideBooking : uiA.msgShowBooking;
+  }
+  function renderBookingPanel(bookingId) {
+    const b = cache.find((x) => x.id === bookingId);
+    const el = $("ac-mx-booking");
+    if (!b) { el.innerHTML = ""; return; }
+    const t = uiA.times[b.prop] ?? {};
+    const st = b.status === "CANCELLED" ? uiA.statusCancelled
+      : b.status === "CONFIRMED" ? uiA.statusConfirmed
+      : b.status === "PAYMENT_PENDING" ? uiA.statusUnpaid : uiA.statusProcessing;
+    el.innerHTML = `
+      ${uiA.images[b.prop] ? `<img class="ac-bp-img" src="${esc(uiA.images[b.prop])}" alt="" loading="lazy" />` : ""}
+      <p class="ac-bp-name">${esc(uiA.houses[b.prop] || b.prop)}</p>
+      <p class="ac-bp-status">${esc(st)}</p>
+      <table class="ac-bp-table">
+        <tr><th>${esc(uiA.checkin)}</th><td>${esc(b.checkin)}${t.ci ? `　${esc(t.ci)}〜` : ""}</td></tr>
+        <tr><th>${esc(uiA.checkout)}</th><td>${esc(b.checkout)}${t.co ? `　〜${esc(t.co)}` : ""}</td></tr>
+        <tr><th>${esc(uiA.guests)}</th><td>${esc(String(b.guests ?? ""))}</td></tr>
+        <tr><th>${esc(uiA.payTotal)}</th><td>${yen(b.total)}</td></tr>
+      </table>
+      <button type="button" class="ac-outline ac-bp-open">${esc(uiA.msgBookingDetail)}</button>`;
+    el.querySelector(".ac-bp-open").addEventListener("click", () => {
+      showTab("bookings");
+      history.replaceState(null, "", "#bookings");
+    });
+  }
+
   function goList() {
     $("ac-mx").classList.remove("is-open");
   }
@@ -978,8 +1018,11 @@ const PHONE_CC = [
     activeBooking = bookingId;
     renderPicker();
     $("ac-conv-head").hidden = false;
-    $("ac-conv-head").innerHTML = `<button type="button" class="ac-conv-back" id="ac-conv-back">${esc(uiA.msgBack)}</button>`;
+    $("ac-conv-head").innerHTML = `<button type="button" class="ac-conv-back" id="ac-conv-back">${esc(uiA.msgBack)}</button>
+      <button type="button" class="ac-link ac-conv-booking" id="ac-conv-booking">${esc(uiA.msgShowBooking)}</button>`;
     $("ac-conv-back").addEventListener("click", goList);
+    $("ac-conv-booking").addEventListener("click", toggleBookingPanel);
+    renderBookingPanel(bookingId);
     $("ac-msg-pick").hidden = true;
     $("ac-mx").classList.add("is-open");
     $("ac-compose").hidden = false;
@@ -1285,7 +1328,19 @@ const PHONE_CC = [
     display: block; font-size: 0.76rem; color: #666666; margin-top: 0.25rem;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .ac-conv-head { margin-bottom: 0.5rem; }
+  .ac-conv-head { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-bottom: 0.5rem; }
+  :global(.ac-conv-booking) { font-size: 0.78rem; }
+  .ac-mx.has-booking { grid-template-columns: 260px 1fr 260px; }
+  .ac-mx-booking { border-left: 1px solid #ececec; padding-left: 1.5rem; }
+  :global(.ac-bp-img) { width: 100%; border-radius: 6px; margin-bottom: 0.8rem; }
+  :global(.ac-bp-name) { font-size: 0.9rem; font-weight: 500; color: #111111; margin-bottom: 0.2rem; }
+  :global(.ac-bp-status) { font-size: 0.72rem; color: #666666; margin-bottom: 0.9rem; }
+  :global(.ac-bp-table) { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+  :global(.ac-bp-table th), :global(.ac-bp-table td) {
+    font-size: 0.76rem; text-align: left; padding: 0.45rem 0; border-bottom: 1px solid #f4f4f4;
+    color: #111111; font-weight: 400; vertical-align: top;
+  }
+  :global(.ac-bp-table th) { color: #666666; width: 42%; }
   .ac-conv-head:empty { display: none; }
   :global(.ac-row-no) { display: block; font-size: 0.68rem; color: #666666; margin-top: 0.15rem; word-break: break-all; }
   :global(.ac-conv-back) { display: none; }
@@ -1320,6 +1375,8 @@ const PHONE_CC = [
 
   @media (max-width: 720px) {
     .ac-mx { grid-template-columns: 1fr; gap: 0; }
+    .ac-mx.has-booking { grid-template-columns: 1fr; }
+    .ac-mx-booking { border-left: 0; padding-left: 0; border-bottom: 1px solid #ececec; padding-bottom: 1rem; margin-bottom: 1rem; }
     .ac-mx .ac-mx-conv { display: none; }
     .ac-mx.is-open .ac-mx-list { display: none; }
     .ac-mx.is-open .ac-mx-conv { display: block; }
