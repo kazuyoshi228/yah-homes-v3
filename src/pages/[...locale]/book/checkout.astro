@@ -44,9 +44,9 @@ const HOUSE_META = {
               checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime },
   takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: facts.takasago.capacity,
               checkinTime: facts.takasago.checkinTime, checkoutTime: facts.takasago.checkoutTime },
-  // 検証用物件（デモ面のみ・Beds24 yah.homes test1）
-  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7,
-          checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime },
+  // 検証用物件。BOOK_PREVIEW ではなく専用フラグで出す（本番ゲート解除後も出さないため）
+  ...(process.env.BOOK_TEST_PROPERTY === "1" ? { test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7,
+          checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime } } : {}),
 };
 
 // 画面文言（5言語）

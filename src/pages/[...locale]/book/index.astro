@@ -86,15 +86,16 @@ const HOUSES = [
     detail: localizedPath(lang, "/properties/takasago"),
   },
   // 決済〜Beds24書込〜二重予約防止を通しで検証するための棟。
-  // BOOK_PREVIEW でしか生成されないページなので、本番の利用者には見えない。
-  {
+  // BOOK_PREVIEW ではなく専用フラグで出す。公開ゲート解除後は本番も BOOK_PREVIEW=1 で
+  // ビルドされるため、そちらに紐づけると検証用物件が本番に出てしまう（監査 P1）。
+  ...(process.env.BOOK_TEST_PROPERTY === "1" ? [{
     key: "test" as const,
     name: "yah.homes test1（検証用・実際には泊まれません）",
     area: { en: "Test property for end-to-end verification", ja: "動作検証用の物件です。ご予約はできません。", ko: "동작 검증용 숙소입니다.", zh: "測試用房源，無法實際入住。", th: "ที่พักสำหรับทดสอบระบบ" }[lang],
     capacity: 7,
     image: PROPERTIES.kiyokawa.exterior,
     detail: localizedPath(lang, "/properties/kiyokawa"),
-  },
+  }] : []),
 ];
 
 // 信頼ブロック: 運営者の顔と「聞けば人が答える」約束（写真は差し替え用スロット）
@@ -191,7 +192,7 @@ const strings = {
   directNote: PRICE_NOTE.direct,
   recovery: RECOVERY,
   nightsUnit: RECOVERY.nights(-1).replace("-1", "{n}"),
-  houseNames: { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" },
+  houseNames: { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago", test: "yah.homes test1（検証用）" },
   nightsLabel: t.nights(-1).replace("-1", "{n}"),
   dow: t.dow,
   fxCode: t.fxCode,
@@ -609,7 +610,8 @@ const strings = {
         const ci = addDays(state.checkin, d * sign);
         if (ci < todayKey) continue;
         // 元の棟を優先し、次にもう一方
-        for (const key of [preferProp, ...HOUSES.map((h) => h.key).filter((k) => k !== preferProp)]) {
+        // 検証用物件は回復導線に混ぜない（名前も価格も本物ではない）
+        for (const key of [preferProp, ...HOUSES.map((h) => h.key).filter((k) => k !== preferProp)].filter((k) => k !== "test")) {
           if (out.length >= max) break;
           if (out.some((o) => o.checkin === ci && o.prop === key)) continue;
           if (availFor(key, ci, nights)) out.push({ prop: key, checkin: ci, checkout: addDays(ci, nights), offset: d * sign });
