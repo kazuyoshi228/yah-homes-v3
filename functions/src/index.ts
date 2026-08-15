@@ -4182,8 +4182,16 @@ export const adminUsers = onRequest(
           const v = d.data();
           return { email: d.id, name: v.name ?? "", role: v.role ?? "operator",
             notifyPartners: v.notifyPartners === true, notifyTeiten: v.notifyTeiten === true,
-            notifyBookings: v.notifyBookings === true };
+            notifyBookings: v.notifyBookings === true, isRootUser: isAdmin(d.id) };
         });
+        // オーナーは台帳に載っていなくても行として出す（通知の宛先として扱えるように）。
+        // 権限そのものはコード側の ADMIN_EMAILS で決まるので、この行の有無に左右されない。
+        for (const a of ADMIN_EMAILS) {
+          if (!items.some((x) => x.email === a)) {
+            items.push({ email: a, name: "", role: "owner",
+              notifyPartners: false, notifyTeiten: false, notifyBookings: false, isRootUser: true });
+          }
+        }
         res.status(200).json({ ok: true, root: ADMIN_EMAILS, isRoot, items });
         return;
       }
@@ -4194,9 +4202,27 @@ export const adminUsers = onRequest(
           (req.body ?? {}) as Record<string, unknown>;
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
         if (!isSafeEmail(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
-        if (isAdmin(targetStr)) { res.status(400).json({ ok: false, error: "root_protected" }); return; }
-
         const ref = db.collection("admin_users").doc(targetStr);
+
+        /* オーナー自身の行は「通知の宛先」としてだけ編集できる。
+           権限（role）はコード側の ADMIN_EMAILS が正なので触らせない。削除もさせない
+           ＝ 台帳をいくら操作しても自分を締め出せない。 */
+        if (isAdmin(targetStr)) {
+          if (action === "delete") { res.status(400).json({ ok: false, error: "root_protected" }); return; }
+          await ref.set({
+            role: "owner",
+            notifyPartners: notifyPartners === true,
+            notifyTeiten: notifyTeiten === true,
+            notifyBookings: notifyBookings === true,
+            updatedAt: FieldValue.serverTimestamp(), updatedBy: email,
+          }, { merge: true });
+          await db.collection("audit_logs").add({
+            actor: email, action: "admin_user_notify_update", target: targetStr, at: FieldValue.serverTimestamp(),
+          });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
         if (action === "delete") {
           await ref.delete();
           await db.collection("audit_logs").add({ actor: email, action: "admin_user_delete", target: targetStr, at: FieldValue.serverTimestamp() });

@@ -57,6 +57,7 @@ const KINDS = [
 
         <p class="ne-foot">
           宛先の追加・削除と権限の変更は <a href="/admin/users/">管理者台帳</a> で行います。
+          オーナーのアドレスも1行として並び、通知の受け取りを切り替えられます（権限は変わらず、台帳から削除もできません）。
           いずれの通知も宛先が1件もない場合は、事故を防ぐためオーナー宛に送られます。
         </p>
       </div>
@@ -84,9 +85,9 @@ const KINDS = [
             <input type="checkbox" data-t="${esc(u.email)}" data-k="${kind}" ${u[kind] ? "checked" : ""} ${isRoot ? "" : "disabled"} />
             <span class="ne-mail">${esc(u.email)}</span>
             <span class="ne-name">${esc(u.name || "")}</span>
-            <span class="ne-role">${u.role === "owner" ? "Owner" : "Operator"}</span>
+            <span class="ne-role${u.isRootUser ? " is-root" : ""}">${u.isRootUser ? "オーナー" : u.role === "owner" ? "Owner" : "Operator"}</span>
           </label>`).join("") +
-          (on.length ? "" : `<p class="ne-warn">宛先が1件もありません。この通知はオーナー（${esc(root.join(", "))}）に届きます。</p>`);
+          (on.length ? "" : `<p class="ne-warn">宛先が1件もありません。この通知は安全のためオーナー（${esc(root.join(", "))}）に届きます。</p>`);
       });
       document.querySelectorAll("[data-t]").forEach((el) =>
         el.addEventListener("change", () => save(el.dataset.t, el.dataset.k, el.checked, el)));
@@ -156,6 +157,7 @@ const KINDS = [
   :global(.ne-row:last-child) { border-bottom: 0; }
   :global(.ne-name) { font-size: 0.76rem; color: #888888; }
   :global(.ne-role) { font-size: 0.68rem; color: #666666; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.55rem; }
+  :global(.ne-role.is-root) { color: #ffffff; background: #111111; border-color: #111111; }
   :global(.ne-warn) { font-size: 0.76rem; color: #b42318; line-height: 1.8; padding: 0.7rem 0.9rem; margin: 0; }
   .ne-table { width: 100%; border-collapse: collapse; }
   .ne-table th, .ne-table td { text-align: left; font-size: 0.8rem; color: #333333; padding: 0.7rem 0; border-bottom: 1px solid #f2f2f2; vertical-align: top; line-height: 1.8; }
