@@ -355,10 +355,10 @@ const VARS = [
 <style>
   .tp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
   .tp-container { max-width: 880px; margin: 0 auto; }
-  .tp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .tp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
   .tp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
   .tp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2rem; }
-  .tp-note { font-size: 0.78rem; color: #888888; line-height: 1.8; }
+  .tp-note { font-size: 0.78rem; color: #666666; line-height: 1.8; }
   .tp-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
   .tp-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
   .tp-btn {
@@ -378,7 +378,7 @@ const VARS = [
   .tp-nav { display: flex; flex-direction: column; gap: 0.1rem; }
   .tp-side-group {
     font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #aaaaaa; margin: 1.4rem 0 0.6rem; padding-left: 0.75rem;
+    color: #666666; margin: 1.4rem 0 0.6rem; padding-left: 0.75rem;
   }
   .tp-side-group:first-child { margin-top: 0; }
   .tp-side :global(.tp-navlink) {
@@ -396,9 +396,9 @@ const VARS = [
   .tp-side :global(.tp-navtext) { display: block; }
   .tp-side :global(.tp-navtags) {
     display: block; margin-top: 0.15rem; font-size: 0.66rem; font-weight: 400;
-    letter-spacing: 0.06em; color: #aaaaaa;
+    letter-spacing: 0.06em; color: #666666;
   }
-  .tp-side-empty { font-size: 0.76rem; color: #aaaaaa; padding-left: 0.75rem; }
+  .tp-side-empty { font-size: 0.76rem; color: #666666; padding-left: 0.75rem; }
 
   .tp-main { min-width: 0; }
   .tp-main :global(.tp-panel[hidden]) { display: none; }
@@ -423,7 +423,7 @@ const VARS = [
     font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
   }
   #tp-list :global(.tp-tag-on) { background: #111111; color: #ffffff; }
-  #tp-list :global(.tp-upd) { font-size: 0.7rem; color: #aaaaaa; }
+  #tp-list :global(.tp-upd) { font-size: 0.7rem; color: #666666; }
 
   /* 言語タブ。変更のある言語には点を出す */
   #tp-list :global(.tp-tabs) { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 1.6rem; }
@@ -460,18 +460,18 @@ const VARS = [
   .tp-scroll { overflow-x: auto; margin-bottom: 0.9rem; }
   .tp-grid { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .tp-grid th, .tp-grid td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid #ededed; vertical-align: top; }
-  .tp-grid thead th { font-weight: 500; color: #888888; font-size: 0.72rem; white-space: nowrap; border-bottom-color: #d7d7d7; }
+  .tp-grid thead th { font-weight: 500; color: #666666; font-size: 0.72rem; white-space: nowrap; border-bottom-color: #d7d7d7; }
   .tp-grid tbody tr:last-child td { border-bottom: none; }
   .tp-grid code { font-size: 0.74rem; color: #111111; white-space: nowrap; }
   .tp-strong { font-weight: 500; color: #111111; }
-  .tp-dim { color: #888888; }
+  .tp-dim { color: #666666; }
   .tp-todo { color: #b42318; }
   .tp-url { word-break: break-all; }
   .tp-url a { color: #111111; text-decoration: none; border-bottom: 1px solid #d7d7d7; }
   .tp-url a:hover { border-bottom-color: #111111; }
 
   #tp-list :global(.tp-field) { display: block; margin-bottom: 0.8rem; }
-  #tp-list :global(.tp-field span) { display: block; font-size: 0.72rem; color: #888888; margin-bottom: 0.3rem; }
+  #tp-list :global(.tp-field span) { display: block; font-size: 0.72rem; color: #666666; margin-bottom: 0.3rem; }
   #tp-list :global(.tp-subject) {
     width: 100%; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.85rem; color: #111111;
     border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;

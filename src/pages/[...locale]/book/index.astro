@@ -281,14 +281,14 @@ const strings = {
       </div>
 
       <!-- 信頼ブロック（迷って下までスクロールした人向け・売り込みにはしない） -->
-      <aside class="bk-host">
+      <div class="bk-host">
         {OWNER_PHOTO && <img class="bk-host-photo" src={OWNER_PHOTO} alt="" width="80" height="80" loading="lazy" />}
         <div class="bk-host-body">
           <p class="bk-host-name">{HOST_NAME}<span class="bk-host-role">{HOST_ROLE}</span></p>
           <p class="bk-host-text">{HOST_COPY.lead}</p>
           <button type="button" class="bk-host-link" id="bk-ask">{HOST_COPY.cta}</button>
         </div>
-      </aside>
+      </div>
 
       <!-- 問い合わせダイアログ（ページ遷移せず、選択中の日程を保持したまま質問できる） -->
       <dialog class="bk-dialog" id="bk-dialog">
@@ -849,7 +849,7 @@ const strings = {
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #888888;
+    color: #666666;
   }
   .bk-field-value {
     font-size: 0.95rem;
@@ -869,7 +869,7 @@ const strings = {
   }
   .bk-hint {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
     margin: 0.75rem 0 1.5rem;
   }
 
@@ -928,7 +928,7 @@ const strings = {
   }
   .bk-cal :global(.cal-dow) {
     font-size: 0.62rem;
-    color: #aaaaaa;
+    color: #666666;
     text-align: center;
     padding: 0.2rem 0;
   }
@@ -972,7 +972,7 @@ const strings = {
     gap: 1.25rem;
     margin-top: 0.75rem;
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-legend i {
     display: inline-block;
@@ -1028,7 +1028,7 @@ const strings = {
     .bk-house-body { grid-template-columns: 1fr; }
   }
   :global(.cal-day) { line-height: 1.2; }
-  :global(.cal-price) { font-size: 0.56rem; color: #888888; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  :global(.cal-price) { font-size: 0.56rem; color: #666666; line-height: 1.1; font-variant-numeric: tabular-nums; }
   :global(.cal-sel .cal-price) { color: rgba(255,255,255,0.75); }
   :global(.cal-closed .cal-price) { display: none; }
   .bk-house-price { font-size: 0.88rem; font-weight: 500; color: #111111; margin: 0.3rem 0 0; }
@@ -1040,7 +1040,7 @@ const strings = {
   }
   .bk-house-meta {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
     line-height: 1.7;
   }
   .bk-house-spec {
@@ -1054,7 +1054,7 @@ const strings = {
   .bk-house-spec th {
     text-align: left;
     font-weight: 400;
-    color: #888888;
+    color: #666666;
     padding: 0.15rem 1.25rem 0.15rem 0;
     white-space: nowrap;
     vertical-align: top;
@@ -1082,7 +1082,7 @@ const strings = {
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-quote-total) {
     font-size: 1.5rem;
@@ -1093,23 +1093,23 @@ const strings = {
   }
   .bk-quote :global(.bk-quote-fx) {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-quote-note) {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
     margin-top: 0.15rem;
   }
   .bk-quote :global(.bk-quote-idle),
   .bk-quote :global(.bk-quote-hint) {
     font-size: 0.8rem;
-    color: #aaaaaa;
+    color: #666666;
     line-height: 1.7;
   }
   .bk-quote :global(.bk-quote-out) {
     font-size: 0.9rem;
     font-weight: 500;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-cta) {
     display: block;
@@ -1161,7 +1161,7 @@ const strings = {
   }
   .bk-quote :global(.bk-rec-meta) {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-rec-total) {
     font-size: 1.15rem;
@@ -1191,7 +1191,7 @@ const strings = {
   .bk-quote :global(.bk-rec-sub) {
     display: block;
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-rec-price) {
     display: block;
@@ -1203,7 +1203,7 @@ const strings = {
   }
   .bk-quote :global(.bk-quote-direct) {
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
     line-height: 1.7;
     margin-top: 0.6rem;
   }
@@ -1235,7 +1235,7 @@ const strings = {
   .bk-host-role {
     font-size: 0.75rem;
     font-weight: 400;
-    color: #888888;
+    color: #666666;
     margin-left: 0.6rem;
   }
   .bk-host-text {
@@ -1281,7 +1281,7 @@ const strings = {
   }
   .bk-dialog-ctx {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
     margin-bottom: 1rem;
     min-height: 1em;
   }

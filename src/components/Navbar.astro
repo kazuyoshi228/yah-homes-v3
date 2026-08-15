@@ -96,7 +96,7 @@ const langList = LOCALES.map((code) => ({
 }));
 ---
 
-<nav id="site-nav" class={solid ? "" : "hero-visible"} data-solid={solid ? "1" : undefined} style="padding-top: env(safe-area-inset-top, 0px);">
+<nav id="site-nav" aria-label="メイン" class={solid ? "" : "hero-visible"} data-solid={solid ? "1" : undefined} style="padding-top: env(safe-area-inset-top, 0px);">
   <div class="nav-inner">
     <!-- Logo -->
     <a href={homeHref} class="nav-logo" aria-label="yah. home">
@@ -615,7 +615,7 @@ const langList = LOCALES.map((code) => ({
   .mm-lang-label {
     font-size: 0.7rem;
     font-weight: 500;
-    color: #aaaaaa;
+    color: #666666;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-bottom: 0.5rem;
