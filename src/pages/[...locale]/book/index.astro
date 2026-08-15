@@ -176,6 +176,9 @@ const strings = {
   soldOutHint: t.soldOutHint,
   minStay: t.minStay,
   upstreamFailed: t.upstreamFailed,
+  tooLate: t.tooLate,
+  tooFar: t.tooFar,
+  priceFrom: t.priceFrom,
   overCapacity: t.overCapacity,
   overCapacityHint: t.overCapacityHint,
   totalLabel: t.totalLabel,
@@ -260,6 +263,7 @@ const strings = {
               <div class="bk-house-head">
                 <h2 class="bk-house-name">{h.name}</h2>
                 <p class="bk-house-meta">{h.area}</p>
+                <p class="bk-house-price" data-pricefrom={h.key} hidden></p>
                 <table class="bk-house-spec">
                   <tbody>
                     {specRows(h.key).map(([label, value]) => (
@@ -373,13 +377,20 @@ const strings = {
       for (let s = 0; s < startDow; s++) cells += '<span class="cal-cell cal-empty"></span>';
       for (let d = 1; d <= days; d++) {
         const k = key(y, mo, d);
-        const past = k < todayKey;
+        // 締切は「チェックイン前日23:59」＝選べる最短のチェックインは明日。
+        // チェックアウトも必ずその翌日以降なので、今日はどの用途でも選べない。
+        // 選ばせてから「期限切れ」と言うより、最初から閉じるほうが親切
+        const past = k <= todayKey;
         const closed = past || !anyAvail(k);
         const isIn = state.checkin === k;
         const isOut = state.checkout === k;
         const inRange = state.checkin && state.checkout && k > state.checkin && k < state.checkout;
         const cls = ["cal-cell", closed ? "cal-closed" : "cal-open", isIn || isOut ? "cal-sel" : "", inRange ? "cal-range" : ""].filter(Boolean).join(" ");
-        cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}>${d}</button>`;
+        // 空いている日には、その日の最安デイリー料金を添える（Beds24 のOTAと同じ値）。
+        // 桁が入らないので千円単位の略記にする（¥45k）。正確な総額は日程選択後に出る
+        const pr = !closed ? minPriceFor(k) : null;
+        const prTag = pr ? `<span class="cal-price">¥${pr >= 100000 ? Math.round(pr / 1000) : (pr / 1000).toFixed(pr % 1000 ? 1 : 0)}k</span>` : "";
+        cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}><span class="cal-day">${d}</span>${prTag}</button>`;
       }
       const head = strings.dow.map((w) => `<span class="cal-dow">${w}</span>`).join("");
       const label = monthLabel(y, mo);
@@ -519,6 +530,14 @@ const strings = {
         box.innerHTML = `<p class="bk-quote-out">${strings.minStay.replace("{n}", String(p.minStay))}</p>`;
         return;
       }
+      if (why === "too_late") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.tooLate}</p>`;
+        return;
+      }
+      if (why === "too_far") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.tooFar}</p>`;
+        return;
+      }
       if (why === "upstream_failed") {
         box.innerHTML = `<p class="bk-quote-out">${strings.upstreamFailed}</p>`;
         return;
@@ -595,6 +614,34 @@ const strings = {
   }
 
   // ── 満室時の回復導線: ①同日程で別棟が空いていれば具体提案 ②なければ近い空室日を最大3件 ──
+  /** その日の最安デイリー料金（表示対象の実物件のみ・検証用は除く） */
+  function minPriceFor(dateKey) {
+    if (!state.prices) return null;
+    let min = null;
+    for (const h of HOUSES) {
+      if (h.key === "test") continue;
+      if (state.avail?.[h.key]?.[dateKey] !== true) continue;
+      const p = state.prices[h.key]?.[dateKey];
+      if (p && (!min || p < min)) min = p;
+    }
+    return min;
+  }
+
+  /** 物件カードの「¥X〜/泊」。向こう13ヶ月の空室日の最安値＝実売価格からの自動導出 */
+  function renderPriceFrom() {
+    for (const h of HOUSES) {
+      const box = document.querySelector(`[data-pricefrom="${h.key}"]`);
+      if (!box) continue;
+      const prices = Object.entries(state.prices?.[h.key] ?? {})
+        .filter(([d]) => state.avail?.[h.key]?.[d] === true)
+        .map(([, v]) => v);
+      if (!prices.length) continue;
+      const min = Math.min(...prices);
+      box.innerHTML = `${strings.priceFrom.replace("{v}", `¥${min.toLocaleString("en-US")}`)}`;
+      box.hidden = false;
+    }
+  }
+
   const availFor = (propKey, ci, n) => {
     if (!state.avail?.[propKey]) return false;
     for (let i = 0; i < n; i++) {
@@ -692,6 +739,8 @@ const strings = {
     try {
       const j = await fetch(`${AVAIL_ENDPOINT}?props=${PROPS_PARAM}`).then((r) => r.json());
       state.avail = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.dates || {}])) : null;
+      state.prices = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.prices || {}])) : null;
+      renderPriceFrom();
     } catch {
       state.avail = null;
     }
@@ -886,7 +935,8 @@ const strings = {
   .bk-cal :global(.cal-cell) {
     font-size: 0.78rem;
     text-align: center;
-    padding: 0.45rem 0;
+    padding: 0.3rem 0 0.25rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.05rem;
     border: 1px solid transparent;
     border-radius: 3px;
     background: #ffffff;
@@ -977,6 +1027,11 @@ const strings = {
   @media (max-width: 860px) {
     .bk-house-body { grid-template-columns: 1fr; }
   }
+  :global(.cal-day) { line-height: 1.2; }
+  :global(.cal-price) { font-size: 0.56rem; color: #888888; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  :global(.cal-sel .cal-price) { color: rgba(255,255,255,0.75); }
+  :global(.cal-closed .cal-price) { display: none; }
+  .bk-house-price { font-size: 0.88rem; font-weight: 500; color: #111111; margin: 0.3rem 0 0; }
   .bk-house-name {
     font-size: 1.1rem;
     font-weight: 500;

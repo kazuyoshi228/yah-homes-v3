@@ -728,7 +728,7 @@ async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<str
   return row.new.id;
 }
 
-type AvailCache = { data: Record<string, boolean>; expires: number };
+type AvailCache = { data: Record<string, boolean>; prices: Record<string, number>; expires: number };
 const availCache: Record<string, AvailCache> = {};
 
 // 見積りの短時間キャッシュ（表示用のみ・15〜30秒）。予約確定時の再検証はこれを経由しない。
@@ -831,23 +831,26 @@ async function quoteFor(
 }
 
 /** 1棟ぶんの空室カレンダー（約13ヶ月）。サーバー側で5分キャッシュ。 */
-async function calendarFor(slug: PropSlug): Promise<{ dates: Record<string, boolean>; cached: boolean }> {
+async function calendarFor(slug: PropSlug): Promise<{ dates: Record<string, boolean>; prices: Record<string, number>; cached: boolean }> {
   const cached = availCache[slug];
-  if (cached && cached.expires > Date.now()) return { dates: cached.data, cached: true };
+  if (cached && cached.expires > Date.now()) return { dates: cached.data, prices: cached.prices, cached: true };
 
   const start = new Date();
   const end = new Date(start.getTime() + 400 * 86400000); // 1年先まで月送りできるよう13ヶ月分を先読み
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）
+  // 部屋在庫カレンダー（アカウントスコープのreadトークン・propertyIdで棟を指定）。
+  // includePrices の price1 は Beds24 のデイリー料金＝OTAに出しているのと同じ値。
+  // これをカレンダーに直接出す（Airbnb と同じ見せ方）ことで、価格の別管理を作らない。
   const r = await fetch(
-    `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}&startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true`,
+    `${BEDS24_API}/inventory/rooms/calendar?propertyId=${BOOKING_PROP_IDS[slug]}&startDate=${fmt(start)}&endDate=${fmt(end)}&includeNumAvail=true&includePrices=true`,
     { headers: { token: BEDS24_TOKEN.value() } },
   );
-  const j = (await r.json()) as { success?: boolean; data?: Array<{ roomId?: number; calendar?: Array<{ from: string; to: string; numAvail?: number }> }> };
+  const j = (await r.json()) as { success?: boolean; data?: Array<{ roomId?: number; calendar?: Array<{ from: string; to: string; numAvail?: number; price1?: number }> }> };
   if (!j.success || !j.data) throw new Error("beds24 calendar fetch failed");
 
-  // 日別: いずれかのroomでnumAvail>=1なら空き
+  // 日別: いずれかのroomでnumAvail>=1なら空き。価格は最安のroomを採用
   const dates: Record<string, boolean> = {};
+  const prices: Record<string, number> = {};
   for (const room of j.data) {
     for (const seg of room.calendar ?? []) {
       const from = new Date(`${seg.from}T00:00:00Z`);
@@ -856,11 +859,13 @@ async function calendarFor(slug: PropSlug): Promise<{ dates: Record<string, bool
         const key = d.toISOString().slice(0, 10);
         const avail = (seg.numAvail ?? 0) >= 1;
         dates[key] = dates[key] || avail;
+        const p1 = Number(seg.price1);
+        if (Number.isFinite(p1) && p1 > 0 && (!prices[key] || p1 < prices[key])) prices[key] = p1;
       }
     }
   }
-  availCache[slug] = { data: dates, expires: Date.now() + 5 * 60 * 1000 };
-  return { dates, cached: false };
+  availCache[slug] = { data: dates, prices, expires: Date.now() + 5 * 60 * 1000 };
+  return { dates, prices, cached: false };
 }
 
 type PropSlug = keyof typeof BOOKING_PROP_IDS & string;
@@ -959,10 +964,10 @@ export const bookingApi = onRequest(
           ok: true,
           generatedAt: new Date().toISOString(),
           cacheStatus: results.every((r) => r.cached) ? "hit" : "miss",
-          properties: props.map((k, i) => ({ id: k, dates: results[i].dates })),
+          properties: props.map((k, i) => ({ id: k, dates: results[i].dates, prices: results[i].prices })),
         });
       } else {
-        res.status(200).json({ ok: true, prop: props[0], dates: results[0].dates, cached: results[0].cached });
+        res.status(200).json({ ok: true, prop: props[0], dates: results[0].dates, prices: results[0].prices, cached: results[0].cached });
       }
     } catch (err) {
       logger.error("bookingApi availability failed", err);

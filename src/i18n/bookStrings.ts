@@ -21,6 +21,9 @@ export interface BookStrings {
   soldOutHint: string;
   minStay: string;      // {n} に必要泊数
   upstreamFailed: string;
+  tooLate: string;
+  tooFar: string;
+  priceFrom: string;    // {v} に金額
   /** 定員超過（満室ではない。{n}=その棟の定員） */
   overCapacity: string;
   overCapacityHint: string;
@@ -69,6 +72,9 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     soldOutHint: "Try different dates or the other house.",
     minStay: "These dates need a minimum stay of {n} nights",
     upstreamFailed: "We could not check availability just now. Please try again in a moment.",
+    tooLate: "Bookings for these dates have closed (until 23:59 the day before check-in).",
+    tooFar: "These dates are not open for booking yet.",
+    priceFrom: "From {v} / night",
     totalLabel: "Total",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
     approx: "approx.",
@@ -108,6 +114,9 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     soldOutHint: "日付を変更するか、もう一方の棟をご検討ください。",
     minStay: "この日程は{n}泊からのご予約となります",
     upstreamFailed: "ただいま空室を確認できませんでした。少し時間をおいてお試しください。",
+    tooLate: "この日程はお申し込みの期限を過ぎています（チェックイン前日23:59まで）。",
+    tooFar: "この日程はまだ受付を開始しておりません。",
+    priceFrom: "{v}〜 / 泊",
     totalLabel: "合計",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
     approx: "約",
@@ -147,6 +156,9 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     soldOutHint: "날짜를 변경하거나 다른 동을 확인해 주세요.",
     minStay: "이 일정은 {n}박부터 예약하실 수 있습니다",
     upstreamFailed: "지금은 예약 가능 여부를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    tooLate: "이 일정은 예약 마감되었습니다(체크인 전날 23:59까지).",
+    tooFar: "이 일정은 아직 예약을 받고 있지 않습니다.",
+    priceFrom: "{v}〜 / 1박",
     totalLabel: "합계",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
     approx: "약",
@@ -186,6 +198,9 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     soldOutHint: "請更換日期，或查看另一棟。",
     minStay: "此日期最少需連住 {n} 晚",
     upstreamFailed: "目前無法確認空房狀況，請稍後再試。",
+    tooLate: "此日期已截止受理（可預訂至入住前一天 23:59）。",
+    tooFar: "此日期尚未開放預訂。",
+    priceFrom: "{v} 起 / 晚",
     totalLabel: "總金額",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
     approx: "約",
@@ -225,6 +240,9 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     soldOutHint: "กรุณาเปลี่ยนวันที่ หรือดูอีกหลังหนึ่ง",
     minStay: "วันที่นี้ต้องเข้าพักอย่างน้อย {n} คืน",
     upstreamFailed: "ขณะนี้ไม่สามารถตรวจสอบห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
+    tooLate: "ปิดรับจองสำหรับวันที่นี้แล้ว (จองได้ถึง 23:59 ของวันก่อนเช็คอิน)",
+    tooFar: "ยังไม่เปิดรับจองสำหรับวันที่นี้",
+    priceFrom: "เริ่มต้น {v} / คืน",
     totalLabel: "ราคารวม",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,
     approx: "ประมาณ",

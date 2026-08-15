@@ -37,8 +37,13 @@ const { lang, path, title, description, ogImage, ogType, jsonLd, noindex, availa
   availableLocales={availableLocales}
   preloadImage={preloadImage}
 >
+  <a href="#main-content" class="skip-link">{
+    { ja: "本文へ移動", en: "Skip to content", ko: "본문으로 이동", zh: "跳至主要內容", th: "ข้ามไปยังเนื้อหา" }[lang] ?? "Skip to content"
+  }</a>
   <Navbar lang={lang} path={path} solid={solidNav} />
-  <slot />
+  <main id="main-content">
+    <slot />
+  </main>
   <Footer lang={lang} />
 
   <script>

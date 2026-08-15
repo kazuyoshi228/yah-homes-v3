@@ -266,6 +266,11 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         <!-- 右: 入力ステップ -->
         <div class="co-main">
           <h1 class="co-title">{C.title}</h1>
+          <ol class="co-steps" id="co-steps" aria-label={C.title}>
+            {C.steps.map((label, i) => (
+              <li class="co-step" data-step={i + 1}><span class="co-step-no">{i + 1}</span>{label}</li>
+            ))}
+          </ol>
 
           <!-- 認証 -->
           <section class="co-sec" id="co-auth">
@@ -367,6 +372,15 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
 
   // GA4送信のラッパー。氏名・メール・電話・カード情報は絶対に含めない（v4 §10）
+  function setStep(n) {
+    document.querySelectorAll(".co-step").forEach((el) => {
+      const i = Number(el.dataset.step);
+      el.classList.toggle("is-done", i < n);
+      el.classList.toggle("is-current", i === n);
+    });
+  }
+  setStep(2);   // 日程・棟はこのページに来た時点で選択済み
+
   const isWebViewUA = /(FBAN|FBAV|Instagram|Line\/|NAVER|KAKAOTALK)/i.test(navigator.userAgent || "");
   const device = /Mobi|Android|iPhone/i.test(navigator.userAgent || "") ? "mobile" : "desktop";
   function track(name, params) {
@@ -504,6 +518,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
       if (!user) return;
       $("co-auth").hidden = true;
       ["co-details", "co-rules", "co-pay"].forEach((id) => ($(id).hidden = false));
+      setStep(2);
       currentUser = user;
       const provider = user.providerData?.[0]?.providerId === "google.com" ? "google" : "email_link";
       window.gtag?.("event", "login", { method: provider, lang });
@@ -662,6 +677,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
       });
       track("payment_form_shown", { prop, seconds: elapsed() });
       $("co-payment-element").hidden = false;
+      setStep(3);
       $("co-pay-status").textContent = "";
       btn.disabled = false;
     } catch (err) {
@@ -725,7 +741,21 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   .co-cancel { font-size: 0.85rem; font-weight: 500; color: #111111; }
 
   /* 右カラム */
-  .co-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 1.75rem; }
+  .co-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 1rem; }
+  .co-steps { display: flex; gap: 1.5rem; list-style: none; padding: 0; margin: 0 0 2rem; flex-wrap: wrap; }
+  :global(.co-step) { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.76rem; color: #aaaaaa; }
+  :global(.co-step-no) {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%; font-size: 0.68rem;
+    border: 1px solid #d7d7d7; color: #aaaaaa; flex: none;
+  }
+  :global(.co-step.is-current) { color: #111111; font-weight: 500; }
+  :global(.co-step.is-current .co-step-no) { background: #111111; border-color: #111111; color: #ffffff; }
+  :global(.co-step.is-done) { color: #666666; }
+  :global(.co-step.is-done .co-step-no) { border-color: #111111; color: #111111; }
+  :global(.co-step.is-done .co-step-no)::before { content: "✓"; }
+  :global(.co-step.is-done .co-step-no) { font-size: 0; }
+  :global(.co-step.is-done .co-step-no)::before { font-size: 0.68rem; }
   .co-sec { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.5rem; margin-bottom: 1.25rem; }
   .co-sec-title { font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 0.6rem; }
   .co-sec-lead { font-size: 0.82rem; color: #555555; line-height: 1.8; margin-bottom: 1rem; }

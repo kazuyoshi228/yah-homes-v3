@@ -327,3 +327,37 @@ html[lang="ja"] h2,
 html[lang="ja"] h3 {
   text-wrap: balance;
 }
+
+/* ── アクセシビリティ ──
+   キーボード操作時だけフォーカスリングを出す（マウスクリックでは出さない）。
+   モノクロ基調なので、リングは黒2pxで統一する。 */
+:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* 白黒反転している場所（黒いボタン・黒いカード）では白いリングに切り替える */
+.ac-btn:focus-visible,
+.bk-cta:focus-visible,
+.co-pay-btn:focus-visible,
+.mp-btn:focus-visible {
+  outline-color: #111111;
+  outline-offset: 3px;
+}
+
+/* スキップリンク: キーボード利用者が Tab 一発で本文へ飛べるように。
+   フォーカスが当たったときだけ画面に出る。 */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: #111111;
+  color: #ffffff;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 0;
+}
