@@ -1455,7 +1455,7 @@ async function sendLifecycleMail(
       subject, text, html,
     });
     logMail(kind === "reminder" ? "checkin" : kind, String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
-    await mirrorMailToThread(bookingId, b, kind === "reminder" ? "checkin" : kind, subject, text);
+    await mirrorMailToThread(bookingId, b, kind === "reminder" ? "checkin" : kind, subject, text, html);
   } catch (err) {
     logMail(kind === "reminder" ? "checkin" : kind, String(b.email), false, { bookingId, lang: String(b.lang ?? ""), subject, error: String(err) });
     throw err; // 呼び出し側の失敗処理（再送フラグを立てない）を維持する
@@ -3633,7 +3633,7 @@ async function sendReminderIfLate(
    失敗してもメール送信は成立させる（あくまで控え）。 */
 async function mirrorMailToThread(
   bookingId: string, b: BookingDoc & Record<string, unknown>,
-  kind: string, subject: string, text: string,
+  kind: string, subject: string, text: string, html?: string,
 ): Promise<void> {
   try {
     await ensureThread(bookingId, b);
@@ -3641,9 +3641,13 @@ async function mirrorMailToThread(
     const body = String(text ?? "").trim().slice(0, 4000);
     if (!body) return;
     const title = String(subject ?? "").trim().slice(0, 200);
+    // HTML も残す。画面はこちらを優先して描く（表・ボタン・行間がそのまま出る）。
+    // テキスト版は保険として必ず持つ（HTMLが欠けても内容は読める）。
+    const htmlBody = String(html ?? "").slice(0, 400000);
     await tref.collection("messages").add({
       from: "host", system: true, mailKind: kind, title,
-      body, at: FieldValue.serverTimestamp(),
+      body, ...(htmlBody ? { html: htmlBody } : {}),
+      at: FieldValue.serverTimestamp(),
     });
     await tref.set({
       lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "host", lastBody: title,
@@ -3668,7 +3672,7 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
       subject, text, html,
     });
     logMail("confirm", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject: subj });
-    await mirrorMailToThread(bookingId, b, "confirm", subject, text);
+    await mirrorMailToThread(bookingId, b, "confirm", subject, text, html);
   } catch (err) {
     logger.error("sendConfirmationMail failed", err); // 送信失敗で予約は取り消さない
     logMail("confirm", String(b.email), false, { bookingId, lang: String(b.lang ?? ""), subject: subj, error: String(err) });
@@ -3801,7 +3805,7 @@ async function sendCancellationMail(
       subject, text, html,
     });
     logMail("cancel", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
-    await mirrorMailToThread(bookingId, b, "cancel", subject, text);
+    await mirrorMailToThread(bookingId, b, "cancel", subject, text, html);
   } catch (err) {
     logger.error("sendCancellationMail failed", err);
     logMail("cancel", String(b.email), false, { bookingId, lang: String(b.lang ?? ""), error: String(err) });

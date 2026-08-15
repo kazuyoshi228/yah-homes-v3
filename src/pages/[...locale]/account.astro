@@ -895,6 +895,25 @@ const PHONE_CC = [
     return d ? d.toLocaleString(lang === "en" ? "en-US" : "ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
   }
 
+
+  // srcdoc に流し込むためのエスケープ（属性値なので " と & を潰す）
+  function escAttr(v) {
+    return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  }
+  // 中身の高さに合わせて iframe を伸ばす（スクロールバーを出さない）
+  function fitFrames(root) {
+    root.querySelectorAll("iframe[srcdoc]").forEach((f) => {
+      const fit = () => {
+        try {
+          const h = f.contentDocument?.body?.scrollHeight;
+          if (h) f.style.height = `${h + 8}px`;
+        } catch { f.style.height = "480px"; }   // 読めないときは固定高で妥協する
+      };
+      f.addEventListener("load", fit);
+      fit();
+    });
+  }
+
   function renderPicker() {
     const list = cache.filter((b) => b.status !== "CANCELLED")
       .sort((a, b) => {
@@ -957,11 +976,19 @@ const PHONE_CC = [
         const mine = m.from === "guest";
         // 自動送信ぶんは控えとして残しているものなので、会話の吹き出しとは分けて見せる
         if (m.system) {
+          const h = typeof m.html === "string" && m.html ? m.html : "";
+          // メール本文はサーバが生成した HTML。iframe に閉じて、実際に届くものと
+          // 同じ見た目で出す（表・ボタン・画像・余白がそのまま出る）。
+          // sandbox に allow-scripts を与えないのでスクリプトは動かない。
+          // allow-same-origin は高さの実測にだけ使う。リンクは別タブで開く。
+          const frame = h
+            ? `<iframe class="ac-sys-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy" srcdoc="${escAttr(`<base target="_blank"><div style="margin:0">${h}</div>`)}"></iframe>`
+            : `<pre class="ac-sys-text">${esc(m.body)}</pre>`;
           return `<div class="ac-bub ac-bub-sys">
             <p class="ac-bub-meta">${esc(uiA.msgAuto)} ${fmtTime(m.at)}</p>
             <div class="ac-sys-body">
               ${m.title ? `<p class="ac-sys-title">${esc(m.title)}</p>` : ""}
-              <pre class="ac-sys-text">${esc(m.body)}</pre>
+              ${frame}
             </div>
           </div>`;
         }
@@ -970,6 +997,7 @@ const PHONE_CC = [
           <div class="ac-bub-body">${esc(m.body)}${m.translated ? `<div class="ac-bub-tr">${esc(m.translated)}</div>` : ""}</div>
         </div>`;
       }).join("");
+      fitFrames($("ac-thread"));
       $("ac-thread").scrollTop = $("ac-thread").scrollHeight;
     }, () => { $("ac-thread").innerHTML = `<p class="ac-status">${uiA.error}</p>`; });
     // 既読にする
@@ -1256,6 +1284,10 @@ const PHONE_CC = [
   }
   :global(.ac-bub-host .ac-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
   :global(.ac-bub-sys) { max-width: 100%; }
+  :global(.ac-sys-frame) {
+    display: block; width: 100%; border: 0; background: #ffffff;
+    min-height: 120px; overflow: hidden;
+  }
   :global(.ac-sys-body) { border: 1px solid #ececec; border-radius: 8px; background: #fafafa; padding: 0.9rem 1rem; }
   :global(.ac-sys-title) { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
   :global(.ac-sys-text) {
