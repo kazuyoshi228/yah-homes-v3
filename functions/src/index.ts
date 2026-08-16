@@ -2460,13 +2460,13 @@ async function notifyMessage(
     to: await notifyRecipients("notifyBookings"),
     replyTo: `no-reply@mail.yah.homes`,
     subject: `【メッセージ】${String(b.name ?? "")}様（${P.name} ${String(b.checkin)}〜）`,
-    text: `${body}\n\n${SITE_URL}/admin/messages/#${bookingId}`,
+    text: `${body}\n\n${SITE_URL}/admin/booking/?id=${bookingId}`,
     html: mailHtml({
       heading: "お客様からメッセージが届きました",
       badge: `予約番号|${no}`,
       rows: [["お客様", esc(String(b.name ?? ""))], [P.name, `${esc(String(b.checkin))} 〜 ${esc(String(b.checkout))}`]],
       blocks: [{ title: "メッセージ", body: esc(text) + (translated ? `<br><br><span style="color:#888888;">【訳】${esc(translated)}</span>` : "") }],
-      cta: { label: "返信する", href: `${SITE_URL}/admin/messages/#${bookingId}` },
+      cta: { label: "返信する", href: `${SITE_URL}/admin/booking/?id=${bookingId}` },
       note: "このメールには返信できません。返信は管理画面から行ってください。",
     }),
   });
@@ -4531,6 +4531,30 @@ export const adminBookings = onRequest(
 
     try {
       if (req.method === "GET") {
+        /* ?id= 指定は予約詳細（/admin/booking/）用。予約の全容＋送信済みメールを1回で返す */
+        const detailId = String(req.query.id ?? "");
+        if (detailId) {
+          const doc = await db.collection("bookings").doc(detailId).get();
+          if (!doc.exists) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+          const v = doc.data() as Record<string, unknown>;
+          const mailsSnap = await db.collection("mail_logs").where("bookingId", "==", detailId).get();
+          const mails = mailsSnap.docs
+            .map((d) => { const m = d.data(); return { kind: m.kind, ok: m.ok === true, subject: m.subject ?? "", at: m.at?.toMillis?.() ?? 0 }; })
+            .sort((a, b) => a.at - b.at);
+          res.status(200).json({ ok: true, isRoot,
+            booking: {
+              id: doc.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
+              total: v.total, status: v.status, name: v.name ?? null, email: v.email ?? null,
+              phone: v.phone ?? null, lang: v.lang ?? null, arrival: v.arrival ?? null,
+              freeCancelUntilAt: v.freeCancelUntilAt ?? null,
+              createdAt: (v.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? null,
+              needsAction: v.needsAction === true, adminMemo: v.adminMemo ?? null,
+              failureReason: v.failureReason ?? null, beds24Id: v.beds24Id ?? null,
+              paymentIntentId: v.paymentIntentId ? true : false,   // 存在の有無だけ（IDそのものは返さない）
+            },
+            mails });
+          return;
+        }
         const snap = await db.collection("bookings").orderBy("createdAt", "desc").limit(200).get();
         const items = snap.docs.map((d) => {
           const v = d.data();

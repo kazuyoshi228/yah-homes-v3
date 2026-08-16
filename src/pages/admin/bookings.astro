@@ -94,7 +94,7 @@ const FB_CONFIG = {
       $("ab-tbody").innerHTML = items.map((b) => `
         <tr data-id="${esc(b.id)}">
           <td>${fmt(b.createdAt)}</td>
-          <td class="ab-nowrap"><span class="ab-no" title="${esc(b.id)}">${esc(b.id.slice(0, 8).toUpperCase())}</span></td>
+          <td class="ab-nowrap"><a class="ab-no" href="/admin/booking/?id=${esc(b.id)}" title="${esc(b.id)}">${esc(b.id.slice(0, 8).toUpperCase())}</a></td>
           <td><span class="ab-badge" data-s="${esc(b.status)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
           <td>${esc(PROP[b.prop] ?? b.prop)}</td>
           <td class="ab-nowrap">${esc((b.checkin ?? "").slice(5))}<br>〜${esc((b.checkout ?? "").slice(5))}</td>
@@ -196,7 +196,7 @@ const FB_CONFIG = {
   .ab-btn { margin-top: 1rem; padding: 0.7rem 1.6rem; background: #111111; color: #ffffff; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer; }
   .ab-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-family: inherit; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; white-space: nowrap; }
   .ab-btn-sub:hover { border-color: #111111; }
-  .ab-table :global(.ab-no) { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; font-size: 0.78rem; }
+  .ab-table :global(.ab-no) { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; font-size: 0.78rem; color: #111111; text-decoration: underline; text-underline-offset: 2px; }
   .ab-table :global(.ab-refund) { border-color: #c0392b; color: #c0392b; }
   .ab-table :global(.ab-refund:hover) { background: #c0392b; color: #ffffff; border-color: #c0392b; }
   .ab-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; flex-wrap: wrap; }

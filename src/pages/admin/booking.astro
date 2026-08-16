@@ -1,0 +1,303 @@
+---
+/* /admin/booking/?id=<予約ID> — 予約詳細（承認済み・2026-08-16 着工）
+   1つの予約に関する全部をここに集める: 予約情報／タイムライン（送信メール＋メッセージの
+   時系列マージ）／操作（要対応・メモ・返金）／メッセージ（右カラム・その場で返信）。
+   一覧・メッセージ・通知メールからのハブになる。データは既存API（adminBookings ?id= /
+   messagesApi）と Firestore 購読の再配置で、新しい書き込み経路は作らない。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const BOOKINGS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminBookings";
+const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+const PROP: Record<string, string> = { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago", test: "yah.homes test1（検証用）" };
+const MAIL_LABEL: Record<string, string> = {
+  confirm: "予約確定メール", checkin: "チェックイン案内", checkout: "チェックアウト案内",
+  review: "レビュー依頼", cancel: "キャンセル確認", message: "メッセージ通知",
+};
+---
+
+<SiteLayout adminNav lang="ja" path="/admin/booking" title="予約詳細 | yah.homes" description="予約詳細" noindex={true} solidNav>
+  <section class="bd">
+    <div class="bd-container">
+      <p class="bd-eyebrow">Admin</p>
+      <div class="bd-head" id="bd-head" hidden>
+        <h1 class="bd-no" id="bd-no"></h1>
+        <span class="bd-badge" id="bd-status"></span>
+        <span class="bd-sub" id="bd-summary"></span>
+      </div>
+
+      <div class="bd-grid" id="bd-grid" hidden>
+        <div class="bd-left">
+          <section class="bd-panel">
+            <h2 class="bd-h2">ご予約情報</h2>
+            <table class="bd-table" id="bd-info"></table>
+          </section>
+
+          <section class="bd-panel">
+            <h2 class="bd-h2">タイムライン</h2>
+            <p class="bd-note">送信済みメールとメッセージを時系列で。「案内は届いているか」はここで分かります。</p>
+            <ol class="bd-timeline" id="bd-timeline"></ol>
+          </section>
+
+          <section class="bd-panel">
+            <h2 class="bd-h2">操作</h2>
+            <label class="bd-op"><input type="checkbox" id="bd-flag" /> 要対応にする</label>
+            <div class="bd-op">
+              <button type="button" class="bd-btn-sub" id="bd-memo-btn">メモを記録する</button>
+              <span class="bd-memo" id="bd-memo"></span>
+            </div>
+            <div class="bd-op" id="bd-refund-wrap" hidden>
+              <button type="button" class="bd-btn-sub bd-refund" id="bd-refund">返金する</button>
+            </div>
+            <p class="bd-note" id="bd-op-status"></p>
+          </section>
+        </div>
+
+        <div class="bd-right">
+          <h2 class="bd-h2">メッセージ</h2>
+          <div class="bd-thread" id="bd-thread"></div>
+          <div class="bd-compose">
+            <textarea id="bd-input" rows="2" maxlength="2000" placeholder="返信を入力（Cmd/Ctrl + Enter で送信）"></textarea>
+            <button type="button" class="bd-btn" id="bd-send">送信</button>
+          </div>
+          <p class="bd-note" id="bd-msg-status"></p>
+        </div>
+      </div>
+      <p class="bd-note" id="bd-status-line">読み込み中...</p>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ BOOKINGS_ENDPOINT, MESSAGES_ENDPOINT, FB_CONFIG, PROP, MAIL_LABEL }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp, getApps }) => {
+    const { getAuth, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const app = getApps()[0] ?? initializeApp(FB_CONFIG);
+    const auth = getAuth(app);
+    const fs = fsm.getFirestore(app);
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const escAttr = (v) => String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const yen = (n) => `¥${Number(n ?? 0).toLocaleString("en-US")}`;
+    const fmt = (ms) => ms ? new Date(ms).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    const id = new URLSearchParams(location.search).get("id") || location.hash.slice(1);
+    let booking = null, mails = [], msgs = [];
+
+    const STATUS = { CONFIRMED: "確定", CANCELLED: "キャンセル", PAYMENT_PENDING: "決済待ち",
+      PAYMENT_FAILED: "決済失敗", AUTHORIZED: "決済確認中", RESERVATION_PENDING: "手続き中",
+      CAPTURE_RETRY: "再試行中", MANUAL_REVIEW: "要対応", VOIDED: "無効" };
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch(method === "GET" ? `${BOOKINGS_ENDPOINT}?id=${encodeURIComponent(id)}` : BOOKINGS_ENDPOINT, {
+        method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      return r.json();
+    }
+
+    function renderHead() {
+      const b = booking;
+      $("bd-no").textContent = b.id.slice(0, 8).toUpperCase();
+      $("bd-status").textContent = STATUS[b.status] ?? b.status;
+      $("bd-status").dataset.s = b.status;
+      $("bd-summary").textContent = `${PROP[b.prop] ?? b.prop}　${(b.checkin ?? "").slice(5)} 〜 ${(b.checkout ?? "").slice(5)}　${b.guests}名　${yen(b.total)}`;
+      $("bd-head").hidden = false;
+    }
+
+    function renderInfo() {
+      const b = booking;
+      const rows = [
+        ["お客様", `${esc(b.name ?? "")}<br><span class="bd-sub2">${esc(b.email ?? "")}${b.phone ? `<br>${esc(b.phone)}` : ""}</span>`],
+        ["言語", esc((b.lang ?? "").toUpperCase() || "—")],
+        ["到着予定", esc(b.arrival || "未定")],
+        ["決済", b.paymentIntentId ? "決済あり（Stripe）" : "未決済"],
+        ["無料キャンセル期限", esc(String(b.freeCancelUntilAt ?? "").slice(0, 10) || "—")],
+        ["予約日時", fmt(b.createdAt) || "—"],
+        ["Beds24", b.beds24Id ? `#${esc(String(b.beds24Id))}` : "未連携"],
+      ];
+      $("bd-info").innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
+    }
+
+    function renderTimeline() {
+      // 送信メール＋メッセージを時系列マージ。種類はアイコン的な接頭辞で区別する
+      const items = [
+        ...mails.map((m) => ({ at: m.at, kind: "mail", label: `${MAIL_LABEL[m.kind] ?? m.kind}を送信${m.ok ? "" : "（失敗）"}`, ok: m.ok })),
+        ...msgs.filter((m) => !m.system).map((m) => ({ at: m.at, kind: m.from, label: m.from === "guest" ? `お客様からメッセージ「${(m.body || "").slice(0, 30)}」` : `運営が返信「${(m.body || "").slice(0, 30)}」` })),
+      ].filter((x) => x.at).sort((a, b) => a.at - b.at);
+      $("bd-timeline").innerHTML = items.length ? items.map((x) => `
+        <li class="bd-tl${x.ok === false ? " is-fail" : ""}">
+          <span class="bd-tl-time">${fmt(x.at)}</span>
+          <span class="bd-tl-label">${esc(x.label)}</span>
+        </li>`).join("") : '<li class="bd-note">まだ記録がありません。</li>';
+    }
+
+    function renderMsgs() {
+      $("bd-thread").innerHTML = msgs.map((m) => {
+        if (m.system) {
+          const h = typeof m.html === "string" && m.html ? m.html : "";
+          const frame = h
+            ? `<iframe class="bd-sys-frame" scrolling="no" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy" srcdoc="${escAttr(`<base target="_blank"><style>html,body{margin:0;overflow:hidden}img{max-width:100%;height:auto}</style><div style="margin:0">${h}</div>`)}"></iframe>`
+            : `<pre class="bd-sys-text">${esc(m.body)}</pre>`;
+          return `<div class="bd-bub bd-bub-sys"><p class="bd-bub-meta">自動送信 ${fmt(m.at)}</p><div class="bd-sys-body">${m.title ? `<p class="bd-sys-title">${esc(m.title)}</p>` : ""}${frame}</div></div>`;
+        }
+        const host = m.from === "host";
+        return `<div class="bd-bub ${host ? "bd-bub-host" : "bd-bub-guest"}">
+          <p class="bd-bub-meta">${host ? `運営${m.author ? `（${esc(m.author)}）` : ""}` : `お客様${booking?.name ? `（${esc(booking.name)}）` : ""}`} ${fmt(m.at)}</p>
+          <div class="bd-bub-body">${esc(m.body)}${m.translated ? `<div class="bd-bub-tr">${esc(m.translated)}</div>` : ""}</div>
+        </div>`;
+      }).join("") || '<p class="bd-note">まだやり取りはありません。</p>';
+      fitFrames($("bd-thread"));
+      $("bd-thread").scrollTop = $("bd-thread").scrollHeight;
+    }
+
+    function fitFrames(root) {
+      root.querySelectorAll("iframe[srcdoc]").forEach((f) => {
+        if (f.dataset.fitted) return;
+        f.dataset.fitted = "1";
+        const fit = () => {
+          try { const d = f.contentDocument; if (!d?.body) return;
+            const h = Math.max(d.body.scrollHeight, d.documentElement.scrollHeight);
+            if (h) f.style.height = `${h + 8}px`;
+          } catch { f.style.height = "1600px"; }
+        };
+        f.addEventListener("load", () => {
+          fit();
+          try {
+            const d = f.contentDocument;
+            d.querySelectorAll("img").forEach((im) => { if (!im.complete) { im.addEventListener("load", fit); im.addEventListener("error", fit); } });
+            if (window.ResizeObserver) new ResizeObserver(fit).observe(d.body);
+          } catch { /* noop */ }
+          [200, 800, 2000].forEach((ms) => setTimeout(fit, ms));
+        });
+        fit();
+      });
+    }
+
+    async function send() {
+      const el = $("bd-input"); const body = el.value.trim();
+      if (!body) return;
+      $("bd-send").disabled = true; $("bd-msg-status").textContent = "送信中...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "send", bookingId: id, body, as: "host" }) });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "send");
+        el.value = ""; $("bd-msg-status").textContent = "";
+      } catch { $("bd-msg-status").textContent = "送信できませんでした。"; }
+      $("bd-send").disabled = false;
+    }
+
+    async function load() {
+      const j = await api("GET");
+      if (!j.ok) { $("bd-status-line").textContent = j.error === "not_found" ? "予約が見つかりません。" : "読み込みに失敗しました（権限をご確認ください）。"; return; }
+      booking = j.booking; mails = j.mails ?? [];
+      renderHead(); renderInfo(); renderTimeline();
+      $("bd-flag").checked = !!booking.needsAction;
+      $("bd-memo").textContent = booking.adminMemo ?? booking.failureReason ?? "";
+      if (j.isRoot && booking.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(booking.status)) {
+        $("bd-refund-wrap").hidden = false;
+      }
+      $("bd-grid").hidden = false;
+      $("bd-status-line").textContent = "";
+
+      // メッセージはリアルタイム購読（タイムラインも連動更新）
+      const q = fsm.query(fsm.collection(fs, "threads", id, "messages"), fsm.orderBy("at", "asc"));
+      fsm.onSnapshot(q, (snap) => {
+        msgs = snap.docs.map((d) => { const v = d.data(); return { ...v, at: v.at?.toMillis?.() ?? null }; });
+        renderMsgs(); renderTimeline();
+      }, () => { /* スレッド未作成なら空のまま */ });
+      // 既読化
+      try {
+        const token = await auth.currentUser.getIdToken();
+        fetch(MESSAGES_ENDPOINT, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "read", bookingId: id, as: "host" }) });
+      } catch { /* noop */ }
+    }
+
+    $("bd-flag")?.addEventListener("change", async (e) => {
+      const r = await api("POST", { action: "flag", bookingId: id, flag: e.target.checked });
+      $("bd-op-status").textContent = r.ok ? "保存しました。" : "保存できませんでした。";
+      if (!r.ok) e.target.checked = !e.target.checked;
+    });
+    $("bd-memo-btn")?.addEventListener("click", async () => {
+      const memo = prompt("対応メモ", $("bd-memo").textContent || "");
+      if (memo === null) return;
+      const r = await api("POST", { action: "memo", bookingId: id, memo });
+      if (r.ok) $("bd-memo").textContent = memo;
+      $("bd-op-status").textContent = r.ok ? "保存しました。" : "保存できませんでした。";
+    });
+    $("bd-refund")?.addEventListener("click", async () => {
+      const amount = prompt(`返金額（空欄で全額 ${yen(booking.total)}）`);
+      if (amount === null) return;
+      if (!confirm(`返金を実行します。よろしいですか？`)) return;
+      const r = await api("POST", { action: "refund", bookingId: id, amount: amount ? Number(amount) : undefined });
+      $("bd-op-status").textContent = r.ok ? `返金しました（${yen(r.refunded)}）` : `返金に失敗しました（${r.error ?? ""}）`;
+      if (r.ok) load();
+    });
+    $("bd-send").addEventListener("click", send);
+    $("bd-input").addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send(); });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname + location.search)}`); return; }
+      if (!id) { $("bd-status-line").textContent = "予約IDが指定されていません。"; return; }
+      load();
+    });
+  });
+</script>
+
+<style>
+  .bd { background: #ffffff; padding: 4.5rem 1.5rem 5rem; min-height: 70vh; }
+  .bd-container { max-width: 1080px; margin: 0 auto; }
+  .bd-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .bd-head { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .bd-no { font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 600; color: #111111; letter-spacing: 0.04em; }
+  :global(.bd-badge) { font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.2rem 0.7rem; color: #666666; }
+  :global(.bd-badge[data-s="CONFIRMED"]) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.bd-badge[data-s="MANUAL_REVIEW"]), :global(.bd-badge[data-s="CAPTURE_RETRY"]) { color: #ffffff; background: #c0392b; border-color: #c0392b; }
+  .bd-sub { font-size: 0.85rem; color: #555555; }
+  .bd-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 2.5rem; }
+  .bd-panel { margin-bottom: 2rem; }
+  .bd-h2 { font-size: 0.95rem; font-weight: 500; color: #111111; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #ececec; }
+  .bd-table { width: 100%; border-collapse: collapse; }
+  :global(.bd-table th), :global(.bd-table td) { text-align: left; font-size: 0.82rem; padding: 0.55rem 0; border-bottom: 1px solid #f4f4f4; vertical-align: top; }
+  :global(.bd-table th) { color: #666666; font-weight: 400; width: 40%; }
+  :global(.bd-table td) { color: #111111; }
+  :global(.bd-sub2) { font-size: 0.76rem; color: #666666; }
+  .bd-timeline { list-style: none; padding: 0; margin: 0; }
+  :global(.bd-tl) { display: flex; gap: 0.75rem; padding: 0.45rem 0; font-size: 0.8rem; border-bottom: 1px solid #f7f7f7; }
+  :global(.bd-tl-time) { flex: none; width: 90px; color: #666666; font-variant-numeric: tabular-nums; }
+  :global(.bd-tl-label) { color: #111111; }
+  :global(.bd-tl.is-fail .bd-tl-label) { color: #c0392b; }
+  .bd-op { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; font-size: 0.84rem; color: #111111; }
+  .bd-btn-sub { font-family: inherit; font-size: 0.78rem; color: #111111; background: none; border: 1px solid #d7d7d7; border-radius: 5px; padding: 0.45rem 0.9rem; cursor: pointer; }
+  .bd-btn-sub:hover { border-color: #111111; }
+  :global(.bd-refund) { border-color: #c0392b; color: #c0392b; }
+  .bd-memo { font-size: 0.78rem; color: #666666; }
+  .bd-note { font-size: 0.78rem; color: #666666; line-height: 1.8; }
+  .bd-thread { min-height: 200px; max-height: 60vh; overflow-y: auto; margin-bottom: 1rem; }
+  :global(.bd-bub) { max-width: 86%; margin-bottom: 0.9rem; }
+  :global(.bd-bub-host) { margin-left: auto; }
+  :global(.bd-bub-meta) { font-size: 0.68rem; color: #666666; margin-bottom: 0.25rem; }
+  :global(.bd-bub-host .bd-bub-meta) { text-align: right; }
+  :global(.bd-bub-body) { font-size: 0.86rem; line-height: 1.85; color: #111111; white-space: pre-wrap; border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem; }
+  :global(.bd-bub-host .bd-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.bd-bub-tr) { font-size: 0.76rem; color: #666666; margin-top: 0.4rem; }
+  :global(.bd-bub-host .bd-bub-tr) { color: rgba(255,255,255,0.65); }
+  :global(.bd-bub-sys) { max-width: 100%; }
+  :global(.bd-sys-body) { border: 1px solid #ececec; border-radius: 8px; background: #fafafa; padding: 0.9rem 1rem; }
+  :global(.bd-sys-title) { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  :global(.bd-sys-frame) { display: block; width: 100%; border: 0; background: #ffffff; min-height: 120px; overflow: hidden; }
+  :global(.bd-sys-text) { font-family: inherit; font-size: 0.8rem; line-height: 1.9; color: #555555; white-space: pre-wrap; margin: 0; }
+  .bd-compose { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .bd-compose textarea { flex: 1; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.86rem; line-height: 1.7; border: 1px solid #d7d7d7; border-radius: 6px; resize: none; box-sizing: border-box; }
+  .bd-btn { padding: 0.7rem 1.4rem; background: #111111; color: #ffffff; font-family: inherit; font-size: 0.86rem; border: none; border-radius: 5px; cursor: pointer; }
+  @media (max-width: 860px) { .bd-grid { grid-template-columns: 1fr; } }
+</style>

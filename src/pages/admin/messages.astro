@@ -133,7 +133,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
            <button type="button" class="ms-h-link" id="ms-revoke">リンクを無効化</button>`
         : `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
            <span class="ms-h-sub">${esc(PROP[t.prop] ?? t.prop)} ／ ${esc(t.checkin || "")} 〜 ${esc(t.checkout || "")} ／ ${esc(id.slice(0, 8).toUpperCase())}</span>
-           <a class="ms-h-link" href="/admin/bookings/#${esc(id)}">予約を開く</a>`;
+           <a class="ms-h-link" href="/admin/booking/?id=${esc(id)}">予約を開く</a>`;
       document.getElementById("ms-revoke")?.addEventListener("click", async () => {
         if (!confirm("お客様に送ったリンクをすべて無効にします。以後お客様はこの会話を開けなくなります（Admin 以上のみ実行可）。")) return;
         try {
