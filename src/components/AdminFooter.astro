@@ -1,0 +1,47 @@
+---
+/* 管理画面専用フッター（A案・2026-08-16 発注者承認）。
+   お客様向けフッター（My Page・Instagram・法務リンク）の代わりに、
+   「状態の表示」に徹する1行: 環境ラベル／サイトを見る・仕様書／ビルド日。
+   環境ラベルはホスト名から自動判定 — デモと本番の取り違え事故を防ぐ。 */
+const BUILT = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+---
+
+<footer class="af">
+  <div class="af-inner">
+    <span class="af-brand">yah.homes <span class="af-tag">ADMIN</span></span>
+    <span class="af-env" id="af-env"></span>
+    <span class="af-links">
+      <a href="/" target="_blank" rel="noopener">サイトを見る</a>
+      <a href="/admin/specs/" data-minrole="owner">仕様書</a>
+    </span>
+    <span class="af-built">Updated {BUILT}</span>
+  </div>
+</footer>
+
+<script>
+  // 環境判定はクライアントで（ビルド成果物はデモ・本番共通のため）
+  const env = document.getElementById("af-env");
+  if (env) {
+    const prod = location.hostname === "yah.homes" || location.hostname === "www.yah.homes";
+    env.textContent = prod ? "本番" : "⚠ デモ環境";
+    env.classList.add(prod ? "is-prod" : "is-demo");
+  }
+</script>
+
+<style>
+  .af { background: #111111; margin-top: 4rem; }
+  .af-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; height: 44px;
+    display: flex; align-items: center; gap: 1.25rem;
+    font-size: 0.72rem; color: rgba(255, 255, 255, 0.55);
+  }
+  .af-brand { font-weight: 600; color: rgba(255, 255, 255, 0.8); display: inline-flex; align-items: baseline; gap: 0.4rem; }
+  .af-tag { font-size: 0.55rem; font-weight: 600; letter-spacing: 0.12em; color: #111111; background: rgba(255,255,255,0.85); border-radius: 3px; padding: 0.05rem 0.3rem; }
+  .af-env { font-weight: 600; }
+  :global(.af-env.is-demo) { color: #f5c542; }
+  :global(.af-env.is-prod) { color: rgba(255, 255, 255, 0.55); }
+  .af-links { display: flex; gap: 1rem; flex: 1; }
+  .af-links a { color: rgba(255, 255, 255, 0.55); text-decoration: none; }
+  .af-links a:hover { color: #ffffff; }
+  .af-built { font-variant-numeric: tabular-nums; }
+</style>
