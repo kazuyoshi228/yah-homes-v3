@@ -36,7 +36,7 @@ const FB_CONFIG = {
         <div class="au-tablewrap">
           <table class="au-table">
             <thead>
-              <tr><th>役割</th><th>名前</th><th>メール</th><th>申請通知</th><th>定点通知</th><th>予約通知</th><th></th></tr>
+              <tr><th>役割</th><th>名前</th><th>メール</th><th>パートナー申請</th><th>定点観測</th><th>予約・メッセージ</th><th></th></tr>
             </thead>
             <tbody id="au-tbody"></tbody>
           </table>
@@ -55,9 +55,9 @@ const FB_CONFIG = {
               <input id="af-email" type="email" placeholder="メールアドレス（Googleアカウント）" required />
             </div>
             <div class="au-row au-checks">
-              <label><input type="checkbox" id="af-partners" /> パートナー申請の通知を受け取る</label>
-              <label><input type="checkbox" id="af-teiten" /> 定点観測メールを受け取る</label>
-              <label><input type="checkbox" id="af-bookings" /> 直販予約の通知を受け取る（P1稼働後）</label>
+              <label><input type="checkbox" id="af-partners" /> パートナー申請 の通知を受け取る</label>
+              <label><input type="checkbox" id="af-teiten" /> 定点観測 の通知を受け取る</label>
+              <label><input type="checkbox" id="af-bookings" /> 予約・メッセージ の通知を受け取る</label>
             </div>
             <button type="submit" class="au-btn" id="af-submit">保存</button>
           </form>

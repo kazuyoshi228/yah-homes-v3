@@ -49,11 +49,9 @@ function clientIp(req: { headers: Record<string, unknown>; ip?: string }): strin
 
 // メール通知用シークレット（`firebase functions:secrets:set` で登録）
 // SMTP_USER: 送信元 Gmail/Workspace アドレス / SMTP_PASS: アプリパスワード /
-// CONTACT_NOTIFY_TO: 通知の宛先アドレス
 const INQUIRY_LINK_SECRET = defineSecret("INQUIRY_LINK_SECRET");
 const SMTP_USER = defineSecret("SMTP_USER");
 const SMTP_PASS = defineSecret("SMTP_PASS");
-const CONTACT_NOTIFY_TO = defineSecret("CONTACT_NOTIFY_TO");
 
 // 許可オリジン（本番・Firebaseデフォルト・devチャンネル・ローカル）
 const ALLOWED_ORIGINS = [
@@ -104,7 +102,7 @@ const INQUIRY_URL = (lang: string, token: string) =>
   `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}inquiry/?t=${token}`;
 
 export const contact = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, CONTACT_NOTIFY_TO, INQUIRY_LINK_SECRET] },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, INQUIRY_LINK_SECRET] },
   async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
   if (origin) {
@@ -203,7 +201,7 @@ export const contact = onRequest(
     await transporter.sendMail({
       from: `"yah.homes Contact" <${SMTP_USER.value()}>`,
       // 宛先は台帳の notifyBookings（2通目以降・予約系の通知と同じ名簿に統一・2026-08-16 発注者決定）。
-      // CONTACT_NOTIFY_TO は廃止予定だが、台帳が空のときのフォールバックは notifyRecipients が持つ
+      // 台帳が空のときのフォールバック（オーナー宛）は notifyRecipients が持つ
       to: await notifyRecipients("notifyBookings"),
       replyTo: emailStr,
       subject: `【yah.homes】お問い合わせ: ${nameStr}`,
