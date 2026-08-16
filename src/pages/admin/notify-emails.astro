@@ -85,7 +85,7 @@ const KINDS = [
             <input type="checkbox" data-t="${esc(u.email)}" data-k="${kind}" ${u[kind] ? "checked" : ""} ${isRoot ? "" : "disabled"} />
             <span class="ne-mail">${esc(u.email)}</span>
             <span class="ne-name">${esc(u.name || "")}</span>
-            <span class="ne-role${u.isRootUser ? " is-root" : ""}">${u.isRootUser ? "オーナー" : u.role === "owner" ? "Owner" : "Operator"}</span>
+            <span class="ne-role ne-role-${esc(u.role)}${u.isRootUser ? " is-root" : ""}">${{ owner: "Owner", admin: "Admin", operator: "Operator" }[u.role] ?? esc(u.role)}</span>
           </label>`).join("") +
           (on.length ? "" : `<p class="ne-warn">宛先が1件もありません。この通知は安全のためオーナー（${esc(root.join(", "))}）に届きます。</p>`);
       });
@@ -157,7 +157,8 @@ const KINDS = [
   :global(.ne-row:last-child) { border-bottom: 0; }
   :global(.ne-name) { font-size: 0.76rem; color: #666666; }
   :global(.ne-role) { font-size: 0.68rem; color: #666666; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.55rem; }
-  :global(.ne-role.is-root) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.ne-role-owner) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.ne-role-admin) { color: #111111; border-color: #111111; }
   :global(.ne-warn) { font-size: 0.76rem; color: #b42318; line-height: 1.8; padding: 0.7rem 0.9rem; margin: 0; }
   .ne-table { width: 100%; border-collapse: collapse; }
   .ne-table th, .ne-table td { text-align: left; font-size: 0.8rem; color: #333333; padding: 0.7rem 0; border-bottom: 1px solid #f2f2f2; vertical-align: top; line-height: 1.8; }
