@@ -95,6 +95,9 @@ const FB_CONFIG = {
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
+        // 表示順: Owner → Admin → Operator（同ロール内はメール順）
+        const RANK = { owner: 0, admin: 1, operator: 2 };
+        j.items.sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.email.localeCompare(b.email));
         const actor = j.actorRole ?? (j.isRoot ? "owner" : "operator");
         const canEdit = (it) => actor === "owner" ? !it.isRootUser : (actor === "admin" && it.role === "operator");
         $("au-editor").hidden = !(actor === "owner" || actor === "admin");
@@ -190,7 +193,10 @@ const FB_CONFIG = {
   .au-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; }
   .au-tablewrap { overflow-x: auto; }
   .au-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; line-height: 1.6; }
-  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 1.7rem 0.9rem; text-align: left; color: #222222; white-space: nowrap; }
+  .au-table :global(th), .au-table :global(td) {
+    border: 1px solid #e5e5e5; padding: 0.72rem 0.9rem; text-align: left;
+    color: #222222; white-space: nowrap; line-height: 1.6;
+  }
   :global(.au-role) { font-size: 0.7rem; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.6rem; color: #666666; }
   :global(.au-role-owner) { color: #ffffff; background: #111111; border-color: #111111; }
   :global(.au-role-admin) { color: #111111; border-color: #111111; }

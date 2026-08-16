@@ -125,6 +125,8 @@ const KINDS = [
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || "load");
         items = j.items ?? []; isRoot = !!j.isRoot; root = j.root ?? [];
+        const RANK = { owner: 0, admin: 1, operator: 2 };
+        items.sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.email.localeCompare(b.email));
         $("ne-body").hidden = false;
         $("ne-status").textContent = isRoot ? "" : "閲覧のみです（変更は Owner のみ）。";
         render();
