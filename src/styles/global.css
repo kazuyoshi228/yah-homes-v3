@@ -187,8 +187,9 @@
     font-size: 0.8rem;
     font-weight: 500;
     letter-spacing: 0.04em;
-    border: 1px solid #111111;
-    background: #111111;
+    /* CTA Blue（2026-08-16 発注者判断・直販CTAのみブランドパレット適用外） */
+    border: 1px solid #1a56db;
+    background: #1a56db;
     color: #ffffff;
     text-decoration: none;
     transition:
