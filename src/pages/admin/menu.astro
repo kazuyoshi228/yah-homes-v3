@@ -5,6 +5,13 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 
 /* SSoT＝唯一の正（ここを直すと全系統に反映される） ／ 運営管理＝日々の運用画面 ／
    バッジ: Admin＝オーナーのみ・Operator＝管理者台帳のメンバー（運営会社を含む） */
+/* バッジ＝そのカードが見える最低ロール。二択判定だと owner が Operator 表示に落ちる（発注者指摘） */
+const BADGE = (role: string | undefined) => {
+  const r = role ?? "operator";
+  return { label: r === "owner" ? "Owner" : r === "admin" ? "Admin" : "Operator",
+    cls: r === "owner" ? "am-badge-owner" : r === "admin" ? "am-badge-admin" : "am-badge-operator" };
+};
+
 const SSOT = [
   { href: "/admin/properties/", title: "物件ファクト管理", role: "owner" },
   { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
@@ -73,9 +80,7 @@ const SYSTEM = [
           <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
             <h3 class="am-card-title">
               {it.title}
-              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
-                {it.role === "admin" ? "Admin" : "Operator"}
-              </span>
+              <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
             </h3>
           </a>
         ))}
@@ -87,9 +92,7 @@ const SYSTEM = [
           <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
             <h3 class="am-card-title">
               {it.title}
-              <span class:list={["am-badge", it.role === "admin" ? "am-badge-admin" : "am-badge-operator"]}>
-                {it.role === "admin" ? "Admin" : "Operator"}
-              </span>
+              <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
             </h3>
           </a>
         ))}
@@ -101,7 +104,7 @@ const SYSTEM = [
           <a class="am-card" href={it.href} data-role={it.role ?? "admin"}>
             <h3 class="am-card-title">
               {it.title}
-              <span class="am-badge am-badge-admin">{it.role === "owner" ? "Owner" : "Admin"}</span>
+              <span class:list={["am-badge", BADGE(it.role ?? "admin").cls]}>{BADGE(it.role ?? "admin").label}</span>
             </h3>
           </a>
         ))}
@@ -182,6 +185,7 @@ const SYSTEM = [
     font-size: 0.62rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
     padding: 0.18rem 0.55rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
   }
-  .am-badge-admin { color: #ffffff; background: #111111; }
+  .am-badge-owner { color: #ffffff; background: #111111; }
+  .am-badge-admin { color: #111111; background: #e8e8e8; }
   .am-badge-operator { color: #666666; background: #ffffff; border: 1px solid #d7d7d7; }
 </style>
