@@ -9,56 +9,56 @@ const MAILS = [
   {
     name: "お問い合わせ通知（初回）",
     trigger: "お問い合わせフォームの送信",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【yah.homes】お問い合わせ: {お名前}",
   },
   {
     // B案（spec_inquiry_threads.md）で追加。初回・2通目以降とも宛先は台帳に統一済み
     name: "お問い合わせ通知（2通目以降）",
     trigger: "お客様がマジックリンクから続きを送信したとき（5分以内はまとめて1通）",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【お問い合わせ】{お名前}様より",
   },
   {
     name: "パートナー申請通知",
     trigger: "インフルエンサー向けページからの申請",
-    to: "台帳の notifyPartners がONのメンバー",
+    to: "パートナー申請",
     subject: "【パートナー申請】{棟} {日付}〜 {人数}名",
   },
   {
     name: "直販予約の成立通知",
     trigger: "直販予約の確定（決済オーソリ完了）",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【予約】{棟} {日程}",
   },
   {
     name: "キャンセル通知",
     trigger: "セルフキャンセル／管理画面からの返金",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【キャンセル】{棟} {日程}（返金 ¥{金額}）",
   },
   {
     name: "到着予定の登録通知",
     trigger: "お客様が My Page で到着予定時刻を登録・変更",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【到着予定】{棟} {日付} — {時刻}",
   },
   {
     name: "予約エラー通知",
     trigger: "決済確定後の処理でエラー（Beds24書込失敗・返金失敗など）",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【予約エラー】直販予約の処理でエラーが発生しました",
   },
   {
     name: "Beds24 キャンセル不一致",
     trigger: "毎朝9:00 JST の照合で、Beds24側だけキャンセルされている予約を検知",
-    to: "台帳の notifyBookings がONのメンバー",
+    to: "予約・メッセージ",
     subject: "【要対応】Beds24とのキャンセル不一致 {件数}件",
   },
   {
     name: "定点観測レポート",
     trigger: "毎朝8:00 JST",
-    to: "台帳の notifyTeiten がONのメンバー",
+    to: "定点観測",
     subject: "【定点】Beds24 稼働・予約状況",
   },
 ];
@@ -72,7 +72,7 @@ const MAILS = [
       <div class="im-scroll">
         <table class="im-table">
           <thead>
-            <tr><th>通知</th><th>いつ飛ぶか</th><th>宛先</th><th>件名</th></tr>
+            <tr><th>通知</th><th>いつ飛ぶか</th><th>宛先（<a href="/admin/notify-emails/">送信先メールアドレス管理</a>の区分）</th><th>件名</th></tr>
           </thead>
           <tbody>
             {MAILS.map((m) => (
