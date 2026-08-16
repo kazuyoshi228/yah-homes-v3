@@ -4522,6 +4522,7 @@ export const adminBookings = onRequest(
           return {
             id: d.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
             total: v.total, status: v.status, name: v.name ?? null, email: v.email ?? null,
+            needsAction: v.needsAction === true, adminMemo: v.adminMemo ?? null,
             phone: v.phone ?? null, leadGuest: v.leadGuest ?? null, arrival: v.arrival ?? null,
             lang: v.lang ?? null, beds24Id: v.beds24Id ?? null, paymentIntentId: v.paymentIntentId ?? null,
             failureReason: v.failureReason ?? null, note: v.note ?? null,
@@ -4534,7 +4535,7 @@ export const adminBookings = onRequest(
       }
 
       if (req.method === "POST") {
-        const { action, bookingId, memo, amount } = (req.body ?? {}) as Record<string, unknown>;
+        const { flag, action, bookingId, memo, amount } = (req.body ?? {}) as Record<string, unknown>;
         const idStr = typeof bookingId === "string" ? bookingId : "";
         if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
         const ref = db.collection("bookings").doc(idStr);
@@ -4543,6 +4544,14 @@ export const adminBookings = onRequest(
         if (!v) { res.status(404).json({ ok: false, error: "not_found" }); return; }
 
         // 対応メモ（台帳メンバー可）
+        if (action === "flag") {
+          // 手動の「要対応」印。システム印（MANUAL_REVIEW等）とは独立に、人が立てて人が消す
+          await ref.update({ needsAction: flag === true, updatedAt: FieldValue.serverTimestamp() });
+          await db.collection("audit_logs").add({ actor: email, action: flag === true ? "booking_flag_on" : "booking_flag_off", target: idStr, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
         if (action === "memo") {
           await ref.update({ adminMemo: typeof memo === "string" ? memo.slice(0, 2000) : "", updatedAt: FieldValue.serverTimestamp() });
           await db.collection("audit_logs").add({ actor: email, action: "booking_memo", target: idStr, at: FieldValue.serverTimestamp() });
