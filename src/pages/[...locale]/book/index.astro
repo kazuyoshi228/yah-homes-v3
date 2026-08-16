@@ -182,6 +182,8 @@ const strings = {
   overCapacity: t.overCapacity,
   overCapacityHint: t.overCapacityHint,
   totalLabel: t.totalLabel,
+  rackLabel: t.rackLabel,
+  discountApplied: t.discountApplied,
   approx: t.approx,
   errorFetch: t.errorFetch,
   loadingSlow: t.loadingSlow,
@@ -558,12 +560,22 @@ const strings = {
     }
     const fx = strings.fxCode === "JPY" ? "" :
       `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(p.total * strings.fxRate).toLocaleString("en-US")}</p>`;
-    const href = `${CHECKOUT_PATH}?prop=${house.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+    // 定価 = カレンダー日別価格(price1)の合計。実売(offer)は割引後なので、差があれば「定価→割引適用」を見せる
+    let rack = 0;
+    for (let d = new Date(`${state.checkin}T00:00:00Z`); ; d.setUTCDate(d.getUTCDate() + 1)) {
+      const k = d.toISOString().slice(0, 10);
+      if (k === state.checkout) break;
+      const pr = state.prices?.[house.key]?.[k];
+      if (typeof pr !== "number") { rack = 0; break; }
+      rack += pr;
+    }
+    const href = `${CHECKOUT_PATH}?prop=${house.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}${rack > p.total ? `&rack=${rack}` : ""}`;
     track("availability_result_viewed", {
       prop: house.key, checkin: state.checkin, nights, guests: state.guests, total: p.total, currency: "JPY",
     });
     box.innerHTML = `
       <p class="bk-quote-label">${strings.totalLabel}</p>
+      ${rack > p.total ? `<p class="bk-quote-rack"><s>${yen(rack)}</s>　<span class="bk-quote-disc">${strings.discountApplied}</span></p>` : ""}
       <p class="bk-quote-total">${yen(p.total)}</p>
       ${fx}
       <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
@@ -1092,6 +1104,9 @@ const strings = {
     text-transform: uppercase;
     color: #666666;
   }
+  .bk-quote :global(.bk-quote-rack) { font-size: 0.9rem; color: #666666; margin-bottom: 0.15rem; }
+  .bk-quote :global(.bk-quote-rack s) { text-decoration-color: #999999; }
+  .bk-quote :global(.bk-quote-disc) { font-size: 0.75rem; color: #111111; background: #f2f2f2; border-radius: 3px; padding: 0.1rem 0.4rem; }
   .bk-quote :global(.bk-quote-total) {
     font-size: 1.5rem;
     font-weight: 500;

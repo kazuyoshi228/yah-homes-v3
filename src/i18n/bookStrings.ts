@@ -28,6 +28,8 @@ export interface BookStrings {
   overCapacity: string;
   overCapacityHint: string;
   totalLabel: string;
+  rackLabel: string;
+  discountApplied: string;
   totalNote: (nights: number, guests: number) => string;
   approx: string;
   freeCancelUntil: (date: string) => string;
@@ -76,6 +78,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     tooFar: "These dates are not open for booking yet.",
     priceFrom: "From {v} / night",
     totalLabel: "Total",
+    rackLabel: "List price",
+    discountApplied: "Discount applied",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
     approx: "approx.",
     freeCancelUntil: (d) => `Free cancellation until ${d}`,
@@ -118,6 +122,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     tooFar: "この日程はまだ受付を開始しておりません。",
     priceFrom: "{v}〜 / 泊",
     totalLabel: "合計",
+    rackLabel: "定価",
+    discountApplied: "割引適用",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
     approx: "約",
     freeCancelUntil: (d) => `${d} まで無料キャンセル`,
@@ -160,6 +166,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     tooFar: "이 일정은 아직 예약을 받고 있지 않습니다.",
     priceFrom: "{v}〜 / 1박",
     totalLabel: "합계",
+    rackLabel: "정가",
+    discountApplied: "할인 적용",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
     approx: "약",
     freeCancelUntil: (d) => `${d}까지 무료 취소`,
@@ -202,6 +210,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     tooFar: "此日期尚未開放預訂。",
     priceFrom: "{v} 起 / 晚",
     totalLabel: "總金額",
+    rackLabel: "定價",
+    discountApplied: "已套用折扣",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
     approx: "約",
     freeCancelUntil: (d) => `${d} 前可免費取消`,
@@ -244,6 +254,8 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     tooFar: "ยังไม่เปิดรับจองสำหรับวันที่นี้",
     priceFrom: "เริ่มต้น {v} / คืน",
     totalLabel: "ราคารวม",
+    rackLabel: "ราคาปกติ",
+    discountApplied: "รวมส่วนลดแล้ว",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,
     approx: "ประมาณ",
     freeCancelUntil: (d) => `ยกเลิกฟรีถึง ${d}`,

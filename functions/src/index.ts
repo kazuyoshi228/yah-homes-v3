@@ -2963,6 +2963,8 @@ export const beds24DailyObserver = onSchedule(
         const rows = list.filter((l) => l.startsWith(prop));
         return { g: rows.length, n: rows.reduce((s2, l) => s2 + (Number(l.match(/〜(\d+)泊/)?.[1]) || 0), 0) };
       };
+      const directNew = events.new.filter((l) => l.includes("[直販]")).length;
+      const directCxl = events.cancelled.filter((l) => l.includes("[直販]")).length;
       const kDel = tally(events.deleted, "清川"), tDel = tally(events.deleted, "高砂");
       const kNew = tally(events.new, "清川"), kCxl = tally(events.cancelled, "清川");
       const tNew = tally(events.new, "高砂"), tCxl = tally(events.cancelled, "高砂");
@@ -2994,13 +2996,8 @@ export const beds24DailyObserver = onSchedule(
             { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
             { range: `M${row}`, values: [[fwd.清川 + fwd.高砂]] },
           ];
-          // H列 = CV数(日次)＝前日の全キーイベント合計 → 前日の行に記入（GA4取得失敗時は書かない）
-          if (handoff != null) {
-            const y = new Date(Date.now() - 24 * 3600 * 1000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-            const ystr = `${+y.slice(5, 7)}/${+y.slice(8, 10)}`;
-            const yrow = ((col.values || []) as string[][]).findIndex((r) => (r[0] || "").trim() === ystr) + 1;
-            if (yrow > 0) data.push({ range: `H${yrow}`, values: [[handoff.total]] });
-          }
+          // H列 = 直販サイトでの販売数（当日行・観測窓内の直販新規−直販キャンセル）
+          data.push({ range: `H${row}`, values: [[directNew - directCxl]] });
           const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TEITEN_SHEET_ID}/values:batchUpdate`, {
             method: "POST",
             headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },
@@ -3030,7 +3027,8 @@ export const beds24DailyObserver = onSchedule(
           `【サマリ（定点シート形式）】`,
           `清川　　　　: ${kNew.g - kCxl.g - kDel.g >= 0 ? "+" : ""}${kNew.g - kCxl.g - kDel.g}組 ${kNew.n - kCxl.n - kDel.n >= 0 ? "+" : ""}${kNew.n - kCxl.n - kDel.n}泊`,
           `高砂　　　　: ${tNew.g - tCxl.g - tDel.g >= 0 ? "+" : ""}${tNew.g - tCxl.g - tDel.g}組 ${tNew.n - tCxl.n - tDel.n >= 0 ? "+" : ""}${tNew.n - tCxl.n - tDel.n}泊`,
-          `CV数(日次): ${handoff?.total ?? "取得失敗（GA4）"}（前日の全キーイベント合計）`,
+          `直販販売数 : ${directNew - directCxl >= 0 ? "+" : ""}${directNew - directCxl}組`,
+          `CV数(日次): ${handoff?.total ?? "取得失敗（GA4）"}（前日の全キーイベント合計・参考値）`,
           `  内訳 click_airbnb: ${clicks ?? "—"} / click_booking_com: ${handoff?.click_booking_com ?? "—"} / click_booking_calendar: ${handoff?.click_booking_calendar ?? "—"}`,
           `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
           `先付け 高砂 : ${fwd.高砂}泊 (${pct(fwd.高砂, 365)})`,

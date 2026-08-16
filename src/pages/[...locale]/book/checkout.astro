@@ -199,6 +199,13 @@ const uiStrings = {
   paying: { en: "Processing…", ja: "処理しています…", ko: "처리 중입니다…", zh: "處理中…", th: "กำลังดำเนินการ…" }[lang],
   paid: { en: "Payment authorized. We are confirming your booking.", ja: "お支払いを受け付けました。予約を確定しています。", ko: "결제가 접수되었습니다. 예약을 확정하고 있습니다.", zh: "已受理付款，正在確認您的預訂。", th: "รับชำระเงินแล้ว กำลังยืนยันการจอง" }[lang],
   payFailed: { en: "Payment could not be completed. Please try again.", ja: "決済を完了できませんでした。もう一度お試しください。", ko: "결제를 완료하지 못했습니다. 다시 시도해 주세요.", zh: "付款未能完成，請再試一次。", th: "ชำระเงินไม่สำเร็จ กรุณาลองใหม่" }[lang],
+  bd: {
+    en: { rack: "List price", discount: "Discount", room: "Room rate (cleaning fee included)", tax: "Lodging tax ({r} × {g} guests × {n} nights)" },
+    ja: { rack: "定価", discount: "割引", room: "宿泊料（清掃料込み）", tax: "宿泊税（{r}×{g}名×{n}泊）" },
+    ko: { rack: "정가", discount: "할인", room: "숙박료(청소비 포함)", tax: "숙박세({r}×{g}명×{n}박)" },
+    zh: { rack: "定價", discount: "折扣", room: "住宿費（含清潔費）", tax: "住宿稅（{r}×{g}人×{n}晚）" },
+    th: { rack: "ราคาปกติ", discount: "ส่วนลด", room: "ค่าห้อง (รวมค่าทำความสะอาด)", tax: "ภาษีที่พัก ({r}×{g} คน×{n} คืน)" },
+  }[lang],
   priceChanged: { en: "The total has been updated to the latest price. Please review it and continue.", ja: "最新の料金に更新しました。金額をご確認のうえ、もう一度お進みください。", ko: "최신 요금으로 업데이트했습니다. 금액을 확인하신 후 다시 진행해 주세요.", zh: "已更新為最新金額，請確認後再繼續。", th: "อัปเดตเป็นราคาล่าสุดแล้ว กรุณาตรวจสอบแล้วดำเนินการต่อ" }[lang],
   freeUntil: C.freeUntil("{d}"),
   soldOut: t.soldOut,
@@ -248,6 +255,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 
           <div class="co-block">
             <h3 class="co-block-title">{C.priceTitle}</h3>
+            <dl class="co-breakdown" id="co-breakdown" hidden></dl>
             <div class="co-total-row">
               <span>{C.total}</span>
               <strong class="co-total" id="co-total">—</strong>
@@ -421,6 +429,29 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
     if (meta.checkinTime) $("co-in-time").textContent = uiStrings.checkinTime.replace("{t}", meta.checkinTime);
     if (meta.checkoutTime) $("co-out-time").textContent = uiStrings.checkoutTime.replace("{t}", meta.checkoutTime);
     $("co-house").textContent = meta.name;
+  // 料金内訳。Beds24 の見積は合計1本のため、宿泊税（福岡市: 1人1泊¥200・
+  // 税抜宿泊料が1人1泊¥20,000以上は¥500）を法定ルールで分離して表示する。
+  // 定価(rack)は /book のカレンダー(price1)合計から表示専用で受け取る（正はサーバー見積）。
+  const rackParam = Number(p.get("rack")) || 0;
+  function renderBreakdown(total) {
+    const el = $("co-breakdown");
+    if (!el || !guests || !nights) return;
+    let taxRate = 200;
+    if ((total - taxRate * guests * nights) / (guests * nights) >= 20000) taxRate = 500;
+    const tax = taxRate * guests * nights;
+    const room = total - tax;
+    if (room <= 0) return;
+    const row = (k, v, cls) => `<div class="co-bd-row${cls ? " " + cls : ""}"><dt>${k}</dt><dd>${v}</dd></div>`;
+    let html = "";
+    if (rackParam > total) {
+      html += row(uiStrings.bd.rack, `<s>${yen(rackParam)}</s>`, "co-bd-rack");
+      html += row(uiStrings.bd.discount, `−${yen(rackParam - total)}`, "co-bd-disc");
+    }
+    html += row(uiStrings.bd.room, yen(room));
+    html += row(uiStrings.bd.tax.replace("{r}", yen(taxRate)).replace("{g}", guests).replace("{n}", nights), yen(tax));
+    el.innerHTML = html;
+    el.hidden = false;
+  }
   // 日付をUIの言語で曜日付き表記に（例 ja: 2026年8月30日(日)）。値の受け渡しはISOのまま
   const DATE_LOCALE = { en: "en-US", ja: "ja-JP", ko: "ko-KR", zh: "zh-TW", th: "th-TH" }[lang] || "en-US";
   const fmtDate = (iso) => {
@@ -449,6 +480,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         if (!j.ok || !j.available) { $("co-total").textContent = uiStrings.soldOut; return; }
         displayedTotal = j.total;
         $("co-total").textContent = yen(j.total);
+        renderBreakdown(j.total);
         if (uiStrings.fxCode !== "JPY") {
           $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
         }
@@ -666,6 +698,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         priceAcknowledged = true;
         displayedTotal = j.total;
         $("co-total").textContent = yen(j.total);
+        renderBreakdown(j.total);
         if (uiStrings.fxCode !== "JPY") {
           $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
         }
@@ -742,6 +775,11 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   .co-dl dt { font-size: 0.78rem; color: #666666; }
   .co-dl dd { font-size: 0.85rem; font-weight: 500; color: #111111; margin: 0; text-align: right; }
   .co-time { display: block; font-size: 0.7rem; font-weight: 400; color: #666666; }
+  .co-breakdown { margin: 0 0 0.6rem; }
+  .co-breakdown :global(.co-bd-row) { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.82rem; color: #444444; padding: 0.25rem 0; }
+  .co-breakdown :global(.co-bd-row dd) { margin: 0; font-variant-numeric: tabular-nums; }
+  .co-breakdown :global(.co-bd-rack dd s) { color: #666666; }
+  .co-breakdown :global(.co-bd-disc dd) { color: #111111; font-weight: 600; }
   .co-total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; color: #555555; }
   .co-total { font-size: 1.35rem; font-weight: 500; color: #111111; font-variant-numeric: tabular-nums; }
   .co-fx { font-size: 0.75rem; color: #666666; text-align: right; }
