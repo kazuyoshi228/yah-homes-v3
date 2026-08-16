@@ -28,6 +28,9 @@ export interface PropertyFacts {
   /** チェックイン・チェックアウト時刻（"16:00" / "10:00" 形式・棟ごとに変えられる） */
   checkinTime: string;
   checkoutTime: string;
+  /** チェックイン受付終了時刻。空文字＝受付終了なし（何時でも入室可）。
+   *  セルフチェックインのため既定は「制限なし」。深夜入室を断る運用にするときだけ入れる。 */
+  checkinEndTime: string;
   /** 設備の有無（1=あり / 0=なし）。比較表と物件ページの表示に使う */
   washer: number;
   dryer: number;
@@ -59,7 +62,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
     capacity: 7, bedrooms: 3, bedDouble: 3, bedSingle: 1,
     bath: 1, shower: 0, sink: 1, toilet: 2,
     rating: "4.77", reviewCount: "47",
-    checkinTime: "16:00", checkoutTime: "10:00",
+    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
     washer: 1, dryer: 0, audio: 1, tvInch: 55, studyDesk: 1, parking: 1, theater: 0,
     fromAirportCarMin: 18, fromStationWalkMin: 15, nearestStation: "渡辺通", toTenjinWalkMin: 20, toHakataWalkMin: 25,
     spotMarketMin: 7, spotMarketM: 550, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
@@ -70,7 +73,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
     capacity: 6, bedrooms: 3, bedDouble: 1, bedSingle: 4,
     bath: 1, shower: 1, sink: 3, toilet: 2,
     rating: "4.67", reviewCount: "36",
-    checkinTime: "16:00", checkoutTime: "10:00",
+    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
     washer: 1, dryer: 0, audio: 1, tvInch: 75, studyDesk: 0, parking: 1, theater: 1,
     fromAirportCarMin: 20, fromStationWalkMin: 8, nearestStation: "渡辺通", toTenjinWalkMin: 15, toHakataWalkMin: 25,
     spotMarketMin: 10, spotMarketM: 800, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
@@ -137,6 +140,7 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
         reviewCount: str(f.reviewCount, d.reviewCount),
         checkinTime: str(f.checkinTime, d.checkinTime),
         checkoutTime: str(f.checkoutTime, d.checkoutTime),
+        checkinEndTime: str(f.checkinEndTime, d.checkinEndTime),
         washer: num(f.washer, d.washer),
         dryer: num(f.dryer, d.dryer),
         audio: num(f.audio, d.audio),

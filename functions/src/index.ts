@@ -4951,6 +4951,12 @@ export const adminProperties = onRequest(
           if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
           if (t) doc[f] = t;
         }
+        // 受付終了は空文字を許す（＝受付終了なし）。空でも書き込み、クリアできるようにする
+        if (v.checkinEndTime !== undefined) {
+          const t = String(v.checkinEndTime ?? "").trim();
+          if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: "invalid_checkinEndTime" }); return; }
+          doc.checkinEndTime = t;
+        }
         // 評価は表示用の文字列（例 "4.77" / "47"）
         const rating = String(v.rating ?? "").trim();
         const reviewCount = String(v.reviewCount ?? "").trim();
