@@ -95,10 +95,10 @@ const FB_CONFIG = {
           <td>${fmt(b.createdAt)}</td>
           <td><span class="ab-badge" data-s="${esc(b.status)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
           <td>${esc(PROP[b.prop] ?? b.prop)}</td>
-          <td class="ab-nowrap">${esc(b.checkin)}<br>〜${esc(b.checkout)}</td>
+          <td class="ab-nowrap">${esc((b.checkin ?? "").slice(5))}<br>〜${esc((b.checkout ?? "").slice(5))}</td>
           <td>${esc(b.guests)}名</td>
           <td class="ab-num">${yen(b.total)}</td>
-          <td>${esc(b.name ?? "")}<br><span class="ab-sub">${esc(b.email ?? "")}</span><br><span class="ab-sub">${esc(b.phone ?? "")}</span></td>
+          <td>${esc(b.name ?? "")}<br><span class="ab-sub">${esc(b.email ?? "")}</span></td>
           <td>${esc(b.arrival ?? "—")}</td>
           <td class="ab-nowrap">
             <button class="ab-btn-sub ab-memo-btn" data-id="${esc(b.id)}">記録する</button>
@@ -186,7 +186,7 @@ const FB_CONFIG = {
   .ab-filter { font-size: 0.78rem; color: #555555; display: flex; align-items: center; gap: 0.35rem; }
   .ab-tablewrap { overflow-x: auto; }
   .ab-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; line-height: 1.6; }
-  .ab-table th, .ab-table td { border: 1px solid #e5e5e5; padding: 0.5rem 0.6rem; text-align: left; vertical-align: top; color: #222222; }
+  .ab-table :global(th), .ab-table :global(td) { border: 1px solid #e5e5e5; padding: 0.72rem 0.75rem; text-align: center; vertical-align: middle; color: #222222; }
   .ab-table thead th { background: #fafafa; font-weight: 500; white-space: nowrap; }
   .ab-table :global(.ab-nowrap) { white-space: nowrap; }
   .ab-table :global(.ab-num) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
