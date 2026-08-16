@@ -36,6 +36,12 @@ const FB_CONFIG = {
         <div class="ab-toolbar">
           <span class="ab-note" id="ab-count"></span>
           <div class="ab-tools">
+            <select id="ab-prop" class="ab-select">
+              <option value="">すべての棟</option>
+              <option value="kiyokawa">清川</option>
+              <option value="takasago">高砂</option>
+              <option value="test">検証用</option>
+            </select>
             <label class="ab-filter"><input type="checkbox" id="ab-only-review" /> 要対応のみ</label>
             <button id="ab-reload" class="ab-btn-sub">再読み込み</button>
           </div>
@@ -88,8 +94,11 @@ const FB_CONFIG = {
 
     function render(isRoot) {
       const onlyReview = $("ab-only-review").checked;
-      // 「要対応のみ」= システム印（決済の要確認）＋ 手動チェックの両方
-      const items = onlyReview ? cache.filter((b) => b.needsAction || b.status === "MANUAL_REVIEW" || b.status === "CAPTURE_RETRY") : cache;
+      // 「要対応のみ」= システム印（決済の要確認）＋ 手動チェックの両方。棟フィルタと併用可
+      const propFilter = document.getElementById("ab-prop")?.value ?? "";
+      const items = cache
+        .filter((b) => !propFilter || b.prop === propFilter)
+        .filter((b) => !onlyReview || b.needsAction || b.status === "MANUAL_REVIEW" || b.status === "CAPTURE_RETRY");
       $("ab-count").textContent = `${items.length}件${onlyReview ? `（全${cache.length}件中）` : ""}`;
       $("ab-tbody").innerHTML = items.map((b) => `
         <tr data-id="${esc(b.id)}">
@@ -175,6 +184,7 @@ const FB_CONFIG = {
     });
     $("ab-reload").addEventListener("click", load);
     $("ab-only-review").addEventListener("change", load);
+    $("ab-prop").addEventListener("change", load);
 
     onAuthStateChanged(auth, (user) => {
       if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
@@ -201,6 +211,7 @@ const FB_CONFIG = {
   .ab-table :global(.ab-refund:hover) { background: #c0392b; color: #ffffff; border-color: #c0392b; }
   .ab-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; flex-wrap: wrap; }
   .ab-tools { display: flex; align-items: center; gap: 0.75rem; }
+  .ab-select { font-family: inherit; font-size: 0.78rem; color: #111111; border: 1px solid #d7d7d7; border-radius: 5px; padding: 0.35rem 0.6rem; background: #ffffff; }
   .ab-filter { font-size: 0.78rem; color: #555555; display: flex; align-items: center; gap: 0.35rem; }
   .ab-tablewrap { overflow-x: auto; }
   .ab-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; line-height: 1.6; }

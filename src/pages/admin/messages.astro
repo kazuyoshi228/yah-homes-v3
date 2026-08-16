@@ -47,6 +47,8 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
             </div>
             <p class="ms-status" id="ms-status" role="status"></p>
           </div>
+
+          <aside class="ms-booking" id="ms-booking" hidden></aside>
         </div>
       </div>
     </div>
@@ -123,28 +125,45 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
     });
   }
 
+    /* 予約パネル（Airbnb の右カラムと同じ）。操作は置かず、詳細ページへ1リンクで送る */
+    let panelOpen = false;
+    function toggleBookingPanel(id, t) {
+      panelOpen = !panelOpen;
+      renderBookingPanel(id, t);
+    }
+    function renderBookingPanel(id, t) {
+      const el = $("ms-booking");
+      el.hidden = !panelOpen;
+      document.querySelector(".ms-layout").classList.toggle("has-booking", panelOpen);
+      const btn = document.getElementById("ms-panel-toggle");
+      if (btn) btn.textContent = panelOpen ? "閉じる" : "予約を表示";
+      if (!panelOpen || !t) return;
+      el.innerHTML = `
+        <p class="ms-bp-name">${esc(PROP[t.prop] ?? t.prop)}</p>
+        <table class="ms-bp-table">
+          <tr><th>予約番号</th><td>${esc(id.slice(0, 8).toUpperCase())}</td></tr>
+          <tr><th>お客様</th><td>${esc(t.guestName || "—")}<br><span class="ms-bp-sub">${esc(t.guestEmail || "")}</span></td></tr>
+          <tr><th>チェックイン</th><td>${esc(t.checkin || "—")}</td></tr>
+          <tr><th>チェックアウト</th><td>${esc(t.checkout || "—")}</td></tr>
+          <tr><th>言語</th><td>${esc((t.lang || "").toUpperCase() || "—")}</td></tr>
+        </table>
+        <a class="ms-bp-open" href="/admin/booking/?id=${esc(id)}">予約詳細へ（タイムライン・操作）</a>`;
+    }
+
     async function open(id) {
       active = id; renderList();
       const t = threads.find((x) => x.id === id) || {};
       $("ms-head").hidden = false;
+      /* リンク無効化ボタンは撤去（誤タップ1回でお客様の返信手段が全滅する割に出番が稀・
+         2026-08-16 発注者判断）。API の revoke アクションは非常口として残している */
       $("ms-head").innerHTML = t.kind === "inquiry"
         ? `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
-           <span class="ms-h-sub">💬 お問い合わせ ／ ${esc(t.guestEmail || "")} ／ ${esc((t.lang || "").toUpperCase())}</span>
-           <button type="button" class="ms-h-link" id="ms-revoke">リンクを無効化</button>`
+           <span class="ms-h-sub">💬 お問い合わせ ／ ${esc(t.guestEmail || "")} ／ ${esc((t.lang || "").toUpperCase())}</span>`
         : `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
            <span class="ms-h-sub">${esc(PROP[t.prop] ?? t.prop)} ／ ${esc(t.checkin || "")} 〜 ${esc(t.checkout || "")} ／ ${esc(id.slice(0, 8).toUpperCase())}</span>
-           <a class="ms-h-link" href="/admin/booking/?id=${esc(id)}">予約を開く</a>`;
-      document.getElementById("ms-revoke")?.addEventListener("click", async () => {
-        if (!confirm("お客様に送ったリンクをすべて無効にします。以後お客様はこの会話を開けなくなります（Admin 以上のみ実行可）。")) return;
-        try {
-          const token = await auth.currentUser.getIdToken();
-          const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "revoke", bookingId: id }) });
-          const j = await r.json();
-          alert(j.ok ? "無効化しました" : j.error === "admin_only" ? "この操作は Admin 以上のみです" : "失敗しました");
-        } catch { alert("失敗しました"); }
-      });
+           <button type="button" class="ms-h-link" id="ms-panel-toggle">予約を表示</button>
+           <a class="ms-h-link" href="/admin/booking/?id=${esc(id)}">詳細ページへ</a>`;
+      document.getElementById("ms-panel-toggle")?.addEventListener("click", () => toggleBookingPanel(id, t));
       $("ms-compose").hidden = false;
 
       if (msgUnsub) msgUnsub();
