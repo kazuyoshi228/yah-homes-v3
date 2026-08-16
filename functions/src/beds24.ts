@@ -26,14 +26,18 @@ const REPORT_TO = "kazuyoshi.yamada@bonfire.co.jp";
 type Booking = {
   id: number; propertyId: number; status: string; arrival: string; departure: string;
   firstName?: string; lastName?: string; referer?: string; apiSource?: string;
-  country2?: string; bookingTime?: string; cancelTime?: string; numAdult?: number; numChild?: number;
+  country2?: string; bookingTime?: string; cancelTime?: string; custom1?: string; numAdult?: number; numChild?: number;
 };
 
 const jstToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
 const nights = (b: Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
 const isActive = (b: Booking) => b.status === "confirmed" || b.status === "new";
+const isDirect = (b: Booking) => (b.custom1 ?? "").startsWith("yah.homes direct");
 const isGuest = (b: Booking) =>
-  b.status !== "black" && !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
+  b.status !== "black" &&
+  !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`) &&
+  // API直作成は原則除外・直販サイト経由（custom1の直販印）は採用
+  (isDirect(b) || !(!b.referer && /^api$/i.test(b.apiSource ?? "")));
 
 async function fetchBookings(token: string): Promise<Booking[]> {
   const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
@@ -91,6 +95,8 @@ async function sendMail(
   text: string,
   opts?: {
     heading?: string;
+    lead?: string;
+    stats?: { label: string; value: string; sub?: string; tone?: "good" | "warn" | "bad" }[];
     rows?: [string, string][];
     blocks?: { title: string; body: string }[];
     variant?: "brand" | "alert";
@@ -106,6 +112,8 @@ async function sendMail(
     html: mailHtml({
       heading: opts?.heading ?? (subject.replace(/^【[^】]*】\s*/, "") || "定点観測"),
       badge: `週次スコアカード|${today}`,
+      lead: opts?.lead,
+      stats: opts?.stats,
       rows: opts?.rows,
       blocks: opts?.blocks ?? [{ title: "サマリー", body: esc(text) }],
       cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
@@ -115,7 +123,7 @@ async function sendMail(
 }
 
 function label(b: Booking): string {
-  const src = b.referer || b.apiSource || "?";
+  const src = isDirect(b) ? "直販" : b.referer || b.apiSource || "?";
   return `${PROPS[b.propertyId] ?? b.propertyId} ${b.arrival}〜${nights(b)}泊 ` +
     `${b.firstName ?? ""} ${b.lastName ?? ""} [${src}]${b.country2 ? " " + b.country2 : ""}`;
 }
@@ -259,7 +267,17 @@ export const beds24WeeklyReport = onSchedule(
       await sendMail(
         `【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`,
         body,
-        { heading: `新規 ${weekly.length}組 ${weeklyNights}泊`, rows, blocks },
+        {
+          heading: `新規 ${weekly.length}組 ${weeklyNights}泊`,
+          lead: `${weekAgo} 〜 ${today}（予約日ベース）の実績です。`,
+          // 一目で読ませるのは3つまで。先付け率と手渡し比率は判定帯つきで色を変える。
+          stats: [
+            { label: "新規予約", value: `${weekly.length}組`, sub: `${weeklyNights}泊 ／ 取消 ${cxl.length}件`, tone: weekly.length > 0 ? "good" : "warn" },
+            { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdPct}%（適正 28〜33%）`, tone: Number(fwdPct) < 28 || Number(fwdPct) > 33 ? "warn" : "good" },
+            { label: "手渡し→予約", value: ratio === "—" ? "—" : `${ratio}%`, sub: "基準 23〜28%", tone: ratio === "—" ? undefined : Number(ratio) < 23 ? "warn" : "good" },
+          ],
+          rows, blocks,
+        },
       );
       logger.info("beds24WeeklyReport done", { weekly: weekly.length });
     } catch (e) {

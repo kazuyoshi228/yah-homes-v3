@@ -15,6 +15,9 @@ export function mailHtml(o: {
   badge?: string;
   lead?: string;
   rows?: Array<[string, string]>;
+  /** 一目で読ませる主要数値。2〜3個までにする（4個以上は横に潰れて逆に読めない）。
+      tone: good=緑 / warn=橙 / bad=赤 / 既定=黒。判定の色分けに使う。 */
+  stats?: Array<{ label: string; value: string; sub?: string; tone?: "good" | "warn" | "bad" }>;
   blocks?: Array<{ title: string; body: string }>;
   cta?: { label: string; href: string };
   /** 黒地に大きく出す暗証番号（前日のチェックイン案内用） */
@@ -29,6 +32,18 @@ export function mailHtml(o: {
   const row = ([k, v]: [string, string]) =>
     `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;vertical-align:top;white-space:nowrap;">${esc(k)}</td>
       <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#111111;text-align:right;font-weight:500;word-break:break-word;">${v}</td></tr>`;
+  /* 主要数値のタイル。Outlook/Gmail 双方で崩れないよう table の td を横並びにする（flex/grid は使えない） */
+  const TONE = { good: "#1a7f37", warn: "#b26a00", bad: "#c0392b" } as const;
+  const statsHtml = (st: NonNullable<typeof o.stats>) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;"><tr>${st
+      .map(
+        (s, i) => `<td width="${Math.floor(100 / st.length)}%" style="padding:14px 8px;background:#fafafa;border-radius:8px;text-align:center;${i ? "border-left:6px solid #ffffff;" : ""}">
+        <div style="font-size:11px;color:#888888;letter-spacing:.04em;margin-bottom:4px;">${esc(s.label)}</div>
+        <div style="font-size:26px;line-height:1.15;font-weight:700;color:${s.tone ? TONE[s.tone] : "#111111"};">${esc(s.value)}</div>
+        ${s.sub ? `<div style="font-size:11px;color:#999999;margin-top:4px;">${esc(s.sub)}</div>` : ""}
+      </td>`,
+      )
+      .join("")}</tr></table>`;
   const block = (b: { title: string; body: string }) =>
     `<div style="border-top:1px solid #f0f0f0;padding-top:14px;margin-top:14px;">
        <div style="font-size:13px;font-weight:600;color:#111111;margin-bottom:5px;">${esc(b.title)}</div>
@@ -48,6 +63,7 @@ export function mailHtml(o: {
   <tr><td style="padding:26px 24px 24px;">
     <div style="font-size:19px;font-weight:600;color:#111111;line-height:1.5;margin-bottom:${o.lead ? "8px" : "16px"};">${esc(o.heading)}</div>
     ${o.lead ? `<div style="font-size:13px;color:#666666;line-height:1.9;margin-bottom:18px;">${esc(o.lead)}</div>` : ""}
+    ${o.stats?.length ? `<div style="margin-bottom:16px;">${statsHtml(o.stats)}</div>` : ""}
     ${o.rows?.length ? `<table role="presentation" width="100%" style="border:1px solid #e8e8e8;border-radius:6px;"><tr><td style="padding:14px 18px;">
       <table role="presentation" width="100%">${o.rows.map(row).join("")}</table></td></tr></table>` : ""}
     ${o.codeCard ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td align="center" style="background:#111111;border-radius:8px;padding:20px 24px;">

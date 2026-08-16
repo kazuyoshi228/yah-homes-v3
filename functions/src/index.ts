@@ -2809,6 +2809,7 @@ const TEITEN_PROPS: Record<number, string> = { 278158: "清川", 291238: "高砂
 type Beds24Booking = {
   id: number; propertyId: number; status: string; arrival: string; departure: string;
   firstName?: string; lastName?: string; referer?: string; apiSource?: string; country2?: string;
+  custom1?: string;
 };
 
 async function beds24FetchAll(url: string, token: string): Promise<Beds24Booking[]> {
@@ -2872,14 +2873,30 @@ export const beds24DailyObserver = onSchedule(
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
     });
     const teitenTo = await notifyRecipients("notifyTeiten");
-    const mail = (subject: string, text: string) =>
+    /** 定点メール。stats/rows/blocks を渡すと構造化して表示し、省略時は text をそのまま1ブロックに流す（エラー通知用）。 */
+    const mail = (
+      subject: string,
+      text: string,
+      opts?: {
+        heading?: string;
+        stats?: Array<{ label: string; value: string; sub?: string; tone?: "good" | "warn" | "bad" }>;
+        rows?: Array<[string, string]>;
+        blocks?: Array<{ title: string; body: string }>;
+        lead?: string;
+        variant?: "brand" | "alert";
+      },
+    ) =>
       transporter.sendMail({
         from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: teitenTo, subject, text,
         html: mailHtml({
-          heading: subject.replace(/^【定点】\s*/, "") || "定点観測",
-          badge: `定点観測|${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
-          blocks: [{ title: "サマリー", body: esc(text) }],
+          heading: opts?.heading ?? (subject.replace(/^【定点】\s*/, "") || "定点観測"),
+          badge: `日次定点|${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
+          lead: opts?.lead,
+          stats: opts?.stats,
+          rows: opts?.rows,
+          blocks: opts?.blocks ?? [{ title: "サマリー", body: esc(text) }],
           cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+          variant: opts?.variant,
         }),
       });
 
@@ -2897,11 +2914,12 @@ export const beds24DailyObserver = onSchedule(
 
       const nightsOf = (b: Beds24Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
       const active = (b: Beds24Booking) => b.status === "confirmed" || b.status === "new";
+      const isDirect = (b: Beds24Booking) => (b.custom1 ?? "").startsWith("yah.homes direct");
       const isGuest = (b: Beds24Booking) =>
         b.status !== "black" &&
         !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`) &&
-        // API直作成（P1開発テスト等）は観測対象外。MS3本稼働時は直販refererをここでホワイトリスト化する
-        !(!b.referer && /^api$/i.test(b.apiSource ?? ""));
+        // API直作成は原則観測対象外だが、直販サイト経由（custom1に直販印・§P1）は正規ゲストとして採用
+        (isDirect(b) || !(!b.referer && /^api$/i.test(b.apiSource ?? "")));
 
       // ② 差分（Firestoreスナップショットと照合）
       const stateRef = db.collection("beds24_state").doc("latest");
@@ -2915,7 +2933,7 @@ export const beds24DailyObserver = onSchedule(
         seenIds.add(String(b.id));
         if (!isGuest(b)) continue;
         const p = prev.bookings[String(b.id)];
-        const label = `${TEITEN_PROPS[b.propertyId]} ${b.arrival}〜${nightsOf(b)}泊 ${b.firstName ?? ""} ${b.lastName ?? ""} [${b.referer || b.apiSource || "?"}] ${b.country2 || ""}`;
+        const label = `${TEITEN_PROPS[b.propertyId]} ${b.arrival}〜${nightsOf(b)}泊 ${b.firstName ?? ""} ${b.lastName ?? ""} [${isDirect(b) ? "直販" : b.referer || b.apiSource || "?"}] ${b.country2 || ""}`;
         const wasActive = p != null && (p.status === "confirmed" || p.status === "new");
         if (!wasActive && active(b)) events.new.push(label); // 新ID・request/inquiryからの確定・キャンセル復活を含む
         else if (p && p.status !== "cancelled" && b.status === "cancelled") events.cancelled.push(label);
@@ -2995,6 +3013,10 @@ export const beds24DailyObserver = onSchedule(
 
 
       // ⑤ サマリメール（特記: 適正帯28〜33%逸脱・3泊以上・キャンセル塊）
+      // 棟別・全体の差引（新規 − キャンセル − 物理削除）。メールの主要数値に使う。
+      const kNet = { g: kNew.g - kCxl.g - kDel.g, n: kNew.n - kCxl.n - kDel.n };
+      const tNet = { g: tNew.g - tCxl.g - tDel.g, n: tNew.n - tCxl.n - tDel.n };
+      const netG = kNet.g + tNet.g, netN = kNet.n + tNet.n;
       const notes: string[] = [];
       if (fwdRate < 28) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を下回り`);
       if (fwdRate > 33) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を上回り`);
@@ -3020,7 +3042,31 @@ export const beds24DailyObserver = onSchedule(
           `先付け残高: 清川${fwd.清川}泊 / 高砂${fwd.高砂}泊 / 計${fwdTotal}泊（${fwdRate}%）`,
           sheetNote, ``,
           ...(notes.length ? [`MEMO: ${notes.join("・")}`] : []),
-        ].join("\n")
+        ].join("\n"),
+        {
+          // 一目で読ませるのは「今日いくつ増えたか」と「在庫がどれだけ積んであるか」の2点に絞る
+          heading: `${netG >= 0 ? "+" : ""}${netG}組 ${netN >= 0 ? "+" : ""}${netN}泊`,
+          lead: `前回観測 ${prev.date ?? "初回"} からの差分です。`,
+          stats: [
+            { label: "新規（差引）", value: `${netG >= 0 ? "+" : ""}${netG}組`, sub: `${netN >= 0 ? "+" : ""}${netN}泊`, tone: netG > 0 ? "good" : netG < 0 ? "bad" : undefined },
+            { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdRate}%（適正 28〜33%）`, tone: fwdRate < 28 ? "warn" : fwdRate > 33 ? "warn" : "good" },
+            { label: "手渡し（前日）", value: `${handoff?.total ?? "—"}`, sub: `Airbnb ${clicks ?? "—"} / Booking ${handoff?.click_booking_com ?? "—"}` },
+          ],
+          rows: [
+            ["清川", esc(`${kNet.g >= 0 ? "+" : ""}${kNet.g}組 ${kNet.n >= 0 ? "+" : ""}${kNet.n}泊　先付け ${fwd.清川}泊（${pct(fwd.清川, 365)}）`)],
+            ["高砂", esc(`${tNet.g >= 0 ? "+" : ""}${tNet.g}組 ${tNet.n >= 0 ? "+" : ""}${tNet.n}泊　先付け ${fwd.高砂}泊（${pct(fwd.高砂, 365)}）`)],
+            ["キャンセル", esc(`${events.cancelled.length}件`)],
+            ["定点シート", esc(sheetNote)],
+          ],
+          blocks: [
+            ...(notes.length ? [{ title: "⚠ 特記", body: esc(notes.join("\n")) }] : []),
+            ...(events.new.length ? [{ title: `新規予約 ${events.new.length}件`, body: esc(events.new.map((l) => `+ ${l}`).join("\n")) }] : []),
+            ...(events.cancelled.length ? [{ title: `キャンセル ${events.cancelled.length}件`, body: esc(events.cancelled.map((l) => `- ${l}`).join("\n")) }] : []),
+            ...(events.changed.length ? [{ title: `変更 ${events.changed.length}件`, body: esc(events.changed.map((l) => `* ${l}`).join("\n")) }] : []),
+            ...(events.deleted.length ? [{ title: `物理削除 ${events.deleted.length}件（差引済み）`, body: esc(events.deleted.map((l) => `- ${l}`).join("\n")) }] : []),
+          ],
+          variant: notes.some((n) => n.includes("下回り") || n.includes("塊")) ? "alert" : "brand",
+        },
       );
 
       logger.info(`beds24DailyObserver done: new=${events.new.length} cxl=${events.cancelled.length} fwd=${fwdTotal}`);
