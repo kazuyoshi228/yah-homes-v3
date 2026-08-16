@@ -709,24 +709,40 @@ async function cancelBeds24Booking(beds24Id: number): Promise<void> {
   if (!j?.[0]?.success) throw new Error(`beds24 cancel failed: ${JSON.stringify(j?.[0]?.errors ?? j).slice(0, 200)}`);
 }
 
+/** 新規予約を Beds24 の受信箱に知らせる（2026-08-16 発注者指摘）。
+    予約自体は API で Beds24 に作られるが、それだけでは**受信箱に何も出ない**ため、
+    受信箱を見ている運営会社は新規予約に気づけない（キャンセルだけ通知していた）。
+    キャンセル通知と同じ2本立て（受信箱に出る guest ＋ 記録用の internalNote）。
+    失敗しても予約確定は止めない。 */
+async function noteBeds24NewBooking(beds24Id: number, text: string): Promise<void> {
+  try {
+    await postBeds24Note(beds24Id, "guest", `【直販システム】公式サイトから新しいご予約が入りました。\n${text}`);
+    await postBeds24Note(beds24Id, "internalNote", text);
+  } catch (err) {
+    logger.warn("beds24 new booking note failed", { beds24Id, err: String(err).slice(0, 120) });
+  }
+}
+
+/** bookings/messages への投稿（新規予約・キャンセル通知で共用） */
+async function postBeds24Note(beds24Id: number, source: string, message: string): Promise<void> {
+  const r = await fetch(`${BEDS24_API}/bookings/messages`, {
+    method: "POST",
+    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+    body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 500), source }]),
+  });
+  const j = (await r.json()) as Array<{ success?: boolean }>;
+  if (!j?.[0]?.success) logger.warn("beds24 note failed", { beds24Id, source });
+}
+
 /** キャンセルの経緯を Beds24 に残す（運営がBeds24だけ見ていても分かるように）。
     2本立てにする理由: internalNote は予約のInfoタブにしか出ず、運営会社が日常的に見ている
     メッセージ受信箱の一覧には並ばない（2026-08-15 発注者指摘・実画面で確認）。
     受信箱に出るのは guest ソースのメッセージだけなので、通知はそちらで送り、
     経緯の記録として internalNote も残す。失敗してもキャンセル処理は止めない。 */
 async function noteBeds24Cancellation(beds24Id: number, text: string): Promise<void> {
-  const post = async (source: string, message: string) => {
-    const r = await fetch(`${BEDS24_API}/bookings/messages`, {
-      method: "POST",
-      headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-      body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 500), source }]),
-    });
-    const j = (await r.json()) as Array<{ success?: boolean }>;
-    if (!j?.[0]?.success) logger.warn("beds24 cancel note failed", { beds24Id, source });
-  };
   try {
-    await post("guest", `【直販システム】このご予約はキャンセルされました。\n${text}`);
-    await post("internalNote", text);
+    await postBeds24Note(beds24Id, "guest", `【直販システム】このご予約はキャンセルされました。\n${text}`);
+    await postBeds24Note(beds24Id, "internalNote", text);
   } catch (err) {
     logger.warn("beds24 cancel note failed", { beds24Id, err: String(err).slice(0, 120) });
   }
@@ -3598,6 +3614,18 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
       { status: "CONFIRMED", beds24Id, confirmedAt: FieldValue.serverTimestamp() });
     await ensureThread(bookingId, c2).catch((e) => logger.warn("ensureThread failed", { e: String(e).slice(0, 120) }));
     await sendConfirmationMail(bookingId, c2);
+    // Beds24 の受信箱にも新規予約を知らせる。予約自体は API で作られるが、
+    // それだけでは受信箱に出ず、受信箱を見ている運営会社が気づけないため。
+    await noteBeds24NewBooking(
+      beds24Id,
+      [
+        `予約番号 ${bookingId.slice(0, 8).toUpperCase()}／${cur.prop}`,
+        `${cur.checkin} 〜 ${cur.checkout}（${Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000)}泊 ${cur.guests}名）`,
+        `お名前: ${String(c2.name ?? "")}`,
+        `合計 ¥${Number(cur.total).toLocaleString("en-US")}（決済済み・現地でのお支払いなし）`,
+        "対応不要です。ご連絡は yah.homes の管理画面「メッセージ」から届きます。",
+      ].join("\n"),
+    ).catch((e) => logger.warn("noteBeds24NewBooking failed", { e: String(e).slice(0, 160) }));
     // 直前予約の救済。入室案内（暗証番号つき）を配るジョブは前日10:00にしか走らないため、
     // その時刻を過ぎてから確定した予約には案内が一通も届かない＝玄関で開けられない。
     // 該当する場合はここで即送り、reminderSentAt を立ててジョブ側と二重送信しないようにする。
