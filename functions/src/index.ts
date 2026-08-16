@@ -2221,25 +2221,17 @@ async function noteBeds24Message(beds24Id: number, from: "guest" | "host", messa
 // 実行時に property_secrets から読むことで、/admin/secrets の変更が即座にページへ反映される。
 // 認証は掛けない（OTA経由のお客様もURLだけで開くため）。したがって守っているのは
 // 「URLを知っていること」のみ＝Google Sitesと同水準。トークン化はv5 §9の未決事項。
+/* 【廃止】暗証番号を返す無認証API（P0-1③・2026-08-16 発注者決定で C 案を採用）。
+   番号は「メール（直販）と 予約サイトのメッセージ（OTA）」でのみ届ける。
+   入室案内ページは番号を表示しなくなったため、このAPIの用途は消滅した。
+   エンドポイントは 410 を返して残す（旧ページのキャッシュや古いブックマークが
+   叩いても、404 で「壊れた」と誤解させないため）。次の大掃除で削除してよい。 */
 export const checkinInfo = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com", cors: true },
-  async (req, res) => {
+  { region: REGION, maxInstances: MAX_INSTANCES, cors: true },
+  async (_req, res) => {
     res.set("Cache-Control", "no-store");
-    res.set("X-Robots-Tag", "noindex, nofollow");
-    if (rateLimited(`checkin:${clientIp(req)}`, 20, 60000)) {
-      res.set("Retry-After", "60");
-      res.status(429).json({ ok: false, error: "too_many_requests" });
-      return;
-    }
-    const prop = String(req.query.prop ?? "");
-    if (!["kiyokawa", "takasago"].includes(prop)) { res.status(400).json({ ok: false }); return; }
-    try {
-      const v = (await db.collection("property_secrets").doc(prop).get()).data() ?? {};
-      res.status(200).json({ ok: true, keyboxCode: v.keyboxCode ?? "" });
-    } catch (err) {
-      logger.error("checkinInfo failed", err);
-      res.status(500).json({ ok: false });
-    }
+    res.status(410).json({ ok: false, error: "gone",
+      note: "The PIN is delivered by email (direct bookings) or via the booking site's messages (OTA)." });
   }
 );
 

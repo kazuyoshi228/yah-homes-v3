@@ -58,8 +58,7 @@ const UI: Record<Lang, Record<string, string>> = {
     s4: "駐車場", s4sub: "お車でお越しの方へ",
     mapBtn: "Google マップで開く",
     entranceCaption: "赤い丸が玄関ドアです。",
-    pin: "暗証番号", pinLoading: "読み込み中...",
-    pinError: "暗証番号を読み込めませんでした。ご予約サイトのメッセージからお問い合わせください。",
+    pin: "暗証番号", pinNote: "暗証番号は、公式サイトのご予約はご案内メールに、Airbnb・Booking.com のご予約は各サイトのメッセージにお送りしています。見当たらない場合は下記のお電話へ。",
     keyAfter: "番号を合わせるとキーボックスが開きます。中の鍵で解錠し、ご入室ください。ご滞在中は鍵をお持ちください。",
     garageTitle: "車庫のサイズ",
     garageNote: "駐車場は狭くなっております。お車がこの寸法に収まるかどうか、事前にご確認ください。収まらない場合は、周辺のコインパーキングをご利用ください。",
@@ -77,8 +76,7 @@ const UI: Record<Lang, Record<string, string>> = {
     s4: "Parking", s4sub: "If you come by car",
     mapBtn: "Open in Google Maps",
     entranceCaption: "The red circle marks the front door.",
-    pin: "PIN", pinLoading: "Loading...",
-    pinError: "We could not load the PIN. Please message us through your booking site.",
+    pin: "PIN", pinNote: "Your PIN was sent by email (official-site bookings) or via the booking site\u2019s messages (Airbnb / Booking.com). If you cannot find it, please call the number below.",
     keyAfter: "Set the dials to the PIN and the box opens. Unlock the door with the key inside, and keep it with you during your stay.",
     garageTitle: "Garage dimensions",
     garageNote: "The parking space is narrow. Please check that your car fits within these dimensions. If not, please use a nearby coin parking.",
@@ -96,8 +94,7 @@ const UI: Record<Lang, Record<string, string>> = {
     s4: "주차장", s4sub: "차로 오시는 분께",
     mapBtn: "Google 지도에서 열기",
     entranceCaption: "빨간 동그라미가 현관문입니다.",
-    pin: "비밀번호", pinLoading: "불러오는 중...",
-    pinError: "비밀번호를 불러오지 못했습니다. 예약하신 사이트의 메시지로 문의해 주세요.",
+    pin: "비밀번호", pinNote: "비밀번호는 공식 사이트 예약은 안내 메일로, Airbnb・Booking.com 예약은 각 사이트의 메시지로 보내드렸습니다. 찾을 수 없으면 아래 전화번호로 연락해 주세요.",
     keyAfter: "번호를 맞추면 키박스가 열립니다. 안에 있는 열쇠로 문을 열고 들어가 주세요. 숙박 중에는 열쇠를 지참해 주세요.",
     garageTitle: "차고 크기",
     garageNote: "주차 공간이 좁습니다. 차량이 이 치수에 들어가는지 미리 확인해 주세요. 들어가지 않는 경우 주변 코인 주차장을 이용해 주세요.",
@@ -115,8 +112,7 @@ const UI: Record<Lang, Record<string, string>> = {
     s4: "停車場", s4sub: "開車前來的旅客",
     mapBtn: "在 Google 地圖開啟",
     entranceCaption: "紅色圓圈處為大門。",
-    pin: "密碼", pinLoading: "讀取中...",
-    pinError: "無法讀取密碼。請透過您預訂的網站訊息與我們聯繫。",
+    pin: "密碼", pinNote: "密碼已寄送：官網預訂請查看通知郵件，Airbnb・Booking.com 預訂請查看該網站的訊息。找不到時請撥打下方電話。",
     keyAfter: "轉到正確號碼後密碼盒即可打開。請用裡面的鑰匙開門進入，住宿期間請隨身攜帶鑰匙。",
     garageTitle: "車庫尺寸",
     garageNote: "停車空間較為狹窄。請事先確認您的車輛是否符合此尺寸。若無法停放，請利用附近的計時停車場。",
@@ -134,8 +130,7 @@ const UI: Record<Lang, Record<string, string>> = {
     s4: "ที่จอดรถ", s4sub: "สำหรับผู้ที่มาด้วยรถยนต์",
     mapBtn: "เปิดใน Google Maps",
     entranceCaption: "วงกลมสีแดงคือประตูทางเข้า",
-    pin: "รหัส", pinLoading: "กำลังโหลด...",
-    pinError: "ไม่สามารถโหลดรหัสได้ กรุณาติดต่อเราผ่านข้อความในเว็บไซต์ที่คุณจอง",
+    pin: "รหัส", pinNote: "รหัสถูกส่งให้แล้ว: จองผ่านเว็บไซต์ทางการดูในอีเมลแจ้งเตือน จองผ่าน Airbnb・Booking.com ดูในข้อความของเว็บไซต์นั้น หากหาไม่พบกรุณาโทรตามหมายเลขด้านล่าง",
     keyAfter: "เมื่อตั้งรหัสถูกต้อง กล่องจะเปิดออก กรุณาใช้กุญแจด้านในเปิดประตูเข้าห้องพัก และพกกุญแจติดตัวไว้ตลอดการเข้าพัก",
     garageTitle: "ขนาดที่จอดรถ",
     garageNote: "ที่จอดรถค่อนข้างแคบ กรุณาตรวจสอบล่วงหน้าว่ารถของคุณอยู่ในขนาดนี้หรือไม่ หากไม่พอดี กรุณาใช้ที่จอดรถแบบหยอดเหรียญบริเวณใกล้เคียง",
@@ -147,7 +142,6 @@ const UI: Record<Lang, Record<string, string>> = {
   },
 };
 
-const CHECKIN_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/checkinInfo";
 const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
 const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)}&z=17&output=embed`;
 const garage = garageSize
@@ -217,8 +211,7 @@ const garage = garageSize
         </figure>
         <div class="ht-code">
           <p class="ht-code-label" data-t="pin"></p>
-          <p class="ht-code-val" id="ht-code" aria-live="polite">••••</p>
-          <p class="ht-code-note" id="ht-code-note"></p>
+          <p class="ht-code-note" data-t="pinNote"></p>
         </div>
         <p class="ht-text" data-t="keyAfter"></p>
       </section>
@@ -253,7 +246,7 @@ const garage = garageSize
   </section>
 </SiteLayout>
 
-<script define:vars={{ CHECKIN_ENDPOINT, prop, UI, keyPlace, parking, garage }}>
+<script define:vars={{ prop, UI, keyPlace, parking, garage }}>
   (() => {
     const PROPTEXT = { keyPlace, parking };
     const LANGS = Object.keys(UI);
@@ -269,8 +262,6 @@ const garage = garageSize
       return "en";
     };
 
-    let code = null; // 取得済みの暗証番号（言語を切り替えても再取得しない）
-
     function apply(lang) {
       const t = UI[lang];
       document.documentElement.lang = lang;
@@ -283,8 +274,6 @@ const garage = garageSize
       // 車庫の寸法は日本語だけ「幅×奥行」、他言語は W×D で1行だけ出す
       const g = document.getElementById("ht-garage");
       if (g && garage) g.textContent = lang === "ja" ? garage.ja : garage.en;
-      const note = document.getElementById("ht-code-note");
-      note.textContent = code === null ? t.pinLoading : code === "" ? t.pinError : "";
       localStorage.setItem("yh-howto-lang", lang);
     }
 
@@ -294,18 +283,7 @@ const garage = garageSize
       b.addEventListener("click", () => { lang = b.dataset.lang; apply(lang); })
     );
 
-    fetch(`${CHECKIN_ENDPOINT}?prop=${encodeURIComponent(prop)}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j.ok || !j.keyboxCode) throw new Error("no code");
-        code = j.keyboxCode;
-        document.getElementById("ht-code").textContent = code;
-      })
-      .catch(() => {
-        code = "";
-        document.getElementById("ht-code").textContent = "——";
-      })
-      .finally(() => apply(lang));
+
   })();
 </script>
 
