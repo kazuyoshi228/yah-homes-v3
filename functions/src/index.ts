@@ -3499,6 +3499,42 @@ async function sendPurchaseEvent(booking: {
   }
 }
 
+/**
+ * GA4 refund をキャンセル・返金の確定後に送る。
+ * 送らないと、返金済みの予約がコンバージョンとして残り続け、
+ * Google Ads の入札が「実際には成立していない予約」を学習する。
+ * キャンセルポリシーが「8日前まで無料」のため、これは必ず発生する。
+ * transaction_id は purchase と同一（＝GA4側で相殺される）。
+ */
+async function sendRefundEvent(booking: {
+  id: string; uid?: string; total: number; refundAmount: number; clientId?: string;
+}): Promise<void> {
+  const secret = GA4_API_SECRET.value();
+  if (!secret || secret.startsWith("placeholder")) return; // 未設定時は送らない（障害にしない）
+  try {
+    await fetch(
+      `https://www.google-analytics.com/mp/collect?measurement_id=${GA4_MEASUREMENT_ID}&api_secret=${secret}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          client_id: booking.clientId || `srv.${(booking.uid ?? booking.id).slice(0, 16)}`,
+          events: [{
+            name: "refund",
+            params: {
+              transaction_id: booking.id,
+              currency: "JPY",
+              // 全額返金なら value を省略しても相殺されるが、部分返金と区別するため常に入れる
+              value: booking.refundAmount,
+            },
+          }],
+        }),
+      },
+    );
+  } catch (err) {
+    logger.warn("GA4 refund send failed", err);
+  }
+}
+
 /** 障害通知（沈黙禁止・v4 §8-6） */
 /* ─── 予約確定メール（お客様宛・予約言語・HTML＋テキスト） ───
    Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
@@ -4306,6 +4342,12 @@ export const accountApi = onRequest(
             at: FieldValue.serverTimestamp(),
           });
 
+          // GA4 の purchase を相殺する（Google Ads の入札が幻のCVを学習しないように）
+          await sendRefundEvent({
+            id: idStr, uid: String(v.uid ?? ""), total: Number(v.total ?? 0),
+            refundAmount, clientId: String(v.clientId ?? ""),
+          });
+
           await sendCancellationMail(idStr, v, refundAmount);
           try {
             const transporter = nodemailer.createTransport({
@@ -4648,6 +4690,12 @@ export const adminBookings = onRequest(
             amount: refundAmount, paymentIntentId: v.paymentIntentId,
             beds24Id: v.beds24Id ?? null, beds24CancelError: beds24CancelError || null,
             at: FieldValue.serverTimestamp(),
+          });
+
+          // GA4 の purchase を相殺する（Google Ads の入札が幻のCVを学習しないように）
+          await sendRefundEvent({
+            id: idStr, uid: String(v.uid ?? ""), total: Number(v.total ?? 0),
+            refundAmount, clientId: String(v.clientId ?? ""),
           });
 
           // 管理側の返金でもお客様へキャンセル確認メールを送る
