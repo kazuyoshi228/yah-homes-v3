@@ -203,6 +203,10 @@ const breadcrumb = breadcrumbJsonLd([
     margin-bottom: 2rem;
   }
   .legal-sec {
+    /* 画面外の条文は描画を後回しに（長文ページの初回描画を速くする）。
+       contain-intrinsic-size はスクロールバー飛びを防ぐための概算高 */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
     margin-top: 2.25rem;
   }
   .legal-sec h2 {
