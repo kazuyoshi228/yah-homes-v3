@@ -434,8 +434,16 @@ const strings = {
   }
 
   function renderAll() {
-    $("bk-in").textContent = state.checkin || "—";
-    $("bk-out").textContent = state.checkout || "—";
+  // 日付をUIの言語で曜日付き表記に（宿泊予約では曜日が意思決定材料のため）
+  const DATE_LOCALE = { en: "en-US", ja: "ja-JP", ko: "ko-KR", zh: "zh-TW", th: "th-TH" }[lang] || "en-US";
+  const fmtDate = (iso) => {
+    try {
+      return new Intl.DateTimeFormat(DATE_LOCALE, { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })
+        .format(new Date(`${iso}T00:00:00+09:00`));
+    } catch { return iso; }
+  };
+    $("bk-in").textContent = state.checkin ? fmtDate(state.checkin) : "—";
+    $("bk-out").textContent = state.checkout ? fmtDate(state.checkout) : "—";
     $("bk-hint").textContent = !state.checkin
       ? strings.selectDates
       : !state.checkout
@@ -949,7 +957,7 @@ const strings = {
     border-color: #111111;
   }
   .bk-cal :global(.cal-closed) {
-    color: #d7d7d7;
+    color: #9a9a9a;
     background: #f7f7f7;
     text-decoration: line-through;
     cursor: not-allowed;

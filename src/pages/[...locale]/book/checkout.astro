@@ -421,16 +421,24 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
     if (meta.checkinTime) $("co-in-time").textContent = uiStrings.checkinTime.replace("{t}", meta.checkinTime);
     if (meta.checkoutTime) $("co-out-time").textContent = uiStrings.checkoutTime.replace("{t}", meta.checkoutTime);
     $("co-house").textContent = meta.name;
-    $("co-in").firstChild.textContent = checkin;
-    $("co-out").firstChild.textContent = checkout;
+  // 日付をUIの言語で曜日付き表記に（例 ja: 2026年8月30日(日)）。値の受け渡しはISOのまま
+  const DATE_LOCALE = { en: "en-US", ja: "ja-JP", ko: "ko-KR", zh: "zh-TW", th: "th-TH" }[lang] || "en-US";
+  const fmtDate = (iso) => {
+    try {
+      return new Intl.DateTimeFormat(DATE_LOCALE, { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })
+        .format(new Date(`${iso}T00:00:00+09:00`));
+    } catch { return iso; }
+  };
+    $("co-in").firstChild.textContent = fmtDate(checkin);
+    $("co-out").firstChild.textContent = fmtDate(checkout);
     $("co-guests").textContent = uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests);
 
     // 無料キャンセル期限 = チェックイン7日前（JST基準・v4 §4）
     // 7日前の 00:00 JST = 8日前の 23:59 JST。表記は後者に揃える（実質同じ期限）
     const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 8 * 86400000);
     const fcStr = new Date(fc.getTime() + 9 * 3600000).toISOString().slice(0, 10);
-    $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
-    $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fcStr);
+    $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fmtDate(fcStr));
+    $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fmtDate(fcStr));
 
     track("checkout_viewed", { prop, checkin, nights, guests });
 
@@ -444,7 +452,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         if (uiStrings.fxCode !== "JPY") {
           $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
         }
-        $("co-final").textContent = `${meta.name}　${checkin} 〜 ${checkout}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
+        $("co-final").textContent = `${meta.name}　${fmtDate(checkin)} 〜 ${fmtDate(checkout)}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
       })
       .catch(() => { $("co-total").textContent = "—"; });
   }
@@ -661,7 +669,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         if (uiStrings.fxCode !== "JPY") {
           $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
         }
-        $("co-final").textContent = `${meta.name}　${checkin} 〜 ${checkout}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
+        $("co-final").textContent = `${meta.name}　${fmtDate(checkin)} 〜 ${fmtDate(checkout)}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
         $("co-pay-status").textContent = uiStrings.priceChanged;
         btn.disabled = false;
         return;
