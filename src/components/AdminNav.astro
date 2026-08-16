@@ -24,6 +24,7 @@ const GROUPS = [
       { href: "/admin/templates/", label: "定型メール", role: "admin" },
       { href: "/admin/internal-mails/", label: "社内向け定型メール", role: "admin" },
       { href: "/legal/terms/", label: "宿泊約款・ハウスルール", role: "owner" },
+      { href: "/admin/users/", label: "管理者台帳", role: "admin" },
     ],
   },
   {
@@ -31,14 +32,13 @@ const GROUPS = [
     items: [
       { href: "/admin/partners/", label: "パートナー申請", role: "operator" },
       { href: "/admin/mail-preview/", label: "メールテンプレート", role: "operator" },
-      { href: "/admin/mail-log/", label: "メール送信ログ", role: "operator" },
       { href: "/admin/notify-emails/", label: "送信先メールアドレス", role: "operator" },
-      { href: "/admin/users/", label: "管理者台帳", role: "admin" },
     ],
   },
   {
-    label: "システム", role: "owner",
+    label: "システム", role: "operator",
     items: [
+      { href: "/admin/mail-log/", label: "メール送信ログ", role: "operator" },
       { href: "/admin/health/", label: "システムヘルス", role: "owner" },
       { href: "/admin/audit/", label: "変更履歴", role: "owner" },
       { href: "/admin/specs/", label: "システム仕様書", role: "owner" },
