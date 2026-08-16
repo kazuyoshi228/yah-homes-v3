@@ -11,6 +11,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
+import { createHmac, createHash } from "node:crypto";
 import { logger } from "firebase-functions/v2";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -49,6 +50,7 @@ function clientIp(req: { headers: Record<string, unknown>; ip?: string }): strin
 // メール通知用シークレット（`firebase functions:secrets:set` で登録）
 // SMTP_USER: 送信元 Gmail/Workspace アドレス / SMTP_PASS: アプリパスワード /
 // CONTACT_NOTIFY_TO: 通知の宛先アドレス
+const INQUIRY_LINK_SECRET = defineSecret("INQUIRY_LINK_SECRET");
 const SMTP_USER = defineSecret("SMTP_USER");
 const SMTP_PASS = defineSecret("SMTP_PASS");
 const CONTACT_NOTIFY_TO = defineSecret("CONTACT_NOTIFY_TO");
@@ -73,8 +75,36 @@ export const health = onRequest({ region: REGION, maxInstances: MAX_INSTANCES },
   res.status(200).json({ status: "ok", service: "yah.homes", ts: Date.now() });
 });
 
+/* ─── 問い合わせのマジックリンク（docs/spec_inquiry_threads.md） ───
+   トークン = threadId.sig.expires（base64url）。DB にはトークンの SHA-256 だけを置き、
+   DB を読まれてもリンクを再構成できない。期限は最終活動から90日（送信のたび延長）。 */
+const INQUIRY_TOKEN_DAYS = 90;
+function signInquiry(threadId: string, expires: number): string {
+  return createHmac("sha256", INQUIRY_LINK_SECRET.value())
+    .update(`${threadId}.${expires}`).digest("base64url");
+}
+function makeInquiryToken(threadId: string): { token: string; hash: string; expiresAt: number } {
+  const expiresAt = Date.now() + INQUIRY_TOKEN_DAYS * 86400000;
+  const token = Buffer.from(`${threadId}.${signInquiry(threadId, expiresAt)}.${expiresAt}`).toString("base64url");
+  return { token, hash: createHash("sha256").update(token).digest("hex"), expiresAt };
+}
+/** 検証。threadId を返す（失敗は null）。呼び出し側で tokenHash と kind を必ず照合すること。 */
+function parseInquiryToken(raw: string): { threadId: string; hash: string } | null {
+  try {
+    const [threadId, sig, expStr] = Buffer.from(raw, "base64url").toString().split(".");
+    const expires = Number(expStr);
+    if (!threadId || !sig || !Number.isFinite(expires)) return null;
+    if (Date.now() > expires) return null;
+    const want = signInquiry(threadId, expires);
+    if (sig.length !== want.length || sig !== want) return null;
+    return { threadId, hash: createHash("sha256").update(raw).digest("hex") };
+  } catch { return null; }
+}
+const INQUIRY_URL = (lang: string, token: string) =>
+  `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}inquiry/?t=${token}`;
+
 export const contact = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, CONTACT_NOTIFY_TO] },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, CONTACT_NOTIFY_TO, INQUIRY_LINK_SECRET] },
   async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
   if (origin) {
@@ -127,7 +157,7 @@ export const contact = onRequest(
     return;
   }
 
-  await db.collection("contacts").add({
+  const contactRef = await db.collection("contacts").add({
     name: nameStr,
     email: emailStr,
     message: messageStr,
@@ -137,6 +167,30 @@ export const contact = onRequest(
     referer: (req.headers.referer as string | undefined)?.slice(0, 500) ?? null,
     status: "new",
   });
+
+  // スレッド化（B案）。問い合わせも予約メッセージと同じ器に入れ、/admin/messages に並べる。
+  // 1通目は from:"guest" のメッセージ。返信用のマジックリンクを発行して自動返信に載せる。
+  let inquiryLink = "";
+  try {
+    const tref = db.collection("threads").doc();
+    const tok = makeInquiryToken(tref.id);
+    await tref.set({
+      kind: "inquiry", uid: null,
+      guestName: nameStr, guestEmail: emailStr, lang: langStr,
+      contactId: contactRef.id, bookingId: null,
+      tokenHash: tok.hash, tokenExpiresAt: tok.expiresAt,
+      lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "guest",
+      lastBody: messageStr.slice(0, 120), lastSystem: false,
+      unreadForGuest: 0, unreadForHost: 1,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await tref.collection("messages").add({
+      from: "guest", body: messageStr, at: FieldValue.serverTimestamp(),
+    });
+    inquiryLink = INQUIRY_URL(langStr, tok.token);
+  } catch (err) {
+    logger.error("inquiry thread create failed", err);   // スレッド化に失敗しても受付は成立させる
+  }
 
   // メール通知（失敗しても問い合わせ保存は成功扱い — 非致命）
   const transporter = nodemailer.createTransport({
@@ -161,7 +215,7 @@ export const contact = onRequest(
         ``,
         `--- メタ ---`,
         `Referer: ${req.headers.referer ?? "-"}`,
-        `確認: https://yah.homes/admin/inbox/`,
+        `確認: https://yah.homes/admin/messages/`,
       ].join("\n"),
       html: mailHtml({
         heading: "お問い合わせが届きました",
@@ -172,7 +226,7 @@ export const contact = onRequest(
           ["流入元", esc(String(req.headers.referer ?? "-"))],
         ],
         blocks: [{ title: "メッセージ", body: esc(messageStr) }],
-        cta: { label: "受信箱を開く", href: `${SITE_URL}/admin/inbox/` },
+        cta: { label: "メッセージを開く", href: `${SITE_URL}/admin/messages/` },
         note: "このメールに返信すると、お客様へ直接届きます。",
       }),
     });
@@ -183,7 +237,7 @@ export const contact = onRequest(
   // 送信者向け自動返信（5言語・非致命 — 通知/保存とは独立して失敗を許容）
   // 件名にユーザー入力を含めない（差し込みは本文の名前とメッセージ引用のみ）
   try {
-    const { subject, text, html } = await buildContactReply(langStr, nameStr, messageStr);
+    const { subject, text, html } = await buildContactReply(langStr, nameStr, messageStr, inquiryLink);
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
       to: emailStr, replyTo: SMTP_USER.value(),
@@ -1814,21 +1868,35 @@ const DUMMY_INQUIRY: Record<string, string> = {
 };
 
 /** お問い合わせ自動返信の組み立て（実送信・プレビュー・テストで共用） */
-async function buildContactReply(lang: string, name: string, message: string): Promise<{ subject: string; text: string; html: string }> {
+const INQUIRY_REPLY_L10N: Record<string, { title: string; body: string; cta: string }> = {
+  ja: { title: "ご返信について", body: "ご返信は下のボタンからご覧いただけます。やり取りはすべて同じ画面に残ります。", cta: "返信を確認・続きを送る" },
+  en: { title: "Replies", body: "You can read and continue this conversation from the button below. Everything stays in one place.", cta: "View replies & continue" },
+  ko: { title: "답변 안내", body: "답변은 아래 버튼에서 확인하실 수 있습니다. 대화는 모두 같은 화면에 남습니다.", cta: "답변 확인・이어서 보내기" },
+  zh: { title: "關於回覆", body: "您可以從下方按鈕查看回覆並繼續對話，所有內容都保留在同一頁面。", cta: "查看回覆並繼續" },
+  th: { title: "การตอบกลับ", body: "คุณสามารถอ่านและตอบกลับต่อได้จากปุ่มด้านล่าง บทสนทนาทั้งหมดอยู่ในหน้าเดียว", cta: "ดูการตอบกลับ" },
+};
+async function buildContactReply(lang: string, name: string, message: string, inquiryLink = ""): Promise<{ subject: string; text: string; html: string }> {
   const CL = await mailStrings("contact", lang);
+  const IR = INQUIRY_REPLY_L10N[lang] ?? INQUIRY_REPLY_L10N.en;
   return {
     subject: CL.subject,
     text: [
       CL.heading, "",
       CL.lead.replace("{name}", name), "",
       `--- ${CL.msgTitle} ---`, message, "---", "",
+      ...(inquiryLink ? [IR.body, inquiryLink, ""] : []),
       CL.note, "", "yah.homes",
     ].join("\n"),
     html: mailHtml({
       heading: CL.heading,
       lead: CL.lead.replace("{name}", name),
-      blocks: [{ title: CL.msgTitle, body: esc(message) }],
-      cta: { label: CL.cta, href: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/` },
+      blocks: [
+        { title: CL.msgTitle, body: esc(message) },
+        ...(inquiryLink ? [{ title: IR.title, body: esc(IR.body) }] : []),
+      ],
+      // リンクがあるときの主導線は「返信を見る」。無ければ従来どおり空室へ
+      cta: inquiryLink ? { label: IR.cta, href: inquiryLink }
+        : { label: CL.cta, href: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/` },
       note: CL.note,
     }),
   };
@@ -2017,9 +2085,172 @@ async function translateText(text: string, target: string): Promise<string> {
   }
 }
 
+
+/* ─── 問い合わせスレッドの処理（docs/spec_inquiry_threads.md §4） ─── */
+
+/** お客様（トークン経路）。read は履歴も返す（/inquiry/ はポーリングでこれを呼ぶ）。 */
+async function handleInquiryByToken(
+  req: { headers: Record<string, unknown> },
+  res: { status: (n: number) => { json: (b: unknown) => void } },
+  action: string, rawToken: string, body: unknown,
+): Promise<void> {
+  if (rateLimited(`inq:${clientIp(req as { headers: Record<string, unknown>; ip?: string })}`, 30, 60000)) {
+    res.status(429).json({ ok: false, error: "too_many_requests" }); return;
+  }
+  const parsed = parseInquiryToken(rawToken);
+  if (!parsed) { res.status(410).json({ ok: false, error: "gone" }); return; }
+  const tref = db.collection("threads").doc(parsed.threadId);
+  const tsnap = await tref.get();
+  const t = tsnap.data();
+  // kind と tokenHash の両方を照合。どちらか欠けたら 410（存在も明かさない）
+  // 現行と1つ前のリンクを有効とする（通知のたびに再発行するため、直前のメールのリンクも生かす）
+  const hashOk = t?.tokenHash === parsed.hash || t?.prevTokenHash === parsed.hash;
+  if (!tsnap.exists || t?.kind !== "inquiry" || !hashOk) {
+    res.status(410).json({ ok: false, error: "gone" }); return;
+  }
+
+  if (action === "read") {
+    await tref.update({ unreadForGuest: 0 });
+    const ms = await tref.collection("messages").orderBy("at", "asc").limit(200).get();
+    res.status(200).json({
+      ok: true, guestName: t.guestName ?? "", lang: t.lang ?? "en",
+      messages: ms.docs.map((d) => {
+        const v = d.data();
+        return { from: v.from, body: v.body, translated: v.translated ?? null,
+          system: v.system === true, title: v.title ?? null, at: v.at?.toMillis?.() ?? null };
+      }),
+    });
+    return;
+  }
+  if (action !== "send") { res.status(400).json({ ok: false, error: "invalid_action" }); return; }
+
+  const text = String(body ?? "").trim();
+  if (!text) { res.status(400).json({ ok: false, error: "empty" }); return; }
+  if (text.length > MSG_MAX) { res.status(400).json({ ok: false, error: "too_long" }); return; }
+  const since = new Date(Date.now() - MSG_RATE_WINDOW);
+  const recent = await tref.collection("messages").where("from", "==", "guest").where("at", ">", since).get();
+  if (recent.size >= MSG_RATE_MAX) { res.status(429).json({ ok: false, error: "rate_limited" }); return; }
+
+  const guestLang = String(t.lang ?? "en");
+  const translated = guestLang === "ja" ? "" : await translateText(text, "ja");
+  await tref.collection("messages").add({
+    from: "guest", body: text, translated: translated || null, at: FieldValue.serverTimestamp(),
+  });
+  await tref.update({
+    lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "guest",
+    lastBody: text.slice(0, 120), lastSystem: false,
+    unreadForHost: FieldValue.increment(1),
+    tokenExpiresAt: Date.now() + INQUIRY_TOKEN_DAYS * 86400000,   // 活動で延長
+  });
+  notifyInquiry(parsed.threadId, t as Record<string, unknown>, "guest", text, translated)
+    .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
+  res.status(200).json({ ok: true });
+}
+
+/** 運営（/admin/messages から）。Beds24 複製は無し（予約が無い）。 */
+async function handleInquiryAsHost(
+  res: { status: (n: number) => { json: (b: unknown) => void } },
+  threadId: string, action: string, body: unknown, email: string,
+): Promise<void> {
+  const tref = db.collection("threads").doc(threadId);
+  if (action === "read") {
+    await tref.update({ unreadForHost: 0 });
+    res.status(200).json({ ok: true });
+    return;
+  }
+  if (action === "revoke") {
+    // マジックリンクの無効化（誤送信・転送の非常口）。owner/admin のみ
+    const role = await getRole(email);
+    if (!role || ROLE_RANK[role] < ROLE_RANK.admin) { res.status(403).json({ ok: false, error: "admin_only" }); return; }
+    await tref.update({ tokenHash: null, prevTokenHash: null, tokenExpiresAt: 0 });
+    await db.collection("audit_logs").add({ actor: email, action: "inquiry_link_revoke", target: threadId, at: FieldValue.serverTimestamp() });
+    res.status(200).json({ ok: true });
+    return;
+  }
+  if (action !== "send") { res.status(400).json({ ok: false, error: "invalid_action" }); return; }
+
+  const text = String(body ?? "").trim();
+  if (!text) { res.status(400).json({ ok: false, error: "empty" }); return; }
+  if (text.length > MSG_MAX) { res.status(400).json({ ok: false, error: "too_long" }); return; }
+  const t = (await tref.get()).data() ?? {};
+  const guestLang = String(t.lang ?? "en");
+  const translated = guestLang === "ja" ? "" : await translateText(text, guestLang === "zh" ? "zh-TW" : guestLang);
+  await tref.collection("messages").add({
+    from: "host", body: text, translated: translated || null, author: email, at: FieldValue.serverTimestamp(),
+  });
+  await tref.update({
+    lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "host",
+    lastBody: text.slice(0, 120), lastSystem: false,
+    unreadForGuest: FieldValue.increment(1),
+    tokenExpiresAt: Date.now() + INQUIRY_TOKEN_DAYS * 86400000,
+  });
+  notifyInquiry(threadId, t, "host", text, translated)
+    .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
+  res.status(200).json({ ok: true });
+}
+
+/** 通知。ゲスト→運営は notifyBookings 宛、運営→ゲストはリンク付きメール。5分まとめは予約側と同じ。 */
+async function notifyInquiry(
+  threadId: string, t: Record<string, unknown>, from: "guest" | "host", text: string, translated: string,
+): Promise<void> {
+  const tref = db.collection("threads").doc(threadId);
+  const key = from === "guest" ? "notifiedHostAt" : "notifiedGuestAt";
+  const last = (t[key] as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+  if (Date.now() - last < 5 * 60000) return;
+  await tref.set({ [key]: FieldValue.serverTimestamp() }, { merge: true });
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+  });
+  const name = String(t.guestName ?? "");
+  if (from === "guest") {
+    await transporter.sendMail({
+      from: `"yah.homes メッセージ" <${SMTP_USER.value()}>`,
+      to: await notifyRecipients("notifyBookings"), replyTo: "no-reply@mail.yah.homes",
+      subject: `【お問い合わせ】${name}様より`,
+      text: [`お問い合わせに新しいメッセージが届きました。`, "", text,
+        ...(translated ? ["", `【訳】${translated}`] : []), "",
+        `返信: ${SITE_URL}/admin/messages/#${threadId}`].join("\n"),
+      html: mailHtml({
+        heading: "お問い合わせにメッセージが届きました",
+        rows: [["お客様", esc(name)]],
+        blocks: [{ title: "メッセージ", body: esc(text) + (translated ? `<br><br><span style="color:#666666;">【訳】${esc(translated)}</span>` : "") }],
+        cta: { label: "返信する", href: `${SITE_URL}/admin/messages/#${threadId}` },
+        note: "このメールには返信できません。返信は管理画面から行ってください。",
+      }),
+    });
+    return;
+  }
+  /* 運営→ゲスト。会話に戻るリンクが無いと通知の意味が薄いので、トークンを再発行して載せる。
+     旧リンクは prevTokenHash として1世代だけ生かす（直前のメールから開いても死なない）。
+     revoke 済み（tokenHash=null）のスレッドには再発行しない＝無効化の意思を上書きしない。 */
+  if (!t.tokenHash) return;
+  const lang = String(t.lang ?? "en");
+  const tok = makeInquiryToken(threadId);
+  await tref.update({ prevTokenHash: t.tokenHash, tokenHash: tok.hash, tokenExpiresAt: tok.expiresAt });
+  const link = INQUIRY_URL(lang, tok.token);
+  const L = MSG_NOTIFY_L10N[lang] ?? MSG_NOTIFY_L10N.en;
+  const IR = INQUIRY_REPLY_L10N[lang] ?? INQUIRY_REPLY_L10N.en;
+  const shown = translated || text;
+  await transporter.sendMail({
+    from: `"yah.homes" <${SMTP_USER.value()}>`,
+    to: String(t.guestEmail ?? ""), replyTo: "no-reply@mail.yah.homes",
+    subject: L.subject,
+    text: [L.heading, "", `--- ${L.title} ---`, shown, "", link, "", L.note].join("\n"),
+    html: mailHtml({
+      heading: L.heading,
+      lead: L.lead,
+      blocks: [{ title: L.title, body: esc(shown) }],
+      cta: { label: IR.cta, href: link },
+      note: L.note,
+    }),
+  });
+}
+
 export const messagesApi = onRequest(
   { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
-    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH] },
+    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH, INQUIRY_LINK_SECRET] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2032,6 +2263,16 @@ export const messagesApi = onRequest(
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
     if (req.method !== "POST") { res.status(405).json({ ok: false, error: "method_not_allowed" }); return; }
 
+    const { action, bookingId, body, as, inquiryToken } = (req.body ?? {}) as Record<string, unknown>;
+
+    /* 問い合わせスレッド（kind=inquiry）はマジックリンクのトークンで本人確認する。
+       アカウントが無い予約前のお客様のための経路（docs/spec_inquiry_threads.md §4）。
+       予約スレッドには一切触れない: kind と tokenHash を必ず照合する。 */
+    if (typeof inquiryToken === "string" && inquiryToken) {
+      await handleInquiryByToken(req, res, String(action ?? ""), inquiryToken, body);
+      return;
+    }
+
     // 認証: ゲスト（uid）か、管理者台帳のメンバーか
     const authz = String(req.headers["authorization"] ?? "");
     const m = /^Bearer (.+)$/.exec(authz);
@@ -2043,9 +2284,16 @@ export const messagesApi = onRequest(
     } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     const isStaff = !!email && (isAdmin(email) || !!(await getAdminUser(email)));
 
-    const { action, bookingId, body, as } = (req.body ?? {}) as Record<string, unknown>;
     const idStr = String(bookingId ?? "");
     if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
+
+    /* 運営が inquiry スレッドへ返信する経路（bookings に該当ドキュメントは無い） */
+    const tprobe = await db.collection("threads").doc(idStr).get();
+    if (tprobe.exists && tprobe.data()?.kind === "inquiry") {
+      if (!isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+      await handleInquiryAsHost(res, idStr, String(action ?? ""), body, email);
+      return;
+    }
 
     try {
       const bref = db.collection("bookings").doc(idStr);

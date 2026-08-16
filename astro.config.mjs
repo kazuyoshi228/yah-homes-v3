@@ -23,7 +23,7 @@ export default defineConfig({
       // 管理画面（/admin/*）・thankyou・入室案内（/how-to/* = 宿泊者専用）はインデックス対象外。
       filter: (page) =>
         !page.includes("/admin") && !page.includes("/thankyou") &&
-        !page.includes("/partners") && !page.includes("/how-to"),
+        !page.includes("/partners") && !page.includes("/how-to") && !page.includes("/inquiry"),
     }),
   ],
   vite: {

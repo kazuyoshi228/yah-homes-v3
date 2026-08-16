@@ -81,7 +81,7 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
             <span class="ms-item-name">${t.unreadForHost ? '<span class="ms-dot"></span>' : ""}${esc(t.guestName || "—")}</span>
             <span class="ms-item-time">${fmt(t.lastMessageAt)}</span>
           </span>
-          <span class="ms-item-sub">${esc(PROP[t.prop] ?? t.prop)} ${esc(t.checkin || "")}</span>
+          <span class="ms-item-sub">${t.kind === "inquiry" ? "💬 お問い合わせ" : `${esc(PROP[t.prop] ?? t.prop)} ${esc(t.checkin || "")}`}</span>
           <span class="ms-item-body">${t.lastBody ? `${t.lastSystem ? "自動送信" : t.lastFrom === "guest" ? "お客様" : "運営"}: ${esc(t.lastBody)}` : ""}</span>
         </button>`).join("");
       document.querySelectorAll("[data-open]").forEach((el) =>
@@ -127,10 +127,24 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
       active = id; renderList();
       const t = threads.find((x) => x.id === id) || {};
       $("ms-head").hidden = false;
-      $("ms-head").innerHTML = `
-        <span class="ms-h-name">${esc(t.guestName || "—")}</span>
-        <span class="ms-h-sub">${esc(PROP[t.prop] ?? t.prop)} ／ ${esc(t.checkin || "")} 〜 ${esc(t.checkout || "")} ／ ${esc(id.slice(0, 8).toUpperCase())}</span>
-        <a class="ms-h-link" href="/admin/bookings/#${esc(id)}">予約を開く</a>`;
+      $("ms-head").innerHTML = t.kind === "inquiry"
+        ? `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
+           <span class="ms-h-sub">💬 お問い合わせ ／ ${esc(t.guestEmail || "")} ／ ${esc((t.lang || "").toUpperCase())}</span>
+           <button type="button" class="ms-h-link" id="ms-revoke">リンクを無効化</button>`
+        : `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
+           <span class="ms-h-sub">${esc(PROP[t.prop] ?? t.prop)} ／ ${esc(t.checkin || "")} 〜 ${esc(t.checkout || "")} ／ ${esc(id.slice(0, 8).toUpperCase())}</span>
+           <a class="ms-h-link" href="/admin/bookings/#${esc(id)}">予約を開く</a>`;
+      document.getElementById("ms-revoke")?.addEventListener("click", async () => {
+        if (!confirm("お客様に送ったリンクをすべて無効にします。以後お客様はこの会話を開けなくなります（Admin 以上のみ実行可）。")) return;
+        try {
+          const token = await auth.currentUser.getIdToken();
+          const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "revoke", bookingId: id }) });
+          const j = await r.json();
+          alert(j.ok ? "無効化しました" : j.error === "admin_only" ? "この操作は Admin 以上のみです" : "失敗しました");
+        } catch { alert("失敗しました"); }
+      });
       $("ms-compose").hidden = false;
 
       if (msgUnsub) msgUnsub();
