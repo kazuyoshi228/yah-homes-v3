@@ -219,7 +219,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
   ja: {
     subject: "【yah.homes】お問い合わせありがとうございます",
     heading: "お問い合わせありがとうございます",
-    lead: "{name} 様、お問い合わせを承りました。2〜3営業日以内に担当よりご連絡いたします。",
+    lead: "{name} 様、お問い合わせを承りました。24時間以内に担当よりご連絡いたします。",
     msgTitle: "いただいた内容",
     cta: "空室を見る",
     note: "お急ぎの場合は、このメールにそのままご返信ください。",
@@ -227,7 +227,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
   en: {
     subject: "Thank you for contacting yah.homes",
     heading: "Thank you for contacting yah.homes",
-    lead: "Dear {name}, we have received your inquiry. A member of our team will get back to you within 2–3 business days.",
+    lead: "Dear {name}, we have received your inquiry. A member of our team will get back to you within 24 hours.",
     msgTitle: "Your message",
     cta: "See availability",
     note: "If you have any urgent questions, simply reply to this email.",
@@ -235,7 +235,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
   ko: {
     subject: "[yah.homes] 문의해 주셔서 감사합니다",
     heading: "문의해 주셔서 감사합니다",
-    lead: "{name} 님, 문의를 접수했습니다. 2~3영업일 이내에 담당자가 연락드리겠습니다.",
+    lead: "{name} 님, 문의를 접수했습니다. 24시간 이내에 담당자가 연락드리겠습니다.",
     msgTitle: "보내주신 내용",
     cta: "빈방 보기",
     note: "급하신 경우 이 메일에 그대로 회신해 주세요.",
@@ -243,7 +243,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
   zh: {
     subject: "【yah.homes】感謝您的來信",
     heading: "感謝您的來信",
-    lead: "{name} 您好，我們已收到您的詢問，將於 2～3 個工作天內與您聯繫。",
+    lead: "{name} 您好，我們已收到您的詢問，將於 24 小時內與您聯繫。",
     msgTitle: "您的訊息",
     cta: "查詢空房",
     note: "如有急事，請直接回覆這封郵件。",
@@ -251,7 +251,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
   th: {
     subject: "[yah.homes] ขอบคุณที่ติดต่อเรา",
     heading: "ขอบคุณที่ติดต่อเรา",
-    lead: "เรียนคุณ {name} เราได้รับข้อความของคุณแล้ว ทีมงานจะติดต่อกลับภายใน 2–3 วันทำการ",
+    lead: "เรียนคุณ {name} เราได้รับข้อความของคุณแล้ว ทีมงานจะติดต่อกลับภายใน 24 ชั่วโมง",
     msgTitle: "ข้อความของคุณ",
     cta: "ดูห้องว่าง",
     note: "หากมีเรื่องเร่งด่วน กรุณาตอบกลับอีเมลฉบับนี้ได้เลย",
@@ -441,7 +441,7 @@ export const partnersApply = onRequest(
           `${nameStr} 您好`,
           ``,
           `感謝您申請 yah.homes 夥伴住宿。`,
-          `我們已收到以下申請內容，將於2〜3個工作天內與您聯繫。`,
+          `我們已收到以下申請內容，將於24小時內與您聯繫。`,
           ``,
           `--- 申請內容 ---`,
           `希望入住的棟: ${PROPERTY_LABEL_ZH[propStr] ?? propStr}`,
@@ -458,7 +458,7 @@ export const partnersApply = onRequest(
           `${nameStr} 님`,
           ``,
           `yah.homes 파트너 숙박에 신청해 주셔서 감사합니다.`,
-          `아래 내용으로 접수되었습니다. 2〜3영업일 이내에 담당자가 연락드리겠습니다.`,
+          `아래 내용으로 접수되었습니다. 24시간 이내에 담당자가 연락드리겠습니다.`,
           ``,
           `--- 신청 내용 ---`,
           `희망 동: ${PROPERTY_LABEL_KO[propStr] ?? propStr}`,
@@ -475,7 +475,7 @@ export const partnersApply = onRequest(
           `${nameStr} 様`,
           ``,
           `yah.homes パートナー宿泊へのお申し込みをありがとうございます。`,
-          `以下の内容で受け付けました。2〜3営業日以内に担当よりご連絡いたします。`,
+          `以下の内容で受け付けました。24時間以内に担当よりご連絡いたします。`,
           ``,
           `--- お申し込み内容 ---`,
           `希望棟: ${PROPERTY_LABEL[propStr]}`,
@@ -491,14 +491,14 @@ export const partnersApply = onRequest(
         ].join("\n"),
         html: (() => {
           const L = applyLang === "ko"
-            ? { h: "파트너 숙박 신청이 접수되었습니다", lead: `${nameStr} 님, 신청해 주셔서 감사합니다. 2~3영업일 이내에 담당자가 연락드립니다.`,
+            ? { h: "파트너 숙박 신청이 접수되었습니다", lead: `${nameStr} 님, 신청해 주셔서 감사합니다. 24시간 이내에 담당자가 연락드립니다.`,
                 prop: "희망 숙소", d1: "1지망 체크인", d2: "2지망 체크인", g: "인원", unit: "명",
                 label: PROPERTY_LABEL_KO[propStr] ?? propStr, note: "문의는 이 메일에 그대로 회신해 주세요." }
             : applyLang === "zh"
-            ? { h: "已收到您的夥伴住宿申請", lead: `${nameStr} 您好，感謝您的申請。我們將於2〜3個工作天內與您聯繫。`,
+            ? { h: "已收到您的夥伴住宿申請", lead: `${nameStr} 您好，感謝您的申請。我們將於24小時內與您聯繫。`,
                 prop: "希望房源", d1: "第1希望入住日", d2: "第2希望入住日", g: "人數", unit: "人",
                 label: PROPERTY_LABEL_ZH[propStr] ?? propStr, note: "如有問題，請直接回覆這封郵件。" }
-            : { h: "パートナー宿泊のお申し込みを受け付けました", lead: `${nameStr} 様　お申し込みありがとうございます。2〜3営業日以内に担当よりご連絡いたします。`,
+            : { h: "パートナー宿泊のお申し込みを受け付けました", lead: `${nameStr} 様　お申し込みありがとうございます。24時間以内に担当よりご連絡いたします。`,
                 prop: "希望棟", d1: "第1希望チェックイン", d2: "第2希望チェックイン", g: "人数", unit: "名",
                 label: PROPERTY_LABEL[propStr] ?? propStr, note: "ご質問はこのメールにそのままご返信ください。" };
           return mailHtml({
