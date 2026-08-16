@@ -11,6 +11,7 @@ import { uiStrings } from "../i18n/uiStrings";
 import { nearbyData } from "../data/nearbyData";
 import { PROPERTY_GEO } from "../lib/seo";
 import { getPropertyFacts } from "../lib/propertyFacts";
+import { makeFill } from "../lib/factText";
 import PressSection from "./PressSection.astro";
 
 // 地図ラベル（各言語）
@@ -47,6 +48,10 @@ const DIRECT = {
   zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂", priceFrom: "{v} 起 / 晚", decide: ["可在此直接確認空房與總金額。", "顯示金額已含清潔費與住宿稅，現場無需再付款。", "入住日 {d} 天前可免費取消。", "安全的信用卡付款，由 Stripe 處理，本公司不會保存卡片資料。", "預訂前的疑問，我們會在 24 小時內回覆。"] },
   th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง", priceFrom: "เริ่มต้น {v} / คืน", decide: ["ตรวจสอบห้องว่างและราคารวมได้ที่นี่", "ราคาที่แสดงรวมค่าทำความสะอาดและภาษีที่พักแล้ว ไม่มีค่าใช้จ่ายเพิ่มเมื่อเดินทางถึง", "ยกเลิกฟรีได้ถึง {d} วันก่อนวันเช็คอิน", "ชำระด้วยบัตรอย่างปลอดภัยผ่าน Stripe เราไม่จัดเก็บข้อมูลบัตรของท่าน", "มีคำถามก่อนจอง? เราตอบภายใน 24 ชั่วโมง"] },
 }[lang];
+
+// 言語別テキストの {ci}/{co}/{cap} に SSoT の値を差し込む（lib/factText.ts）
+const fill = makeFill(pf, lang);
+
 const hero480 = thumb(heroImage);
 const hero768 = heroImage.replace(/\.webp$/, "-768.webp");
 
@@ -108,7 +113,7 @@ const conditionRows: string[] = [
     <p class="pd-area">{d.hero.area}</p>
     <h1 class="pd-name">{d.hero.propertyName}</h1>
     <p class="pd-tagline">{d.hero.tagline}</p>
-    <p class="pd-capacity">{d.hero.capacity}</p>
+    <p class="pd-capacity">{fill(d.hero.capacity)}</p>
     <!-- 2026-08-08: Beds24 iframe撤去に伴い、ヒーローCTAはAirbnb直行に（右上Book Nowと同方針） -->
     <div class="pd-hero-ctas">
       {BOOK_PREVIEW && <p class="pd-price-from" id="pd-price-from" hidden></p>}
@@ -316,8 +321,8 @@ const conditionRows: string[] = [
       <div>
         <h2 class="pd-h2 sm">{d.checkin.title}</h2>
         <ul class="pd-list">
-          <li>{d.checkin.time}</li>
-          <li>{d.checkin.checkout}</li>
+          <li>{fill(d.checkin.time)}</li>
+          <li>{fill(d.checkin.checkout)}</li>
           <li>{d.checkin.method}</li>
           <li>{d.checkin.idVerification}</li>
         </ul>
@@ -331,7 +336,7 @@ const conditionRows: string[] = [
       <div>
         <h2 class="pd-h2 sm">{d.houseRules.title}</h2>
         <ul class="pd-list">
-          {d.houseRules.items.map((r: { rule: string }) => <li>{r.rule}</li>)}
+          {d.houseRules.items.map((r: { rule: string }) => <li>{fill(r.rule)}</li>)}
         </ul>
       </div>
     </div>

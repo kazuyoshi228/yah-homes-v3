@@ -76,6 +76,7 @@ for (const [key, path] of Object.entries(PROP_FILES)) {
   const wantOut = Number(ssot[key].checkoutTime.split(":")[0]);
   read(path).split("\n").forEach((line, i) => {
     if (!TIME_FIELDS.test(line)) return;
+    if (line.includes("{ci}") || line.includes("{co}")) return;   // SSoT差し込み済み＝ズレようがない
     for (const [kind, re] of Object.entries(KEYWORDS)) {
       const m = line.match(re);
       if (!m) continue;
@@ -107,6 +108,7 @@ for (const path of ["src/data/properties.ts", "src/lib/seo.ts", ...Object.values
 for (const [key, path] of Object.entries(PROP_FILES)) {
   const cap = ssot[key].capacity;
   const src = read(path);
+  if (src.includes("{cap}")) { /* 定員も差し込み化済み。プレーンな数値だけ検査する */ }
   for (const m of src.matchAll(/最大\s*(\d+)\s*名/g)) {
     if (m[1] !== cap) fail(path, `定員表記 ${m[1]}名 が SSoT(${cap}名) と不一致`);
   }

@@ -3,6 +3,8 @@
    15問×3カテゴリ・アコーディオン（+が45度回転）・FAQPage JSON-LD
    アコーディオンは native <details> で再現（全文が静的HTMLに含まれ、検索/AIが読める） */
 import { faqData } from "../../data/faqData";
+import { getPropertyFacts } from "../../lib/propertyFacts";
+import { makeFill } from "../../lib/factText";
 import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 
@@ -10,7 +12,17 @@ interface Props {
   lang: Locale;
 }
 const { lang } = Astro.props;
-const data = faqData[lang] ?? faqData.en;
+const rawData = faqData[lang] ?? faqData.en;
+// FAQ はサイト共通の文章。時刻・定員は SSoT から差し込む（2棟とも同一設定）。
+const { facts } = await getPropertyFacts();
+const fill = makeFill(facts.kiyokawa, lang);
+const data = {
+  ...rawData,
+  categories: rawData.categories.map((c) => ({
+    ...c,
+    items: c.items.map((i) => ({ ...i, q: fill(i.q), a: fill(i.a) })),
+  })),
+};
 
 const jsonLd = {
   "@context": "https://schema.org",
