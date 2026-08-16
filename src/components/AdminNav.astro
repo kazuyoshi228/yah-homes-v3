@@ -56,6 +56,11 @@ const currentPath = Astro.url.pathname;
       <span class="an-tag">ADMIN</span>
     </a>
 
+    <button class="an-burger" id="an-burger" type="button"
+            aria-label="メニュー" aria-expanded="false" aria-controls="an-links">
+      <span></span><span></span><span></span>
+    </button>
+
     <div class="an-links" id="an-links" data-path={currentPath}>
       <a class="an-link" href="/admin/messages/" data-minrole="operator">
         メッセージ<span class="an-badge" id="an-unread" hidden></span>
@@ -85,6 +90,16 @@ const currentPath = Astro.url.pathname;
     </div>
   </div>
 </nav>
+
+<script>
+  // ハンバーガーの開閉。ページ遷移で閉じるので状態は保持しない。
+  const burger = document.getElementById("an-burger");
+  const links = document.getElementById("an-links");
+  burger?.addEventListener("click", () => {
+    const open = links?.classList.toggle("is-open");
+    burger.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+</script>
 
 <script define:vars={{ FB_CONFIG, OPS_ENDPOINT }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp, getApps }) => {
@@ -172,6 +187,37 @@ const currentPath = Astro.url.pathname;
   /* 後置しないと基本ルールに上書きされる（同一詳細度は後勝ち） */
   @media (max-width: 860px) {
     .an-link { padding: 0.45rem 0.45rem; font-size: 0.74rem; }
+  }
+  /* ハンバーガー。既定（PC）は出さない */
+  .an-burger {
+    display: none; flex: none; width: 34px; height: 34px; padding: 8px 7px;
+    background: none; border: 0; cursor: pointer; flex-direction: column; justify-content: space-between;
+  }
+  .an-burger span { display: block; height: 2px; background: #ffffff; border-radius: 2px; }
+  .an-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .an-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .an-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* スマホ: ハンバーガーに畳む。横に並べたままだと画面幅を超え、ページ全体が
+     横スクロールして見出しが画面外へずれる（2026-08-16 発注者指摘・実機で確認）。
+     折り返す案も試したが、ナビが2〜3段になり画面を圧迫するため採らなかった。 */
+  @media (max-width: 720px) {
+    .an-inner { height: auto; min-height: 52px; padding: 0.4rem 0.9rem; gap: 0.5rem; }
+    .an-burger { display: flex; margin-left: auto; order: 3; }
+    .an-links {
+      display: none; order: 4; flex: 0 0 100%; flex-direction: column;
+      align-items: stretch; gap: 0; padding-bottom: 0.4rem;
+    }
+    .an-links.is-open { display: flex; }
+    .an-link { font-size: 0.85rem; padding: 0.65rem 0.5rem; border-radius: 0; }
+    /* 畳んだ中ではドロップダウンを浮かせず、そのまま下に並べる（切り取られないため） */
+    .an-drop .an-menu {
+      position: static; box-shadow: none; background: rgba(255, 255, 255, 0.06);
+      border: 0; min-width: 0; margin: 0 0 0.25rem;
+    }
+    .an-item { font-size: 0.82rem; padding: 0.55rem 1rem; }
+    .an-me { order: 2; margin-left: auto; }
+    .an-email { max-width: 140px; }
   }
   .an-link:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
   .an-link.is-current { color: #ffffff; background: rgba(255, 255, 255, 0.14); }
