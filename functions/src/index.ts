@@ -4223,16 +4223,34 @@ export const adminUsers = onRequest(
               notifyPartners: false, notifyTeiten: false, notifyBookings: false, isRootUser: true });
           }
         }
-        res.status(200).json({ ok: true, root: ADMIN_EMAILS, isRoot, items });
+        res.status(200).json({ ok: true, root: ADMIN_EMAILS, isRoot, actorRole: await getRole(email), items });
         return;
       }
 
       if (req.method === "POST") {
-        if (requireOwner(email, res)) return;
+        /* 台帳の操作は「自分より下のロールに対してだけ」許す（2026-08-16 発注者指示）。
+             Owner … 誰でも（root を除く）追加・変更・削除できる
+             Admin … Operator の追加・変更・削除のみ。Admin/Owner を作れず、
+                     既存メンバーを Admin/Owner に上げることもできない
+           これで Admin が自分を Owner に昇格させる・同格を消す、という穴を塞ぐ。 */
+        const actorRole = await getRole(email);
+        if (actorRole !== "owner" && actorRole !== "admin") {
+          res.status(403).json({ ok: false, error: "admin_only" }); return;
+        }
         const { action, email: target, name, role, notifyPartners, notifyTeiten, notifyBookings } =
           (req.body ?? {}) as Record<string, unknown>;
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
         if (!isSafeEmail(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
+        if (actorRole === "admin") {
+          if (isAdmin(targetStr)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+          const existing = await getAdminUser(targetStr);
+          const existingRole = existing ? (existing.role === "owner" ? "owner" : existing.role === "admin" ? "admin" : "operator") : null;
+          if (existingRole && existingRole !== "operator") { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+          if (action !== "delete" && role !== "operator" && role !== undefined) {
+            res.status(403).json({ ok: false, error: "owner_only" }); return;
+          }
+        }
+
         const ref = db.collection("admin_users").doc(targetStr);
 
         /* オーナー自身の行は「通知の宛先」としてだけ編集できる。

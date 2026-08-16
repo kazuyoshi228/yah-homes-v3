@@ -25,7 +25,7 @@ const FB_CONFIG = {
     <div class="au-container">
       <a class="au-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="au-title">管理者台帳</h1>
-      <p class="au-note">管理画面へアクセスできるメンバーと、各通知メールの宛先を管理します。この台帳を編集できるのは Owner のみです。</p>
+      <p class="au-note">管理画面へアクセスできるメンバーと、各通知メールの宛先を管理します。Owner はすべてのメンバーを、Admin は Operator のみを追加・編集できます。</p>
 
       <div id="au-login" class="au-login" hidden>
         <button id="au-login-btn" class="au-btn">Googleでログイン</button>
@@ -95,7 +95,13 @@ const FB_CONFIG = {
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
-        $("au-editor").hidden = !j.isRoot;
+        const actor = j.actorRole ?? (j.isRoot ? "owner" : "operator");
+        const canEdit = (it) => actor === "owner" ? !it.isRootUser : (actor === "admin" && it.role === "operator");
+        $("au-editor").hidden = !(actor === "owner" || actor === "admin");
+        // Admin は Operator しか作れない（サーバでも強制。ここは見た目の整合）
+        if (actor === "admin") {
+          $("af-role").querySelectorAll("option").forEach((o) => { if (o.value !== "operator") o.remove(); });
+        }
         const ROLE_LABEL = { owner: "Owner", admin: "Admin", operator: "Operator" };
         const rows = j.items.map(
           (it) => `<tr>
@@ -103,7 +109,7 @@ const FB_CONFIG = {
             <td>${esc(it.name || "-")}</td>
             <td>${esc(it.email)}</td>
             <td>${check(it.notifyPartners)}</td><td>${check(it.notifyTeiten)}</td><td>${check(it.notifyBookings)}</td>
-            <td>${j.isRoot && !it.isRootUser ? `<button class="au-btn-sub au-edit" data-e="${esc(it.email)}">編集</button> <button class="au-btn-sub au-del" data-e="${esc(it.email)}">削除</button>` : ""}</td>
+            <td>${canEdit(it) ? `<button class="au-btn-sub au-edit" data-e="${esc(it.email)}">編集</button> <button class="au-btn-sub au-del" data-e="${esc(it.email)}">削除</button>` : ""}</td>
           </tr>`
         );
         $("au-tbody").innerHTML = rows.join("");
@@ -184,7 +190,7 @@ const FB_CONFIG = {
   .au-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; }
   .au-tablewrap { overflow-x: auto; }
   .au-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; line-height: 1.6; }
-  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 0.85rem 0.75rem; text-align: left; color: #222222; white-space: nowrap; }
+  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 1.7rem 0.9rem; text-align: left; color: #222222; white-space: nowrap; }
   :global(.au-role) { font-size: 0.7rem; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.6rem; color: #666666; }
   :global(.au-role-owner) { color: #ffffff; background: #111111; border-color: #111111; }
   :global(.au-role-admin) { color: #111111; border-color: #111111; }
