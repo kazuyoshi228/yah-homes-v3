@@ -202,7 +202,9 @@ export const contact = onRequest(
   try {
     await transporter.sendMail({
       from: `"yah.homes Contact" <${SMTP_USER.value()}>`,
-      to: CONTACT_NOTIFY_TO.value(),
+      // 宛先は台帳の notifyBookings（2通目以降・予約系の通知と同じ名簿に統一・2026-08-16 発注者決定）。
+      // CONTACT_NOTIFY_TO は廃止予定だが、台帳が空のときのフォールバックは notifyRecipients が持つ
+      to: await notifyRecipients("notifyBookings"),
       replyTo: emailStr,
       subject: `【yah.homes】お問い合わせ: ${nameStr}`,
       text: [

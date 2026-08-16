@@ -9,12 +9,11 @@ const MAILS = [
   {
     name: "お問い合わせ通知（初回）",
     trigger: "お問い合わせフォームの送信",
-    to: "CONTACT_NOTIFY_TO（固定・Secret）",
+    to: "台帳の notifyBookings がONのメンバー",
     subject: "【yah.homes】お問い合わせ: {お名前}",
   },
   {
-    // B案（spec_inquiry_threads.md）で追加。初回と宛先が異なる点に注意:
-    // 初回は Secret 固定・2通目以降は台帳のフラグ。揃える場合は発注者判断
+    // B案（spec_inquiry_threads.md）で追加。初回・2通目以降とも宛先は台帳に統一済み
     name: "お問い合わせ通知（2通目以降）",
     trigger: "お客様がマジックリンクから続きを送信したとき（5分以内はまとめて1通）",
     to: "台帳の notifyBookings がONのメンバー",
