@@ -277,6 +277,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "いただいた内容",
     cta: "空室を見る",
     note: "お急ぎの場合は、このメールにそのままご返信ください。",
+    footer: "yah.homes【Operated by AIRSTAR】",
   },
   en: {
     subject: "Thank you for contacting yah.homes",
@@ -285,6 +286,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "Your message",
     cta: "See availability",
     note: "If you have any urgent questions, simply reply to this email.",
+    footer: "yah.homes【Operated by AIRSTAR】",
   },
   ko: {
     subject: "[yah.homes] 문의해 주셔서 감사합니다",
@@ -293,6 +295,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "보내주신 내용",
     cta: "빈방 보기",
     note: "급하신 경우 이 메일에 그대로 회신해 주세요.",
+    footer: "yah.homes【Operated by AIRSTAR】",
   },
   zh: {
     subject: "【yah.homes】感謝您的來信",
@@ -301,6 +304,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "您的訊息",
     cta: "查詢空房",
     note: "如有急事，請直接回覆這封郵件。",
+    footer: "yah.homes【Operated by AIRSTAR】",
   },
   th: {
     subject: "[yah.homes] ขอบคุณที่ติดต่อเรา",
@@ -309,6 +313,7 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "ข้อความของคุณ",
     cta: "ดูห้องว่าง",
     note: "หากมีเรื่องเร่งด่วน กรุณาตอบกลับอีเมลฉบับนี้ได้เลย",
+    footer: "yah.homes【Operated by AIRSTAR】",
   },
 };
 
@@ -1057,6 +1062,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "お困りのとき", remHelpBody: "鍵が取り出せない、場所が分からないなど、その場でお困りの際はお電話ください。",
     remManual: "入室の手順（写真つき）", remManualBody: "住所・玄関の場所・鍵の開け方・駐車場を写真でご案内しています。ご到着前にご覧ください。",
     remCta: "予約を確認する",
+    footer: "yah.homes【Operated by AIRSTAR】",
     revTplTitle: "レビュー",
     revCatClean: "清潔度",
     revCatComm: "コミュニケーション",
@@ -1094,6 +1100,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "Need help?", remHelpBody: "If you cannot get the key out or you cannot find the house, please call us.",
     remManual: "Step-by-step guide (with photos)", remManualBody: "The address, the entrance, how to open the key box, and parking — all with photos. Worth a look before you arrive.",
     remCta: "View your booking",
+    footer: "yah.homes【Operated by AIRSTAR】",
     revTplTitle: "Your review",
     revCatClean: "Cleanliness",
     revCatComm: "Communication",
@@ -1131,6 +1138,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "곤란하실 때는", remHelpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 전화해 주세요.",
     remManual: "입실 안내 (사진 포함)", remManualBody: "주소・현관 위치・열쇠 여는 법・주차장을 사진으로 안내해 드립니다. 도착 전에 확인해 주세요.",
     remCta: "예약 확인하기",
+    footer: "yah.homes【Operated by AIRSTAR】",
     revTplTitle: "리뷰",
     revCatClean: "청결도",
     revCatComm: "커뮤니케이션",
@@ -1168,6 +1176,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "遇到問題時", remHelpBody: "若無法取出鑰匙或找不到位置，請撥打電話與我們聯繫。",
     remManual: "入住步驟（附照片）", remManualBody: "以照片說明地址、玄關位置、開鎖方式與停車場。抵達前建議先看一下。",
     remCta: "查看預訂",
+    footer: "yah.homes【Operated by AIRSTAR】",
     revTplTitle: "您的評價",
     revCatClean: "清潔度",
     revCatComm: "溝通",
@@ -1205,6 +1214,7 @@ const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "หากพบปัญหา", remHelpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเรา",
     remManual: "ขั้นตอนการเข้าพัก (มีรูปประกอบ)", remManualBody: "อธิบายที่อยู่ ตำแหน่งประตู วิธีเปิดกล่องกุญแจ และที่จอดรถพร้อมรูปภาพ ควรดูก่อนเดินทางมาถึง",
     remCta: "ดูการจอง",
+    footer: "yah.homes【Operated by AIRSTAR】",
     revTplTitle: "รีวิวของคุณ",
     revCatClean: "ความสะอาด",
     revCatComm: "การสื่อสาร",
@@ -1414,7 +1424,7 @@ async function buildLifecycleMail(
           { title: L.coTitle, body: L.coBody.replace(/\{co\}/g, esc(co)) },
           { title: L.coNoteTitle, body: esc(L.coNote) },
         ],
-        cta: { label: L.remCta, href: myPage },
+        cta: { label: L.remCta, href: myPage }, footer: L.footer,
       })
     : kind === "reminder"
     ? mailHtml({
@@ -1438,7 +1448,7 @@ async function buildLifecycleMail(
             ? [{ title: L.remPlace, body: `${P.address ? `<strong>${esc(P.address)}</strong><br>` : ""}${P.map ? `<a href="${esc(P.map)}" style="color:#111111;">${esc(P.map)}</a>` : ""}` }]
             : []),
         ],
-        cta: { label: L.remCta, href: myPage },
+        cta: { label: L.remCta, href: myPage }, footer: L.footer,
       })
     : (() => {
         // 返信で完結するレビュー。mailto で雛形入りの返信メールを開かせ、
@@ -1473,7 +1483,7 @@ async function buildLifecycleMail(
             },
             { title: "—", body: esc(L.revNote) },
           ],
-          cta: { label: L.revCta, href: mailto },
+          cta: { label: L.revCta, href: mailto }, footer: L.footer,
         });
       })();
 
@@ -1494,7 +1504,7 @@ async function buildLifecycleMail(
             L.revTplAdjust, "", `${L.revCommentLabel}:`, "", L.revNote,
           ].join("\n"), "",
       myPage, "",
-      "yah.homes【Operated by AIRSTAR】",
+      L.footer,
     ].join("\n"),
     html,
   };
@@ -1617,6 +1627,7 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "remHelpBody", label: "お困りのとき・本文", multiline: true },
     { key: "remPlace", label: "場所・見出し" },
     { key: "remCta", label: "ボタンの文字" },
+    { key: "footer", label: "フッター" },
   ],
   checkout: [
     { key: "coSubject", label: "件名（{co}に時刻が入る）" },
@@ -1627,6 +1638,7 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "coNoteTitle", label: "掃除について・見出し" },
     { key: "coNote", label: "掃除について・本文", multiline: true },
     { key: "coBye", label: "結び" },
+    { key: "footer", label: "フッター" },
   ],
   cancel: [
     { key: "subject", label: "件名" },
@@ -1645,6 +1657,7 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "msgTitle", label: "引用ブロックの見出し" },
     { key: "cta", label: "ボタンの文字" },
     { key: "note", label: "結びの注記", multiline: true },
+    { key: "footer", label: "フッター" },
   ],
   review: [
     { key: "revSubject", label: "件名" },
@@ -1658,6 +1671,7 @@ const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: bo
     { key: "revTplHint", label: "記入方法の説明", multiline: true },
     { key: "revNote", label: "補足", multiline: true },
     { key: "revCta", label: "ボタンの文字" },
+    { key: "footer", label: "フッター" },
   ],
 };
 const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review", "cancel", "contact"];
@@ -1887,7 +1901,7 @@ async function buildContactReply(lang: string, name: string, message: string, in
       CL.lead.replace("{name}", name), "",
       `--- ${CL.msgTitle} ---`, message, "---", "",
       ...(inquiryLink ? [IR.body, inquiryLink, ""] : []),
-      CL.note, "", "yah.homes【Operated by AIRSTAR】",
+      CL.note, "", CL.footer,
     ].join("\n"),
     html: mailHtml({
       heading: CL.heading,
@@ -1900,6 +1914,7 @@ async function buildContactReply(lang: string, name: string, message: string, in
       cta: inquiryLink ? { label: IR.cta, href: inquiryLink }
         : { label: CL.cta, href: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/` },
       note: CL.note,
+      footer: CL.footer,
     }),
   };
 }

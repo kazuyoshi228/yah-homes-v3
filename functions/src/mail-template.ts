@@ -20,6 +20,9 @@ export function mailHtml(o: {
   /** 黒地に大きく出す暗証番号（前日のチェックイン案内用） */
   codeCard?: { label: string; code: string };
   note?: string;
+  /** フッター（署名）。お客様向けの6通は /admin/templates の footer キーから渡す。
+      未指定時の既定は社内向け通知など、テンプレート管理の対象外のメール用 */
+  footer?: string;
   variant?: "brand" | "alert";
 }): string {
   const alert = o.variant === "alert";
@@ -57,6 +60,6 @@ export function mailHtml(o: {
     </td></tr></table>` : ""}
     ${o.note ? `<div style="font-size:12px;color:#999999;line-height:1.8;margin-top:16px;">${esc(o.note)}</div>` : ""}
   </td></tr>
-  <tr><td style="padding:16px 24px 22px;border-top:1px solid #f0f0f0;font-size:12px;color:#aaaaaa;">yah.homes【Operated by AIRSTAR】</td></tr>
+  <tr><td style="padding:16px 24px 22px;border-top:1px solid #f0f0f0;font-size:12px;color:#aaaaaa;">${esc(o.footer ?? "yah.homes【Operated by AIRSTAR】")}</td></tr>
 </table></td></tr></table></body></html>`;
 }
