@@ -162,14 +162,15 @@ const currentPath = Astro.url.pathname;
   /* overflow-x: auto を置くとドロップダウン（絶対配置）が切り取られて見えなくなる。
      はみ出しは許容し、狭い画面ではリンクの余白を詰めて対処する */
   .an-links { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 0; }
-  @media (max-width: 860px) {
-    .an-link { padding: 0.45rem 0.45rem; font-size: 0.74rem; }
-  }
   .an-link {
     display: inline-flex; align-items: center; gap: 0.4rem;
     font-family: inherit; font-size: 0.8rem; color: rgba(255, 255, 255, 0.75);
     background: none; border: 0; padding: 0.45rem 0.7rem; border-radius: 5px;
     text-decoration: none; cursor: pointer; white-space: nowrap; list-style: none;
+  }
+  /* 後置しないと基本ルールに上書きされる（同一詳細度は後勝ち） */
+  @media (max-width: 860px) {
+    .an-link { padding: 0.45rem 0.45rem; font-size: 0.74rem; }
   }
   .an-link:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
   .an-link.is-current { color: #ffffff; background: rgba(255, 255, 255, 0.14); }
