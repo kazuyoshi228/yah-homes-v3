@@ -159,7 +159,12 @@ const currentPath = Astro.url.pathname;
     font-size: 0.6rem; font-weight: 600; letter-spacing: 0.14em; color: #111111;
     background: #ffffff; border-radius: 3px; padding: 0.1rem 0.4rem;
   }
-  .an-links { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 0; overflow-x: auto; }
+  /* overflow-x: auto を置くとドロップダウン（絶対配置）が切り取られて見えなくなる。
+     はみ出しは許容し、狭い画面ではリンクの余白を詰めて対処する */
+  .an-links { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 0; }
+  @media (max-width: 860px) {
+    .an-link { padding: 0.45rem 0.45rem; font-size: 0.74rem; }
+  }
   .an-link {
     display: inline-flex; align-items: center; gap: 0.4rem;
     font-family: inherit; font-size: 0.8rem; color: rgba(255, 255, 255, 0.75);
