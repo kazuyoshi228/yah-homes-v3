@@ -201,8 +201,33 @@ export const beds24WeeklyReport = onSchedule(
         ga4Lines = [`  （GA4取得失敗: ${String(e).slice(0, 120)}）`];
       }
 
+      /* 直販の実CV（2026-08-16のCV定義切替に対応）。
+         旧「手渡し→予約」は手渡しがCVだった時代の代理指標なので、見出しは実CVに置き換える。
+         セッション数・purchase件数・売上をGA4から取り、CVRとCV単価（広告費÷直販件数）を出す。 */
+      let sessions = 0, purchases = 0, revenue = 0;
+      try {
+        const tok = await googleToken(["https://www.googleapis.com/auth/analytics.readonly"]);
+        const g = (body: unknown) =>
+          fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`, {
+            method: "POST", headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },
+            body: JSON.stringify(body),
+          }).then((r) => r.json());
+        const s: any = await g({ dateRanges: [{ startDate: "7daysAgo", endDate: "yesterday" }], metrics: [{ name: "sessions" }] });
+        sessions = Number(s.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+        const p: any = await g({
+          dateRanges: [{ startDate: "7daysAgo", endDate: "yesterday" }],
+          metrics: [{ name: "eventCount" }, { name: "eventValue" }],
+          dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { value: "purchase" } } },
+        });
+        purchases = Number(p.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+        revenue = Number(p.rows?.[0]?.metricValues?.[1]?.value ?? 0);
+      } catch (e) {
+        logger.warn("GA4 purchase metrics failed", e);
+      }
+
       // adsタブ: 直近7日の市場別費用・CV
       let adsLines: string[] = [];
+      let adCost = 0; // 全市場の広告費合計（CV単価・ROASの分母）
       try {
         const tok = await googleToken(["https://www.googleapis.com/auth/spreadsheets"]);
         const rows = await sheetGet("ads!A:G", tok);
@@ -215,6 +240,7 @@ export const beds24WeeklyReport = onSchedule(
           agg[name] = agg[name] ?? { cost: 0, clicks: 0, cv: 0 };
           agg[name].cost += num(r[2]); agg[name].clicks += num(r[3]); agg[name].cv += num(r[5]);
         }
+        adCost = Object.values(agg).reduce((s, v) => s + v.cost, 0);
         adsLines = Object.entries(agg).map(([k, v]) =>
           `  ${k}: ¥${Math.round(v.cost).toLocaleString()} / ${v.clicks}クリック / CV${v.cv}` +
           (v.cv > 0 ? ` / CPA¥${Math.round(v.cost / v.cv).toLocaleString()}` : " / CVゼロ")
@@ -222,6 +248,10 @@ export const beds24WeeklyReport = onSchedule(
       } catch (e) {
         adsLines = [`  （adsタブ取得失敗: ${String(e).slice(0, 120)}）`];
       }
+
+      // 直販の実CV指標。ROASの分岐8.8倍＝運営管理15%控除後の直販メリット11.4%（docs/unit-economics）
+      const cvr = sessions > 0 ? ((purchases / sessions) * 100).toFixed(2) : "—";
+      const roas = adCost > 0 ? (revenue / adCost).toFixed(1) : "—";
 
       const weeklyNights = weekly.reduce((s, b) => s + nights(b), 0);
       // 基準帯23〜28%は click_airbnb→Airbnb予約 で校正済みのため、分子はAirbnb経由のみ
@@ -255,7 +285,9 @@ export const beds24WeeklyReport = onSchedule(
         ["キャンセル", esc(`${cxl.length}件`)],
         ["先付け残高", esc(`計${fwdTotal}泊（清川${fwd.清川} / 高砂${fwd.高砂}）`)],
         ["先付け率", esc(`${fwdPct}%（適正帯 28〜33%）`)],
-        ["手渡し→予約", esc(`${ratio}%（基準帯 23〜28%）`)],
+        ["直販売上", esc(revenue > 0 ? `¥${Math.round(revenue).toLocaleString()}（広告費 ¥${Math.round(adCost).toLocaleString()}）` : `—（広告費 ¥${Math.round(adCost).toLocaleString()}）`)],
+        ["訪問→購入 CVR", esc(cvr === "—" ? "—" : `${cvr}%（${sessions.toLocaleString()}セッション）`)],
+        ["手渡し→予約（旧指標・参考）", esc(`${ratio}%（基準帯 23〜28%）`)],
       ];
       const list = (lines: string[]) => esc(lines.join("\n")) || "（データなし）";
       const blocks = [
@@ -274,7 +306,14 @@ export const beds24WeeklyReport = onSchedule(
           stats: [
             { label: "新規予約", value: `${weekly.length}組`, sub: `${weeklyNights}泊 ／ 取消 ${cxl.length}件`, tone: weekly.length > 0 ? "good" : "warn" },
             { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdPct}%（適正 28〜33%）`, tone: Number(fwdPct) < 28 || Number(fwdPct) > 33 ? "warn" : "good" },
-            { label: "手渡し→予約", value: ratio === "—" ? "—" : `${ratio}%`, sub: "基準 23〜28%", tone: ratio === "—" ? undefined : Number(ratio) < 23 ? "warn" : "good" },
+            {
+              label: "直販CV（purchase）",
+              value: `${purchases}件`,
+              sub: purchases > 0
+                ? `CVR ${cvr}% ／ CV単価 ¥${Math.round(adCost / purchases).toLocaleString()} ／ ROAS ${roas}倍（分岐 8.8倍）`
+                : `CVR — ／ 訪問 ${sessions.toLocaleString()}セッション ／ 広告費 ¥${Math.round(adCost).toLocaleString()}`,
+              tone: purchases === 0 ? "warn" : Number(roas) >= 8.8 ? "good" : "warn",
+            },
           ],
           rows, blocks,
         },

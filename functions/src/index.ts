@@ -2851,12 +2851,26 @@ async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | nul
       }),
     }).then((x) => x.json());
     if (r.error) throw new Error(JSON.stringify(r.error).slice(0, 200));
-    const out: Record<string, number> = { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, total: 0 };
+    const out: Record<string, number> = { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, purchase: 0, total: 0 };
     for (const row of r.rows ?? []) {
       const v = Number(row.metricValues[0].value);
       out[row.dimensionValues[0].value] = v;
       out.total += v;
     }
+    // 直販の分母（訪問）と売上。2026-08-16のCV定義切替以降、日次の主指標も purchase にしたため併せて取る。
+    const one = (body: unknown) =>
+      fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`, {
+        method: "POST", headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }).then((x) => x.json());
+    const s: any = await one({ dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], metrics: [{ name: "sessions" }] });
+    out.sessions = Number(s.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+    const p: any = await one({
+      dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+      metrics: [{ name: "eventValue" }],
+      dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { value: "purchase" } } },
+    });
+    out.revenue = Number(p.rows?.[0]?.metricValues?.[0]?.value ?? 0);
     return out;
   } catch (err) {
     logger.warn("ga4 handoff clicks fetch failed", err);
@@ -3048,12 +3062,23 @@ export const beds24DailyObserver = onSchedule(
           stats: [
             { label: "新規（差引）", value: `${netG >= 0 ? "+" : ""}${netG}組`, sub: `${netN >= 0 ? "+" : ""}${netN}泊`, tone: netG > 0 ? "good" : netG < 0 ? "bad" : undefined },
             { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdRate}%（適正 28〜33%）`, tone: fwdRate < 28 ? "warn" : fwdRate > 33 ? "warn" : "good" },
-            { label: "手渡し（前日）", value: `${handoff?.total ?? "—"}`, sub: `Airbnb ${clicks ?? "—"} / Booking ${handoff?.click_booking_com ?? "—"}` },
+            {
+              // 主指標は直販（purchase）。手渡しは旧CV定義の指標なので補足に降格した（2026-08-16 CV切替）
+              label: "直販CV（前日）",
+              value: `${handoff?.purchase ?? "—"}件`,
+              sub: handoff
+                ? (handoff.purchase > 0
+                  ? `¥${Math.round(handoff.revenue ?? 0).toLocaleString()} ／ 訪問 ${(handoff.sessions ?? 0).toLocaleString()}セッション`
+                  : `訪問 ${(handoff.sessions ?? 0).toLocaleString()}セッション ／ 手渡し ${handoff.click_airbnb + handoff.click_booking_com}（参考）`)
+                : "GA4取得失敗",
+              tone: handoff && handoff.purchase > 0 ? "good" : undefined,
+            },
           ],
           rows: [
             ["清川", esc(`${kNet.g >= 0 ? "+" : ""}${kNet.g}組 ${kNet.n >= 0 ? "+" : ""}${kNet.n}泊　先付け ${fwd.清川}泊（${pct(fwd.清川, 365)}）`)],
             ["高砂", esc(`${tNet.g >= 0 ? "+" : ""}${tNet.g}組 ${tNet.n >= 0 ? "+" : ""}${tNet.n}泊　先付け ${fwd.高砂}泊（${pct(fwd.高砂, 365)}）`)],
             ["キャンセル", esc(`${events.cancelled.length}件`)],
+            ["手渡し（旧指標・参考）", esc(handoff ? `計${handoff.total}　Airbnb ${handoff.click_airbnb} / Booking ${handoff.click_booking_com} / カレンダー ${handoff.click_booking_calendar}` : "GA4取得失敗")],
             ["定点シート", esc(sheetNote)],
           ],
           blocks: [
@@ -3637,10 +3662,10 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     checkin: "チェックイン", checkout: "チェックアウト", stay: "お客様のご予約", guestsRow: "宿泊者の内訳",
     house: "お部屋", arrival: "到着予定時刻", checkinWindow: "{ci}〜（時間の制限はありません）", checkoutWindow: "〜{co}",
     nights: "{n}泊", guests: "大人{g}名",
-    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、お問い合わせフォームよりご連絡ください。一度キャンセルのうえ、あらためてご予約いただくことも可能です（無料キャンセル期間内であれば追加のご負担はありません）。",
+    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、My Page のメッセージからご連絡ください。一度キャンセルのうえ、あらためてご予約いただくことも可能です（無料キャンセル期間内であれば追加のご負担はありません）。",
     payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
     payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
-    ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "お問い合わせ",
+    ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "メッセージを送る",
     ctaNote: "ご予約時のアカウントでログインすると、到着予定時刻の登録やご予約の確認ができます。",
     entryTitle: "入室について",
     entryBody: "玄関のキーボックスでの受け渡しです。暗証番号と詳しい入室手順は、ご到着の前日にメールでお送りします。深夜のご到着でも問題ありません。",
@@ -3667,7 +3692,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).", changeNote: "To change your dates or party size, please cancel this booking and make a new one. Within the free cancellation period there is no extra cost.",
     payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
     payNote: "Room rate, lodging tax and cleaning fee are included. There is nothing more to pay.",
-    ctaTitle: "Manage your booking", cta: "Change or cancel your booking", cta2: "Contact us",
+    ctaTitle: "Manage your booking", cta: "Change or cancel your booking", cta2: "Send us a message",
     ctaNote: "Sign in with the account you used to book to add your arrival time or review the booking.",
     entryTitle: "Getting in",
     entryBody: "Self check-in with a key box at the entrance. We will email the code and full instructions the day before your arrival. Late-night arrivals are fine.",
@@ -3694,7 +3719,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.", changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요. 무료 취소 기간 내라면 추가 부담은 없습니다.",
     payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
     payNote: "숙박료·숙박세·청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
-    ctaTitle: "예약 확인·변경", cta: "예약 변경·취소", cta2: "문의하기",
+    ctaTitle: "예약 확인·변경", cta: "예약 변경·취소", cta2: "메시지 보내기",
     ctaNote: "예약하신 계정으로 로그인하면 도착 예정 시각 등록과 예약 확인이 가능합니다.",
     entryTitle: "입실 안내",
     entryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호와 자세한 입실 안내는 도착 전날 메일로 보내드립니다. 늦은 시간 도착도 괜찮습니다.",
@@ -3721,7 +3746,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。", changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂。在免費取消期限內不會產生額外費用。",
     payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
     payNote: "已含住宿費、住宿稅與清潔費，不會另外收費。",
-    ctaTitle: "查看與變更預訂", cta: "變更或取消預訂", cta2: "聯絡我們",
+    ctaTitle: "查看與變更預訂", cta: "變更或取消預訂", cta2: "傳送訊息",
     ctaNote: "以預訂時使用的帳號登入，即可登記抵達時間或查看預訂。",
     entryTitle: "入住方式",
     entryBody: "透過玄關的密碼鑰匙盒自助入住。密碼與詳細入住說明，將於抵達前一天以電子郵件寄送。深夜抵達也沒問題。",
@@ -3748,7 +3773,7 @@ const MAIL_L10N: Record<string, Record<string, string>> = {
     cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)", changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม",
     payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
     payNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาดแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม",
-    ctaTitle: "จัดการการจอง", cta: "เปลี่ยนแปลงหรือยกเลิกการจอง", cta2: "ติดต่อเรา",
+    ctaTitle: "จัดการการจอง", cta: "เปลี่ยนแปลงหรือยกเลิกการจอง", cta2: "ส่งข้อความ",
     ctaNote: "เข้าสู่ระบบด้วยบัญชีที่ใช้จอง เพื่อระบุเวลาที่จะมาถึงหรือตรวจสอบการจอง",
     entryTitle: "การเข้าที่พัก",
     entryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู เราจะส่งรหัสและขั้นตอนการเข้าที่พักโดยละเอียดทางอีเมล 1 วันก่อนวันเข้าพัก มาถึงดึกก็ไม่มีปัญหา",
@@ -3866,7 +3891,7 @@ function buildConfirmationMail(
         <a href="${esc(myPage)}" style="display:block;padding:15px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(L.cta)}</a>
       </td></tr>
       <tr><td align="center" style="padding-top:10px;">
-        <a href="mailto:contact@mail.yah.homes?subject=${encodeURIComponent(`${L.bookingNo} ${no}`)}" style="display:block;padding:13px 24px;border:1px solid #d7d7d7;border-radius:6px;font-size:14px;font-weight:500;color:#111111;text-decoration:none;">${esc(L.cta2)}</a>
+        <a href="${esc(myPage)}#messages" style="display:block;padding:13px 24px;border:1px solid #d7d7d7;border-radius:6px;font-size:14px;font-weight:500;color:#111111;text-decoration:none;">${esc(L.cta2)}</a>
       </td></tr>
       <tr><td style="padding-top:10px;font-size:12px;color:#999999;line-height:1.7;text-align:center;">${esc(L.ctaNote)}</td></tr>
     </table>
@@ -3914,7 +3939,7 @@ function buildConfirmationMail(
     `${L.payPaid}: ${yen(d.total)}`,
     `${L.payOnSite}: ${yen(0)}`,
     L.payNote,
-    "", `${L.cta}: ${myPage}`, `${L.cta2}: contact@mail.yah.homes`,
+    "", `${L.cta}: ${myPage}`, `${L.cta2}: ${myPage}#messages`,
     "", `--- ${L.entryTitle} ---`, L.entryBody,
     P.map ? `\n--- ${L.placeTitle} ---\n${P.address || L.placeNote}\n${P.map}` : "",
     "", `--- ${L.safetyTitle} ---`, L.safetyBody,

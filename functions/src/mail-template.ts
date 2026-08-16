@@ -32,18 +32,24 @@ export function mailHtml(o: {
   const row = ([k, v]: [string, string]) =>
     `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;vertical-align:top;white-space:nowrap;">${esc(k)}</td>
       <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#111111;text-align:right;font-weight:500;word-break:break-word;">${v}</td></tr>`;
-  /* 主要数値のタイル。Outlook/Gmail 双方で崩れないよう table の td を横並びにする（flex/grid は使えない） */
+  /* 主要数値のタイル。横並びは幅が足りず数字が潰れるため、1件=1行の縦積みにする（2026-08-16 発注者指示）。
+     左に見出し＋補足、右に大きな数値。Outlook/Gmail 双方で崩れないよう table で組む（flex/grid は使えない） */
   const TONE = { good: "#1a7f37", warn: "#b26a00", bad: "#c0392b" } as const;
   const statsHtml = (st: NonNullable<typeof o.stats>) =>
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;"><tr>${st
+    st
       .map(
-        (s, i) => `<td width="${Math.floor(100 / st.length)}%" style="padding:14px 8px;background:#fafafa;border-radius:8px;text-align:center;${i ? "border-left:6px solid #ffffff;" : ""}">
-        <div style="font-size:11px;color:#888888;letter-spacing:.04em;margin-bottom:4px;">${esc(s.label)}</div>
-        <div style="font-size:26px;line-height:1.15;font-weight:700;color:${s.tone ? TONE[s.tone] : "#111111"};">${esc(s.value)}</div>
-        ${s.sub ? `<div style="font-size:11px;color:#999999;margin-top:4px;">${esc(s.sub)}</div>` : ""}
-      </td>`,
+        (s) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border-radius:8px;margin:0 0 8px;">
+      <tr>
+        <td style="padding:14px 18px;vertical-align:middle;">
+          <div style="font-size:12px;color:#666666;font-weight:600;letter-spacing:.04em;">${esc(s.label)}</div>
+          ${s.sub ? `<div style="font-size:11px;color:#999999;margin-top:3px;line-height:1.5;">${esc(s.sub)}</div>` : ""}
+        </td>
+        <td style="padding:14px 18px;vertical-align:middle;text-align:right;white-space:nowrap;">
+          <span style="font-size:28px;line-height:1.1;font-weight:700;color:${s.tone ? TONE[s.tone] : "#111111"};">${esc(s.value)}</span>
+        </td>
+      </tr></table>`,
       )
-      .join("")}</tr></table>`;
+      .join("");
   const block = (b: { title: string; body: string }) =>
     `<div style="border-top:1px solid #f0f0f0;padding-top:14px;margin-top:14px;">
        <div style="font-size:13px;font-weight:600;color:#111111;margin-bottom:5px;">${esc(b.title)}</div>
