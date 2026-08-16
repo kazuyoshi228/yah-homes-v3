@@ -6,11 +6,11 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 /* SSoT＝唯一の正（ここを直すと全系統に反映される） ／ 運営管理＝日々の運用画面 ／
    バッジ: Admin＝オーナーのみ・Operator＝管理者台帳のメンバー（運営会社を含む） */
 const SSOT = [
-  { href: "/admin/properties/", title: "物件ファクト管理", role: "admin" },
+  { href: "/admin/properties/", title: "物件ファクト管理", role: "owner" },
   { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
   { href: "/admin/templates/", title: "定型メール管理", role: "admin" },
   { href: "/admin/internal-mails/", title: "社内向け定型メール", role: "admin" },
-  { href: "/legal/terms/", title: "宿泊約款・ハウスルール", role: "admin" },
+  { href: "/legal/terms/", title: "宿泊約款・ハウスルール", role: "owner" },
 ];
 const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
 const FB_CONFIG = {
