@@ -664,7 +664,7 @@ const conditionRows: string[] = [
     line-height: 1.55;
   }
   .am-item[data-off="true"] {
-    color: #bbbbbb;
+    color: #757575;  /* AA 4.6:1（#bbb は 2.3 で不足・Lighthouse指摘）。打ち消し線で「なし」は伝わる */
     text-decoration: line-through;
   }
   .am-icon {
