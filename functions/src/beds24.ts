@@ -9,6 +9,7 @@ import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { GoogleAuth } from "google-auth-library";
 import nodemailer from "nodemailer";
+import { esc, mailHtml, SITE_URL } from "./mail-template.js";
 
 const REGION = "asia-northeast1";
 const TZ = "Asia/Tokyo";
@@ -80,9 +81,37 @@ function mailer(user: string, pass: string) {
   });
 }
 
-async function sendMail(subject: string, text: string) {
+/**
+ * 定点メールを送る。text は常に添える（プレーンテキスト版）が、
+ * 表示は index.ts と共通の mailHtml テンプレートに載せる（日次メールと同じ枠）。
+ * rows/blocks を渡さない場合は text 全体を「サマリー」ブロックに流し込む。
+ */
+async function sendMail(
+  subject: string,
+  text: string,
+  opts?: {
+    heading?: string;
+    rows?: [string, string][];
+    blocks?: { title: string; body: string }[];
+    variant?: "brand" | "alert";
+  },
+) {
   const t = mailer(SMTP_USER.value(), SMTP_PASS.value());
-  await t.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: REPORT_TO, subject, text });
+  const today = jstToday();
+  await t.sendMail({
+    from: `"yah.homes 定点" <${SMTP_USER.value()}>`,
+    to: REPORT_TO,
+    subject,
+    text,
+    html: mailHtml({
+      heading: opts?.heading ?? (subject.replace(/^【[^】]*】\s*/, "") || "定点観測"),
+      badge: `週次スコアカード|${today}`,
+      rows: opts?.rows,
+      blocks: opts?.blocks ?? [{ title: "サマリー", body: esc(text) }],
+      cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+      variant: opts?.variant,
+    }),
+  });
 }
 
 function label(b: Booking): string {
@@ -211,11 +240,31 @@ export const beds24WeeklyReport = onSchedule(
         ...weekly.map((b) => `  + ${label(b)}`),
       ].join("\n");
 
-      await sendMail(`【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`, body);
+      // HTMLは日次メールと同じ枠（mailHtml）。要点は rows に、明細は blocks に分けて載せる。
+      const fwdPct = ((fwdTotal / CAPACITY_NIGHTS_YEAR) * 100).toFixed(1);
+      const rows: [string, string][] = [
+        ["新規予約", esc(`${weekly.length}組 / ${weeklyNights}泊`)],
+        ["キャンセル", esc(`${cxl.length}件`)],
+        ["先付け残高", esc(`計${fwdTotal}泊（清川${fwd.清川} / 高砂${fwd.高砂}）`)],
+        ["先付け率", esc(`${fwdPct}%（適正帯 28〜33%）`)],
+        ["手渡し→予約", esc(`${ratio}%（基準帯 23〜28%）`)],
+      ];
+      const list = (lines: string[]) => esc(lines.join("\n")) || "（データなし）";
+      const blocks = [
+        { title: "国籍別の新規予約", body: list(Object.entries(byNat).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${k}: ${v.g}組 ${v.n}泊`)) },
+        { title: `click_airbnb 国別（GA4・7日）計${clickTotal}件`, body: list(ga4Lines.map((l) => l.trim())) },
+        { title: "広告 市場別（adsタブ・7日）", body: list(adsLines.map((l) => l.trim())) },
+        { title: "明細（新規）", body: list(weekly.map((b) => `+ ${label(b)}`)) },
+      ];
+      await sendMail(
+        `【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`,
+        body,
+        { heading: `新規 ${weekly.length}組 ${weeklyNights}泊`, rows, blocks },
+      );
       logger.info("beds24WeeklyReport done", { weekly: weekly.length });
     } catch (e) {
       logger.error("beds24WeeklyReport failed", e);
-      try { await sendMail(`【週次スコアカード・エラー】${today}`, String(e)); } catch { /* noop */ }
+      try { await sendMail(`【週次スコアカード・エラー】${today}`, String(e), { heading: "週次スコアカードの取得に失敗", variant: "alert" }); } catch { /* noop */ }
       throw e;
     }
   }
