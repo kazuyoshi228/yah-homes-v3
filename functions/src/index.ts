@@ -600,6 +600,7 @@ const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
 const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN");
 const GA4_API_SECRET = defineSecret("GA4_API_SECRET"); // read専用（bookingApi・定点観測で共用）
+const META_CAPI_TOKEN = defineSecret("META_CAPI_TOKEN"); // Meta Conversions API のアクセストークン
 const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 // test = 検証用物件 yah.homes test1（デモ面にのみカードを出す）
@@ -3447,7 +3448,7 @@ export const bookCreate = onRequest(
 
 /** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
 export const stripeWebhook = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET, META_CAPI_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) { res.status(400).send("missing_signature"); return; }
@@ -3600,9 +3601,74 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
       nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
       lang: String(c2.lang ?? ""), authProvider: String(c2.authProvider ?? ""), clientId: String(c2.clientId ?? ""),
     });
+    // 広告計測（Meta）。失敗しても予約確定は成立させる
+    await sendMetaPurchase({
+      id: bookingId, prop: cur.prop, total: cur.total, guests: cur.guests,
+      nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
+      checkin: cur.checkin, email: String(c2.email ?? ""),
+    }).catch((e) => logger.warn("sendMetaPurchase failed", { e: String(e).slice(0, 160) }));
   } catch (err) {
     logger.error("fulfillBooking failed", err);
     await fail(String(err).slice(0, 200), "MANUAL_REVIEW");
+  }
+}
+
+/**
+ * Meta Conversions API に Purchase を送る（docs/plan_refactor_and_conversion_202608.md §6-2-1）。
+ *
+ * ブラウザの完了ページからではなくサーバーから送る理由: 決済後に画面を閉じる、
+ * 広告ブロッカーが効く、通信が落ちる、のいずれでも売上を取りこぼさないため。
+ * 送信条件は「決済成功かつ予約番号確定」＝この関数が呼ばれる時点でその両方が成立している。
+ *
+ * event_id には予約IDを使う。Pixel 側で同じ予約に同じIDを付ければ Meta 側で
+ * 重複排除されるので、将来ブラウザからも送る場合に二重計上にならない。
+ *
+ * 個人情報の扱い: メールは SHA-256 でハッシュ化して user_data に入れる（Meta の仕様）。
+ * 平文は送らない。宿泊日・氏名・電話・決済番号は custom_data に一切入れない。
+ * リードタイムはバケットに丸める（具体的な旅行日程を広告基盤へ渡さないため）。
+ */
+const META_PIXEL_ID = "2216414819216704";
+async function sendMetaPurchase(b: {
+  id: string; prop: string; total: number; guests: number; nights: number;
+  checkin: string; email?: string;
+}): Promise<void> {
+  const token = META_CAPI_TOKEN.value();
+  if (!token || token.startsWith("placeholder")) return; // 未設定時は送らない（障害にしない）
+  try {
+    const leadDays = Math.round((Date.parse(b.checkin) - Date.now()) / 86400000);
+    const bucket = leadDays <= 3 ? "0_3_days" : leadDays <= 7 ? "4_7_days"
+      : leadDays <= 14 ? "8_14_days" : leadDays <= 30 ? "15_30_days" : "over_30_days";
+    const sha256 = (v: string) => createHash("sha256").update(v.trim().toLowerCase()).digest("hex");
+    const res = await fetch(`https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events?access_token=${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: [{
+          event_name: "Purchase",
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: b.id,                       // Pixel と共通＝重複排除の鍵
+          action_source: "website",
+          event_source_url: `${SITE_URL}/book/complete/`,
+          user_data: b.email ? { em: [sha256(b.email)] } : {},
+          custom_data: {
+            currency: "JPY",
+            value: b.total,
+            content_ids: [`stay_${b.prop}`],
+            content_type: "product",
+            contents: [{ id: `stay_${b.prop}`, quantity: 1, item_price: b.total }],
+            num_items: 1,
+            property_id: b.prop,
+            nights: b.nights,
+            guests: b.guests,
+            lead_time_bucket: bucket,
+            booking_channel: "direct",
+          },
+        }],
+      }),
+    });
+    if (!res.ok) logger.warn("meta capi purchase failed", { status: res.status, body: (await res.text()).slice(0, 200) });
+  } catch (e) {
+    logger.warn("meta capi purchase error", { e: String(e).slice(0, 160) });
   }
 }
 

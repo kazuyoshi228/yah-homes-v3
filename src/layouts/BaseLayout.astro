@@ -191,12 +191,18 @@ const htmlLang = HREFLANG[lang];
         var ctaLocation = a.getAttribute("data-cta-location") || undefined;
         if (href.indexOf("airbnb") > -1) {
           gtag("event", "click_airbnb", { property: property, page_path: path, cta_location: ctaLocation });
+          // OTAへの外部遷移は Lead ではなく OutboundBookingClick（2026-08-16）。
+          // Lead に混ぜると、Metaが「直販の見込み」と「OTAへの流出」を同じ成果として
+          // 学習し、広告が外部流出を増やす方向に最適化されてしまう。
           // fbq は未初期化（TRACK=false）のことがあるため必ず存在確認してから呼ぶ。
-          // ここで落とすと以降のクリック計測が全滅する。
-          window.fbq && fbq("track", "Lead", { content_name: property });
+          window.fbq && fbq("trackCustom", "OutboundBookingClick", {
+            property_id: property, destination: "airbnb", cta_location: ctaLocation,
+          });
         } else if (href.indexOf("booking.com") > -1) {
           gtag("event", "click_booking_com", { property: property, page_path: path, cta_location: ctaLocation });
-          window.fbq && fbq("track", "Lead", { content_name: property });
+          window.fbq && fbq("trackCustom", "OutboundBookingClick", {
+            property_id: property, destination: "booking_com", cta_location: ctaLocation,
+          });
         } else if (href === "#booking") {
           gtag("event", "click_booking_calendar", { property: property, page_path: path });
         } else if (href.indexOf("instagram.com") > -1) {

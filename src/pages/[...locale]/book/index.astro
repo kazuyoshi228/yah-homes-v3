@@ -588,6 +588,25 @@ const strings = {
         currency: "JPY", value: p.total, lang,
         items: [{ item_id: house.key, item_name: `yah.homes ${house.key}`, price: p.total, quantity: 1 }],
       });
+      // Meta InitiateCheckout（2026-08-16）。Purchase が貯まるまでの立ち上げ期は
+      // これを最適化先に使う。OTAクリック（OutboundBookingClick）とは別物として扱う。
+      // 具体的な宿泊日は送らない（個人の旅行計画になりうるため）。リードタイムは丸める。
+      const leadDays = Math.round((Date.parse(state.checkin) - Date.now()) / 86400000);
+      const bucket = leadDays <= 3 ? "0_3_days" : leadDays <= 7 ? "4_7_days"
+        : leadDays <= 14 ? "8_14_days" : leadDays <= 30 ? "15_30_days" : "over_30_days";
+      window.fbq?.("track", "InitiateCheckout", {
+        content_ids: [`stay_${house.key}`],
+        content_type: "product",
+        contents: [{ id: `stay_${house.key}`, quantity: 1, item_price: p.total }],
+        currency: "JPY",
+        value: p.total,
+        num_items: 1,
+        property_id: house.key,
+        nights,
+        guests: state.guests,
+        lead_time_bucket: bucket,
+        booking_channel: "direct",
+      });
     });
   }
 
