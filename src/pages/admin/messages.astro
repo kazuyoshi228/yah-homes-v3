@@ -320,6 +320,12 @@ const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
     flex: 1; padding: 0.7rem 0.85rem; font-family: inherit; font-size: 0.86rem; line-height: 1.75;
     border: 1px solid #d7d7d7; border-radius: 6px; resize: none; box-sizing: border-box;
   }
+  /* iOS はフォント16px未満の入力欄でフォーカス時に自動ズームする。
+     スマホでは16pxにしてズームを起こさない（送信ボタンが押しづらい問題対策） */
+  @media (max-width: 720px) {
+    .ms-compose textarea { font-size: 16px; }
+  }
+
   .ms-btn {
     font-family: inherit; font-size: 0.82rem; color: #ffffff; background: #111111;
     border: none; border-radius: 4px; padding: 0.7rem 1.4rem; cursor: pointer; white-space: nowrap;
