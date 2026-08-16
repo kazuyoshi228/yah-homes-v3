@@ -2539,13 +2539,18 @@ async function createBeds24Inquiry(
   return row.new.id;
 }
 
-/** スレッドに beds24Id があればそこへ複製する。失敗しても呼び出し側は続行する。 */
+/** スレッドに beds24Id があればそこへ複製する。失敗しても呼び出し側は続行する。
+ *  運営の発言も source:"guest" で入れる。Beds24 の受信箱は「届いたメッセージ」しか
+ *  描画せず、source:"host" は保存されても画面に出ないため（キャンセル通知で
+ *  internalNote が出なかったのと同じ理由）。Airstar が会話の片側しか見えないと
+ *  二重に返信する事故につながるので、接頭辞で誰の発言かを明示して両方を流す。 */
 async function mirrorInquiryToBeds24(
   t: Record<string, unknown>, from: "guest" | "host", text: string,
 ): Promise<void> {
   const id = Number(t.beds24Id ?? 0);
   if (!id) return;
-  await noteBeds24Message(id, from, text);
+  const body = from === "host" ? `【yah.homes運営からの返信】\n${text}` : text;
+  await noteBeds24Message(id, "guest", body);
 }
 
 async function noteBeds24Message(beds24Id: number, from: "guest" | "host", message: string): Promise<void> {
