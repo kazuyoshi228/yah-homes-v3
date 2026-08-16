@@ -49,6 +49,7 @@ function clientIp(req: { headers: Record<string, unknown>; ip?: string }): strin
 
 // メール通知用シークレット（`firebase functions:secrets:set` で登録）
 // SMTP_USER: 送信元 Gmail/Workspace アドレス / SMTP_PASS: アプリパスワード /
+const BEDS24_WRITE_REFRESH = defineSecret("BEDS24_WRITE_REFRESH");
 const INQUIRY_LINK_SECRET = defineSecret("INQUIRY_LINK_SECRET");
 const SMTP_USER = defineSecret("SMTP_USER");
 const SMTP_PASS = defineSecret("SMTP_PASS");
@@ -102,7 +103,8 @@ const INQUIRY_URL = (lang: string, token: string) =>
   `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}inquiry/?t=${token}`;
 
 export const contact = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [SMTP_USER, SMTP_PASS, INQUIRY_LINK_SECRET] },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+    secrets: [SMTP_USER, SMTP_PASS, INQUIRY_LINK_SECRET, BEDS24_WRITE_REFRESH] },
   async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
   if (origin) {
@@ -186,6 +188,15 @@ export const contact = onRequest(
       from: "guest", body: messageStr, at: FieldValue.serverTimestamp(),
     });
     inquiryLink = INQUIRY_URL(langStr, tok.token);
+
+    // Beds24 の受信箱にも載せる。失敗しても問い合わせの受付は成立させる
+    // （通知メールと管理画面には既に届いており、Beds24 同期は上乗せの導線のため）
+    try {
+      const bid = await createBeds24Inquiry(tref.id, nameStr, emailStr, messageStr);
+      if (bid) await tref.update({ beds24Id: bid });
+    } catch (e) {
+      logger.warn("beds24 inquiry mirror failed", { e: String(e).slice(0, 160) });
+    }
   } catch (err) {
     logger.error("inquiry thread create failed", err);   // スレッド化に失敗しても受付は成立させる
   }
@@ -584,7 +595,6 @@ export const partnersApply = onRequest(
 // ─── Beds24 空き状況API（design_partners_page.md §7 / P1 §7-1 前倒し） ───
 // 読み取り専用。refresh token は Secret（M2で保存）。propId/roomId は初回に /properties から自動発見してキャッシュ。
 const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
-const BEDS24_WRITE_REFRESH = defineSecret("BEDS24_WRITE_REFRESH");
 const BEDS24_WEBHOOK_KEY = defineSecret("BEDS24_WEBHOOK_KEY");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -2161,6 +2171,8 @@ async function handleInquiryByToken(
   });
   notifyInquiry(parsed.threadId, t as Record<string, unknown>, "guest", text, translated)
     .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
+  mirrorInquiryToBeds24(t as Record<string, unknown>, "guest", text)
+    .catch((e: unknown) => logger.warn("beds24 inquiry mirror failed", { e: String(e).slice(0, 120) }));
   res.status(200).json({ ok: true });
 }
 
@@ -2203,6 +2215,8 @@ async function handleInquiryAsHost(
   });
   notifyInquiry(threadId, t, "host", text, translated)
     .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
+  mirrorInquiryToBeds24(t, "host", text)
+    .catch((e: unknown) => logger.warn("beds24 inquiry mirror failed", { e: String(e).slice(0, 120) }));
   res.status(200).json({ ok: true });
 }
 
@@ -2473,6 +2487,64 @@ async function notifyMessage(
 }
 
 /** Beds24 の予約へメッセージを複製する（Airbnb等と同じ受信箱に並べる） */
+// ─── 問い合わせを Beds24 の受信箱に載せる（spec_inquiry_to_beds24_202608.md）───
+// Beds24 のメッセージは予約IDにしか紐づかないため、問い合わせ1件につき
+// status:"inquiry" の予約を1件作り、その受信箱にやり取りを流す。
+// 宛先は本番サイトに出ない専用物件（346442）— 清川・高砂の在庫と受信箱を汚さない。
+const INQUIRY_BEDS24 = { propertyId: 346442, roomId: 715198 };
+
+async function createBeds24Inquiry(
+  threadId: string, name: string, email: string, message: string,
+): Promise<number | null> {
+  const d = new Date(Date.now() + 86400000);          // Beds24 は日程必須。過去日は拒否されうるので翌日から1泊
+  const arrival = d.toISOString().slice(0, 10);
+  const departure = new Date(d.getTime() + 86400000).toISOString().slice(0, 10);
+  const sp = name.indexOf(" ");
+  const payload = [{
+    roomId: INQUIRY_BEDS24.roomId,
+    status: "inquiry",
+    arrival, departure,
+    numAdult: 1, numChild: 0,
+    firstName: sp > 0 ? name.slice(0, sp) : name || "Guest",
+    lastName: sp > 0 ? name.slice(sp + 1) : "",
+    email,
+    price: 0,
+    custom1: `yah.homes inquiry / ${threadId}`,
+    reference: threadId,
+    notes: [
+      "【お問い合わせ】yah.homes 公式サイトのフォームより",
+      "※このカードは予約ではありません。日程・人数はダミーです。",
+      "※返信は yah.homes の管理画面「メッセージ」から行ってください（Beds24 で返信してもお客様には届きません）。",
+      "", message.slice(0, 500),
+    ].join("\n"),
+  }];
+  const r = await fetch(`${BEDS24_API}/bookings`, {
+    method: "POST",
+    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const j = (await r.json()) as Array<{ success?: boolean; new?: { id?: number }; errors?: unknown }>;
+  const row = j?.[0];
+  if (!row?.success || !row.new?.id) {
+    logger.warn("beds24 inquiry create failed", { e: JSON.stringify(row?.errors ?? j).slice(0, 200) });
+    return null;
+  }
+  // notes は予約カードに載るだけで受信箱には出ない（キャンセル通知で確認済み）。
+  // 1通目もメッセージとして投稿しないと、Beds24 の受信箱に現れない＝本機能の目的を果たさない。
+  await noteBeds24Message(row.new.id, "guest", `【お問い合わせ】${name} 様（${email}）\n\n${message}`)
+    .catch((e: unknown) => logger.warn("beds24 inquiry first message failed", { e: String(e).slice(0, 120) }));
+  return row.new.id;
+}
+
+/** スレッドに beds24Id があればそこへ複製する。失敗しても呼び出し側は続行する。 */
+async function mirrorInquiryToBeds24(
+  t: Record<string, unknown>, from: "guest" | "host", text: string,
+): Promise<void> {
+  const id = Number(t.beds24Id ?? 0);
+  if (!id) return;
+  await noteBeds24Message(id, from, text);
+}
+
 async function noteBeds24Message(beds24Id: number, from: "guest" | "host", message: string): Promise<void> {
   const r = await fetch(`${BEDS24_API}/bookings/messages`, {
     method: "POST",
