@@ -41,9 +41,11 @@ const FB_CONFIG = {
 const { facts } = await getPropertyFacts();
 const HOUSE_META = {
   kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: facts.kiyokawa.capacity,
-              checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime },
+              checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime,
+              freeCancelDays: facts.kiyokawa.freeCancelDays },
   takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, capacity: facts.takasago.capacity,
-              checkinTime: facts.takasago.checkinTime, checkoutTime: facts.takasago.checkoutTime },
+              checkinTime: facts.takasago.checkinTime, checkoutTime: facts.takasago.checkoutTime,
+              freeCancelDays: facts.takasago.freeCancelDays },
   // 検証用物件。BOOK_PREVIEW ではなく専用フラグで出す（本番ゲート解除後も出さないため）
   ...(process.env.BOOK_TEST_PROPERTY === "1" ? { test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, capacity: 7,
           checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime } } : {}),
@@ -464,9 +466,11 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
     $("co-out").firstChild.textContent = fmtDate(checkout);
     $("co-guests").textContent = uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests);
 
-    // 無料キャンセル期限 = チェックイン7日前（JST基準・v4 §4）
-    // 7日前の 00:00 JST = 8日前の 23:59 JST。表記は後者に揃える（実質同じ期限）
-    const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - 8 * 86400000);
+    // 無料キャンセル期限。日数の正は property_facts（/admin/properties）で、
+    // サーバーの返金判定（bookCreate の freeCancelUntilAt）と同じ値を使う。
+    // N日前の 00:00 JST = (N+1)日前の 23:59 JST。表記は後者に揃える（実質同じ期限）
+    const fcDays = meta?.freeCancelDays ?? 8;
+    const fc = new Date(Date.parse(`${checkin}T00:00:00+09:00`) - fcDays * 86400000);
     const fcStr = new Date(fc.getTime() + 9 * 3600000).toISOString().slice(0, 10);
     $("co-cancel").textContent = uiStrings.freeUntil.replace("{d}", fmtDate(fcStr));
     $("co-trust-cancel").textContent = uiStrings.freeUntil.replace("{d}", fmtDate(fcStr));

@@ -41,11 +41,11 @@ const thumb = (src: string) => src.replace(/\.webp$/, "-480.webp");
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const bookHref = `${localizedPath(lang, "/book")}?prop=${propertyKey}`;
 const DIRECT = {
-  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book", priceFrom: "From {v} / night" },
-  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する", priceFrom: "{v}〜 / 泊" },
-  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기", priceFrom: "{v}〜 / 1박" },
-  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂", priceFrom: "{v} 起 / 晚" },
-  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง", priceFrom: "เริ่มต้น {v} / คืน" },
+  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book", priceFrom: "From {v} / night", decide: ["Check availability and the all-in total right here.", "Cleaning fee and lodging tax are included in the price shown. Nothing to pay on arrival.", "Free cancellation until {d} days before check-in.", "Secure card payment handled by Stripe. We never store your card details.", "Questions before booking? We reply within 24 hours."] },
+  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する", priceFrom: "{v}〜 / 泊", decide: ["空室と総額を、この場でご確認いただけます。", "表示総額に清掃料・宿泊税を含みます。現地でのお支払いはありません。", "無料キャンセルは、チェックイン日の{d}日前まで。", "安全なカード決済。処理は Stripe が行い、カード情報を当社は保存しません。", "ご予約前のご質問には、24時間以内に返信します。"] },
+  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기", priceFrom: "{v}〜 / 1박", decide: ["빈방과 총액을 이 자리에서 확인하실 수 있습니다.", "표시 금액에 청소비·숙박세가 포함됩니다. 현장에서 지불하실 금액은 없습니다.", "무료 취소는 체크인 {d}일 전까지 가능합니다.", "안전한 카드 결제. 결제는 Stripe가 처리하며 카드 정보는 보관하지 않습니다.", "예약 전 문의에는 24시간 이내에 답변드립니다."] },
+  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂", priceFrom: "{v} 起 / 晚", decide: ["可在此直接確認空房與總金額。", "顯示金額已含清潔費與住宿稅，現場無需再付款。", "入住日 {d} 天前可免費取消。", "安全的信用卡付款，由 Stripe 處理，本公司不會保存卡片資料。", "預訂前的疑問，我們會在 24 小時內回覆。"] },
+  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง", priceFrom: "เริ่มต้น {v} / คืน", decide: ["ตรวจสอบห้องว่างและราคารวมได้ที่นี่", "ราคาที่แสดงรวมค่าทำความสะอาดและภาษีที่พักแล้ว ไม่มีค่าใช้จ่ายเพิ่มเมื่อเดินทางถึง", "ยกเลิกฟรีได้ถึง {d} วันก่อนวันเช็คอิน", "ชำระด้วยบัตรอย่างปลอดภัยผ่าน Stripe เราไม่จัดเก็บข้อมูลบัตรของท่าน", "มีคำถามก่อนจอง? เราตอบภายใน 24 ชั่วโมง"] },
 }[lang];
 const hero480 = thumb(heroImage);
 const hero768 = heroImage.replace(/\.webp$/, "-768.webp");
@@ -116,6 +116,17 @@ const conditionRows: string[] = [
         <a href={bookHref} class="pd-cta-direct" data-cta-location="property_detail_hero_direct">{DIRECT.cta}</a>
       )}
     </div>
+    {BOOK_PREVIEW && (
+      // 予約判断カード（計画書§4）。CTA直前の迷いは価格だけでなく
+      // 「安全か・取り消せるか・誰かに聞けるか」なので、その不確実性を先に消す。
+      // 無料取消の日数は SSoT（property_facts）から。ここで日付を出さないのは、
+      // 宿泊日が未確定の段階で日付を示すと誤解を招くため（日付は日程確定後に表示）。
+      <ul class="pd-decide">
+        {DIRECT.decide.map((line) => (
+          <li>{line.replace("{d}", String(pf.freeCancelDays))}</li>
+        ))}
+      </ul>
+    )}
   </div>
 </section>
 
@@ -443,6 +454,31 @@ const conditionRows: string[] = [
     color: rgba(255, 255, 255, 0.75);
     letter-spacing: 0.03em;
     margin-bottom: 1.75rem;
+  }
+  .pd-decide {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+    max-width: 30rem;
+  }
+  .pd-decide li {
+    position: relative;
+    padding-left: 1.1rem;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: #ffffff;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  }
+  .pd-decide li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+  }
+  @media (max-width: 720px) {
+    .pd-decide li { font-size: 0.75rem; }
   }
   .pd-price-from {
     font-size: 1.05rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem;

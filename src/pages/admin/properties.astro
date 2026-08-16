@@ -91,6 +91,7 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
     // 二重に持つことになるので、Beds24 の現在値を下に並べて食い違いに気づけるようにしている。
     label: "直販の予約ルール",
     rows: [
+      { key: "freeCancelDays", label: "無料キャンセル期限", type: "num", unit: "日前まで" },
       { key: "bookingCutoffDays", label: "予約の締切　チェックインの", unit: "日前", type: "num" },
       { key: "bookingCutoffTime", label: "　同・その日の何時まで", type: "time", indent: true },
       { key: "bookingMaxMonths", label: "受付の上限", unit: "ヶ月先まで", type: "num" },

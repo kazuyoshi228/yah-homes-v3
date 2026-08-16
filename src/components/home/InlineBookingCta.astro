@@ -4,6 +4,7 @@
    計測: BaseLayout のクリック委譲が room ID で property を自動判定し click_airbnb を送信。
    data-cta-location で配置別に分離計測する。 */
 import { PROPERTIES } from "../../data/properties";
+import { localizedPath } from "../../i18n/config";
 import { getPropertyFacts } from "../../lib/propertyFacts";
 import type { Locale } from "../../i18n/config";
 
@@ -21,8 +22,24 @@ interface Props {
   labels?: { kiyokawa: string; takasago: string };
 }
 const { lang, ctaLocation, showRating = false, align = "center", onLight = false, labels } = Astro.props;
-const labelK = labels?.kiyokawa ?? "Airbnb — Kiyokawa";
-const labelT = labels?.takasago ?? "Airbnb — Takasago";
+// labels が渡される＝「予約する」意図のCTA。直販が公開されていれば直販へ送る。
+// 以前は文言だけ「予約する」に変えて遷移先は Airbnb のままで、SEO流入の入口である
+// ガイド記事から OTA へ送っていた（2026-08-16 修正）。
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const isBookCta = Boolean(labels) && BOOK_PREVIEW;
+const bookHref = (prop: string) => `${localizedPath(lang, "/book")}?prop=${prop}`;
+// OTAは「予約先」ではなく「レビューの確認先」として置く（計画書§5・2026-08-16 発注者承認）。
+// 公式予約と同じ重さのボタンを並べると、比較のために離脱しやすいため。
+// 「OTAより安い」とは書かない（価格差は Beds24 のレート設定に依存し保証できない）。
+const REVIEW_LINK = {
+  en: (n: string, r: string, c: string) => `See ${n} reviews on Airbnb (${c} reviews · ★${r})`,
+  ja: (n: string, r: string, c: string) => `${n}のレビューをAirbnbで見る（${c}件・★${r}）`,
+  ko: (n: string, r: string, c: string) => `${n} 후기를 Airbnb에서 보기 (${c}개 · ★${r})`,
+  zh: (n: string, r: string, c: string) => `在 Airbnb 查看${n}的評價（${c} 則・★${r}）`,
+  th: (n: string, r: string, c: string) => `ดูรีวิว${n}บน Airbnb (${c} รีวิว · ★${r})`,
+}[lang];
+const NAME = { en: ["Kiyokawa", "Takasago"], ja: ["清川", "高砂"], ko: ["기요카와", "다카사고"],
+               zh: ["清川", "高砂"], th: ["คิโยกาวะ", "ทาคาซาโกะ"] }[lang];
 
 // 事実（評価・件数）は SSoT、外部リンクは properties.ts（接続情報なので別管理）
 const { facts, ratingAsOf } = await getPropertyFacts();
@@ -42,31 +59,27 @@ const ratingLabel =
           ? `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | ${ratingAsOf}`
           : `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | as of ${ratingAsOf}`;
 
-const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.5 2 5.5 5.5 5.5 9.5c0 2.5 1.2 4.8 3.2 6.5L12 22l3.3-6c2-1.7 3.2-4 3.2-6.5C18.5 5.5 15.5 2 12 2zm0 10a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"></path></svg>`;
 ---
 
 <div class:list={["ibc", `ibc-${align}`, onLight && "ibc-on-light"]}>
   <div class="ibc-pills">
-    <a
-      href={kUrl.airbnbUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="airbnb-pill"
-      data-cta-location={ctaLocation}
-    >
-      <Fragment set:html={AirbnbIcon} />
-      {labelK}
-    </a>
-    <a
-      href={tUrl.airbnbUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="airbnb-pill"
-      data-cta-location={ctaLocation}
-    >
-      <Fragment set:html={AirbnbIcon} />
-      {labelT}
-    </a>
+    {isBookCta ? (
+      <>
+        <a href={bookHref("kiyokawa")} class="ibc-book" data-cta-location={ctaLocation}>{labels!.kiyokawa}</a>
+        <a href={bookHref("takasago")} class="ibc-book" data-cta-location={ctaLocation}>{labels!.takasago}</a>
+      </>
+    ) : (
+      <>
+        <a href={kUrl.airbnbUrl} target="_blank" rel="noopener noreferrer"
+           class="ota-link" data-cta-location={ctaLocation}>
+          {labels?.kiyokawa ?? REVIEW_LINK(NAME[0], k.rating, k.reviewCount)}
+        </a>
+        <a href={tUrl.airbnbUrl} target="_blank" rel="noopener noreferrer"
+           class="ota-link" data-cta-location={ctaLocation}>
+          {labels?.takasago ?? REVIEW_LINK(NAME[1], t.rating, t.reviewCount)}
+        </a>
+      </>
+    )}
   </div>
   {showRating && <p class="ibc-rating">{ratingLabel}</p>}
 </div>
@@ -86,28 +99,34 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
   .ibc-left .ibc-pills {
     justify-content: flex-start;
   }
-  .airbnb-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
+  /* 直販の予約CTA（青ボタン）。OTAリンクとは視覚的な重さを明確に分ける */
+  .ibc-book {
+    display: inline-block;
+    padding: 0.7rem 1.5rem;
     background: #1a56db;
     color: #ffffff;
     border-radius: 999px;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
     text-decoration: none;
-    box-shadow: 0 2px 12px rgba(255, 90, 95, 0.35);
-    transition: opacity 0.18s ease, transform 0.15s ease;
   }
-  .airbnb-pill:hover {
-    opacity: 0.85;
-    transform: translateY(-2px);
+  .ibc-book:hover { background: #1544b0; color: #ffffff; }
+
+  /* OTAは補助リンク（テキスト）。公式予約の青ボタンと視覚的な重さを揃えない */
+  .ota-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: #444444;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: #b0b0b0;
   }
-  .airbnb-pill:active {
-    transform: scale(0.97);
-  }
+  .ota-link:hover { color: #111111; text-decoration-color: #111111; }
+  .ibc-on-light .ota-link { color: #444444; }
+  .ibc:not(.ibc-on-light) .ota-link { color: rgba(255,255,255,0.85); text-decoration-color: rgba(255,255,255,0.5); }
+  .ibc:not(.ibc-on-light) .ota-link:hover { color: #ffffff; text-decoration-color: #ffffff; }
+
   .ibc-rating {
     margin: 0.9rem 0 0;
     font-size: 0.75rem;
@@ -122,8 +141,8 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
     .ibc-pills {
       flex-direction: column;
     }
-    .airbnb-pill {
-      justify-content: center;
+    .ota-link {
+      text-align: center;
     }
   }
 </style>

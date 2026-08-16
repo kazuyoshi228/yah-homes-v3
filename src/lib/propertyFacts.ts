@@ -31,6 +31,9 @@ export interface PropertyFacts {
   /** チェックイン受付終了時刻。空文字＝受付終了なし（何時でも入室可）。
    *  セルフチェックインのため既定は「制限なし」。深夜入室を断る運用にするときだけ入れる。 */
   checkinEndTime: string;
+  /** 無料キャンセル期限＝チェックイン日の何日前まで無料か（既定8）。
+   *  サイト文言・決済画面・確定メールの表記と、実際の返金判定の両方がこの値を使う。 */
+  freeCancelDays: number;
   /** 設備の有無（1=あり / 0=なし）。比較表と物件ページの表示に使う */
   washer: number;
   dryer: number;
@@ -62,7 +65,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
     capacity: 7, bedrooms: 3, bedDouble: 3, bedSingle: 1,
     bath: 1, shower: 0, sink: 1, toilet: 2,
     rating: "4.77", reviewCount: "48",
-    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
+    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "", freeCancelDays: 8,
     washer: 1, dryer: 0, audio: 1, tvInch: 55, studyDesk: 1, parking: 1, theater: 0,
     fromAirportCarMin: 18, fromStationWalkMin: 15, nearestStation: "渡辺通", toTenjinWalkMin: 20, toHakataWalkMin: 25,
     spotMarketMin: 7, spotMarketM: 550, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
@@ -73,7 +76,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
     capacity: 6, bedrooms: 3, bedDouble: 1, bedSingle: 4,
     bath: 1, shower: 1, sink: 3, toilet: 2,
     rating: "4.68", reviewCount: "40",
-    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
+    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "", freeCancelDays: 8,
     washer: 1, dryer: 0, audio: 1, tvInch: 75, studyDesk: 0, parking: 1, theater: 1,
     fromAirportCarMin: 20, fromStationWalkMin: 8, nearestStation: "渡辺通", toTenjinWalkMin: 15, toHakataWalkMin: 25,
     spotMarketMin: 10, spotMarketM: 800, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
@@ -141,6 +144,7 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
         checkinTime: str(f.checkinTime, d.checkinTime),
         checkoutTime: str(f.checkoutTime, d.checkoutTime),
         checkinEndTime: str(f.checkinEndTime, d.checkinEndTime),
+        freeCancelDays: num(f.freeCancelDays, d.freeCancelDays),
         washer: num(f.washer, d.washer),
         dryer: num(f.dryer, d.dryer),
         audio: num(f.audio, d.audio),

@@ -339,13 +339,14 @@ const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, ei
 /* 既定は「前日23:59まで」＝運営会社（Airstar）の OTA 側の締めと同一。
    前日10:00の定期ジョブに間に合わない予約は、確定時に入室案内を即送る
    （sendReminderIfLate）ので、この時間まで開けても案内は必ず届く。 */
-const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "23:59", maxMonths: 12 };
-async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number }> {
+const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "23:59", maxMonths: 12, freeCancelDays: 8 };
+async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number; freeCancelDays: number }> {
   const fallback = {
     capacity: PROPERTY_CAPACITY[prop] ?? 1,
     cutoffDays: BOOKING_RULE_DEFAULTS.cutoffDays,
     cutoffTime: BOOKING_RULE_DEFAULTS.cutoffTime,
     maxMonths: BOOKING_RULE_DEFAULTS.maxMonths,
+    freeCancelDays: BOOKING_RULE_DEFAULTS.freeCancelDays,
   };
   try {
     const f = (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).data();
@@ -354,12 +355,14 @@ async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDay
     const mon = Number(f.bookingMaxMonths);
     const days = Number(f.bookingCutoffDays);
     const cut = String(f.bookingCutoffTime ?? "");
+    const fcd = Number(f.freeCancelDays);
     return {
       capacity: Number.isInteger(cap) && cap > 0 ? cap : fallback.capacity,
       // 0 も有効な設定（当日まで受ける）なので >= 0 で見る
       cutoffDays: Number.isInteger(days) && days >= 0 ? days : fallback.cutoffDays,
       cutoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cut) ? cut : fallback.cutoffTime,
       maxMonths: Number.isInteger(mon) && mon > 0 ? mon : fallback.maxMonths,
+      freeCancelDays: Number.isInteger(fcd) && fcd >= 0 ? fcd : fallback.freeCancelDays,
     };
   } catch { return fallback; }
 }
@@ -3382,7 +3385,8 @@ export const bookCreate = onRequest(
 
       // 受付の可否（定員・締切・先の上限）。正本は property_facts（/admin/properties）。
       // 在庫の問い合わせより前に見る（弾く予約で Beds24 を叩かない）。
-      const win = checkBookingWindow(checkin, guests, await bookingRules(prop));
+      const rules = await bookingRules(prop);
+      const win = checkBookingWindow(checkin, guests, rules);
       if (!win.ok) { res.status(400).json({ ok: false, error: win.error }); return; }
 
       // 金額はサーバー側で再見積り（改ざん防止・v4 §8-1）
@@ -3397,9 +3401,12 @@ export const bookCreate = onRequest(
       }
       const total = offer.price;
 
-      // 無料キャンセル期限 = チェックイン日の8日前 23:59 JST（v5 §5-1）
-      // 特商法・FAQ・決済画面の「8日前まで無料」という表記と一致させる。
-      const freeCancelUntilAt = new Date(Date.parse(`${checkin}T23:59:59+09:00`) - 8 * 86400000).toISOString();
+      // 無料キャンセル期限 = チェックイン日の freeCancelDays 日前 23:59 JST（v5 §5-1）。
+      // 日数の正は property_facts（/admin/properties）。表示側も同じ値を使うので、
+      // 管理画面で変えればサイト文言・決済画面・確定メール・返金判定が一斉に変わる。
+      const freeCancelUntilAt = new Date(
+        Date.parse(`${checkin}T23:59:59+09:00`) - rules.freeCancelDays * 86400000,
+      ).toISOString();
       const operationId = `op_${idempotencyKey}`;
 
       const ref = db.collection("bookings").doc();
@@ -5010,6 +5017,12 @@ export const adminProperties = onRequest(
             const m = Number(mRaw);
             if (!Number.isInteger(m) || m < 1 || m > 36) { res.status(400).json({ ok: false, error: "invalid_bookingMaxMonths" }); return; }
             doc.bookingMaxMonths = m;
+          }
+          const fcRaw = String(v.freeCancelDays ?? "").trim();
+          if (fcRaw !== "") {
+            const fc = Number(fcRaw);
+            if (!Number.isInteger(fc) || fc < 0 || fc > 90) { res.status(400).json({ ok: false, error: "invalid_freeCancelDays" }); return; }
+            doc.freeCancelDays = fc;
           }
         }
         for (const f of ["checkinTime", "checkoutTime"] as const) {
