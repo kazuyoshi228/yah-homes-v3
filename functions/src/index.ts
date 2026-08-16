@@ -2502,7 +2502,10 @@ async function createBeds24Inquiry(
   const sp = name.indexOf(" ");
   const payload = [{
     roomId: INQUIRY_BEDS24.roomId,
-    status: "inquiry",
+    // status は "new"（通常の予約と同じ）。"inquiry" は Beds24 の画面で既定の絞り込みから
+    // 外れて見つけられないことがあり、「Beds24 だけ見ていれば拾える」という目的を果たせない。
+    // 宛先が販売しない専用物件なので、在庫を持つステータスでも実害がない。
+    status: "new",
     arrival, departure,
     numAdult: 1, numChild: 0,
     firstName: sp > 0 ? name.slice(0, sp) : name || "Guest",

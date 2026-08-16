@@ -448,25 +448,25 @@ const langList = LOCALES.map((code) => ({
   .booknow-wrap {
     position: relative;
   }
-  /* Book Nowピルは赤（サイト共通のAirbnb CTA色 #ff5a5f）。ヒーロー上でも赤のまま視認させる */
+  /* Book Nowピルは青 #1a56db（旧 #ff5a5f はAirbnbのブランド色かつ白文字とのコントラスト3.05:1でAA不合格だった）。ヒーロー上でも同色で視認させる */
   .booknow-toggle {
     cursor: pointer;
-    background: #ff5a5f;
-    border-color: #ff5a5f;
+    background: #1a56db;
+    border-color: #1a56db;
     color: #ffffff;
   }
   .booknow-toggle:hover {
-    background: #e04a4f;
-    border-color: #e04a4f;
+    background: #1544b0;
+    border-color: #1544b0;
     color: #ffffff;
   }
   #site-nav.hero-visible .booknow-toggle {
-    background: #ff5a5f;
-    border-color: #ff5a5f;
+    background: #1a56db;
+    border-color: #1a56db;
     color: #ffffff;
   }
   #site-nav.hero-visible .booknow-toggle:hover {
-    background: #e04a4f;
+    background: #1544b0;
   }
   .booknow-wrap.open .chev :global(svg) {
     transform: rotate(180deg);
@@ -484,13 +484,13 @@ const langList = LOCALES.map((code) => ({
     color: #ffffff;
   }
   .booknow-direct {
-    background: #ff5a5f;
-    border-color: #ff5a5f;
+    background: #1a56db;
+    border-color: #1a56db;
     color: #ffffff;
     text-decoration: none;
   }
-  .booknow-direct:hover { background: #e04a4f; border-color: #e04a4f; color: #ffffff; }
-  #site-nav.hero-visible .booknow-direct { background: #ff5a5f; border-color: #ff5a5f; color: #ffffff; }
+  .booknow-direct:hover { background: #1544b0; border-color: #1544b0; color: #ffffff; }
+  #site-nav.hero-visible .booknow-direct { background: #1a56db; border-color: #1a56db; color: #ffffff; }
   .mm-book-direct { font-weight: 600; }
   .booknow-menu {
     display: none;
