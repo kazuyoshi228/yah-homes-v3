@@ -4556,6 +4556,10 @@ export const adminBookings = onRequest(
           const refundAmount = Number.isInteger(amt) && amt > 0 && amt <= v.total ? amt : v.total;
           const stripe = stripeClient();
           const pi = await stripe.paymentIntents.retrieve(String(v.paymentIntentId));
+          // 未決済（下書き）には返せるお金が無い。UI 側でもボタンを出さないが、二重の防御
+          if (["requires_payment_method", "requires_confirmation", "requires_action", "canceled"].includes(pi.status)) {
+            res.status(400).json({ ok: false, error: "no_charge" }); return;
+          }
           if (pi.status === "requires_capture") {
             await stripe.paymentIntents.cancel(pi.id); // オーソリのみ＝解放
           } else {

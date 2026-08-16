@@ -104,7 +104,7 @@ const FB_CONFIG = {
             <button class="ab-btn-sub ab-memo-btn" data-id="${esc(b.id)}">記録する</button>
           </td>
           <td class="ab-nowrap">
-            ${isRoot && b.paymentIntentId && b.status !== "CANCELLED"
+            ${isRoot && b.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(b.status)
               ? `<button class="ab-btn-sub ab-refund" data-id="${esc(b.id)}" data-total="${esc(b.total)}">返金する</button>`
               : `<span class="ab-sub">—</span>`}
           </td>
