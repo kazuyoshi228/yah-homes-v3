@@ -1641,7 +1641,7 @@ export const adminTemplates = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 文面はお客様への体験に直結するため、編集はオーナーのみに限定する。
-    if (requireAdmin(email, res)) return;
+    if (await requireAdmin(email, res)) return;
 
     try {
       if (req.method === "GET") {
@@ -1754,7 +1754,7 @@ export const adminMailPreview = onRequest(
        スレッドへの控えも残さない＝本番の配信計画に一切影響しない。
        ADMIN 限定（OPERATOR はプレビューまで）。 */
     if (req.method === "POST") {
-      if (requireAdmin(email, res)) return;
+      if (await requireAdmin(email, res)) return;
       const { kind: kindRaw, bookingId } = (req.body ?? {}) as Record<string, unknown>;
       const kindStr = String(kindRaw ?? "");
       const idStr = String(bookingId ?? "");
@@ -1902,7 +1902,9 @@ export const adminOps = onRequest(
     try {
       if (view === "me") {
         // ログイン中の本人の権限。メニューの出し分けに使う（機微情報は返さない）。
-        res.status(200).json({ ok: true, email, isAdmin: isAdmin(email) });
+        const role = await getRole(email);
+        // isAdmin は旧クライアント互換（admin 以上で true）
+        res.status(200).json({ ok: true, email, role, isAdmin: !!role && ROLE_RANK[role] >= ROLE_RANK.admin });
         return;
       }
       if (view === "mail") {
@@ -1913,13 +1915,13 @@ export const adminOps = onRequest(
         return;
       }
       if (view === "audit") {
-        if (requireAdmin(email, res)) return;
+        if (await requireAdmin(email, res)) return;
         const snap = await db.collection("audit_logs").orderBy("at", "desc").limit(200).get();
         res.status(200).json({ ok: true, items: snap.docs.map((d) => ({ id: d.id, ...d.data(), at: d.data().at?.toMillis?.() ?? null })) });
         return;
       }
       if (view === "health") {
-        if (requireAdmin(email, res)) return;
+        if (await requireAdmin(email, res)) return;
         const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
 
         // Beds24 読み取りトークン
@@ -2256,7 +2258,7 @@ export const adminSecrets = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 鍵番号は物理キーそのもの。台帳メンバーではなく root オーナーのみに限定する。
-    if (requireAdmin(email, res)) return;
+    if (await requireAdmin(email, res)) return;
 
     const PROPS = ["kiyokawa", "takasago"] as const;
     try {
@@ -2324,10 +2326,32 @@ function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email);
 }
 
-/** ADMIN でなければ 403 を返して true。呼び出し側は `if (requireAdmin(email, res)) return;` で使う。 */
-function requireAdmin(email: string, res: { status: (n: number) => { json: (b: unknown) => void } }): boolean {
-  if (isAdmin(email)) return false;
+/* ロールは3種（2026-08-16 発注者決定）:
+     owner    … 管理者台帳の管理までできる。コードの ADMIN_EMAILS は常に owner
+                （台帳をどう操作しても root を締め出せない）
+     admin    … 台帳「以外」の管理操作すべて（SSoT・返金・設定・テスト送信）
+     operator … 閲覧・お客様対応
+   台帳の role フィールドで付与する。旧データの "owner" はそのまま owner として扱う。 */
+type Role = "owner" | "admin" | "operator";
+async function getRole(email: string): Promise<Role | null> {
+  if (isAdmin(email)) return "owner";
+  const u = await getAdminUser(email);
+  if (!u) return null;
+  return u.role === "owner" ? "owner" : u.role === "admin" ? "admin" : "operator";
+}
+const ROLE_RANK: Record<Role, number> = { operator: 1, admin: 2, owner: 3 };
+
+/** admin 以上でなければ 403 を返して true。`if (await requireAdmin(email, res)) return;` */
+async function requireAdmin(email: string, res: { status: (n: number) => { json: (b: unknown) => void } }): Promise<boolean> {
+  const r = await getRole(email);
+  if (r && ROLE_RANK[r] >= ROLE_RANK.admin) return false;
   res.status(403).json({ ok: false, error: "admin_only" });
+  return true;
+}
+/** owner でなければ 403。管理者台帳の変更にだけ使う。 */
+function requireOwner(email: string, res: { status: (n: number) => { json: (b: unknown) => void } }): boolean {
+  if (isAdmin(email)) return false;
+  res.status(403).json({ ok: false, error: "owner_only" });
   return true;
 }
 
@@ -4185,15 +4209,17 @@ export const adminUsers = onRequest(
         const snap = await db.collection("admin_users").get();
         const items = snap.docs.map((d) => {
           const v = d.data();
-          return { email: d.id, name: v.name ?? "", role: v.role ?? "operator",
+          const root = isAdmin(d.id);
+          return { email: d.id, name: root && !v.name ? "オーナー" : (v.name ?? ""),
+            // root は台帳の値に関わらず owner 表示（実権限もコード側で owner 固定）
+            role: root ? "owner" : v.role === "owner" ? "owner" : v.role === "admin" ? "admin" : "operator",
             notifyPartners: v.notifyPartners === true, notifyTeiten: v.notifyTeiten === true,
-            notifyBookings: v.notifyBookings === true, isRootUser: isAdmin(d.id) };
+            notifyBookings: v.notifyBookings === true, isRootUser: root };
         });
-        // オーナーは台帳に載っていなくても行として出す（通知の宛先として扱えるように）。
-        // 権限そのものはコード側の ADMIN_EMAILS で決まるので、この行の有無に左右されない。
+        // オーナーは台帳に無くても1行出す（重複させない・通知の宛先として扱えるように）
         for (const a of ADMIN_EMAILS) {
           if (!items.some((x) => x.email === a)) {
-            items.push({ email: a, name: "", role: "owner",
+            items.push({ email: a, name: "オーナー", role: "owner",
               notifyPartners: false, notifyTeiten: false, notifyBookings: false, isRootUser: true });
           }
         }
@@ -4202,7 +4228,7 @@ export const adminUsers = onRequest(
       }
 
       if (req.method === "POST") {
-        if (requireAdmin(email, res)) return;
+        if (requireOwner(email, res)) return;
         const { action, email: target, name, role, notifyPartners, notifyTeiten, notifyBookings } =
           (req.body ?? {}) as Record<string, unknown>;
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
@@ -4237,7 +4263,7 @@ export const adminUsers = onRequest(
         const exists = (await ref.get()).exists;
         await ref.set({
           name: typeof name === "string" ? name.trim().slice(0, 100) : "",
-          role: role === "owner" ? "owner" : "operator",
+          role: role === "owner" ? "owner" : role === "admin" ? "admin" : "operator",
           notifyPartners: notifyPartners === true,
           notifyTeiten: notifyTeiten === true,
           notifyBookings: notifyBookings === true,
@@ -4314,7 +4340,7 @@ export const adminBookings = onRequest(
 
         // 返金（rootオーナーのみ・v4 §8-5）
         if (action === "refund") {
-          if (requireAdmin(email, res)) return;
+          if (await requireAdmin(email, res)) return;
           if (!v.paymentIntentId) { res.status(400).json({ ok: false, error: "no_payment" }); return; }
           const amt = Number(amount);
           const refundAmount = Number.isInteger(amt) && amt > 0 && amt <= v.total ? amt : v.total;
@@ -4404,7 +4430,7 @@ export const adminProperties = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 物件ファクトは表示の正本のため、編集・閲覧ともrootオーナー限定（2026-08-08 発注者指示）
-    if (requireAdmin(email, res)) return;
+    if (await requireAdmin(email, res)) return;
 
     try {
       if (req.method === "GET") {
@@ -4513,7 +4539,7 @@ export const adminRebuild = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    if (requireAdmin(email, res)) return;
+    if (await requireAdmin(email, res)) return;
 
     try {
       const r = await fetch("https://api.github.com/repos/kazuyoshi228/yah-homes-v2/dispatches", {

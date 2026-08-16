@@ -1,7 +1,7 @@
 ---
 /* /admin/notify-emails — 送信先メールアドレス管理
    「どの通知が、誰に届くか」を1画面で見る。データは管理者台帳（admin_users）と同じで、
-   ここは通知の観点で並べ替えた別の見え方。編集は ADMIN のみ（adminUsers API が保証）。
+   ここは通知の観点で並べ替えた別の見え方。編集は Owner のみ（adminUsers API が保証）。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 
@@ -126,7 +126,7 @@ const KINDS = [
         if (!j.ok) throw new Error(j.error || "load");
         items = j.items ?? []; isRoot = !!j.isRoot; root = j.root ?? [];
         $("ne-body").hidden = false;
-        $("ne-status").textContent = isRoot ? "" : "閲覧のみです（変更は ADMIN のみ）。";
+        $("ne-status").textContent = isRoot ? "" : "閲覧のみです（変更は Owner のみ）。";
         render();
       } catch (e) {
         $("ne-status").textContent = e.message === "unauthorized" ? "権限がありません。" : "読み込みに失敗しました。";

@@ -25,7 +25,7 @@ const FB_CONFIG = {
     <div class="au-container">
       <a class="au-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="au-title">管理者台帳</h1>
-      <p class="au-note">管理画面へアクセスできるメンバーと、各通知メールの宛先を管理します。編集はオーナーのみ。</p>
+      <p class="au-note">管理画面へアクセスできるメンバーと、各通知メールの宛先を管理します。この台帳を編集できるのは Owner のみです。</p>
 
       <div id="au-login" class="au-login" hidden>
         <button id="au-login-btn" class="au-btn">Googleでログイン</button>
@@ -36,7 +36,7 @@ const FB_CONFIG = {
         <div class="au-tablewrap">
           <table class="au-table">
             <thead>
-              <tr><th>メール</th><th>名前</th><th>役割</th><th>申請通知</th><th>定点通知</th><th>予約通知</th><th></th></tr>
+              <tr><th>役割</th><th>名前</th><th>メール</th><th>申請通知</th><th>定点通知</th><th>予約通知</th><th></th></tr>
             </thead>
             <tbody id="au-tbody"></tbody>
           </table>
@@ -49,8 +49,9 @@ const FB_CONFIG = {
               <input id="af-email" type="email" placeholder="メールアドレス（Googleアカウント）" required />
               <input id="af-name" type="text" placeholder="名前（例: Airstar 原田様）" maxlength="100" />
               <select id="af-role">
-                <option value="operator">OPERATOR（閲覧・対応）</option>
-                <option value="owner">owner（全操作）</option>
+                <option value="operator">Operator（閲覧・お客様対応）</option>
+                <option value="admin">Admin（管理操作すべて・台帳を除く）</option>
+                <option value="owner">Owner（台帳の管理まで）</option>
               </select>
             </div>
             <div class="au-row au-checks">
@@ -95,17 +96,17 @@ const FB_CONFIG = {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
         $("au-editor").hidden = !j.isRoot;
-        const rootRows = j.root.map(
-          (e) => `<tr><td>${esc(e)}</td><td>オーナー（root）</td><td>owner</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>`
-        );
+        const ROLE_LABEL = { owner: "Owner", admin: "Admin", operator: "Operator" };
         const rows = j.items.map(
           (it) => `<tr>
-            <td>${esc(it.email)}</td><td>${esc(it.name || "-")}</td><td>${esc(it.role)}</td>
+            <td><span class="au-role au-role-${esc(it.role)}">${ROLE_LABEL[it.role] ?? esc(it.role)}</span></td>
+            <td>${esc(it.name || "-")}</td>
+            <td>${esc(it.email)}</td>
             <td>${check(it.notifyPartners)}</td><td>${check(it.notifyTeiten)}</td><td>${check(it.notifyBookings)}</td>
-            <td>${j.isRoot ? `<button class="au-btn-sub au-edit" data-e="${esc(it.email)}">編集</button> <button class="au-btn-sub au-del" data-e="${esc(it.email)}">削除</button>` : ""}</td>
+            <td>${j.isRoot && !it.isRootUser ? `<button class="au-btn-sub au-edit" data-e="${esc(it.email)}">編集</button> <button class="au-btn-sub au-del" data-e="${esc(it.email)}">削除</button>` : ""}</td>
           </tr>`
         );
-        $("au-tbody").innerHTML = rootRows.concat(rows).join("");
+        $("au-tbody").innerHTML = rows.join("");
         $("au-app-status").textContent = "";
 
         document.querySelectorAll(".au-edit").forEach((b) =>
@@ -183,7 +184,10 @@ const FB_CONFIG = {
   .au-btn-sub { padding: 0.35rem 0.7rem; background: #ffffff; color: #111111; font-size: 0.72rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; }
   .au-tablewrap { overflow-x: auto; }
   .au-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; line-height: 1.6; }
-  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 0.5rem 0.6rem; text-align: left; color: #222222; white-space: nowrap; }
+  .au-table th, .au-table td { border: 1px solid #e5e5e5; padding: 0.85rem 0.75rem; text-align: left; color: #222222; white-space: nowrap; }
+  :global(.au-role) { font-size: 0.7rem; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.6rem; color: #666666; }
+  :global(.au-role-owner) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.au-role-admin) { color: #111111; border-color: #111111; }
   .au-table thead th { background: #fafafa; font-weight: 500; }
   .au-form { display: flex; flex-direction: column; gap: 0.75rem; }
   .au-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }

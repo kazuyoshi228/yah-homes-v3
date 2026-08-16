@@ -34,7 +34,7 @@ const OPERATOR = [
 const SYSTEM = [
   { href: "/admin/health/", title: "システムヘルス" },
   { href: "/admin/audit/", title: "変更履歴" },
-  { href: "/admin/users/", title: "管理者台帳" },
+  { href: "/admin/users/", title: "管理者台帳", role: "owner" },
   { href: "/admin/specs/", title: "システム仕様書" },
 ];
 
@@ -99,8 +99,11 @@ const SYSTEM = [
       <h2 class="am-h2" data-sec="sys">システム管理</h2>
       <div class="am-grid" data-secgrid="sys">
         {SYSTEM.map((it) => (
-          <a class="am-card" href={it.href} data-role="admin">
-            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-admin">Admin</span></h3>
+          <a class="am-card" href={it.href} data-role={it.role ?? "admin"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class="am-badge am-badge-admin">{it.role === "owner" ? "Owner" : "Admin"}</span>
+            </h3>
           </a>
         ))}
       </div>
@@ -120,18 +123,20 @@ const SYSTEM = [
       document.getElementById("am-email").textContent = user.email ?? "";
       document.getElementById("am-me").hidden = false;
       document.getElementById("am-out").addEventListener("click", () => signOut(auth).then(() => location.replace("/admin/")));
-      let isAdmin = false;
+      // ロールは3段階（operator < admin < owner）。カードの data-role 以上のロールだけに見せる
+      const RANK = { operator: 1, admin: 2, owner: 3 };
+      let myRank = 1;
       try {
         const token = await user.getIdToken();
         const r = await fetch(`${OPS_ENDPOINT}?view=me`, { headers: { Authorization: `Bearer ${token}` } });
         if (r.status === 401) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
         const j = await r.json();
-        isAdmin = !!j.isAdmin;
+        myRank = RANK[j.role] ?? (j.isAdmin ? 2 : 1);
       } catch { /* 判定できないときは OPERATOR 相当に倒す（見せすぎない） */ }
 
       // 権限外のカードを取り除き、空になったセクションは見出しごと隠す
       document.querySelectorAll("[data-role]").forEach((el) => {
-        if (el.dataset.role === "admin" && !isAdmin) el.remove();
+        if ((RANK[el.dataset.role] ?? 2) > myRank) el.remove();
       });
       document.querySelectorAll("[data-secgrid]").forEach((grid) => {
         const head = document.querySelector(`[data-sec="${grid.dataset.secgrid}"]`);
