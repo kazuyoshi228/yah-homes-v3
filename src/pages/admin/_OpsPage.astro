@@ -1,0 +1,156 @@
+---
+/* 運用ビュー共通の枠（mail-log / audit / health）
+   コピー最小・タイトルとテーブルだけのミニマル構成。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+interface Props {
+  path: string;
+  title: string;
+  view: "mail" | "audit" | "health";
+}
+const { path, title, view } = Astro.props;
+
+const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+---
+
+<SiteLayout adminNav lang="ja" path={path} title={`${title} | yah.homes`} description={title} noindex={true} solidNav>
+  <section class="op">
+    <div class="op-container">
+      <a class="op-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="op-title">{title}</h1>
+
+      <div id="op-login" class="op-login" hidden>
+        <button id="op-login-btn" class="op-btn">Googleでログイン</button>
+        <p class="op-status" id="op-login-status"></p>
+      </div>
+
+      <div id="op-app" hidden>
+        <div id="op-body"></div>
+        <p class="op-status" id="op-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ OPS_ENDPOINT, FB_CONFIG, view }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (ms) => (ms ? new Date(ms).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
+
+    const KIND = { confirm: "確定", checkin: "前日", checkout: "当日", review: "レビュー", cancel: "キャンセル" };
+    const ACTION = {
+      keybox_code_update: "鍵番号の変更", mail_template_update: "文面の変更",
+      booking_refund: "返金", booking_note: "予約メモ", admin_user_update: "台帳の変更",
+      contact_status: "問い合わせ対応", partner_status: "申請ステータス変更",
+    };
+
+    function render(j) {
+      if (view === "health") {
+        $("op-body").innerHTML = `<table class="op-table">
+          ${j.checks.map((c) => `
+            <tr>
+              <td class="op-dot">${c.ok ? "●" : '<span class="op-ng">●</span>'}</td>
+              <td class="op-strong">${esc(c.name)}</td>
+              <td class="op-dim">${esc(c.detail)}</td>
+            </tr>`).join("")}
+        </table>`;
+        return;
+      }
+      const rows = j.items || [];
+      if (!rows.length) { $("op-body").innerHTML = '<p class="op-empty">記録はまだありません。</p>'; return; }
+      if (view === "mail") {
+        $("op-body").innerHTML = `<table class="op-table">
+          <thead><tr><th></th><th>時刻</th><th>種類</th><th>宛先</th><th>予約</th><th>言語</th></tr></thead>
+          <tbody>${rows.map((r) => `
+            <tr>
+              <td class="op-dot">${r.ok ? "●" : `<span class="op-ng" title="${esc(r.error)}">●</span>`}</td>
+              <td class="op-dim op-nowrap">${fmt(r.at)}</td>
+              <td>${esc(KIND[r.kind] ?? r.kind)}</td>
+              <td class="op-break">${esc(r.to)}</td>
+              <td class="op-dim op-mono">${esc((r.bookingId || "").slice(0, 8).toUpperCase())}</td>
+              <td class="op-dim">${esc((r.lang || "").toUpperCase())}</td>
+            </tr>`).join("")}</tbody>
+        </table>`;
+        return;
+      }
+      // audit
+      $("op-body").innerHTML = `<table class="op-table">
+        <thead><tr><th>時刻</th><th>操作</th><th>対象</th><th>実行者</th></tr></thead>
+        <tbody>${rows.map((r) => `
+          <tr>
+            <td class="op-dim op-nowrap">${fmt(r.at)}</td>
+            <td>${esc(ACTION[r.action] ?? r.action)}</td>
+            <td class="op-dim op-break">${esc(r.target ?? "")}</td>
+            <td class="op-dim op-break">${esc(r.actor ?? "")}</td>
+          </tr>`).join("")}</tbody>
+      </table>`;
+    }
+
+    async function load() {
+      $("op-status").textContent = "読み込み中...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const res = await fetch(`${OPS_ENDPOINT}?view=${view}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401 || res.status === 403) throw new Error("unauthorized");
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || "load");
+        render(j);
+        $("op-status").textContent = "";
+      } catch (e) {
+        $("op-status").textContent = e.message === "unauthorized" ? "権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    $("op-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("op-login-status").textContent = "ログインに失敗しました。"; }
+    });
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      $("op-login").hidden = !!user;
+      $("op-app").hidden = !user;
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .op { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .op-container { max-width: 880px; margin: 0 auto; }
+  .op-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .op-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 2rem; }
+  .op-login { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1.75rem; text-align: center; }
+  .op-btn {
+    font-family: inherit; font-size: 0.8rem; color: #ffffff; background: #111111;
+    border: none; border-radius: 4px; padding: 0.6rem 1.4rem; cursor: pointer;
+  }
+  .op-status { margin-top: 1rem; font-size: 0.78rem; color: #666666; }
+  .op-empty { font-size: 0.82rem; color: #666666; }
+
+  #op-body { overflow-x: auto; }
+  #op-body :global(.op-table) { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  #op-body :global(th) {
+    text-align: left; font-weight: 500; font-size: 0.7rem; color: #666666;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid #d7d7d7; white-space: nowrap;
+  }
+  #op-body :global(td) { padding: 0.6rem 0.75rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; color: #111111; }
+  #op-body :global(.op-dot) { width: 1em; color: #111111; }
+  #op-body :global(.op-ng) { color: #b42318; }
+  #op-body :global(.op-dim) { color: #666666; }
+  #op-body :global(.op-strong) { font-weight: 500; white-space: nowrap; }
+  #op-body :global(.op-nowrap) { white-space: nowrap; }
+  #op-body :global(.op-break) { word-break: break-all; }
+  #op-body :global(.op-mono) { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+  a.op-eyebrow { display: block; text-decoration: none; }
+</style>

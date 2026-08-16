@@ -13,10 +13,17 @@ const t = translations[lang];
 const updated = new Date().toISOString().slice(0, 10);
 
 const aboutHref = localizedPath(lang, "/about");
+// 予約した人の受け皿（予約前の人には意味がないため控えめに置く）
+const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+const accountHref = localizedPath(lang, "/account");
 const legalHref = localizedPath(lang, "/legal/tokushoho");
 const privacyHref = localizedPath(lang, "/legal/privacy");
+const termsHref = localizedPath(lang, "/legal/terms");
 const LEGAL_LABEL: Record<Locale, string> = {
   ja: "特定商取引法に基づく表記", en: "Legal Notice", ko: "특정상거래법 표기", zh: "特定商業交易法標示", th: "ประกาศทางกฎหมาย",
+};
+const TERMS_LABEL: Record<Locale, string> = {
+  ja: "宿泊約款・利用規約", en: "Terms", ko: "숙박약관", zh: "住宿約款", th: "ข้อกำหนด",
 };
 const PRIVACY_LABEL: Record<Locale, string> = {
   ja: "プライバシーポリシー", en: "Privacy Policy", ko: "개인정보 처리방침", zh: "私隱政策", th: "ความเป็นส่วนตัว",
@@ -38,7 +45,7 @@ const ABOUT_LABEL: Record<Locale, string> = {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="yah.homes Instagram"
-        style="display:inline-flex;align-items:center;gap:0.35rem;color:#888888;text-decoration:none;font-size:0.75rem;letter-spacing:0.04em;"
+        style="display:inline-flex;align-items:center;gap:0.35rem;color: #666666;text-decoration:none;font-size:0.75rem;letter-spacing:0.04em;"
         onmouseover="this.style.color='#111111'"
         onmouseout="this.style.color='#888888'"
       >
@@ -51,14 +58,18 @@ const ABOUT_LABEL: Record<Locale, string> = {
       </a>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;">
-      <nav style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:flex-end;">
-        <a href={aboutHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{ABOUT_LABEL[lang]}</a>
-        <a href={legalHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{LEGAL_LABEL[lang]}</a>
-        <a href={privacyHref} style="font-size:0.75rem;color:#888888;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{PRIVACY_LABEL[lang]}</a>
+      <nav aria-label="フッター" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:flex-end;">
+        {BOOK_PREVIEW && (
+          <a href={accountHref} style="font-size:0.75rem;color: #666666;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">My Page</a>
+        )}
+        <a href={aboutHref} style="font-size:0.75rem;color: #666666;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{ABOUT_LABEL[lang]}</a>
+        <a href={legalHref} style="font-size:0.75rem;color: #666666;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{LEGAL_LABEL[lang]}</a>
+        <a href={termsHref} style="font-size:0.75rem;color: #666666;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{TERMS_LABEL[lang]}</a>
+        <a href={privacyHref} style="font-size:0.75rem;color: #666666;text-decoration:none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#888888'">{PRIVACY_LABEL[lang]}</a>
       </nav>
-      <p style="font-size:0.75rem;font-weight:400;color:#aaaaaa;margin:0;">
+      <p style="font-size:0.75rem;font-weight:400;color: #666666;margin:0;">
         {t.footer.rights}
-        <span style="margin-left:0.75rem;color:#cccccc;">Updated {updated}</span>
+        <span style="margin-left:0.75rem;color: #666666;">Updated {updated}</span>
       </p>
     </div>
   </div>

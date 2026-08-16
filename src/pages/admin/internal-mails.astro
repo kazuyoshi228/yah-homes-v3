@@ -1,0 +1,108 @@
+---
+/* /admin/internal-mails — 社内向け通知メールの一覧（SSoT・閲覧専用）
+   お客様には届かない、運営・オーナー宛の自動通知。文面はコードが持つが、
+   「どの操作で・誰に・何が飛ぶか」を把握・管理するためにここへ集約する。
+   宛先は管理者台帳（/admin/users）の通知フラグで決まる。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const MAILS = [
+  {
+    name: "お問い合わせ通知（初回）",
+    trigger: "お問い合わせフォームの送信",
+    to: "予約・メッセージ",
+    subject: "【yah.homes】お問い合わせ: {お名前}",
+  },
+  {
+    // B案（spec_inquiry_threads.md）で追加。初回・2通目以降とも宛先は台帳に統一済み
+    name: "お問い合わせ通知（2通目以降）",
+    trigger: "お客様がマジックリンクから続きを送信したとき（5分以内はまとめて1通）",
+    to: "予約・メッセージ",
+    subject: "【お問い合わせ】{お名前}様より",
+  },
+  {
+    name: "パートナー申請通知",
+    trigger: "インフルエンサー向けページからの申請",
+    to: "パートナー申請",
+    subject: "【パートナー申請】{棟} {日付}〜 {人数}名",
+  },
+  {
+    name: "直販予約の成立通知",
+    trigger: "直販予約の確定（決済オーソリ完了）",
+    to: "予約・メッセージ",
+    subject: "【予約】{棟} {日程}",
+  },
+  {
+    name: "キャンセル通知",
+    trigger: "セルフキャンセル／管理画面からの返金",
+    to: "予約・メッセージ",
+    subject: "【キャンセル】{棟} {日程}（返金 ¥{金額}）",
+  },
+  {
+    name: "到着予定の登録通知",
+    trigger: "お客様が My Page で到着予定時刻を登録・変更",
+    to: "予約・メッセージ",
+    subject: "【到着予定】{棟} {日付} — {時刻}",
+  },
+  {
+    name: "予約エラー通知",
+    trigger: "決済確定後の処理でエラー（Beds24書込失敗・返金失敗など）",
+    to: "予約・メッセージ",
+    subject: "【予約エラー】直販予約の処理でエラーが発生しました",
+  },
+  {
+    name: "Beds24 キャンセル不一致",
+    trigger: "毎朝9:00 JST の照合で、Beds24側だけキャンセルされている予約を検知",
+    to: "予約・メッセージ",
+    subject: "【要対応】Beds24とのキャンセル不一致 {件数}件",
+  },
+  {
+    name: "定点観測レポート",
+    trigger: "毎朝8:00 JST",
+    to: "定点観測",
+    subject: "【定点】Beds24 稼働・予約状況",
+  },
+];
+---
+
+<SiteLayout adminNav lang="ja" path="/admin/internal-mails" title="社内向け定型メール | yah.homes" description="運営・オーナー宛の自動通知一覧" noindex={true} solidNav>
+  <section class="im">
+    <div class="im-container">
+      <a class="im-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="im-title">社内向け定型メール</h1>
+      <div class="im-scroll">
+        <table class="im-table">
+          <thead>
+            <tr><th>通知</th><th>いつ飛ぶか</th><th>宛先（<a href="/admin/notify-emails/">送信先メールアドレス管理</a>の区分）</th><th>件名</th></tr>
+          </thead>
+          <tbody>
+            {MAILS.map((m) => (
+              <tr>
+                <td class="im-name">{m.name}</td>
+                <td class="im-dim">{m.trigger}</td>
+                <td class="im-dim">{m.to}</td>
+                <td class="im-dim im-break">{m.subject}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .im { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .im-container { max-width: 1080px; margin: 0 auto; }
+  .im-eyebrow { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; text-decoration: none; }
+  .im-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 2rem; }
+  .im-scroll { overflow-x: auto; }
+  .im-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .im-table th {
+    text-align: left; font-weight: 500; font-size: 0.7rem; color: #666666;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid #d7d7d7; white-space: nowrap;
+  }
+  .im-table td { padding: 0.8rem 0.75rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; color: #111111; }
+  .im-name { font-weight: 500; white-space: nowrap; }
+  .im-dim { color: #777777; line-height: 1.8; }
+  .im-break { word-break: break-all; }
+</style>

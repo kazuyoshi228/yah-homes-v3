@@ -4,6 +4,7 @@
    （3/4画像・photos バッジ・星評価・Airbnb / Booking.com / Gallery ボタン）
    ギャラリーはバニラJSのライトボックスで再現 */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import { localizedPath, type Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
 import { GALLERIES, PROPERTIES } from "../../data/properties";
@@ -15,20 +16,12 @@ interface Props {
 }
 const { lang } = Astro.props;
 // 評価・スペックは Firestore の SSoT から（ビルド時に焼き込む）
-const { facts, ratingAsOf } = await getPropertyFacts();
+const { facts } = await getPropertyFacts();
 // 直販ボタン: /book/ が生成されるプレビュー時のみ表示（本番は従来どおりOTAのみ）
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const BOOK_PATH = localizedPath(lang, "/book");
 const DIRECT_LABEL = { en: "Book direct — best rate", ja: "公式サイトで予約（最安）", ko: "공식 사이트에서 예약(최저가)", zh: "官網預訂（最優惠）", th: "จองผ่านเว็บทางการ (ราคาดีที่สุด)" }[lang];
 const t = translations[lang];
-
-// GEO: 直接回答ブロック（定義文+数値 — 引用エンジン向けの抽出可能な一文）
-const directAnswer = uiStrings[lang].directAnswer
-  .replace("{kr}", facts.kiyokawa.rating)
-  .replace("{kc}", facts.kiyokawa.reviewCount)
-  .replace("{tr}", facts.takasago.rating)
-  .replace("{tc}", facts.takasago.reviewCount);
-const asOfLabel = uiStrings[lang].ratingAsOf.replace("{date}", ratingAsOf);
 
 // 評価・リンクは data/properties.ts を単一ソースに（不整合の再発防止）
 const PROPERTY_META = [
@@ -61,6 +54,17 @@ const PROPERTY_META = [
     info: t.properties.takasago.info,
   },
 ];
+// ステートメントの署名（誰が言っているのかを示す。/book/ の信頼ブロックと同じ写真・同じ扱い）
+const SIGN_PHOTO = "/manus-storage/director-photo_def5f1a6-480.webp";
+const SIGN = {
+  en: { name: "Kazuyoshi Yamada", role: "yah.homes Creative Director", note: "Ask me anything before you book — I reply within 24 hours." },
+  ja: { name: "Kazuyoshi Yamada", role: "yah.homes Creative Director", note: "ご不明な点は直接お答えします。24時間以内にご連絡いたします。" },
+  ko: { name: "Kazuyoshi Yamada", role: "yah.homes Creative Director", note: "궁금한 점은 직접 답변드립니다. 24시간 이내에 연락드립니다." },
+  zh: { name: "Kazuyoshi Yamada", role: "yah.homes Creative Director", note: "有任何問題我會親自回覆，24小時內與您聯繫。" },
+  th: { name: "Kazuyoshi Yamada", role: "yah.homes Creative Director", note: "มีคำถามอะไรถามได้เลย เราตอบภายใน 24 ชั่วโมง" },
+}[lang];
+
+const SH_PROPS = { en: "Our Houses", ja: "施設", ko: "숙소", zh: "房源", th: "ที่พัก" }[lang];
 ---
 
 <section id="properties" style="background:#ffffff;padding-top:3rem;padding-bottom:6rem;">
@@ -69,36 +73,30 @@ const PROPERTY_META = [
     <h2 class="sr-only">{t.properties.sectionLabel}</h2>
     <!-- Wonder Here copy block -->
     <div class="reveal-fade wonder-block">
-      <!-- GEO: 直接回答ブロック（定義文+数値・機械抽出用） -->
-      <p class="direct-answer">
-        {directAnswer}
-        <span class="as-of">（{asOfLabel}）</span>
-      </p>
+      <SectionHeading num="01" label="Our Statement" />
       {
         t.properties.wonderBody.map((para, idx) => (
           <p class={idx === 0 ? "wonder-lead" : "wonder-body"}>{para}</p>
         ))
       }
       <p class="wonder-tagline">{t.properties.wonderTagline}</p>
-      <div style="margin-top:1.5rem;">
-        <img
-          src="/manus-storage/logo_yah_CMYK_cifo_0ad89aa7.svg"
-          alt="yah. Check in, Find Out."
-          width="440"
-          height="150"
-          style="height:150px;width:auto;display:block;"
-          loading="lazy"
-        />
+      <!-- 署名: 一人称で書かれたステートメントに、誰が言っているのかを添える -->
+      <div class="ps-sign">
+        <img class="ps-sign-photo" src={SIGN_PHOTO} alt="" width="80" height="80" loading="lazy" />
+        <div>
+          <p class="ps-sign-name">{SIGN.name}<span class="ps-sign-role">{SIGN.role}</span></p>
+          <p class="ps-sign-note">
+            {SIGN.note}
+            <a class="ps-sign-link" href="#contact" aria-label={SIGN.role}>→</a>
+          </p>
+        </div>
       </div>
     </div>
 
-    <!-- Cards row: vertical label + grid -->
-    <div style="display:flex;gap:1.5rem;align-items:flex-start;">
-      <div class="reveal-fade v-label-wrap">
-        <span class="section-label-vertical">{t.properties.sectionLabel}</span>
-      </div>
-
-      <div class="properties-grid" style="flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;">
+    <!-- Cards row -->
+    <div style="margin-top:4.5rem;">
+      <SectionHeading num="02" label="Properties" title={SH_PROPS} />
+      <div class="properties-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;">
         {
           PROPERTY_META.map((p, i) => (
             <div
@@ -198,21 +196,6 @@ const PROPERTY_META = [
     border-bottom: 1px solid #e8e8e8;
   }
   /* GEO: 直接回答ブロック — 控えめだが本文としてHTMLに存在させる */
-  .direct-answer {
-    font-size: 0.85rem;
-    font-weight: 300;
-    line-height: 1.75;
-    color: #666666;
-    border-left: 2px solid #e8e8e8;
-    padding-left: 1rem;
-    margin-bottom: 1.75rem;
-    max-width: 640px;
-  }
-  .direct-answer .as-of {
-    color: #aaaaaa;
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
   .wonder-lead {
     font-size: clamp(1.1rem, 2.5vw, 1.35rem);
     font-weight: 600;
@@ -296,7 +279,7 @@ const PROPERTY_META = [
   .prop-info {
     font-size: 0.875rem;
     font-weight: 400;
-    color: #888888;
+    color: #666666;
     margin-bottom: 0.75rem;
   }
   .rating-badge {
@@ -323,7 +306,7 @@ const PROPERTY_META = [
   .rating-count {
     font-size: 0.75rem;
     font-weight: 300;
-    color: #888888;
+    color: #666666;
     line-height: 1;
   }
   .gallery-btn {
@@ -413,6 +396,57 @@ const PROPERTY_META = [
     color: rgba(255, 255, 255, 0.75);
     font-size: 0.8rem;
     letter-spacing: 0.06em;
+  }
+  .ps-sign {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2.5rem;
+    max-width: 34rem;
+  }
+  .ps-sign-photo {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f2f2f2;
+    display: block;
+  }
+  .ps-sign-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111111;
+    line-height: 1.5;
+  }
+  .ps-sign-role {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: #666666;
+    margin-top: 0.1rem;
+  }
+  .ps-sign-note {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: #666666;
+    line-height: 1.8;
+  }
+  /* 言葉と行動を一致させる: 「直接お答えします」の直後に問い合わせへの矢印を1つ */
+  .ps-sign-link {
+    display: inline-block;
+    margin-left: 0.4rem;
+    color: #111111;
+    text-decoration: none;
+    font-size: 0.95rem;
+    line-height: 1;
+    vertical-align: -0.05em;
+    transition: transform 0.15s ease;
+  }
+  .ps-sign-link:hover { transform: translateX(3px); }
+  @media (max-width: 520px) {
+    .ps-sign { gap: 0.85rem; }
+    .ps-sign-photo { width: 64px; height: 64px; }
   }
 </style>
 

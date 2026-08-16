@@ -1,0 +1,341 @@
+---
+/* /admin/messages — お客様とのメッセージ（Airbnb同等）
+   仕様: docs/spec_admin_messages.md
+   読み取りは Firestore を直接購読（リアルタイム）。送信は messagesApi 経由。
+   権限は OPERATOR 可（日々の運用）。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
+---
+
+<SiteLayout adminNav
+  lang="ja"
+  path="/admin/messages"
+  title="メッセージ | yah.homes"
+  description="お客様とのメッセージ"
+  noindex={true}
+  solidNav
+>
+  <section class="ms">
+    <div class="ms-container">
+      <a class="ms-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="ms-title">メッセージ</h1>
+
+      <div id="ms-app" hidden>
+        <div class="ms-layout">
+          <aside class="ms-side">
+            <div class="ms-filter">
+              <button type="button" class="ms-f is-active" data-filter="open">未読・進行中</button>
+              <button type="button" class="ms-f" data-filter="all">すべて</button>
+            </div>
+            <div id="ms-list"><p class="ms-empty">読み込み中...</p></div>
+          </aside>
+
+          <div class="ms-main">
+            <div id="ms-head" class="ms-head" hidden></div>
+            <div id="ms-thread" class="ms-thread"><p class="ms-empty">左のスレッドを選んでください。</p></div>
+            <div class="ms-compose" id="ms-compose" hidden>
+              <textarea id="ms-input" rows="3" maxlength="2000" placeholder="返信を入力（Cmd/Ctrl + Enter で送信）"></textarea>
+              <button type="button" class="ms-btn" id="ms-send">送信</button>
+            </div>
+            <p class="ms-status" id="ms-status" role="status"></p>
+          </div>
+
+          <aside class="ms-booking" id="ms-booking" hidden></aside>
+        </div>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ MESSAGES_ENDPOINT, FB_CONFIG, PROP }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const app = initializeApp(FB_CONFIG);
+    const auth = getAuth(app);
+    const fs = fsm.getFirestore(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (ts) => {
+      const d = ts?.toDate ? ts.toDate() : null;
+      return d ? d.toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    };
+
+    let threads = [], active = "", filter = "open", msgUnsub = null;
+
+    function renderList() {
+      const rows = filter === "open" ? threads.filter((t) => (t.unreadForHost || 0) > 0 || t.lastMessageAt) : threads;
+      if (!rows.length) { $("ms-list").innerHTML = '<p class="ms-empty">メッセージはまだありません。</p>'; return; }
+      $("ms-list").innerHTML = rows.map((t) => `
+        <button type="button" class="ms-item${t.id === active ? " is-active" : ""}" data-open="${esc(t.id)}">
+          <span class="ms-item-top">
+            <span class="ms-item-name">${t.unreadForHost ? '<span class="ms-dot"></span>' : ""}${esc(t.guestName || "—")}</span>
+            <span class="ms-item-time">${fmt(t.lastMessageAt)}</span>
+          </span>
+          <span class="ms-item-sub">${t.kind === "inquiry" ? "💬 お問い合わせ" : `${esc(PROP[t.prop] ?? t.prop)} ${esc(t.checkin || "")}`}</span>
+          <span class="ms-item-body">${t.lastBody ? `${t.lastSystem ? "自動送信" : t.lastFrom === "guest" ? "お客様" : "運営"}: ${esc(t.lastBody)}` : ""}</span>
+        </button>`).join("");
+      document.querySelectorAll("[data-open]").forEach((el) =>
+        el.addEventListener("click", () => open(el.dataset.open)));
+    }
+
+
+  // srcdoc に流し込むためのエスケープ（属性値なので " と & を潰す）
+  function escAttr(v) {
+    return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  }
+  // 中身の高さに合わせて iframe を伸ばす（スクロールバーを出さない）
+  // onFit: 高さが変わるたびに呼ぶ（あとから iframe が伸びてスクロール位置が
+  // 先頭側に巻き戻って見える問題への対策 — 最下部維持は呼び出し側で判断）
+  function fitFrames(root, onFit) {
+    root.querySelectorAll("iframe[srcdoc]").forEach((f) => {
+      if (f.dataset.fitted) return;
+      f.dataset.fitted = "1";
+      const fit = () => {
+        try {
+          const d = f.contentDocument;
+          if (!d?.body) return;
+          const h = Math.max(d.body.scrollHeight, d.documentElement.scrollHeight);
+          if (h) { f.style.height = `${h + 8}px`; onFit?.(); }
+        } catch { f.style.height = "1600px"; }   // 読めないときは長めに取る（切れるよりマシ）
+      };
+      // 画像が入る本文なので、読み込み完了の時点ではまだ高さが確定していない。
+      // load → 画像1枚ごと → 本文の変化、の3段で追いかける。
+      f.addEventListener("load", () => {
+        fit();
+        try {
+          const d = f.contentDocument;
+          d.querySelectorAll("img").forEach((im) => {
+            if (!im.complete) { im.addEventListener("load", fit); im.addEventListener("error", fit); }
+          });
+          if (window.ResizeObserver) new ResizeObserver(fit).observe(d.body);
+        } catch { /* 読めないときは load 時の値のままにする */ }
+        [200, 800, 2000].forEach((ms) => setTimeout(fit, ms));   // 最後の保険
+      });
+      fit();
+    });
+  }
+
+    /* 予約パネル（Airbnb の右カラムと同じ）。操作は置かず、詳細ページへ1リンクで送る */
+    let panelOpen = false;
+    function toggleBookingPanel(id, t) {
+      panelOpen = !panelOpen;
+      renderBookingPanel(id, t);
+    }
+    function renderBookingPanel(id, t) {
+      const el = $("ms-booking");
+      el.hidden = !panelOpen;
+      document.querySelector(".ms-layout").classList.toggle("has-booking", panelOpen);
+      const btn = document.getElementById("ms-panel-toggle");
+      if (btn) btn.textContent = panelOpen ? "閉じる" : "予約を表示";
+      if (!panelOpen || !t) return;
+      el.innerHTML = `
+        <p class="ms-bp-name">${esc(PROP[t.prop] ?? t.prop)}</p>
+        <table class="ms-bp-table">
+          <tr><th>予約番号</th><td>${esc(id.slice(0, 8).toUpperCase())}</td></tr>
+          <tr><th>お客様</th><td>${esc(t.guestName || "—")}<br><span class="ms-bp-sub">${esc(t.guestEmail || "")}</span></td></tr>
+          <tr><th>チェックイン</th><td>${esc(t.checkin || "—")}</td></tr>
+          <tr><th>チェックアウト</th><td>${esc(t.checkout || "—")}</td></tr>
+          <tr><th>言語</th><td>${esc((t.lang || "").toUpperCase() || "—")}</td></tr>
+        </table>
+        <a class="ms-bp-open" href="/admin/booking/?id=${esc(id)}">予約詳細へ（タイムライン・操作）</a>`;
+    }
+
+    async function open(id) {
+      active = id; renderList();
+      const t = threads.find((x) => x.id === id) || {};
+      $("ms-head").hidden = false;
+      /* リンク無効化ボタンは撤去（誤タップ1回でお客様の返信手段が全滅する割に出番が稀・
+         2026-08-16 発注者判断）。API の revoke アクションは非常口として残している */
+      $("ms-head").innerHTML = t.kind === "inquiry"
+        ? `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
+           <span class="ms-h-sub">💬 お問い合わせ ／ ${esc(t.guestEmail || "")} ／ ${esc((t.lang || "").toUpperCase())}</span>`
+        : `<span class="ms-h-name">${esc(t.guestName || "—")}</span>
+           <span class="ms-h-sub">${esc(PROP[t.prop] ?? t.prop)} ／ ${esc(t.checkin || "")} 〜 ${esc(t.checkout || "")} ／ ${esc(id.slice(0, 8).toUpperCase())}</span>
+           <button type="button" class="ms-h-link" id="ms-panel-toggle">予約を表示</button>
+           <a class="ms-h-link" href="/admin/booking/?id=${esc(id)}">詳細ページへ</a>`;
+      document.getElementById("ms-panel-toggle")?.addEventListener("click", () => toggleBookingPanel(id, t));
+      $("ms-compose").hidden = false;
+
+      if (msgUnsub) msgUnsub();
+      const q = fsm.query(fsm.collection(fs, "threads", id, "messages"), fsm.orderBy("at", "asc"));
+      msgUnsub = fsm.onSnapshot(q, (snap) => {
+        if (snap.empty) { $("ms-thread").innerHTML = '<p class="ms-empty">まだやり取りはありません。</p>'; return; }
+        $("ms-thread").innerHTML = snap.docs.map((d) => {
+          const m = d.data(); const host = m.from === "host";
+        if (m.system) {
+          const h = typeof m.html === "string" && m.html ? m.html : "";
+          // メール本文はサーバが生成した HTML。iframe に閉じて、実際に届くものと
+          // 同じ見た目で出す（表・ボタン・画像・余白がそのまま出る）。
+          // sandbox に allow-scripts を与えないのでスクリプトは動かない。
+          // allow-same-origin は高さの実測にだけ使う。リンクは別タブで開く。
+          const frame = h
+            ? `<iframe class="ms-sys-frame" scrolling="no" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy" srcdoc="${escAttr(`<base target="_blank"><style>html,body{margin:0;overflow:hidden}img{max-width:100%;height:auto}</style><div style="margin:0">${h}</div>`)}"></iframe>`
+            : `<pre class="ms-sys-text">${esc(m.body)}</pre>`;
+          return `<div class="ms-bub ms-bub-sys">
+            <p class="ms-bub-meta">自動送信 ${fmt(m.at)}</p>
+            <div class="ms-sys-body">
+              ${m.title ? `<p class="ms-sys-title">${esc(m.title)}</p>` : ""}
+              ${frame}
+            </div>
+          </div>`;
+        }
+          return `<div class="ms-bub ${host ? "ms-bub-host" : "ms-bub-guest"}">
+            <p class="ms-bub-meta">${host ? `運営${m.author ? `（${esc(m.author)}）` : ""}` : `お客様${t.guestName ? `（${esc(t.guestName)}）` : ""}`} ${fmt(m.at)}</p>
+            <div class="ms-bub-body">${esc(m.body)}${m.translated ? `<div class="ms-bub-tr">${esc(m.translated)}</div>` : ""}</div>
+          </div>`;
+        }).join("");
+        const tEl = $("ms-thread");
+        // 最下部（付近）にいる間だけ追従。上へ読み返している最中は動かさない
+        const nearBottom = () => tEl.scrollHeight - tEl.scrollTop - tEl.clientHeight < 120;
+        const pin = () => { tEl.scrollTop = tEl.scrollHeight; };
+        pin();
+        fitFrames(tEl, () => { if (nearBottom()) pin(); else pin.stale = true; });
+        pin();
+      }, () => { $("ms-thread").innerHTML = '<p class="ms-empty">読み込めませんでした。</p>'; });
+
+      try {
+        const token = await auth.currentUser.getIdToken();
+        await fetch(MESSAGES_ENDPOINT, { method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "read", bookingId: id, as: "host" }) });
+      } catch { /* 既読の失敗は表示に影響しない */ }
+      if (location.hash.slice(1) !== id) history.replaceState(null, "", `#${id}`);
+    }
+
+    async function send() {
+      const el = $("ms-input"); const body = el.value.trim();
+      if (!body || !active) return;
+      const btn = $("ms-send"); btn.disabled = true; $("ms-status").textContent = "送信中...";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "send", bookingId: active, body, as: "host" }) });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "fail");
+        el.value = ""; $("ms-status").textContent = "";
+      } catch { $("ms-status").textContent = "送信できませんでした。もう一度お試しください。"; }
+      btn.disabled = false;
+    }
+
+    $("ms-send").addEventListener("click", send);
+    $("ms-input").addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send();
+    });
+    document.querySelectorAll("[data-filter]").forEach((el) =>
+      el.addEventListener("click", () => {
+        filter = el.dataset.filter;
+        document.querySelectorAll("[data-filter]").forEach((x) => x.classList.toggle("is-active", x === el));
+        renderList();
+      }));
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+      $("ms-app").hidden = false;
+      // 新着順に購読。運営は全スレッドを読める（ルールで台帳メンバーに許可済み）
+      const q = fsm.query(fsm.collection(fs, "threads"), fsm.orderBy("lastMessageAt", "desc"), fsm.limit(200));
+      fsm.onSnapshot(q, (snap) => {
+        threads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        renderList();
+        const h = location.hash.slice(1);
+        if (!active && h && threads.some((t) => t.id === h)) open(h);
+      }, () => { $("ms-list").innerHTML = '<p class="ms-empty">権限がありません。</p>'; });
+    });
+  });
+</script>
+
+<style>
+  .ms { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .ms-container { max-width: 1080px; margin: 0 auto; }
+  .ms-eyebrow { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; text-decoration: none; }
+  .ms-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 2rem; }
+
+  .ms-layout { display: grid; grid-template-columns: 280px 1fr; gap: 2rem; align-items: start; }
+  .ms-side { border-right: 1px solid #f0f0f0; padding-right: 1rem; }
+  .ms-filter { display: flex; gap: 0.3rem; margin-bottom: 1rem; }
+  .ms-f {
+    font-family: inherit; font-size: 0.72rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.3rem 0.7rem; cursor: pointer;
+  }
+  .ms-f.is-active { color: #ffffff; background: #111111; border-color: #111111; }
+  .ms-empty { font-size: 0.8rem; color: #666666; padding: 0.5rem 0; }
+
+  :global(.ms-item) {
+    display: block; width: 100%; text-align: left; font-family: inherit; background: none;
+    border: none; border-bottom: 1px solid #f2f2f2; padding: 0.8rem 0.5rem; cursor: pointer;
+  }
+  :global(.ms-item:hover) { background: #fafafa; }
+  :global(.ms-item.is-active) { background: #fafafa; border-left: 2px solid #111111; padding-left: calc(0.5rem - 2px); }
+  :global(.ms-item-top) { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+  :global(.ms-item-name) { font-size: 0.84rem; font-weight: 500; color: #111111; display: inline-flex; align-items: center; gap: 0.35rem; }
+  :global(.ms-dot) { width: 6px; height: 6px; border-radius: 50%; background: #b42318; flex-shrink: 0; }
+  :global(.ms-item-time) { font-size: 0.68rem; color: #666666; white-space: nowrap; }
+  :global(.ms-item-sub) { display: block; font-size: 0.7rem; color: #666666; margin-top: 0.15rem; }
+  :global(.ms-item-body) { display: block; font-size: 0.74rem; color: #666666; margin-top: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .ms-main { min-width: 0; }
+  .ms-head { padding-bottom: 0.9rem; margin-bottom: 1.25rem; border-bottom: 1px solid #ededed; display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
+  :global(.ms-h-name) { font-size: 1rem; font-weight: 500; color: #111111; }
+  :global(.ms-h-sub) { font-size: 0.76rem; color: #666666; }
+  :global(.ms-h-link) { margin-left: auto; font-size: 0.74rem; color: #111111; }
+
+  .ms-thread { min-height: 320px; max-height: 56vh; overflow-y: auto; margin-bottom: 1rem; }
+  :global(.ms-bub) { max-width: 78%; margin-bottom: 0.9rem; }
+  :global(.ms-bub-host) { margin-left: auto; }
+  :global(.ms-bub-meta) { font-size: 0.68rem; color: #666666; margin-bottom: 0.25rem; }
+  :global(.ms-bub-host .ms-bub-meta) { text-align: right; }
+  :global(.ms-bub-body) {
+    font-size: 0.86rem; line-height: 1.85; color: #111111; white-space: pre-wrap;
+    border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem;
+  }
+  :global(.ms-bub-host .ms-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.ms-bub-sys) { max-width: 100%; }
+  :global(.ms-sys-frame) {
+    display: block; width: 100%; border: 0; background: #ffffff;
+    min-height: 120px; overflow: hidden;
+  }
+  :global(.ms-sys-body) { border: 1px solid #ececec; border-radius: 8px; background: #fafafa; padding: 0.9rem 1rem; }
+  :global(.ms-sys-title) { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  :global(.ms-sys-text) {
+    font-family: inherit; font-size: 0.8rem; line-height: 1.9; color: #555555;
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+  }
+  :global(.ms-bub-tr) { font-size: 0.76rem; color: #666666; margin-top: 0.4rem; line-height: 1.7; }
+  :global(.ms-bub-host .ms-bub-tr) { color: rgba(255,255,255,0.65); }
+
+  .ms-compose { display: flex; gap: 0.6rem; align-items: flex-end; }
+  .ms-compose textarea {
+    flex: 1; padding: 0.7rem 0.85rem; font-family: inherit; font-size: 0.86rem; line-height: 1.75;
+    border: 1px solid #d7d7d7; border-radius: 6px; resize: none; box-sizing: border-box;
+  }
+  /* iOS はフォント16px未満の入力欄でフォーカス時に自動ズームする。
+     スマホでは16pxにしてズームを起こさない（送信ボタンが押しづらい問題対策） */
+  @media (max-width: 720px) {
+    .ms-compose textarea { font-size: 16px; }
+  }
+
+  .ms-btn {
+    font-family: inherit; font-size: 0.82rem; color: #ffffff; background: #111111;
+    border: none; border-radius: 4px; padding: 0.7rem 1.4rem; cursor: pointer; white-space: nowrap;
+  }
+  .ms-btn:disabled { opacity: 0.5; }
+  .ms-status { margin-top: 0.8rem; font-size: 0.78rem; color: #666666; }
+  .ms-status:empty { display: none; }
+
+  @media (max-width: 860px) {
+    .ms-layout { grid-template-columns: 1fr; }
+    .ms-side { border-right: none; border-bottom: 1px solid #f0f0f0; padding-right: 0; padding-bottom: 1rem; }
+  }
+</style>

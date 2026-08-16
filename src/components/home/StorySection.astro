@@ -5,20 +5,35 @@ const STORY_IMG_480 = "/manus-storage/story-hero_803d730b-480.webp";
 const STORY_IMG_768 = "/manus-storage/story-hero_803d730b-768.webp";
 ---
 
-<section id="about" style="background:#f7f7f7;padding:5rem 0;">
-  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
-    <div class="reveal-fade img-zoom" style="overflow:hidden;">
-      <img
-        src={STORY_IMG}
-        srcset={`${STORY_IMG_480} 480w, ${STORY_IMG_768} 768w, ${STORY_IMG} 900w`}
-        sizes="(max-width: 768px) 100vw, 900px"
-        alt="yah.homes interior"
-        loading="lazy"
-        decoding="async"
-        width="900"
-        height="600"
-        style="width:100%;display:block;"
-      />
-    </div>
+<!-- 写真だけのセクション。ローカルCTAと同じ全幅の帯にする（余白・背景色なし） -->
+<section id="about" class="story">
+  <div class="reveal-fade img-zoom story-frame">
+    <img
+      src={STORY_IMG}
+      srcset={`${STORY_IMG_480} 480w, ${STORY_IMG_768} 768w, ${STORY_IMG} 1920w`}
+      sizes="100vw"
+      alt="yah.homes interior"
+      loading="lazy"
+      decoding="async"
+      width="1920"
+      height="1364"
+      class="story-img"
+    />
   </div>
 </section>
+
+<style>
+  .story { display: block; }
+  .story-frame { overflow: hidden; }
+  /* ローカルCTA（比率2.8）と同じ帯の高さに合わせ、中身は中央でトリミング */
+  .story-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2.8 / 1;
+    object-fit: cover;
+    object-position: center;
+  }
+  @media (max-width: 768px) {
+    .story-img { aspect-ratio: 16 / 10; }
+  }
+</style>

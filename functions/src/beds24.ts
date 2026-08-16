@@ -9,6 +9,7 @@ import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { GoogleAuth } from "google-auth-library";
 import nodemailer from "nodemailer";
+import { esc, mailHtml, SITE_URL } from "./mail-template.js";
 
 const REGION = "asia-northeast1";
 const TZ = "Asia/Tokyo";
@@ -25,14 +26,14 @@ const REPORT_TO = "kazuyoshi.yamada@bonfire.co.jp";
 type Booking = {
   id: number; propertyId: number; status: string; arrival: string; departure: string;
   firstName?: string; lastName?: string; referer?: string; apiSource?: string;
-  country2?: string; bookingTime?: string; numAdult?: number; numChild?: number;
+  country2?: string; bookingTime?: string; cancelTime?: string; numAdult?: number; numChild?: number;
 };
 
 const jstToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
 const nights = (b: Booking) => Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 86400000);
 const isActive = (b: Booking) => b.status === "confirmed" || b.status === "new";
 const isGuest = (b: Booking) =>
-  b.status !== "black" && !/オーナー|yamada|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""}`);
+  b.status !== "black" && !/オーナー|yamada|山田|sugimoto|杉本|工事|テスト/i.test(`${b.firstName ?? ""} ${b.lastName ?? ""} ${b.referer ?? ""} ${b.apiSource ?? ""}`);
 
 async function fetchBookings(token: string): Promise<Booking[]> {
   const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
@@ -46,7 +47,7 @@ async function fetchBookings(token: string): Promise<Booking[]> {
     out.push(...r.data);
     next = r.pages?.nextPageExists ? r.pages.nextPageLink : null;
   }
-  return out;
+  return out.filter((b) => PROPS[b.propertyId]); // 本番2物件のみ（テスト物件を除外）
 }
 
 async function googleToken(scopes: string[]): Promise<string> {
@@ -80,9 +81,37 @@ function mailer(user: string, pass: string) {
   });
 }
 
-async function sendMail(subject: string, text: string) {
+/**
+ * 定点メールを送る。text は常に添える（プレーンテキスト版）が、
+ * 表示は index.ts と共通の mailHtml テンプレートに載せる（日次メールと同じ枠）。
+ * rows/blocks を渡さない場合は text 全体を「サマリー」ブロックに流し込む。
+ */
+async function sendMail(
+  subject: string,
+  text: string,
+  opts?: {
+    heading?: string;
+    rows?: [string, string][];
+    blocks?: { title: string; body: string }[];
+    variant?: "brand" | "alert";
+  },
+) {
   const t = mailer(SMTP_USER.value(), SMTP_PASS.value());
-  await t.sendMail({ from: `"yah.homes 定点" <${SMTP_USER.value()}>`, to: REPORT_TO, subject, text });
+  const today = jstToday();
+  await t.sendMail({
+    from: `"yah.homes 定点" <${SMTP_USER.value()}>`,
+    to: REPORT_TO,
+    subject,
+    text,
+    html: mailHtml({
+      heading: opts?.heading ?? (subject.replace(/^【[^】]*】\s*/, "") || "定点観測"),
+      badge: `週次スコアカード|${today}`,
+      rows: opts?.rows,
+      blocks: opts?.blocks ?? [{ title: "サマリー", body: esc(text) }],
+      cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+      variant: opts?.variant,
+    }),
+  });
 }
 
 function label(b: Booking): string {
@@ -109,13 +138,14 @@ export const beds24WeeklyReport = onSchedule(
   async () => {
     const today = jstToday();
     try {
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toLocaleDateString("sv-SE", { timeZone: TZ });
       const bookings = await fetchBookings(BEDS24_TOKEN.value());
       const weekly = bookings.filter(
         (b) => isGuest(b) && isActive(b) && (b.bookingTime ?? "").slice(0, 10) >= weekAgo
       );
+      // キャンセルは「今週キャンセルされたもの」= cancelTime 基準（無い場合のみ bookingTime で近似）
       const cxl = bookings.filter(
-        (b) => isGuest(b) && b.status === "cancelled" && (b.bookingTime ?? "").slice(0, 10) >= weekAgo
+        (b) => isGuest(b) && b.status === "cancelled" && ((b.cancelTime || b.bookingTime) ?? "").slice(0, 10) >= weekAgo
       );
       const fwd = forwardNights(bookings, today);
       const fwdTotal = fwd.清川 + fwd.高砂;
@@ -124,9 +154,9 @@ export const beds24WeeklyReport = onSchedule(
       const nat = (b: Booking): string => {
         if (b.country2) return b.country2;
         const name = `${b.firstName ?? ""} ${b.lastName ?? ""}`;
-        if (/[가-힯]/.test(name)) return "KR?";
-        if (/[぀-ヿ]/.test(name)) return "JP?";
-        if (/[一-鿿]/.test(name)) return "中華圏?";
+        if (/[가-힣]/.test(name)) return "KR?";
+        if (/[぀-ヿ]/.test(name)) return "JP?"; // かな含み＝日本
+        if (/[一-鿿]/.test(name)) return "漢字圏(日/中)?"; // 漢字のみは日中の判別不能
         return "不明";
       };
       const byNat: Record<string, { g: number; n: number }> = {};
@@ -186,7 +216,9 @@ export const beds24WeeklyReport = onSchedule(
       }
 
       const weeklyNights = weekly.reduce((s, b) => s + nights(b), 0);
-      const ratio = clickTotal > 0 ? ((weekly.length / clickTotal) * 100).toFixed(0) : "—";
+      // 基準帯23〜28%は click_airbnb→Airbnb予約 で校正済みのため、分子はAirbnb経由のみ
+      const airbnbBookings = weekly.filter((b) => /airbnb/i.test(b.referer ?? "")).length;
+      const ratio = clickTotal > 0 ? ((airbnbBookings / clickTotal) * 100).toFixed(0) : "—";
 
       const body = [
         `■ 週間サマリ（予約日ベース・過去7日）`,
@@ -202,17 +234,37 @@ export const beds24WeeklyReport = onSchedule(
         `■ 広告 市場別（adsタブ・7日）`,
         ...adsLines,
         ``,
-        `■ 手渡し→予約比率: ${ratio}%（基準帯23〜28%）`,
+        `■ 手渡し→予約比率: ${ratio}%（Airbnb予約${airbnbBookings}÷click_airbnb${clickTotal}・基準帯23〜28%）`,
         ``,
         `明細（新規）:`,
         ...weekly.map((b) => `  + ${label(b)}`),
       ].join("\n");
 
-      await sendMail(`【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`, body);
+      // HTMLは日次メールと同じ枠（mailHtml）。要点は rows に、明細は blocks に分けて載せる。
+      const fwdPct = ((fwdTotal / CAPACITY_NIGHTS_YEAR) * 100).toFixed(1);
+      const rows: [string, string][] = [
+        ["新規予約", esc(`${weekly.length}組 / ${weeklyNights}泊`)],
+        ["キャンセル", esc(`${cxl.length}件`)],
+        ["先付け残高", esc(`計${fwdTotal}泊（清川${fwd.清川} / 高砂${fwd.高砂}）`)],
+        ["先付け率", esc(`${fwdPct}%（適正帯 28〜33%）`)],
+        ["手渡し→予約", esc(`${ratio}%（基準帯 23〜28%）`)],
+      ];
+      const list = (lines: string[]) => esc(lines.join("\n")) || "（データなし）";
+      const blocks = [
+        { title: "国籍別の新規予約", body: list(Object.entries(byNat).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${k}: ${v.g}組 ${v.n}泊`)) },
+        { title: `click_airbnb 国別（GA4・7日）計${clickTotal}件`, body: list(ga4Lines.map((l) => l.trim())) },
+        { title: "広告 市場別（adsタブ・7日）", body: list(adsLines.map((l) => l.trim())) },
+        { title: "明細（新規）", body: list(weekly.map((b) => `+ ${label(b)}`)) },
+      ];
+      await sendMail(
+        `【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`,
+        body,
+        { heading: `新規 ${weekly.length}組 ${weeklyNights}泊`, rows, blocks },
+      );
       logger.info("beds24WeeklyReport done", { weekly: weekly.length });
     } catch (e) {
       logger.error("beds24WeeklyReport failed", e);
-      try { await sendMail(`【週次スコアカード・エラー】${today}`, String(e)); } catch { /* noop */ }
+      try { await sendMail(`【週次スコアカード・エラー】${today}`, String(e), { heading: "週次スコアカードの取得に失敗", variant: "alert" }); } catch { /* noop */ }
       throw e;
     }
   }

@@ -1,7 +1,96 @@
 ---
-/* /admin/ — 管理トップ。実機能のハブは /admin/menu/ に集約した。 */
-import AdminLayout from "../../layouts/AdminLayout.astro";
+/* /admin/ — 管理画面の入口（ログイン）。
+   ログイン済みなら /admin/menu/ へ自動で送る。未ログインならここでログインさせる。
+   各画面は個別にもログイン枠を持つが、入口をここに一本化して迷いをなくす。
+   noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
 ---
-<AdminLayout title="Menu" active="menu">
-  <p>管理メニューは <a href="/admin/menu/" style="color:#111111;">/admin/menu/</a> に移動しました。</p>
-</AdminLayout>
+
+<SiteLayout
+  lang="ja"
+  path="/admin"
+  title="管理画面 | yah.homes"
+  description="yah.homes 管理画面"
+  noindex={true}
+  solidNav
+>
+  <section class="lg">
+    <div class="lg-container">
+      <div class="lg-card" id="lg-card" hidden>
+        <p class="lg-eyebrow">Admin</p>
+        <h1 class="lg-title">管理画面</h1>
+        <button id="lg-btn" class="lg-btn">Googleでログイン</button>
+        <p class="lg-status" id="lg-status" role="status"></p>
+      </div>
+
+      <div class="lg-card" id="lg-me" hidden>
+        <p class="lg-eyebrow">Admin</p>
+        <p class="lg-email" id="lg-email"></p>
+        <a class="lg-btn lg-btn-link" href="/admin/menu/">管理メニューへ</a>
+        <button id="lg-out" class="lg-textbtn">ログアウト</button>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+
+    // ?next=/admin/xxx/ が付いていれば、ログイン後にそこへ戻す（/admin配下のみ許可）
+    const raw = new URLSearchParams(location.search).get("next") || "/admin/menu/";
+    const next = /^\/admin\/[a-z0-9\-\/]*$/.test(raw) ? raw : "/admin/menu/";
+
+    $("lg-btn").addEventListener("click", async () => {
+      $("lg-status").textContent = "";
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("lg-status").textContent = "ログインできませんでした。もう一度お試しください。"; }
+    });
+    $("lg-out").addEventListener("click", () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // 直前に見ようとしていた画面があればそこへ、なければメニューへ
+        if (next !== "/admin/menu/" || location.search.includes("next=")) { location.replace(next); return; }
+        $("lg-email").textContent = user.email ?? "";
+        $("lg-card").hidden = true;
+        $("lg-me").hidden = false;
+      } else {
+        $("lg-me").hidden = true;
+        $("lg-card").hidden = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .lg { background: #ffffff; padding: 9rem 1.5rem 7rem; min-height: 70vh; display: flex; }
+  .lg-container { max-width: 380px; margin: 0 auto; width: 100%; }
+  .lg-card { border: 1px solid #e8e8e8; border-radius: 6px; padding: 2.25rem 2rem; text-align: center; }
+  .lg-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 0.9rem; }
+  .lg-title { font-size: 1.25rem; font-weight: 500; color: #111111; margin-bottom: 1.75rem; }
+  .lg-email { font-size: 0.85rem; color: #111111; margin-bottom: 1.5rem; word-break: break-all; }
+  .lg-btn {
+    display: block; width: 100%; font-family: inherit; font-size: 0.85rem; color: #ffffff; background: #111111;
+    border: none; border-radius: 4px; padding: 0.75rem 1.4rem; cursor: pointer; text-decoration: none; text-align: center;
+  }
+  .lg-btn-link { line-height: 1.4; }
+  .lg-textbtn {
+    margin-top: 1rem; font-family: inherit; font-size: 0.76rem; color: #666666;
+    background: none; border: none; cursor: pointer; text-decoration: underline;
+  }
+  .lg-textbtn:hover { color: #111111; }
+  .lg-status { margin-top: 1rem; font-size: 0.78rem; color: #b42318; line-height: 1.7; }
+  .lg-status:empty { display: none; }
+</style>

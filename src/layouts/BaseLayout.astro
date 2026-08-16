@@ -43,6 +43,13 @@ const {
   preloadImage,
 } = Astro.props;
 
+/* 計測タグ（GA4 / Metaピクセル）を出力しないページ。
+   管理画面と My Page は発注者自身の作業であり、本番の指標を歪める
+   （2026-08 実測: 管理画面が表示回数2位・「日本が最多国」の正体だった）。 */
+const trackingPath = Astro.url.pathname;
+const isPrivatePage = trackingPath.includes("/admin") || trackingPath.includes("/account");
+const META_PIXEL_ID = "2216414819216704";
+
 // canonical は自ロケールの絶対URL
 const canonical = `${BASE_URL}${localizedPath(lang, path)}`;
 // hreflang は「存在する言語」のみ＋x-default（en があれば en、無ければ先頭言語）
@@ -121,19 +128,40 @@ const htmlLang = HREFLANG[lang];
     <link rel="preload" href="/fonts/national-2-medium.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/national-2-regular.woff2" as="font" type="font/woff2" crossorigin />
 
+    {!isPrivatePage && (
     <!-- GA4 — www.yah.homes（G-VJ5DDRML79）
          遅延注入にしないこと: load 後に gtag.js を注入すると session_start が記録されず、
          参照元が (not set) になって流入の約4割が帰属不明になる（2026-07 実測）。
          fetchpriority=low: 実行は async のまま、ダウンロード帯域だけ LCP 画像に譲る（計測は壊れない） -->
     <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
     <script is:inline async fetchpriority="low" src="https://www.googletagmanager.com/gtag/js?id=G-VJ5DDRML79"></script>
-    <script is:inline>
+    <script is:inline define:vars={{ metaPixelId: META_PIXEL_ID }}>
+      /* ビルド成果物は本番とプレビューチャネルで同一のため、ビルド時にはホストを区別できない。
+         実行時に判定し、本番ホスト以外（*.web.app のデモ・localhost）では計測を初期化しない。
+         2026-08 実測: デモの決済テストが本番GA4に purchase 5件・¥196,400 を混入させていた。 */
+      var TRACK = location.hostname === "yah.homes" || location.hostname === "www.yah.homes";
+
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
-      gtag("js", new Date());
-      gtag("config", "G-VJ5DDRML79");
+      if (TRACK) {
+        gtag("js", new Date());
+        gtag("config", "G-VJ5DDRML79");
+      }
+
+      // Meta Pixel（GA4と同じガードの内側。リターゲティングの母集団を溜める）
+      if (TRACK && metaPixelId) {
+        !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', metaPixelId);
+        fbq('track', 'PageView');
+      }
 
       // 流入情報を滞在中は保持（予約時にサーバーへ渡し、広告→予約を突合する）
       (function () {
@@ -163,8 +191,12 @@ const htmlLang = HREFLANG[lang];
         var ctaLocation = a.getAttribute("data-cta-location") || undefined;
         if (href.indexOf("airbnb") > -1) {
           gtag("event", "click_airbnb", { property: property, page_path: path, cta_location: ctaLocation });
+          // fbq は未初期化（TRACK=false）のことがあるため必ず存在確認してから呼ぶ。
+          // ここで落とすと以降のクリック計測が全滅する。
+          window.fbq && fbq("track", "Lead", { content_name: property });
         } else if (href.indexOf("booking.com") > -1) {
           gtag("event", "click_booking_com", { property: property, page_path: path, cta_location: ctaLocation });
+          window.fbq && fbq("track", "Lead", { content_name: property });
         } else if (href === "#booking") {
           gtag("event", "click_booking_calendar", { property: property, page_path: path });
         } else if (href.indexOf("instagram.com") > -1) {
@@ -174,6 +206,7 @@ const htmlLang = HREFLANG[lang];
         }
       });
     </script>
+    )}
   </head>
   <body>
     <slot />

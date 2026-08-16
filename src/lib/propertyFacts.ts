@@ -25,6 +25,30 @@ export interface PropertyFacts {
   /** Airbnb 評価（表示用の文字列） */
   rating: string;
   reviewCount: string;
+  /** チェックイン・チェックアウト時刻（"16:00" / "10:00" 形式・棟ごとに変えられる） */
+  checkinTime: string;
+  checkoutTime: string;
+  /** 設備の有無（1=あり / 0=なし）。比較表と物件ページの表示に使う */
+  washer: number;
+  dryer: number;
+  audio: number;
+  /** 大型テレビのサイズ（インチ・0=なし） */
+  tvInch: number;
+  studyDesk: number;
+  parking: number;
+  theater: number;
+  /** アクセス（分・最寄り駅名のみ文字列） */
+  fromAirportCarMin: number;
+  fromStationWalkMin: number;
+  nearestStation: string;
+  toTenjinWalkMin: number;
+  toHakataWalkMin: number;
+  /** 人気スポットまでの距離（分・メートル）。表示文は言語別テンプレートで組み立てる */
+  spotMarketMin: number; spotMarketM: number;
+  spotSumiyoshiMin: number; spotSumiyoshiM: number;
+  spotCanalMin: number; spotCanalM: number;
+  spotNakasuWalkMin: number; spotNakasuTaxiMin: number;
+  spotOhoriCarMin: number; spotOhoriM: number;
 }
 
 export type PropKey = "kiyokawa" | "takasago";
@@ -35,11 +59,23 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
     capacity: 7, bedrooms: 3, bedDouble: 3, bedSingle: 1,
     bath: 1, shower: 0, sink: 1, toilet: 2,
     rating: "4.77", reviewCount: "47",
+    checkinTime: "16:00", checkoutTime: "10:00",
+    washer: 1, dryer: 0, audio: 1, tvInch: 55, studyDesk: 1, parking: 1, theater: 0,
+    fromAirportCarMin: 18, fromStationWalkMin: 15, nearestStation: "渡辺通", toTenjinWalkMin: 20, toHakataWalkMin: 25,
+    spotMarketMin: 7, spotMarketM: 550, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
+    spotCanalMin: 15, spotCanalM: 1200, spotNakasuWalkMin: 20, spotNakasuTaxiMin: 5,
+    spotOhoriCarMin: 10, spotOhoriM: 3000,
   },
   takasago: {
     capacity: 6, bedrooms: 3, bedDouble: 1, bedSingle: 4,
     bath: 1, shower: 1, sink: 3, toilet: 2,
     rating: "4.67", reviewCount: "36",
+    checkinTime: "16:00", checkoutTime: "10:00",
+    washer: 1, dryer: 0, audio: 1, tvInch: 75, studyDesk: 0, parking: 1, theater: 1,
+    fromAirportCarMin: 20, fromStationWalkMin: 8, nearestStation: "渡辺通", toTenjinWalkMin: 15, toHakataWalkMin: 25,
+    spotMarketMin: 10, spotMarketM: 800, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
+    spotCanalMin: 18, spotCanalM: 1400, spotNakasuWalkMin: 25, spotNakasuTaxiMin: 7,
+    spotOhoriCarMin: 10, spotOhoriM: 2700,
   },
 };
 
@@ -99,6 +135,25 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
         toilet: num(f.toilet, d.toilet),
         rating: str(f.rating, d.rating),
         reviewCount: str(f.reviewCount, d.reviewCount),
+        checkinTime: str(f.checkinTime, d.checkinTime),
+        checkoutTime: str(f.checkoutTime, d.checkoutTime),
+        washer: num(f.washer, d.washer),
+        dryer: num(f.dryer, d.dryer),
+        audio: num(f.audio, d.audio),
+        tvInch: num(f.tvInch, d.tvInch),
+        fromAirportCarMin: num(f.fromAirportCarMin, d.fromAirportCarMin),
+        fromStationWalkMin: num(f.fromStationWalkMin, d.fromStationWalkMin),
+        nearestStation: str(f.nearestStation, d.nearestStation),
+        toTenjinWalkMin: num(f.toTenjinWalkMin, d.toTenjinWalkMin),
+        toHakataWalkMin: num(f.toHakataWalkMin, d.toHakataWalkMin),
+        spotMarketMin: num(f.spotMarketMin, d.spotMarketMin), spotMarketM: num(f.spotMarketM, d.spotMarketM),
+        spotSumiyoshiMin: num(f.spotSumiyoshiMin, d.spotSumiyoshiMin), spotSumiyoshiM: num(f.spotSumiyoshiM, d.spotSumiyoshiM),
+        spotCanalMin: num(f.spotCanalMin, d.spotCanalMin), spotCanalM: num(f.spotCanalM, d.spotCanalM),
+        spotNakasuWalkMin: num(f.spotNakasuWalkMin, d.spotNakasuWalkMin), spotNakasuTaxiMin: num(f.spotNakasuTaxiMin, d.spotNakasuTaxiMin),
+        spotOhoriCarMin: num(f.spotOhoriCarMin, d.spotOhoriCarMin), spotOhoriM: num(f.spotOhoriM, d.spotOhoriM),
+        studyDesk: num(f.studyDesk, d.studyDesk),
+        parking: num(f.parking, d.parking),
+        theater: num(f.theater, d.theater),
       };
     }
     console.log("[propertyFacts] Firestore から取得しました");

@@ -3,6 +3,7 @@
    15問×3カテゴリ・アコーディオン（+が45度回転）・FAQPage JSON-LD
    アコーディオンは native <details> で再現（全文が静的HTMLに含まれ、検索/AIが読める） */
 import { faqData } from "../../data/faqData";
+import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 
 interface Props {
@@ -28,7 +29,7 @@ const jsonLd = {
 
 <section id="faq" style="background:#ffffff;padding:5rem 0;border-top:1px solid #e8e8e8;">
   <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
-    <h2 class="faq-title">{data.title}</h2>
+    <SectionHeading num="08" label="FAQ" title={data.title} />
 
     {
       data.categories.map((cat) => (
@@ -61,7 +62,7 @@ const jsonLd = {
   .faq-cat {
     font-size: clamp(0.65rem, 1.2vw, 0.75rem);
     font-weight: 500;
-    color: #999999;
+    color: #666666;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     margin-bottom: 0.5rem;

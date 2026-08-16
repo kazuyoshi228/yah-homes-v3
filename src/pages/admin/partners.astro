@@ -15,7 +15,7 @@ const FB_CONFIG = {
 };
 ---
 
-<SiteLayout
+<SiteLayout adminNav
   lang="ja"
   path="/admin/partners"
   title="Partners 管理 | yah.homes"
@@ -25,10 +25,10 @@ const FB_CONFIG = {
 >
   <section class="pa">
     <div class="pa-container">
-      <p class="pa-eyebrow">Admin</p>
+      <a class="pa-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="pa-title">パートナー申請 管理</h1>
 
-      <div id="pa-login" class="pa-login">
+      <div id="pa-login" class="pa-login" hidden>
         <p class="pa-note">Googleアカウント（kazuyoshi.yamada@bonfire.co.jp）でログインしてください。</p>
         <button id="pa-login-btn" class="pa-btn">Googleでログイン</button>
         <p class="pa-status" id="pa-login-status"></p>
@@ -222,6 +222,7 @@ const FB_CONFIG = {
     });
 
     onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       if (user) {
         loginBox.hidden = true;
         appBox.hidden = false;
@@ -250,7 +251,7 @@ const FB_CONFIG = {
     font-weight: 500;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #aaaaaa;
+    color: #666666;
     margin-bottom: 1rem;
   }
   .pa-title {
@@ -269,7 +270,7 @@ const FB_CONFIG = {
   }
   .pa-note {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
   }
   .pa-status {
     font-size: 0.8rem;
@@ -346,7 +347,7 @@ const FB_CONFIG = {
   }
   .pa-mail {
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
   }
   .pa-select {
     font-size: 0.75rem;
@@ -361,4 +362,5 @@ const FB_CONFIG = {
     font-size: 0.85rem;
     line-height: 2;
   }
+  a.pa-eyebrow { display: block; text-decoration: none; }
 </style>

@@ -51,6 +51,8 @@ const SPECS = {
               bath: facts.kiyokawa.bath, shower: facts.kiyokawa.shower, sink: facts.kiyokawa.sink, toilet: facts.kiyokawa.toilet },
   takasago: { max: facts.takasago.capacity, rooms: facts.takasago.bedrooms, single: facts.takasago.bedSingle, double: facts.takasago.bedDouble,
               bath: facts.takasago.bath, shower: facts.takasago.shower, sink: facts.takasago.sink, toilet: facts.takasago.toilet },
+  // 検証用物件（Beds24 yah.homes test1 / propertyId 346442）。デモ面にのみ出す。
+  test: { max: 7, rooms: 1, single: 0, double: 0, bath: 1, shower: 0, sink: 1, toilet: 1 },
 };
 const specRows = (k: "kiyokawa" | "takasago") => {
   const v = SPECS[k];
@@ -83,42 +85,70 @@ const HOUSES = [
     image: PROPERTIES.takasago.exterior,
     detail: localizedPath(lang, "/properties/takasago"),
   },
+  // 決済〜Beds24書込〜二重予約防止を通しで検証するための棟。
+  // BOOK_PREVIEW ではなく専用フラグで出す。公開ゲート解除後は本番も BOOK_PREVIEW=1 で
+  // ビルドされるため、そちらに紐づけると検証用物件が本番に出てしまう（監査 P1）。
+  ...(process.env.BOOK_TEST_PROPERTY === "1" ? [{
+    key: "test" as const,
+    name: "yah.homes test1（検証用・実際には泊まれません）",
+    area: { en: "Test property for end-to-end verification", ja: "動作検証用の物件です。ご予約はできません。", ko: "동작 검증용 숙소입니다.", zh: "測試用房源，無法實際入住。", th: "ที่พักสำหรับทดสอบระบบ" }[lang],
+    capacity: 7,
+    image: PROPERTIES.kiyokawa.exterior,
+    detail: localizedPath(lang, "/properties/kiyokawa"),
+  }] : []),
 ];
 
 // 信頼ブロック: 運営者の顔と「聞けば人が答える」約束（写真は差し替え用スロット）
+// 空室APIに要求する棟（カード構成と一致させる）
+const PROPS_PARAM = HOUSES.map((h) => h.key).join(",");
+
 const OWNER_PHOTO = "/manus-storage/director-photo_def5f1a6-480.webp"; // /about と同じ代表写真
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
-const HOST_NAME = { en: "Kazuyoshi Yamada", ja: "山田一慶", ko: "야마다 카즈요시", zh: "山田一慶", th: "Kazuyoshi Yamada" }[lang];
-const HOST_ROLE = { en: "Director, yah.homes", ja: "yah.homes ディレクター", ko: "yah.homes 디렉터", zh: "yah.homes 總監", th: "ผู้อำนวยการ yah.homes" }[lang];
+const HOST_NAME = "Kazuyoshi Yamada";
+const HOST_ROLE = "yah.homes Creative Director";
 // 料金の透明性（v4 §4）: 追加費用がないことと、直販の価値を総額の近くに置く
 const PRICE_NOTE = {
-  en: { noExtra: "No additional charges on arrival.", direct: "Booked directly with us — we handle any changes personally." },
-  ja: { noExtra: "現地でのお支払いはありません。", direct: "公式サイトからのご予約です。日程のご相談は直接承ります。" },
-  ko: { noExtra: "현지에서 추가로 결제하실 금액은 없습니다.", direct: "공식 사이트에서의 예약입니다. 일정 상담은 직접 도와드립니다." },
-  zh: { noExtra: "現場無需再支付任何費用。", direct: "透過官網預訂。日期調整可直接與我們洽詢。" },
-  th: { noExtra: "ไม่มีค่าใช้จ่ายเพิ่มเติมเมื่อเข้าพัก", direct: "จองผ่านเว็บไซต์ทางการ เราดูแลการเปลี่ยนแปลงให้โดยตรง" },
+  en: { noExtra: "No additional charges on arrival.", direct: "Book direct and we'll handle date changes and pre-stay questions ourselves." },
+  ja: { noExtra: "現地でのお支払いはありません。", direct: "公式予約なら、日程変更や滞在前のご相談を直接承ります。" },
+  ko: { noExtra: "현지에서 추가로 결제하실 금액은 없습니다.", direct: "공식 예약이라면 일정 변경과 숙박 전 상담을 직접 도와드립니다." },
+  zh: { noExtra: "現場無需再支付任何費用。", direct: "官網預訂，日期變更與入住前的諮詢由我們直接為您處理。" },
+  th: { noExtra: "ไม่มีค่าใช้จ่ายเพิ่มเติมเมื่อเข้าพัก", direct: "จองผ่านเว็บทางการ เราดูแลการเปลี่ยนวันและคำถามก่อนเข้าพักให้เอง" },
+}[lang];
+
+// 満室時の回復導線（別棟提案・近い空室日）
+const RECOVERY = {
+  en: { soldOutTitle: "Not available for these dates", altSame: "The other house is available for the same dates",
+        altCta: "Book this house", nearTitle: "Available on nearby dates", nights: (n: number) => `${n} nights` },
+  ja: { soldOutTitle: "この日程は満室です", altSame: "同じ日程なら、こちらの棟をご予約いただけます",
+        altCta: "この棟の予約へ", nearTitle: "近い日程で空室があります", nights: (n: number) => `${n}泊` },
+  ko: { soldOutTitle: "해당 날짜는 예약이 불가합니다", altSame: "같은 날짜라면 이 동을 예약하실 수 있습니다",
+        altCta: "이 동으로 예약", nearTitle: "가까운 날짜에 빈방이 있습니다", nights: (n: number) => `${n}박` },
+  zh: { soldOutTitle: "此日期已滿房", altSame: "相同日期可預訂另一棟",
+        altCta: "預訂這一棟", nearTitle: "鄰近日期尚有空房", nights: (n: number) => `${n}晚` },
+  th: { soldOutTitle: "วันที่เลือกไม่ว่าง", altSame: "วันเดียวกันนี้ยังมีอีกหลังว่างอยู่",
+        altCta: "จองหลังนี้", nearTitle: "มีห้องว่างในวันใกล้เคียง", nights: (n: number) => `${n} คืน` },
 }[lang];
 
 const HOST_COPY = {
-  en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 2–3 business days.", cta: "Contact us",
+  en: { lead: "yah.homes runs two houses in Fukuoka. Ask us anything before you book — we reply within 24 hours.", cta: "Contact us",
         title: "Ask us anything", name: "Name", email: "Email", message: "Your question", send: "Send", close: "Close",
-        sending: "Sending…", done: "Thank you. We'll reply within 2–3 business days.", fail: "Could not send. Please try again shortly.",
+        sending: "Sending…", done: "Thank you. We'll reply within 24 hours.", fail: "Could not send. Please try again shortly.",
         ctx: "Dates you were viewing" },
-  ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。2〜3営業日以内にご連絡いたします。", cta: "ご質問・ご相談はこちら",
+  ja: { lead: "yah.homes は福岡で2棟を運営しています。ご不明な点は直接お答えします。24時間以内にご連絡いたします。", cta: "ご質問・ご相談はこちら",
         title: "ご質問・ご相談", name: "お名前", email: "メールアドレス", message: "ご質問内容", send: "送信する", close: "閉じる",
-        sending: "送信中…", done: "ありがとうございます。2〜3営業日以内にご連絡いたします。", fail: "送信に失敗しました。時間をおいてお試しください。",
+        sending: "送信中…", done: "ありがとうございます。24時間以内にご連絡いたします。", fail: "送信に失敗しました。時間をおいてお試しください。",
         ctx: "ご覧の日程" },
-  ko: { lead: "yah.homes는 후쿠오카에서 2개 동을 운영하고 있습니다. 궁금한 점은 직접 답변드리며, 2~3영업일 이내에 연락드립니다.", cta: "문의하기",
+  ko: { lead: "yah.homes는 후쿠오카에서 2개 동을 운영하고 있습니다. 궁금한 점은 직접 답변드리며, 24시간 이내에 연락드립니다.", cta: "문의하기",
         title: "문의하기", name: "성함", email: "이메일", message: "문의 내용", send: "보내기", close: "닫기",
-        sending: "전송 중…", done: "감사합니다. 2~3영업일 이내에 연락드리겠습니다.", fail: "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        sending: "전송 중…", done: "감사합니다. 24시간 이내에 연락드리겠습니다.", fail: "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         ctx: "보고 계신 날짜" },
-  zh: { lead: "yah.homes 在福岡經營兩棟房源。有任何疑問我們會親自回覆，並於2〜3個工作天內與您聯繫。", cta: "諮詢與提問",
+  zh: { lead: "yah.homes 在福岡經營兩棟房源。有任何疑問我們會親自回覆，並於24小時內與您聯繫。", cta: "諮詢與提問",
         title: "諮詢與提問", name: "姓名", email: "電子郵件", message: "問題內容", send: "送出", close: "關閉",
-        sending: "傳送中…", done: "感謝您的來訊，我們將於2〜3個工作天內回覆。", fail: "傳送失敗，請稍後再試。",
+        sending: "傳送中…", done: "感謝您的來訊，我們將於24小時內回覆。", fail: "傳送失敗，請稍後再試。",
         ctx: "您查看的日期" },
-  th: { lead: "yah.homes ดูแลบ้าน 2 หลังในฟุกุโอกะ หากมีข้อสงสัยเราตอบเองและจะติดต่อกลับภายใน 2–3 วันทำการ", cta: "ติดต่อสอบถาม",
+  th: { lead: "yah.homes ดูแลบ้าน 2 หลังในฟุกุโอกะ หากมีข้อสงสัยเราตอบเองและจะติดต่อกลับภายใน 24 ชั่วโมง", cta: "ติดต่อสอบถาม",
         title: "ติดต่อสอบถาม", name: "ชื่อ", email: "อีเมล", message: "คำถามของคุณ", send: "ส่ง", close: "ปิด",
-        sending: "กำลังส่ง…", done: "ขอบคุณค่ะ เราจะติดต่อกลับภายใน 2–3 วันทำการ", fail: "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        sending: "กำลังส่ง…", done: "ขอบคุณค่ะ เราจะติดต่อกลับภายใน 24 ชั่วโมง", fail: "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
         ctx: "วันที่คุณกำลังดู" },
 }[lang];
 const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/contact";
@@ -126,12 +156,15 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
 
-// カレンダー2ヶ月分の見出しラベル（言語別表記をビルド時に確定）
+// カレンダー見出しラベル（言語別表記をビルド時に確定）
+// 表示しうる全月ぶん（今月〜12ヶ月後）を "YYYY-M" キーで持つ。
+// 月名表記の言語（en/th）では月番号の文字列置換が成立しないため、実体を全て渡す。
 const now = new Date();
-const monthLabels = [0, 1].map((i) => {
+const monthLabels: Record<string, string> = {};
+for (let i = 0; i <= 13; i++) {
   const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-  return { y: d.getFullYear(), m: d.getMonth(), label: t.monthLabel(d.getFullYear(), d.getMonth()) };
-});
+  monthLabels[`${d.getFullYear()}-${d.getMonth()}`] = t.monthLabel(d.getFullYear(), d.getMonth());
+}
 // 「2泊4名」表記のテンプレ（{n}/{g} を置換）
 const noteTemplate = t.totalNote(-1, -2).replace("-1", "{n}").replace("-2", "{g}");
 
@@ -141,14 +174,28 @@ const strings = {
   searching: t.searching,
   soldOut: t.soldOut,
   soldOutHint: t.soldOutHint,
+  minStay: t.minStay,
+  upstreamFailed: t.upstreamFailed,
+  tooLate: t.tooLate,
+  tooFar: t.tooFar,
+  priceFrom: t.priceFrom,
+  overCapacity: t.overCapacity,
+  overCapacityHint: t.overCapacityHint,
   totalLabel: t.totalLabel,
   approx: t.approx,
   errorFetch: t.errorFetch,
+  loadingSlow: t.loadingSlow,
+  loadingTooLong: t.loadingTooLong,
+  retry: t.retry,
+  conditionsChanged: t.conditionsChanged,
   proceed: t.proceed,
   monthLabels,
   noteTemplate,
   noExtra: PRICE_NOTE.noExtra,
   directNote: PRICE_NOTE.direct,
+  recovery: RECOVERY,
+  nightsUnit: RECOVERY.nights(-1).replace("-1", "{n}"),
+  houseNames: { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago", test: "yah.homes test1（検証用）" },
   nightsLabel: t.nights(-1).replace("-1", "{n}"),
   dow: t.dow,
   fxCode: t.fxCode,
@@ -216,6 +263,7 @@ const strings = {
               <div class="bk-house-head">
                 <h2 class="bk-house-name">{h.name}</h2>
                 <p class="bk-house-meta">{h.area}</p>
+                <p class="bk-house-price" data-pricefrom={h.key} hidden></p>
                 <table class="bk-house-spec">
                   <tbody>
                     {specRows(h.key).map(([label, value]) => (
@@ -233,14 +281,14 @@ const strings = {
       </div>
 
       <!-- 信頼ブロック（迷って下までスクロールした人向け・売り込みにはしない） -->
-      <aside class="bk-host">
+      <div class="bk-host">
         {OWNER_PHOTO && <img class="bk-host-photo" src={OWNER_PHOTO} alt="" width="80" height="80" loading="lazy" />}
         <div class="bk-host-body">
           <p class="bk-host-name">{HOST_NAME}<span class="bk-host-role">{HOST_ROLE}</span></p>
           <p class="bk-host-text">{HOST_COPY.lead}</p>
           <button type="button" class="bk-host-link" id="bk-ask">{HOST_COPY.cta}</button>
         </div>
-      </aside>
+      </div>
 
       <!-- 問い合わせダイアログ（ページ遷移せず、選択中の日程を保持したまま質問できる） -->
       <dialog class="bk-dialog" id="bk-dialog">
@@ -265,7 +313,7 @@ const strings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
+<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -296,8 +344,13 @@ const strings = {
     state.monthOffset = Math.max(0, Math.min(MAX_OFFSET, diff));
   }
 
+  // 入ってきた prop=（物件ページや広告からの棟指定）は日付選択後も保持する
+  const initialProp = new URLSearchParams(location.search).get("prop");
+  const focusedProp = HOUSES.some((h) => h.key === initialProp) ? initialProp : "";
+
   function syncUrl() {
     const p = new URLSearchParams();
+    if (focusedProp) p.set("prop", focusedProp);
     if (state.checkin) p.set("checkin", state.checkin);
     if (state.checkout) p.set("checkout", state.checkout);
     p.set("guests", String(state.guests));
@@ -310,11 +363,7 @@ const strings = {
   };
 
   // ── カレンダー描画（2ヶ月・満室と過去はグレーアウト） ──
-  const monthLabel = (y, mo) => {
-    const t0 = strings.monthLabels[0];
-    // 既定ラベルの年・月を差し替えて言語表記を維持
-    return t0.label.replace(String(t0.y), String(y)).replace(new RegExp(`(?<![0-9])${t0.m + 1}(?![0-9])`), String(mo + 1));
-  };
+  const monthLabel = (y, mo) => strings.monthLabels[`${y}-${mo}`] ?? `${y}-${String(mo + 1).padStart(2, "0")}`;
 
   function renderCal() {
     const base = new Date(today.getFullYear(), today.getMonth() + state.monthOffset, 1);
@@ -328,13 +377,20 @@ const strings = {
       for (let s = 0; s < startDow; s++) cells += '<span class="cal-cell cal-empty"></span>';
       for (let d = 1; d <= days; d++) {
         const k = key(y, mo, d);
-        const past = k < todayKey;
+        // 締切は「チェックイン前日23:59」＝選べる最短のチェックインは明日。
+        // チェックアウトも必ずその翌日以降なので、今日はどの用途でも選べない。
+        // 選ばせてから「期限切れ」と言うより、最初から閉じるほうが親切
+        const past = k <= todayKey;
         const closed = past || !anyAvail(k);
         const isIn = state.checkin === k;
         const isOut = state.checkout === k;
         const inRange = state.checkin && state.checkout && k > state.checkin && k < state.checkout;
         const cls = ["cal-cell", closed ? "cal-closed" : "cal-open", isIn || isOut ? "cal-sel" : "", inRange ? "cal-range" : ""].filter(Boolean).join(" ");
-        cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}>${d}</button>`;
+        // 空いている日には、その日の最安デイリー料金を添える（Beds24 のOTAと同じ値）。
+        // 桁が入らないので千円単位の略記にする（¥45k）。正確な総額は日程選択後に出る
+        const pr = !closed ? minPriceFor(k) : null;
+        const prTag = pr ? `<span class="cal-price">¥${pr >= 100000 ? Math.round(pr / 1000) : (pr / 1000).toFixed(pr % 1000 ? 1 : 0)}k</span>` : "";
+        cells += `<button type="button" class="${cls}" data-date="${k}"${closed ? " disabled" : ""}><span class="cal-day">${d}</span>${prTag}</button>`;
       }
       const head = strings.dow.map((w) => `<span class="cal-dow">${w}</span>`).join("");
       const label = monthLabel(y, mo);
@@ -393,65 +449,302 @@ const strings = {
     });
   }
 
-  // ── 見積り（両棟並列） ──
-  async function loadQuotes() {
-    const nights = nightsBetween(state.checkin, state.checkout);
-    HOUSES.forEach((h) => {
-      document.querySelector(`[data-quote="${h.key}"]`).innerHTML = `<p class="bk-quote-idle">${strings.searching}</p>`;
-    });
-    await Promise.all(HOUSES.map(async (h) => {
-      const box = document.querySelector(`[data-quote="${h.key}"]`);
-      if (state.guests > h.capacity) {
-        box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
-        return;
-      }
-      try {
-        const url = `${AVAIL_ENDPOINT}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
-        const j = await fetch(url).then((r) => r.json());
-        if (!j.ok) throw new Error("quote");
-        if (!j.available) {
-          track("availability_sold_out", { prop: h.key, checkin: state.checkin, nights, guests: state.guests });
-          box.innerHTML = `<p class="bk-quote-out">${strings.soldOut}</p><p class="bk-quote-hint">${strings.soldOutHint}</p>`;
-          return;
-        }
-        const fx = strings.fxCode === "JPY" ? "" :
-          `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(j.total * strings.fxRate).toLocaleString("en-US")}</p>`;
-        const href = `${CHECKOUT_PATH}?prop=${h.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
-        track("availability_result_viewed", {
-          prop: h.key, checkin: state.checkin, nights, guests: state.guests, total: j.total, currency: "JPY",
-        });
-        box.innerHTML = `
-          <p class="bk-quote-label">${strings.totalLabel}</p>
-          <p class="bk-quote-total">${yen(j.total)}</p>
-          ${fx}
-          <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
-          <p class="bk-quote-note">${strings.noExtra}</p>
-          <a class="bk-cta" href="${href}">${strings.proceed}</a>
-          <p class="bk-quote-direct">${strings.directNote}</p>`;
-        box.querySelector(".bk-cta")?.addEventListener("click", () => {
-          window.gtag?.("event", "begin_checkout", {
-            currency: "JPY", value: j.total, lang,
-            items: [{ item_id: h.key, item_name: `yah.homes ${h.key}`, price: j.total, quantity: 1 }],
-          });
-        });
-      } catch {
-        box.innerHTML = `<p class="bk-quote-hint">${strings.errorFetch}</p>`;
-      }
-    }));
+  // ── 空室・見積りの取得（統合API・重複排除・中断・stale応答の破棄） ──
+  // 検索条件は checkin:checkout:guests[:prop] で一意に扱う。
+  const keyOf = (ci, co, g, prop) => `${ci}:${co}:${g}${prop ? `:${prop}` : ""}`;
+  const inflight = new Map();   // searchKey -> { promise, abort }
+  let activeQuoteKey = null;    // 画面が待っている最新の検索キー（これ以外の応答は捨てる）
+  let settledQuoteKey = null;   // 取得中 or 描画済みのキー（同一条件の二重発火を止める）
+
+  function availUrl(ci, co, g, prop) {
+    return prop
+      ? `${AVAIL_ENDPOINT}?prop=${prop}&checkin=${ci}&checkout=${co}&guests=${g}`
+      : `${AVAIL_ENDPOINT}?props=${PROPS_PARAM}&checkin=${ci}&checkout=${co}&guests=${g}`;
   }
 
-  // ── 空室先読み（表示中の2ヶ月分・両棟） ──
+  // 同じ検索が進行中なら既存のPromiseを共有し、二重に発行しない。
+  function fetchAvailability(ci, co, g, prop) {
+    const key = keyOf(ci, co, g, prop);
+    const running = inflight.get(key);
+    if (running) {
+      track("availability_request_deduped", { search_key: key });
+      return running.promise;
+    }
+    const abort = new AbortController();
+    const t0 = performance.now();
+    track("availability_requested", { search_key: key, properties_count: prop ? 1 : 2 });
+    const promise = fetch(availUrl(ci, co, g, prop), { signal: abort.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const list = j.properties ?? (j.ok ? [j] : []);
+        track("availability_response", {
+          duration_ms: Math.round(performance.now() - t0),
+          cache_status: j.cacheStatus ?? "unknown",
+          result_summary: list.map((x) => `${x.id}:${x.available ? "open" : "full"}`).join(","),
+        });
+        return j;
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") track("availability_request_aborted", { reason: "superseded" });
+        else track("availability_failed", { error_type: err?.name || "network", duration_ms: Math.round(performance.now() - t0) });
+        throw err;
+      })
+      .finally(() => { if (inflight.get(key)?.abort === abort) inflight.delete(key); });
+    inflight.set(key, { promise, abort });
+    return promise;
+  }
+
+  // 条件が変わったら、前回の通信を中断して最新だけを有効にする。
+  function abortOthers(exceptKey) {
+    inflight.forEach((v, k) => { if (k !== exceptKey) v.abort.abort(); });
+  }
+
+  let quoteTimers = [];
+  const clearQuoteTimers = () => { quoteTimers.forEach(clearTimeout); quoteTimers = []; };
+
+  const SKELETON = `<div class="bk-skel"><span class="bk-skel-line bk-skel-sm"></span><span class="bk-skel-line bk-skel-lg"></span><span class="bk-skel-line"></span></div>`;
+
+  // 失敗・遅延時。古い料金で予約できないよう、CTAは出さず再試行だけを出す。
+  function showRetry(house, message) {
+    const box = document.querySelector(`[data-quote="${house.key}"]`);
+    if (!box) return;
+    box.innerHTML = `<p class="bk-quote-hint">${message}</p>
+      <button type="button" class="bk-retry" data-retry="${house.key}">${strings.retry}</button>`;
+    box.querySelector("[data-retry]")?.addEventListener("click", () => { settledQuoteKey = null; loadQuotes(true); });
+  }
+
+  function renderQuote(house, p, nights, byId) {
+    const box = document.querySelector(`[data-quote="${house.key}"]`);
+    if (!box) return;
+    // 定員超過は「満室」ではない。日付を変えても解決しないので、人数の上限を伝える。
+    if (state.guests > house.capacity) {
+      box.innerHTML = `<p class="bk-quote-out">${strings.overCapacity.replace("{n}", house.capacity)}</p>
+        <p class="bk-quote-hint">${strings.overCapacityHint.replace("{n}", house.capacity)}</p>`;
+      return;
+    }
+    if (!p || !p.available) {
+      // 満室・最低泊数割れ・API障害を1つに畳まない。理由が違えば次の行動も違う
+      const why = p?.reason ?? "";
+      track("sold_out_viewed", { prop: house.key, checkin: state.checkin, nights, guests: state.guests, reason: why || "unknown" });
+      if (why === "min_stay" && p?.minStay) {
+        box.innerHTML = `<p class="bk-quote-out">${strings.minStay.replace("{n}", String(p.minStay))}</p>`;
+        return;
+      }
+      if (why === "too_late") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.tooLate}</p>`;
+        return;
+      }
+      if (why === "too_far") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.tooFar}</p>`;
+        return;
+      }
+      if (why === "upstream_failed") {
+        box.innerHTML = `<p class="bk-quote-out">${strings.upstreamFailed}</p>`;
+        return;
+      }
+      box.innerHTML = `<p class="bk-quote-out">${strings.recovery.soldOutTitle}</p>
+        <p class="bk-quote-hint" data-recovery="${house.key}">…</p>`;
+      const other = HOUSES.find((h) => h.key !== house.key);
+      renderRecovery(house, nights, other ? byId[other.key] : null);
+      return;
+    }
+    const fx = strings.fxCode === "JPY" ? "" :
+      `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(p.total * strings.fxRate).toLocaleString("en-US")}</p>`;
+    const href = `${CHECKOUT_PATH}?prop=${house.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+    track("availability_result_viewed", {
+      prop: house.key, checkin: state.checkin, nights, guests: state.guests, total: p.total, currency: "JPY",
+    });
+    box.innerHTML = `
+      <p class="bk-quote-label">${strings.totalLabel}</p>
+      <p class="bk-quote-total">${yen(p.total)}</p>
+      ${fx}
+      <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
+      <p class="bk-quote-note">${strings.noExtra}</p>
+      <p class="bk-quote-direct">${strings.directNote}</p>
+      <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
+    track("official_value_viewed", { screen: "availability_result", prop: house.key, checkin: state.checkin });
+    box.querySelector(".bk-cta")?.addEventListener("click", () => {
+      window.gtag?.("event", "begin_checkout", {
+        currency: "JPY", value: p.total, lang,
+        items: [{ item_id: house.key, item_name: `yah.homes ${house.key}`, price: p.total, quantity: 1 }],
+      });
+    });
+  }
+
+  // 2棟ぶんを統合APIから1回で取得する。
+  async function loadQuotes(force = false) {
+    if (!state.checkin || !state.checkout) return;
+    const key = keyOf(state.checkin, state.checkout, state.guests);
+    if (!force && key === settledQuoteKey) return; // 同一条件では再発行しない
+    const changed = settledQuoteKey !== null && settledQuoteKey !== key;
+    settledQuoteKey = key;
+    activeQuoteKey = key;
+    abortOthers(key);
+    clearQuoteTimers();
+
+    const nights = nightsBetween(state.checkin, state.checkout);
+    HOUSES.forEach((h) => {
+      const box = document.querySelector(`[data-quote="${h.key}"]`);
+      if (box) box.innerHTML = `${SKELETON}<p class="bk-quote-hint" data-progress="${h.key}">${changed ? strings.conditionsChanged : strings.searching}</p>`;
+    });
+    // 1.5秒で進捗を説明、4秒で再試行を提示（自動連打はしない）
+    quoteTimers.push(setTimeout(() => {
+      if (activeQuoteKey !== key) return;
+      document.querySelectorAll("[data-progress]").forEach((el) => { el.textContent = strings.loadingSlow; });
+    }, 1500));
+    quoteTimers.push(setTimeout(() => {
+      if (activeQuoteKey !== key) return;
+      HOUSES.forEach((h) => showRetry(h, strings.loadingTooLong));
+    }, 4000));
+
+    try {
+      const j = await fetchAvailability(state.checkin, state.checkout, state.guests, null);
+      if (activeQuoteKey !== key) return; // 古い応答は画面へ反映しない
+      clearQuoteTimers();
+      if (!j.ok) throw new Error("quote");
+      const byId = Object.fromEntries((j.properties ?? []).map((x) => [x.id, x]));
+      HOUSES.forEach((h) => renderQuote(h, byId[h.key], nights, byId));
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (activeQuoteKey !== key) return;
+      clearQuoteTimers();
+      settledQuoteKey = null; // 再試行できるようにする
+      HOUSES.forEach((h) => showRetry(h, strings.errorFetch));
+    }
+  }
+
+  // ── 満室時の回復導線: ①同日程で別棟が空いていれば具体提案 ②なければ近い空室日を最大3件 ──
+  /** その日の最安デイリー料金（表示対象の実物件のみ・検証用は除く） */
+  function minPriceFor(dateKey) {
+    if (!state.prices) return null;
+    let min = null;
+    for (const h of HOUSES) {
+      if (h.key === "test") continue;
+      if (state.avail?.[h.key]?.[dateKey] !== true) continue;
+      const p = state.prices[h.key]?.[dateKey];
+      if (p && (!min || p < min)) min = p;
+    }
+    return min;
+  }
+
+  /** 物件カードの「¥X〜/泊」。向こう13ヶ月の空室日の最安値＝実売価格からの自動導出 */
+  function renderPriceFrom() {
+    for (const h of HOUSES) {
+      const box = document.querySelector(`[data-pricefrom="${h.key}"]`);
+      if (!box) continue;
+      const prices = Object.entries(state.prices?.[h.key] ?? {})
+        .filter(([d]) => state.avail?.[h.key]?.[d] === true)
+        .map(([, v]) => v);
+      if (!prices.length) continue;
+      const min = Math.min(...prices);
+      box.innerHTML = `${strings.priceFrom.replace("{v}", `¥${min.toLocaleString("en-US")}`)}`;
+      box.hidden = false;
+    }
+  }
+
+  const availFor = (propKey, ci, n) => {
+    if (!state.avail?.[propKey]) return false;
+    for (let i = 0; i < n; i++) {
+      if (state.avail[propKey][addDays(ci, i)] !== true) return false;
+    }
+    return true;
+  };
+
+  function nearbyOptions(preferProp, nights, max = 3) {
+    const out = [];
+    for (let d = 1; d <= 21 && out.length < max; d++) {
+      for (const sign of [1, -1]) {
+        const ci = addDays(state.checkin, d * sign);
+        if (ci < todayKey) continue;
+        // 元の棟を優先し、次にもう一方
+        // 検証用物件は回復導線に混ぜない（名前も価格も本物ではない）
+        for (const key of [preferProp, ...HOUSES.map((h) => h.key).filter((k) => k !== preferProp)].filter((k) => k !== "test")) {
+          if (out.length >= max) break;
+          if (out.some((o) => o.checkin === ci && o.prop === key)) continue;
+          if (availFor(key, ci, nights)) out.push({ prop: key, checkin: ci, checkout: addDays(ci, nights), offset: d * sign });
+        }
+      }
+    }
+    return out.slice(0, max);
+  }
+
+  async function renderRecovery(house, nights, otherQuote) {
+    const box = document.querySelector(`[data-recovery="${house.key}"]`);
+    if (!box) return;
+    const other = HOUSES.find((h) => h.key !== house.key);
+
+    // ① 同日程で別棟が空いているか — 統合レスポンスに入っているので追加通信は不要
+    if (other && state.guests <= other.capacity) {
+      try {
+        const q = otherQuote ?? {};
+        if (q.available) {
+          const href = `${CHECKOUT_PATH}?prop=${other.key}&checkin=${state.checkin}&checkout=${state.checkout}&guests=${state.guests}`;
+          box.outerHTML = `
+            <div class="bk-recovery">
+              <p class="bk-rec-lead">${strings.recovery.altSame}</p>
+              <p class="bk-rec-house">${strings.houseNames[other.key]}</p>
+              <p class="bk-rec-meta">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
+              <p class="bk-rec-total">${yen(q.total)}</p>
+              <a class="bk-cta bk-rec-cta" href="${href}" data-alt="${other.key}">${strings.recovery.altCta}</a>
+            </div>`;
+          track("alternative_property_shown", { from: house.key, to: other.key, checkin: state.checkin, total: q.total });
+          document.querySelector(`[data-alt="${other.key}"]`)?.addEventListener("click", () => {
+            track("alternative_property_selected", { from: house.key, to: other.key, checkin: state.checkin });
+          });
+          return;
+        }
+      } catch { /* 続けて近い日程を提案する */ }
+    }
+
+    // ② 近い空室日（最大3件）
+    const opts = nearbyOptions(house.key, nights);
+    if (!opts.length) {
+      box.textContent = strings.soldOutHint;
+      return;
+    }
+    const quotes = await Promise.all(opts.map(async (o) => {
+      try {
+        const q = await fetchAvailability(o.checkin, o.checkout, state.guests, o.prop);
+        return q.ok && q.available ? { ...o, total: q.total } : null;
+      } catch { return null; }
+    }));
+    const valid = quotes.filter(Boolean);
+    if (!valid.length) { box.textContent = strings.soldOutHint; return; }
+
+    box.outerHTML = `
+      <div class="bk-recovery">
+        <p class="bk-rec-lead">${strings.recovery.nearTitle}</p>
+        ${valid.map((o) => `
+          <a class="bk-rec-option" href="${CHECKOUT_PATH}?prop=${o.prop}&checkin=${o.checkin}&checkout=${o.checkout}&guests=${state.guests}"
+             data-altdate="${o.prop}_${o.checkin}" data-offset="${o.offset}">
+            <span class="bk-rec-date">${o.checkin} 〜 ${o.checkout}</span>
+            <span class="bk-rec-sub">${strings.houseNames[o.prop]} · ${strings.nightsUnit.replace("{n}", nights)}</span>
+            <span class="bk-rec-price">${yen(o.total)}</span>
+          </a>`).join("")}
+      </div>`;
+    track("alternative_dates_shown", { prop: house.key, count: valid.length, checkin: state.checkin });
+    document.querySelectorAll("[data-altdate]").forEach((el) =>
+      el.addEventListener("click", () => {
+        track("alternative_date_selected", {
+          from_prop: house.key, to_prop: el.dataset.altdate.split("_")[0],
+          offset_days: Number(el.dataset.offset),
+        });
+      })
+    );
+  }
+
+  // ── 空室先読み（2棟を統合APIで1回・約13ヶ月分） ──
+  // 完了後は renderCal() のみ。renderAll() を呼ぶと loadQuotes が二重発火する。
   (async () => {
     try {
-      const results = await Promise.all(HOUSES.map(async (h) => {
-        const j = await fetch(`${AVAIL_ENDPOINT}?prop=${h.key}`).then((r) => r.json());
-        return [h.key, j.ok ? j.dates || {} : {}];
-      }));
-      state.avail = Object.fromEntries(results);
+      const j = await fetch(`${AVAIL_ENDPOINT}?props=${PROPS_PARAM}`).then((r) => r.json());
+      state.avail = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.dates || {}])) : null;
+      state.prices = j.ok ? Object.fromEntries((j.properties ?? []).map((x) => [x.id, x.prices || {}])) : null;
+      renderPriceFrom();
     } catch {
       state.avail = null;
     }
-    renderAll();
+    renderCal();
   })();
 
   $("bk-guests").addEventListener("change", (e) => {
@@ -556,7 +849,7 @@ const strings = {
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #888888;
+    color: #666666;
   }
   .bk-field-value {
     font-size: 0.95rem;
@@ -576,7 +869,7 @@ const strings = {
   }
   .bk-hint {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
     margin: 0.75rem 0 1.5rem;
   }
 
@@ -635,14 +928,15 @@ const strings = {
   }
   .bk-cal :global(.cal-dow) {
     font-size: 0.62rem;
-    color: #aaaaaa;
+    color: #666666;
     text-align: center;
     padding: 0.2rem 0;
   }
   .bk-cal :global(.cal-cell) {
     font-size: 0.78rem;
     text-align: center;
-    padding: 0.45rem 0;
+    padding: 0.3rem 0 0.25rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.05rem;
     border: 1px solid transparent;
     border-radius: 3px;
     background: #ffffff;
@@ -678,7 +972,7 @@ const strings = {
     gap: 1.25rem;
     margin-top: 0.75rem;
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-legend i {
     display: inline-block;
@@ -725,16 +1019,19 @@ const strings = {
   }
   .bk-house-body {
     padding: 1.5rem;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    align-items: start;
     gap: 1.5rem;
-    flex-wrap: wrap;
   }
-  @media (max-width: 640px) {
-    .bk-house-body { align-items: stretch; }
-    .bk-quote { text-align: left; }
+  @media (max-width: 860px) {
+    .bk-house-body { grid-template-columns: 1fr; }
   }
+  :global(.cal-day) { line-height: 1.2; }
+  :global(.cal-price) { font-size: 0.56rem; color: #666666; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  :global(.cal-sel .cal-price) { color: rgba(255,255,255,0.75); }
+  :global(.cal-closed .cal-price) { display: none; }
+  .bk-house-price { font-size: 0.88rem; font-weight: 500; color: #111111; margin: 0.3rem 0 0; }
   .bk-house-name {
     font-size: 1.1rem;
     font-weight: 500;
@@ -743,11 +1040,13 @@ const strings = {
   }
   .bk-house-meta {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
     line-height: 1.7;
   }
   .bk-house-spec {
     margin: 0.6rem 0 0;
+    width: 100%;
+    max-width: 320px;
     border-collapse: collapse;
     font-size: 0.8rem;
     line-height: 1.7;
@@ -755,7 +1054,7 @@ const strings = {
   .bk-house-spec th {
     text-align: left;
     font-weight: 400;
-    color: #888888;
+    color: #666666;
     padding: 0.15rem 1.25rem 0.15rem 0;
     white-space: nowrap;
     vertical-align: top;
@@ -766,16 +1065,24 @@ const strings = {
   }
   .bk-quote {
     text-align: right;
-    min-width: 190px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+  }
+  /* 1カラムに折り返したら、上のスペック表と同じ左端に揃える */
+  @media (max-width: 860px) {
+    .bk-quote {
+      text-align: left;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 1.1rem;
+      margin-top: 0.2rem;
+    }
   }
   .bk-quote :global(.bk-quote-label) {
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-quote-total) {
     font-size: 1.5rem;
@@ -786,26 +1093,27 @@ const strings = {
   }
   .bk-quote :global(.bk-quote-fx) {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-quote-note) {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
     margin-top: 0.15rem;
   }
   .bk-quote :global(.bk-quote-idle),
   .bk-quote :global(.bk-quote-hint) {
     font-size: 0.8rem;
-    color: #aaaaaa;
+    color: #666666;
     line-height: 1.7;
   }
   .bk-quote :global(.bk-quote-out) {
     font-size: 0.9rem;
     font-weight: 500;
-    color: #888888;
+    color: #666666;
   }
   .bk-quote :global(.bk-cta) {
-    display: inline-block;
+    display: block;
+    width: 100%;
     margin-top: 0.9rem;
     padding: 0.7rem 1.4rem;
     background: #111111;
@@ -817,9 +1125,85 @@ const strings = {
     text-align: center;
   }
   .bk-quote :global(.bk-cta:hover) { opacity: 0.85; }
+  /* 待機中は料金部分だけを骨格表示にする（写真・定員・設備は即表示のまま） */
+  .bk-quote :global(.bk-skel) { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; margin-bottom: 0.6rem; }
+  .bk-quote :global(.bk-skel-line) {
+    display: block; height: 0.85rem; width: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #f2f2f2 25%, #e8e8e8 37%, #f2f2f2 63%);
+    background-size: 400% 100%; animation: bk-skel 1.4s ease infinite;
+  }
+  .bk-quote :global(.bk-skel-sm) { width: 40%; height: 0.6rem; }
+  .bk-quote :global(.bk-skel-lg) { height: 1.6rem; width: 70%; }
+  @keyframes bk-skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  @media (prefers-reduced-motion: reduce) {
+    .bk-quote :global(.bk-skel-line) { animation: none; }
+  }
+  .bk-quote :global(.bk-retry) {
+    margin-top: 0.7rem; padding: 0.5rem 1.1rem; background: #ffffff; color: #111111;
+    font-family: inherit; font-size: 0.78rem; border: 1px solid #111111; border-radius: 4px; cursor: pointer;
+  }
+  .bk-quote :global(.bk-recovery) {
+    text-align: left;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 0.9rem;
+    margin-top: 0.6rem;
+  }
+  .bk-quote :global(.bk-rec-lead) {
+    font-size: 0.78rem;
+    color: #555555;
+    line-height: 1.7;
+    margin-bottom: 0.5rem;
+  }
+  .bk-quote :global(.bk-rec-house) {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111111;
+  }
+  .bk-quote :global(.bk-rec-meta) {
+    font-size: 0.75rem;
+    color: #666666;
+  }
+  .bk-quote :global(.bk-rec-total) {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: #111111;
+    margin: 0.2rem 0 0.6rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .bk-quote :global(.bk-rec-cta) { display: block; }
+  .bk-quote :global(.bk-rec-option) {
+    display: block;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #d7d7d7;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: border-color 0.2s;
+  }
+  .bk-quote :global(.bk-rec-option:hover) { border-color: #111111; }
+  .bk-quote :global(.bk-rec-date) {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #111111;
+    font-variant-numeric: tabular-nums;
+  }
+  .bk-quote :global(.bk-rec-sub) {
+    display: block;
+    font-size: 0.72rem;
+    color: #666666;
+  }
+  .bk-quote :global(.bk-rec-price) {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #111111;
+    margin-top: 0.2rem;
+    font-variant-numeric: tabular-nums;
+  }
   .bk-quote :global(.bk-quote-direct) {
     font-size: 0.72rem;
-    color: #888888;
+    color: #666666;
     line-height: 1.7;
     margin-top: 0.6rem;
   }
@@ -851,7 +1235,7 @@ const strings = {
   .bk-host-role {
     font-size: 0.75rem;
     font-weight: 400;
-    color: #888888;
+    color: #666666;
     margin-left: 0.6rem;
   }
   .bk-host-text {
@@ -897,7 +1281,7 @@ const strings = {
   }
   .bk-dialog-ctx {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
     margin-bottom: 1rem;
     min-height: 1em;
   }

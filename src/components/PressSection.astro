@@ -2,6 +2,7 @@
 /* Press / Media Coverage — 旧 KiyokawaBooking の Press セクションを
    ブランド準拠（モノクロ）で復活。NewsArticle JSON-LD をビルド時焼き込み。 */
 import { PRESS, pressJsonLd, type PressItem } from "../data/pressData";
+import SectionHeading from "./SectionHeading.astro";
 
 interface Props {
   /** 指定時はその物件のリリースのみ表示。省略時は全件（Home News用） */
@@ -18,9 +19,8 @@ const jsonLd = pressJsonLd(items);
 <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 
 <section class="press" style="background:#f7f7f7;padding:4rem 1.5rem;border-top:1px solid #e8e8e8;">
-  <div style="max-width:720px;margin:0 auto;">
-    <p class="press-label">{label}</p>
-    <h2 class="press-heading">{heading}</h2>
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
+    <SectionHeading num="09" label={label} title={heading} />
     <div style="display:flex;flex-direction:column;gap:1rem;">
       {
         items.map((p) => (
@@ -46,7 +46,7 @@ const jsonLd = pressJsonLd(items);
     font-size: 0.7rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #aaaaaa;
+    color: #666666;
     margin-bottom: 0.75rem;
     font-weight: 500;
   }
@@ -84,7 +84,7 @@ const jsonLd = pressJsonLd(items);
   }
   .press-date {
     font-size: 0.75rem;
-    color: #888888;
+    color: #666666;
     margin-bottom: 0.4rem;
   }
   .press-title {

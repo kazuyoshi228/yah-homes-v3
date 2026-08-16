@@ -1,0 +1,172 @@
+---
+/* /admin/notify-emails — 送信先メールアドレス管理
+   「どの通知が、誰に届くか」を1画面で見る。データは管理者台帳（admin_users）と同じで、
+   ここは通知の観点で並べ替えた別の見え方。編集は Owner のみ（adminUsers API が保証）。
+   noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const USERS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminUsers";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+// 通知の種類。key は admin_users のフィールド名。
+const KINDS = [
+  { key: "notifyBookings", label: "予約・メッセージ", detail: "新規予約／キャンセル／お客様からのメッセージ／Beds24との不整合" },
+  { key: "notifyPartners", label: "パートナー申請", detail: "体験宿泊の申請が届いたとき" },
+  { key: "notifyTeiten", label: "定点観測", detail: "週次の実績レポート" },
+];
+---
+
+<SiteLayout adminNav
+  lang="ja"
+  path="/admin/notify-emails"
+  title="送信先メールアドレス管理 | yah.homes"
+  description="通知メールの宛先"
+  noindex={true}
+  solidNav
+>
+  <section class="ne">
+    <div class="ne-container">
+      <p class="ne-eyebrow">Admin</p>
+      <h1 class="ne-title">送信先メールアドレス管理</h1>
+      <p class="ne-lead">運営側に届く通知メールの宛先です。お客様への送信先はご予約のメールアドレスで、ここでは変えられません。</p>
+
+      <div id="ne-body" hidden>
+        {KINDS.map((k) => (
+          <section class="ne-sec">
+            <h2 class="ne-h2">{k.label}</h2>
+            <p class="ne-detail">{k.detail}</p>
+            <div class="ne-list" data-kind={k.key}>—</div>
+          </section>
+        ))}
+
+        <section class="ne-sec">
+          <h2 class="ne-h2">固定の宛先（画面からは変更できません）</h2>
+          <table class="ne-table">
+            <tbody>
+              <tr><th>差出人</th><td>contact@mail.yah.homes</td></tr>
+              <tr><th>返信先（お客様向けの自動メール）</th><td>no-reply@mail.yah.homes<br /><span class="ne-note">ご返信は My Page のメッセージにお願いする案内にしています。</span></td></tr>
+
+            </tbody>
+          </table>
+        </section>
+
+        <p class="ne-foot">
+          通知の受け取りは、この画面のチェックでそのまま切り替えられます（Owner は全員、Admin は Operator のぶんのみ）。
+          メンバーの追加・削除とロールの変更は <a href="/admin/users/">管理者台帳</a> で行います。
+          いずれの通知も宛先が1件もない場合は、事故を防ぐためオーナー宛に送られます。
+        </p>
+      </div>
+      <p class="ne-status" id="ne-status">読み込み中...</p>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ USERS_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    let items = [], isRoot = false, root = [];
+
+    function render() {
+      document.querySelectorAll("[data-kind]").forEach((box) => {
+        const kind = box.dataset.kind;
+        const on = items.filter((u) => u[kind]);
+        box.innerHTML = items.map((u) => `
+          <label class="ne-row">
+            <input type="checkbox" data-t="${esc(u.email)}" data-k="${kind}" ${u[kind] ? "checked" : ""} ${isRoot ? "" : "disabled"} />
+            <span class="ne-mail">${esc(u.email)}</span>
+            <span class="ne-name">${esc(u.name || "")}</span>
+            <span class="ne-role ne-role-${esc(u.role)}${u.isRootUser ? " is-root" : ""}">${{ owner: "Owner", admin: "Admin", operator: "Operator" }[u.role] ?? esc(u.role)}</span>
+          </label>`).join("") +
+          (on.length ? "" : `<p class="ne-warn">宛先が1件もありません。この通知は安全のためオーナー（${esc(root.join(", "))}）に届きます。</p>`);
+      });
+      document.querySelectorAll("[data-t]").forEach((el) =>
+        el.addEventListener("change", () => save(el.dataset.t, el.dataset.k, el.checked, el)));
+    }
+
+    async function save(target, kind, value, el) {
+      el.disabled = true;
+      const u = items.find((x) => x.email === target);
+      try {
+        const token = await auth.currentUser.getIdToken();
+        // adminUsers は全項目の上書き。他のフラグを落とさないよう現在値ごと送る
+        const body = { email: target, name: u.name, role: u.role,
+          notifyPartners: u.notifyPartners, notifyTeiten: u.notifyTeiten, notifyBookings: u.notifyBookings };
+        body[kind] = value;
+        const r = await fetch(USERS_ENDPOINT, { method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body) });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "save");
+        u[kind] = value;
+        $("ne-status").textContent = "保存しました。";
+        render();
+      } catch {
+        $("ne-status").textContent = "保存できませんでした。";
+        el.checked = !value;
+      }
+      el.disabled = false;
+    }
+
+    async function load() {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(USERS_ENDPOINT, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.status === 401 || r.status === 403) throw new Error("unauthorized");
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "load");
+        items = j.items ?? []; isRoot = !!j.isRoot; root = j.root ?? [];
+        const RANK = { owner: 0, admin: 1, operator: 2 };
+        items.sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.email.localeCompare(b.email));
+        $("ne-body").hidden = false;
+        $("ne-status").textContent = isRoot ? "" : "閲覧のみです（変更は Owner のみ）。";
+        render();
+      } catch (e) {
+        $("ne-status").textContent = e.message === "unauthorized" ? "権限がありません。" : "読み込みに失敗しました。";
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      load();
+    });
+  });
+</script>
+
+<style>
+  .ne { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .ne-container { max-width: 720px; margin: 0 auto; }
+  .ne-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .ne-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .ne-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .ne-sec { margin-bottom: 2.5rem; }
+  .ne-h2 { font-size: 0.95rem; font-weight: 500; color: #111111; margin-bottom: 0.3rem; }
+  .ne-detail { font-size: 0.76rem; color: #666666; line-height: 1.8; margin-bottom: 0.9rem; }
+  .ne-list { border: 1px solid #ececec; border-radius: 6px; }
+  :global(.ne-row) {
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.75rem;
+    padding: 0.7rem 0.9rem; border-bottom: 1px solid #f4f4f4; font-size: 0.82rem; color: #111111;
+  }
+  :global(.ne-row:last-child) { border-bottom: 0; }
+  :global(.ne-name) { font-size: 0.76rem; color: #666666; }
+  :global(.ne-role) { font-size: 0.68rem; color: #666666; border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.15rem 0.55rem; }
+  :global(.ne-role-owner) { color: #ffffff; background: #111111; border-color: #111111; }
+  :global(.ne-role-admin) { color: #111111; background: #e8e8e8; border-color: #e8e8e8; }
+  :global(.ne-warn) { font-size: 0.76rem; color: #b42318; line-height: 1.8; padding: 0.7rem 0.9rem; margin: 0; }
+  .ne-table { width: 100%; border-collapse: collapse; }
+  .ne-table th, .ne-table td { text-align: left; font-size: 0.8rem; color: #333333; padding: 0.7rem 0; border-bottom: 1px solid #f2f2f2; vertical-align: top; line-height: 1.8; }
+  .ne-table th { width: 42%; font-weight: 400; color: #666666; }
+  .ne-note { display: block; font-size: 0.72rem; color: #666666; margin-top: 0.2rem; }
+  .ne-foot { font-size: 0.78rem; color: #777777; line-height: 1.9; }
+  .ne-foot a { color: #111111; }
+  .ne-status { font-size: 0.78rem; color: #666666; margin-top: 1.5rem; }
+</style>

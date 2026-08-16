@@ -3,46 +3,51 @@
    稼働中の画面と、枠だけの画面を明示的に分ける。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 
-const ROOT_ONLY = "kazuyoshi.yamada@bonfire.co.jp";
+/* SSoT＝唯一の正（ここを直すと全系統に反映される） ／ 運営管理＝日々の運用画面 ／
+   バッジ: Admin＝オーナーのみ・Operator＝管理者台帳のメンバー（運営会社を含む） */
+/* バッジ＝そのカードが見える最低ロール。二択判定だと owner が Operator 表示に落ちる（発注者指摘） */
+const BADGE = (role: string | undefined) => {
+  const r = role ?? "operator";
+  return { label: r === "owner" ? "Owner" : r === "admin" ? "Admin" : "Operator",
+    cls: r === "owner" ? "am-badge-owner" : r === "admin" ? "am-badge-admin" : "am-badge-operator" };
+};
 
-const LIVE = [
-  {
-    href: "/admin/bookings/",
-    title: "直販予約 管理",
-    desc: "自社サイト経由の予約を一覧で確認します。要対応（保留中）の絞り込み、対応メモ、返金の実行ができます。",
-    access: "管理者台帳のメンバー（返金はオーナーのみ）",
-  },
-  {
-    href: "/admin/partners/",
-    title: "パートナー申請 管理",
-    desc: "インフルエンサー向けページからの申請を管理します。ステータス変更で確定メールが自動送信されます。",
-    access: "管理者台帳のメンバー",
-  },
-  {
-    href: "/admin/properties/",
-    title: "物件ファクト管理（SSoT）",
-    desc: "定員・寝室・ベッド構成・水回り・Airbnb評価の唯一の正。ここを直すとサイト全体の表示が変わります（反映には再ビルドが必要）。",
-    access: "オーナーのみ",
-    owner: true,
-  },
-  {
-    href: "/admin/users/",
-    title: "管理者台帳",
-    desc: "管理画面にアクセスできるメンバーと、通知メール（申請・定点観測・予約）の受け取り設定を管理します。",
-    access: "閲覧は台帳メンバー・編集はオーナーのみ",
-  },
+const SSOT = [
+  { href: "/admin/properties/", title: "物件ファクト管理", role: "owner" },
+  { href: "/admin/secrets/", title: "セキュリティ鍵番号管理", role: "admin" },
+  { href: "/admin/templates/", title: "定型メール管理", role: "admin" },
+  { href: "/admin/internal-mails/", title: "社内向け定型メール", role: "admin" },
+  { href: "/legal/terms/", title: "宿泊約款・ハウスルール", role: "owner" },
+  { href: "/admin/users/", title: "管理者台帳", role: "admin" },   // Admin は Operator の追加・編集が可能（台帳ページ側で制限）
+];
+const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+const SUPPORT = [
+  { href: "/admin/messages/", title: "メッセージ" },
+  { href: "/admin/bookings/", title: "直販予約 管理" },
+];
+const OPERATOR = [
+  { href: "/admin/partners/", title: "パートナー申請 管理" },
+  { href: "/admin/mail-preview/", title: "メールテンプレート" },
+  { href: "/admin/notify-emails/", title: "送信先メールアドレス管理" },
+];
+const SYSTEM = [
+  { href: "/admin/manual/", title: "操作マニュアル", role: "operator" },
+  { href: "/admin/mail-log/", title: "メール送信ログ", role: "operator" },
+  { href: "/admin/health/", title: "システムヘルス", role: "owner" },
+  { href: "/admin/audit/", title: "変更履歴", role: "owner" },
+  { href: "/admin/specs/", title: "システム仕様書", role: "owner" },
 ];
 
-const FRAME = [
-  { href: "/admin/dashboard/", title: "Dashboard", desc: "枠のみ（実データ未接続）" },
-  { href: "/admin/inbox/", title: "Inbox", desc: "枠のみ（ゲスト連絡はBeds24の受信箱に集約）" },
-  { href: "/admin/instagram/", title: "Instagram", desc: "枠のみ" },
-  { href: "/admin/analytics/", title: "Analytics", desc: "枠のみ（現在はGA4を直接確認）" },
-  { href: "/admin/docs/", title: "Docs", desc: "枠のみ" },
-];
 ---
 
-<SiteLayout
+<SiteLayout adminNav
   lang="ja"
   path="/admin/menu"
   title="管理メニュー | yah.homes"
@@ -53,76 +58,135 @@ const FRAME = [
   <section class="am">
     <div class="am-container">
       <p class="am-eyebrow">Admin</p>
-      <h1 class="am-title">管理メニュー</h1>
-      <p class="am-lead">
-        各画面は Google アカウントでのログインが必要です。アクセスできるメンバーは
-        <a href="/admin/users/">管理者台帳</a> で管理します。
-      </p>
-
-      <h2 class="am-h2">稼働中</h2>
-      <div class="am-grid">
-        {LIVE.map((it) => (
-          <a class="am-card" href={it.href}>
-            <h3 class="am-card-title">
-              {it.title}
-              {it.owner && <span class="am-owner">オーナー限定</span>}
-            </h3>
-            <p class="am-card-desc">{it.desc}</p>
-            <p class="am-card-access">{it.access}</p>
+      <div class="am-head">
+        <h1 class="am-title">管理メニュー</h1>
+        <div class="am-me" id="am-me" hidden>
+          <span class="am-email" id="am-email"></span>
+          <button type="button" class="am-out" id="am-out">ログアウト</button>
+        </div>
+      </div>
+      <div id="am-body" hidden>
+      <h2 class="am-h2" data-sec="cs">Customer Support</h2>
+      <div class="am-grid" data-secgrid="cs">
+        {SUPPORT.map((it) => (
+          <a class="am-card am-card-dark" href={it.href} data-role="operator">
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
           </a>
         ))}
       </div>
 
-      <h2 class="am-h2">未実装（枠のみ）</h2>
-      <ul class="am-frame">
-        {FRAME.map((it) => (
-          <li>
-            <a href={it.href}>{it.title}</a>
-            <span>{it.desc}</span>
-          </li>
+      <h2 class="am-h2" data-sec="ssot">SSoT</h2>
+      <div class="am-grid" data-secgrid="ssot">
+        {SSOT.map((it) => (
+          <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
+            </h3>
+          </a>
         ))}
-      </ul>
+      </div>
 
-      <p class="am-note">
-        物件ファクト管理は {ROOT_ONLY} のみが操作できます（サイト全体の表示に直結するため）。
-      </p>
+      <h2 class="am-h2" data-sec="ops">運営管理</h2>
+      <div class="am-grid" data-secgrid="ops">
+        {OPERATOR.map((it) => (
+          <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
+            </h3>
+          </a>
+        ))}
+      </div>
+
+      <h2 class="am-h2" data-sec="sys">システム管理</h2>
+      <div class="am-grid" data-secgrid="sys">
+        {SYSTEM.map((it) => (
+          <a class="am-card" href={it.href} data-role={it.role ?? "admin"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", BADGE(it.role ?? "admin").cls]}>{BADGE(it.role ?? "admin").label}</span>
+            </h3>
+          </a>
+        ))}
+      </div>
+      </div>
     </div>
   </section>
 </SiteLayout>
 
+<script define:vars={{ OPS_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, signOut, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+      document.getElementById("am-email").textContent = user.email ?? "";
+      document.getElementById("am-me").hidden = false;
+      document.getElementById("am-out").addEventListener("click", () => signOut(auth).then(() => location.replace("/admin/")));
+      // ロールは3段階（operator < admin < owner）。カードの data-role 以上のロールだけに見せる
+      const RANK = { operator: 1, admin: 2, owner: 3 };
+      let myRank = 1;
+      try {
+        const token = await user.getIdToken();
+        const r = await fetch(`${OPS_ENDPOINT}?view=me`, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.status === 401) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+        const j = await r.json();
+        myRank = RANK[j.role] ?? (j.isAdmin ? 2 : 1);
+      } catch { /* 判定できないときは OPERATOR 相当に倒す（見せすぎない） */ }
+
+      // 権限外のカードを取り除き、空になったセクションは見出しごと隠す
+      document.querySelectorAll("[data-role]").forEach((el) => {
+        if ((RANK[el.dataset.role] ?? 2) > myRank) el.remove();
+      });
+      document.querySelectorAll("[data-secgrid]").forEach((grid) => {
+        const head = document.querySelector(`[data-sec="${grid.dataset.secgrid}"]`);
+        if (!grid.querySelector(".am-card")) { grid.remove(); head?.remove(); }
+      });
+      document.getElementById("am-body").hidden = false;
+    });
+  });
+</script>
+
 <style>
   .am { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
   .am-container { max-width: 880px; margin: 0 auto; }
-  .am-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #aaaaaa; margin-bottom: 1rem; }
+  .am-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .am-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .am-me { display: flex; align-items: center; gap: 0.9rem; }
+  .am-email { font-size: 0.76rem; color: #666666; word-break: break-all; }
+  .am-out {
+    font-family: inherit; font-size: 0.72rem; color: #666666; background: none;
+    border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.3rem 0.75rem; cursor: pointer; white-space: nowrap;
+  }
+  .am-out:hover { color: #111111; border-color: #111111; }
   .am-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
-  .am-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
-  .am-lead a { color: #111111; }
   .am-h2 {
-    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888888;
+    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #666666;
     margin: 2rem 0 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eeeeee;
   }
+  .am-h2:first-of-type { margin-top: 0; }
   .am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
   .am-card {
-    display: block; border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.4rem;
+    display: block; border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.1rem 1.3rem;
     text-decoration: none; transition: border-color 0.2s;
   }
   .am-card:hover { border-color: #111111; }
+  .am-card-dark { background: #111111; border-color: #111111; }
+  .am-card-dark:hover { border-color: #555555; }
+  .am-card-dark .am-card-title { color: #ffffff; }
+  .am-card-dark .am-badge-operator { color: rgba(255,255,255,0.75); background: none; border-color: rgba(255,255,255,0.35); }
   .am-card-title {
-    font-size: 0.95rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem;
-    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    font-size: 0.95rem; font-weight: 500; color: #111111; margin: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
   }
-  .am-owner {
-    font-size: 0.65rem; font-weight: 400; color: #ffffff; background: #111111;
-    padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap;
+  .am-badge {
+    font-size: 0.62rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.18rem 0.55rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
   }
-  .am-card-desc { font-size: 0.8rem; color: #555555; line-height: 1.8; margin-bottom: 0.6rem; }
-  .am-card-access { font-size: 0.72rem; color: #aaaaaa; }
-  .am-frame { list-style: none; padding: 0; margin: 0; }
-  .am-frame li {
-    display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap;
-    padding: 0.55rem 0; border-bottom: 1px solid #f5f5f5; font-size: 0.82rem;
-  }
-  .am-frame a { color: #111111; min-width: 110px; }
-  .am-frame span { font-size: 0.76rem; color: #aaaaaa; }
-  .am-note { margin-top: 2rem; font-size: 0.76rem; color: #888888; line-height: 1.8; }
+  .am-badge-owner { color: #ffffff; background: #111111; }
+  .am-badge-admin { color: #111111; background: #e8e8e8; }
+  .am-badge-operator { color: #666666; background: #ffffff; border: 1px solid #d7d7d7; }
 </style>

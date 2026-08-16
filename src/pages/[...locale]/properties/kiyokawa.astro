@@ -23,7 +23,7 @@ const breadcrumb = breadcrumbJsonLd([
 ]);
 ---
 
-<SiteLayout lang={lang} path="/properties/kiyokawa" title={meta.title} description={meta.description} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)}>
+<SiteLayout lang={lang} path="/properties/kiyokawa" title={meta.title} description={meta.description} ogImage={meta.ogImage} jsonLd={[meta.jsonLd, breadcrumb].filter(Boolean)} preloadImage={{ href: "/manus-storage/kiyokawa-gallery-009_95d58f6b.webp", imagesrcset: "/manus-storage/kiyokawa-gallery-009_95d58f6b-480.webp 480w, /manus-storage/kiyokawa-gallery-009_95d58f6b-768.webp 768w, /manus-storage/kiyokawa-gallery-009_95d58f6b.webp 1280w", imagesizes: "100vw" }}>
   <PropertyDetail
     lang={lang}
     propertyKey="kiyokawa"

@@ -36,11 +36,11 @@ const thumb = (src: string) => src.replace(/\.webp$/, "-480.webp");
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const bookHref = `${localizedPath(lang, "/book")}?prop=${propertyKey}`;
 const DIRECT = {
-  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book" },
-  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する" },
-  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기" },
-  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂" },
-  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง" },
+  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book", priceFrom: "From {v} / night" },
+  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する", priceFrom: "{v}〜 / 泊" },
+  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기", priceFrom: "{v}〜 / 1박" },
+  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂", priceFrom: "{v} 起 / 晚" },
+  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง", priceFrom: "เริ่มต้น {v} / คืน" },
 }[lang];
 const hero480 = thumb(heroImage);
 const hero768 = heroImage.replace(/\.webp$/, "-768.webp");
@@ -106,12 +106,32 @@ const conditionRows: string[] = [
     <p class="pd-capacity">{d.hero.capacity}</p>
     <!-- 2026-08-08: Beds24 iframe撤去に伴い、ヒーローCTAはAirbnb直行に（右上Book Nowと同方針） -->
     <div class="pd-hero-ctas">
+      {BOOK_PREVIEW && <p class="pd-price-from" id="pd-price-from" hidden></p>}
       {BOOK_PREVIEW && (
         <a href={bookHref} class="pd-cta-direct" data-cta-location="property_detail_hero_direct">{DIRECT.cta}</a>
       )}
     </div>
   </div>
 </section>
+
+{BOOK_PREVIEW && (
+  <script is:inline define:vars={{ propertyKey, priceFromLabel: DIRECT.priceFrom }}>
+    // 価格の目安。/book と同じ空室カレンダーAPI（Beds24 のデイリー料金）から
+    // 向こう13ヶ月の空室日の最安値を出す＝実売価格からの自動導出で、手動管理を作らない
+    (async () => {
+      try {
+        const j = await fetch(`https://bookingapi-gpjsgjko3a-an.a.run.app/?props=${propertyKey === "test" ? "test" : propertyKey}`).then((r) => r.json());
+        const p = (j.properties ?? [])[0];
+        if (!p?.prices) return;
+        const vals = Object.entries(p.prices).filter(([d]) => p.dates?.[d] === true).map(([, v]) => v);
+        if (!vals.length) return;
+        const el = document.getElementById("pd-price-from");
+        el.textContent = priceFromLabel.replace("{v}", `¥${Math.min(...vals).toLocaleString("en-US")}`);
+        el.hidden = false;
+      } catch { /* 出せなければ黙って出さない */ }
+    })();
+  </script>
+)}
 
 <!-- Overview + Review badge -->
 <section class="pd-section">
@@ -419,6 +439,10 @@ const conditionRows: string[] = [
     letter-spacing: 0.03em;
     margin-bottom: 1.75rem;
   }
+  .pd-price-from {
+    font-size: 1.05rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  }
   .pd-hero-ctas {
     display: flex;
     gap: 0.75rem;
@@ -567,7 +591,7 @@ const conditionRows: string[] = [
     font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #999999;
+    color: #666666 /* AA 4.5:1（#999 は 2.84 で不足・Lighthouse指摘） */;
   }
   .pd-review {
     display: inline-flex;
@@ -591,13 +615,13 @@ const conditionRows: string[] = [
   }
   .pd-review-count {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666 /* AA 4.5:1（#888 は 3.54 で不足） */;
   }
   .pd-review-tag {
     font-size: 0.65rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #888888;
+    color: #666666 /* AA 4.5:1（#888 は 3.54 で不足） */;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     padding: 2px 7px;
@@ -641,7 +665,7 @@ const conditionRows: string[] = [
     font-weight: 500;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #999999;
+    color: #666666 /* AA 4.5:1 */;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #e8e8e8;
@@ -664,7 +688,7 @@ const conditionRows: string[] = [
     line-height: 1.55;
   }
   .am-item[data-off="true"] {
-    color: #bbbbbb;
+    color: #757575;  /* AA 4.6:1（#bbb は 2.3 で不足・Lighthouse指摘）。打ち消し線で「なし」は伝わる */
     text-decoration: line-through;
   }
   .am-icon {
@@ -674,10 +698,10 @@ const conditionRows: string[] = [
     color: #111111;
   }
   .am-item[data-off="true"] .am-icon {
-    color: #cccccc;
+    color: #666666;
   }
   .am-note {
-    color: #999999;
+    color: #666666;
     font-size: 0.78rem;
   }
 

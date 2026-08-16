@@ -1,0 +1,313 @@
+---
+/* /book/complete — 予約完了ページ（design_booking_p1_v4.md §3〜5・MS3）
+   決済後、サーバー側が CONFIRMED にするまでポーリングしてから到達する。
+   予約内容は accountApi から本人のUIDに限って取得する（URLのIDだけでは他人の予約は見えない）。
+   公開ガード: BOOK_PREVIEW=1 のときのみ生成・noindex。 */
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
+import { PROPERTIES } from "../../../data/properties";
+import { getPropertyFacts } from "../../../lib/propertyFacts";
+
+export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
+
+export function getStaticPaths() {
+  if (!BOOK_PREVIEW) return [];
+  return LOCALES.map((locale) => ({
+    params: { locale: localeParam(locale) },
+    props: { lang: locale as Locale },
+  }));
+}
+
+const { lang } = Astro.props as { lang: Locale };
+
+const ACCOUNT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/accountApi";
+const BOOK_PATH = localizedPath(lang, "/book");
+const ACCOUNT_PATH = localizedPath(lang, "/account");
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+const { facts } = await getPropertyFacts();
+const HOUSE_META = {
+  kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
+  takasago: { name: "yah.homes takasago", image: PROPERTIES.takasago.exterior, ci: facts.takasago.checkinTime, co: facts.takasago.checkoutTime },
+  test: { name: "yah.homes test1（検証用）", image: PROPERTIES.kiyokawa.exterior, ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
+};
+
+const C = {
+  en: {
+    metaTitle: "Booking confirmed | yah.homes",
+    eyebrow: "Confirmed",
+    title: "Your booking is confirmed",
+    lead: "We have emailed the details to you. You can review this booking any time on My Page.",
+    bookingId: "Booking ID", house: "House", checkin: "Check-in", checkout: "Check-out",
+    guests: "Guests", total: "Paid", totalNote: "Room, lodging tax and cleaning fee included",
+    arrival: "Estimated arrival", cancelTitle: "Cancellation",
+    cancelBody: (d: string) => `Free cancellation until ${d}. After that, the full amount applies.`,
+    checkinTitle: "Getting in",
+    checkinBody: "Self check-in with a key box at the entrance. We email you the code the day before arrival, so late-night arrivals are fine.",
+    contactTitle: "Questions?",
+    contactBody: "Reply to the confirmation email, or write to us at contact@mail.yah.homes. We answer within 24 hours.",
+    myPage: "Go to My Page",
+    waiting: "Confirming your booking…",
+    slow: "This is taking a little longer than usual. Please keep this page open.",
+    pending: "Your payment went through. We are still confirming the booking and will email you shortly — you can close this page.",
+    signIn: "Please sign in to view this booking.",
+    notFound: "We could not find this booking.",
+  },
+  ja: {
+    metaTitle: "ご予約が確定しました | yah.homes",
+    eyebrow: "予約確定",
+    title: "ご予約が確定しました",
+    lead: "ご予約内容をメールでお送りしました。My Page からいつでもご確認いただけます。",
+    bookingId: "予約番号", house: "お部屋", checkin: "チェックイン", checkout: "チェックアウト",
+    guests: "人数", total: "お支払い済み金額", totalNote: "宿泊料・宿泊税・清掃料込み",
+    arrival: "到着予定時刻", cancelTitle: "キャンセルについて",
+    cancelBody: (d: string) => `${d} まで無料でキャンセルいただけます。以降は全額が発生します。`,
+    checkinTitle: "お入りいただく方法",
+    checkinBody: "玄関のキーボックスでの受け渡しです。暗証番号はご到着の前日にメールでお送りしますので、深夜のご到着でも問題ありません。",
+    contactTitle: "ご不明な点",
+    contactBody: "確定メールにご返信いただくか、contact@mail.yah.homes までご連絡ください。24時間以内にご連絡いたします。",
+    myPage: "My Page へ",
+    waiting: "ご予約を確定しています…",
+    slow: "確定に少し時間がかかっています。このページを開いたままお待ちください。",
+    pending: "お支払いは完了しています。予約の確定処理を続けており、まもなくメールでお知らせします。このページは閉じていただいて構いません。",
+    signIn: "ご予約を表示するにはログインしてください。",
+    notFound: "ご予約が見つかりませんでした。",
+  },
+  ko: {
+    metaTitle: "예약이 확정되었습니다 | yah.homes",
+    eyebrow: "예약 확정",
+    title: "예약이 확정되었습니다",
+    lead: "예약 내용을 메일로 보내드렸습니다. My Page에서 언제든지 확인하실 수 있습니다.",
+    bookingId: "예약번호", house: "숙소", checkin: "체크인", checkout: "체크아웃",
+    guests: "인원", total: "결제 완료 금액", totalNote: "숙박료·숙박세·청소비 포함",
+    arrival: "도착 예정 시각", cancelTitle: "취소 안내",
+    cancelBody: (d: string) => `${d}까지 무료로 취소하실 수 있습니다. 이후에는 전액이 부과됩니다.`,
+    checkinTitle: "입실 방법",
+    checkinBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 도착 전날에 메일로 보내드리므로 늦은 시간 도착도 괜찮습니다.",
+    contactTitle: "문의",
+    contactBody: "확정 메일에 회신하시거나 contact@mail.yah.homes로 연락해 주세요. 24시간 이내에 답변드립니다.",
+    myPage: "My Page로",
+    waiting: "예약을 확정하고 있습니다…",
+    slow: "확정에 조금 시간이 걸리고 있습니다. 이 페이지를 열어 두고 기다려 주세요.",
+    pending: "결제는 완료되었습니다. 예약 확정 처리를 진행 중이며 곧 메일로 안내드립니다. 이 페이지는 닫으셔도 됩니다.",
+    signIn: "예약을 보시려면 로그인해 주세요.",
+    notFound: "예약을 찾을 수 없습니다.",
+  },
+  zh: {
+    metaTitle: "您的預訂已確認 | yah.homes",
+    eyebrow: "預訂完成",
+    title: "您的預訂已確認",
+    lead: "我們已將預訂內容寄送至您的信箱，也可隨時於 My Page 查看。",
+    bookingId: "預訂編號", house: "房源", checkin: "入住", checkout: "退房",
+    guests: "人數", total: "已付金額", totalNote: "含住宿費・住宿稅・清潔費",
+    arrival: "預計抵達時間", cancelTitle: "取消規定",
+    cancelBody: (d: string) => `${d} 前可免費取消，之後將收取全額。`,
+    checkinTitle: "入住方式",
+    checkinBody: "以門口密碼鎖自助入住。密碼將於抵達3天前以電子郵件寄送，因此深夜抵達也沒問題。",
+    contactTitle: "有任何問題",
+    contactBody: "請回覆確認郵件，或來信 contact@mail.yah.homes。我們會在24小時內回覆。",
+    myPage: "前往 My Page",
+    waiting: "正在確認您的預訂…",
+    slow: "確認需要多一點時間，請保持此頁面開啟。",
+    pending: "付款已完成。我們仍在確認預訂，稍後會以郵件通知您，您可以關閉此頁面。",
+    signIn: "請先登入以查看此預訂。",
+    notFound: "找不到這筆預訂。",
+  },
+  th: {
+    metaTitle: "ยืนยันการจองแล้ว | yah.homes",
+    eyebrow: "ยืนยันแล้ว",
+    title: "ยืนยันการจองของคุณแล้ว",
+    lead: "เราได้ส่งรายละเอียดไปยังอีเมลของคุณแล้ว และดูได้ตลอดเวลาที่ My Page",
+    bookingId: "หมายเลขการจอง", house: "ที่พัก", checkin: "เช็คอิน", checkout: "เช็คเอาท์",
+    guests: "จำนวนผู้เข้าพัก", total: "ชำระแล้ว", totalNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด",
+    arrival: "เวลาที่คาดว่าจะถึง", cancelTitle: "การยกเลิก",
+    cancelBody: (d: string) => `ยกเลิกฟรีได้ถึง ${d} หลังจากนั้นจะคิดค่าใช้จ่ายเต็มจำนวน`,
+    checkinTitle: "วิธีเข้าที่พัก",
+    checkinBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู เราจะส่งรหัสให้ทางอีเมลในวันก่อนวันเข้าพัก มาถึงดึกก็ไม่มีปัญหา",
+    contactTitle: "มีคำถาม",
+    contactBody: "ตอบกลับอีเมลยืนยัน หรือเขียนถึงเราที่ contact@mail.yah.homes เราจะตอบภายใน 24 ชั่วโมง",
+    myPage: "ไปที่ My Page",
+    waiting: "กำลังยืนยันการจองของคุณ…",
+    slow: "ใช้เวลานานกว่าปกติเล็กน้อย กรุณาเปิดหน้านี้ทิ้งไว้",
+    pending: "ชำระเงินเรียบร้อยแล้ว เรากำลังยืนยันการจองและจะแจ้งทางอีเมลในไม่ช้า คุณปิดหน้านี้ได้",
+    signIn: "กรุณาเข้าสู่ระบบเพื่อดูการจองนี้",
+    notFound: "ไม่พบการจองนี้",
+  },
+}[lang];
+
+const ui = {
+  waiting: C.waiting, slow: C.slow, pending: C.pending, signIn: C.signIn, notFound: C.notFound,
+  totalNote: C.totalNote, cancelBody: C.cancelBody("{d}"),
+};
+---
+
+<SiteLayout
+  lang={lang}
+  path="/book/complete"
+  title={C.metaTitle}
+  description={C.lead}
+  noindex={true}
+  solidNav
+>
+  <section class="cp">
+    <div class="cp-container">
+      <!-- 確定待ち -->
+      <div id="cp-wait" class="cp-wait">
+        <div class="cp-spinner" aria-hidden="true"></div>
+        <p class="cp-wait-text" id="cp-wait-text">{C.waiting}</p>
+      </div>
+
+      <!-- 確定後 -->
+      <div id="cp-done" hidden>
+        <p class="cp-eyebrow">{C.eyebrow}</p>
+        <h1 class="cp-title">{C.title}</h1>
+        <p class="cp-lead">{C.lead}</p>
+
+        <div class="cp-card">
+          <img class="cp-photo" id="cp-photo" src="" alt="" loading="lazy" />
+          <dl class="cp-rows">
+            <div class="cp-row"><dt>{C.bookingId}</dt><dd id="cp-id">—</dd></div>
+            <div class="cp-row"><dt>{C.house}</dt><dd id="cp-house">—</dd></div>
+            <div class="cp-row"><dt>{C.checkin}</dt><dd id="cp-checkin">—</dd></div>
+            <div class="cp-row"><dt>{C.checkout}</dt><dd id="cp-checkout">—</dd></div>
+            <div class="cp-row"><dt>{C.guests}</dt><dd id="cp-guests">—</dd></div>
+            <div class="cp-row" id="cp-arrival-row" hidden><dt>{C.arrival}</dt><dd id="cp-arrival">—</dd></div>
+            <div class="cp-row cp-row-total"><dt>{C.total}</dt><dd id="cp-total">—</dd></div>
+          </dl>
+          <p class="cp-note">{C.totalNote}</p>
+        </div>
+
+        <div class="cp-block">
+          <h2 class="cp-h2">{C.cancelTitle}</h2>
+          <p class="cp-body" id="cp-cancel">—</p>
+        </div>
+        <div class="cp-block">
+          <h2 class="cp-h2">{C.checkinTitle}</h2>
+          <p class="cp-body">{C.checkinBody}</p>
+        </div>
+        <div class="cp-block">
+          <h2 class="cp-h2">{C.contactTitle}</h2>
+          <p class="cp-body">{C.contactBody}</p>
+        </div>
+
+        <a class="cp-cta" href={ACCOUNT_PATH}>{C.myPage}</a>
+      </div>
+
+      <!-- 確定が確認できなかった場合（決済は完了している） -->
+      <div id="cp-pending" hidden>
+        <p class="cp-eyebrow">{C.eyebrow}</p>
+        <h1 class="cp-title">{C.title}</h1>
+        <p class="cp-lead" id="cp-pending-text">{C.pending}</p>
+        <a class="cp-cta" href={ACCOUNT_PATH}>{C.myPage}</a>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ ACCOUNT_ENDPOINT, FB_CONFIG, HOUSE_META, ui, lang, BOOK_PATH }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    const $ = (id) => document.getElementById(id);
+    const yen = (n) => `¥${Number(n).toLocaleString("en-US")}`;
+    const bookingId = new URLSearchParams(location.search).get("id") || "";
+
+    if (!bookingId) { location.replace(BOOK_PATH); return; }
+
+    const show = (which) => {
+      $("cp-wait").hidden = which !== "wait";
+      $("cp-done").hidden = which !== "done";
+      $("cp-pending").hidden = which !== "pending";
+    };
+
+    function render(b) {
+      const meta = HOUSE_META[b.prop] || { name: b.prop, image: "" };
+      $("cp-photo").src = meta.image;
+      $("cp-photo").alt = meta.name;
+      $("cp-id").textContent = b.id;
+      $("cp-house").textContent = meta.name;
+      $("cp-checkin").textContent = `${b.checkin}　${meta.ci ?? ""}〜`;
+      $("cp-checkout").textContent = `${b.checkout}　〜${meta.co ?? ""}`;
+      $("cp-guests").textContent = String(b.guests);
+      $("cp-total").textContent = yen(b.total);
+      if (b.arrival) { $("cp-arrival").textContent = b.arrival; $("cp-arrival-row").hidden = false; }
+      if (b.freeCancelUntilAt) {
+        const d = new Date(b.freeCancelUntilAt);
+        const s = d.toLocaleString(lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : lang === "zh" ? "zh-TW" : lang === "th" ? "th-TH" : "en-US",
+          { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" });
+        $("cp-cancel").textContent = ui.cancelBody.replace("{d}", `${s}${lang === "ja" ? "（日本時間）" : " (JST)"}`);
+      }
+      show("done");
+      window.gtag?.("event", "booking_complete_viewed", { prop: b.prop, lang });
+    }
+
+    // 確定はWebhook起点で非同期に進むため、CONFIRMED になるまで待つ。
+    // 25秒待っても確定しなければ「決済は完了・確定はメールで」に切り替える（決済は取れている）。
+    async function poll(user) {
+      const started = Date.now();
+      let slowShown = false;
+      for (;;) {
+        try {
+          const token = await user.getIdToken();
+          const r = await fetch(`${ACCOUNT_ENDPOINT}?bookingId=${encodeURIComponent(bookingId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (r.status === 404) { $("cp-wait-text").textContent = ui.notFound; return; }
+          const j = await r.json();
+          if (j.ok && j.item) {
+            if (j.item.status === "CONFIRMED") { render(j.item); return; }
+            if (["VOIDED", "CANCELLED", "PAYMENT_FAILED"].includes(j.item.status)) { show("pending"); return; }
+          }
+        } catch { /* 通信エラーは待って再試行 */ }
+
+        const elapsed = Date.now() - started;
+        if (elapsed > 25000) { show("pending"); return; }
+        if (elapsed > 8000 && !slowShown) { slowShown = true; $("cp-wait-text").textContent = ui.slow; }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { $("cp-wait-text").textContent = ui.signIn; return; }
+      poll(user);
+    });
+  });
+</script>
+
+<style>
+  .cp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .cp-container { max-width: 640px; margin: 0 auto; }
+  .cp-wait { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; padding: 4rem 0; }
+  .cp-spinner {
+    width: 28px; height: 28px; border: 2px solid #e5e5e5; border-top-color: #111111;
+    border-radius: 50%; animation: cp-spin 0.9s linear infinite;
+  }
+  @keyframes cp-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cp-spinner { animation-duration: 3s; } }
+  .cp-wait-text { font-size: 0.88rem; color: #555555; text-align: center; line-height: 1.8; }
+  .cp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .cp-title { font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 500; color: #111111; margin-bottom: 0.85rem; letter-spacing: -0.01em; }
+  .cp-lead { font-size: 0.9rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .cp-card { border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden; margin-bottom: 2rem; }
+  .cp-photo { display: block; width: 100%; height: 200px; object-fit: cover; background: #f5f5f5; }
+  .cp-rows { padding: 1.5rem 1.5rem 0.5rem; margin: 0; }
+  .cp-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid #f2f2f2; }
+  .cp-row dt { font-size: 0.8rem; color: #666666; flex-shrink: 0; }
+  .cp-row dd { font-size: 0.85rem; color: #111111; margin: 0; text-align: right; word-break: break-all; }
+  .cp-row-total { border-bottom: none; padding-top: 0.9rem; }
+  .cp-row-total dt { font-size: 0.85rem; color: #555555; }
+  .cp-row-total dd { font-size: 1.25rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .cp-note { padding: 0 1.5rem 1.4rem; margin: 0; font-size: 0.75rem; color: #666666; text-align: right; }
+  .cp-block { padding: 1.4rem 0; border-top: 1px solid #f0f0f0; }
+  .cp-h2 { font-size: 0.82rem; font-weight: 500; color: #111111; margin-bottom: 0.5rem; }
+  .cp-body { font-size: 0.82rem; color: #555555; line-height: 1.9; }
+  .cp-cta {
+    display: block; margin-top: 2rem; padding: 0.95rem 1.5rem; background: #111111; color: #ffffff;
+    font-size: 0.9rem; font-weight: 500; text-align: center; text-decoration: none; border-radius: 4px;
+  }
+  .cp-cta:hover { opacity: 0.85; }
+</style>

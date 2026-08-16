@@ -11,6 +11,35 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 運営（ADMIN または OPERATOR）か。メッセージ・プロフィールの閲覧に使う。
+    // ADMIN は台帳に登録せずコード側の固定（functions の ADMIN_EMAILS）なので、
+    // ここでも同じアドレスを明示する。両者を揃えて管理すること。
+    function isStaff() {
+      return request.auth != null
+        && (request.auth.token.email == "kazuyoshi.yamada@bonfire.co.jp"
+            || exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email)));
+    }
+
+    // メッセージのスレッド。読み取りだけ直接許可してリアルタイム購読を成立させる。
+    // 書き込みは messagesApi のみ（文字数・連投制限・通知・翻訳をサーバで強制するため）。
+    match /threads/{bookingId} {
+      allow read: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isStaff());
+      allow write: if false;
+
+      match /messages/{msgId} {
+        allow read: if request.auth != null
+          && (get(/databases/$(database)/documents/threads/$(bookingId)).data.uid == request.auth.uid || isStaff());
+        allow write: if false;
+      }
+    }
+
+    // ゲストのプロフィール。本人と運営のみ。書き込みは accountApi 経由。
+    match /guest_profiles/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isStaff());
+      allow write: if false;
+    }
+
     // デフォルト: すべて拒否
     match /{document=**} {
       allow read, write: if false;

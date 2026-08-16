@@ -1,0 +1,252 @@
+---
+/* 宿泊約款・利用規約。ハウスルールは別表1として本文に内包する（同意は1クリックにまとめる）。
+   本文は日本法準拠のため日本語、見出し・案内文のみ5言語（privacy.astro と同じ型）。
+   改定時は EFFECTIVE と TERMS_VERSION の両方を更新し、checkout.astro / functions の
+   TERMS_VERSION も同じ値に揃えること（同意証跡の版が食い違うと後で照合できない）。 */
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
+import { translations } from "../../../i18n/translations";
+import { BASE_URL, breadcrumbJsonLd } from "../../../lib/seo";
+import { lucide } from "../../../lib/lucide";
+import { uiStrings } from "../../../i18n/uiStrings";
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({
+    params: { locale: localeParam(locale) },
+    props: { lang: locale as Locale },
+  }));
+}
+
+const { lang } = Astro.props as { lang: Locale };
+const t = translations[lang];
+const ui = uiStrings[lang];
+const homeHref = localizedPath(lang, "/");
+
+const TITLE: Record<Locale, string> = {
+  ja: "宿泊約款・利用規約 | yah.homes",
+  en: "Terms of Accommodation and Use | yah.homes",
+  ko: "숙박약관 및 이용약관 | yah.homes",
+  zh: "住宿約款與使用條款 | yah.homes",
+  th: "ข้อกำหนดการเข้าพักและการใช้บริการ | yah.homes",
+};
+const DESC: Record<Locale, string> = {
+  ja: "yah.homes（運営：ボンファイア株式会社）の宿泊約款・利用規約です。ハウスルールを別表1として含みます。",
+  en: "Terms of accommodation and use for yah.homes, operated by Bonfire Inc. Includes the house rules as Appendix 1.",
+  ko: "yah.homes(운영: Bonfire Inc.)의 숙박약관 및 이용약관입니다. 하우스룰을 별표1로 포함합니다。",
+  zh: "yah.homes（營運：Bonfire Inc.）的住宿約款與使用條款，住宿規則列為附表1。",
+  th: "ข้อกำหนดการเข้าพักและการใช้บริการของ yah.homes ดำเนินการโดย Bonfire Inc.",
+};
+const HEADING: Record<Locale, string> = {
+  ja: "宿泊約款・利用規約",
+  en: "Terms of Accommodation and Use",
+  ko: "숙박약관 및 이용약관",
+  zh: "住宿約款與使用條款",
+  th: "ข้อกำหนดการเข้าพักและการใช้บริการ",
+};
+const NOTE: Record<Locale, string> = {
+  ja: "本約款は、ハウスルール（別表1）を含みます。ご予約の際は本約款の全体にご同意いただきます。",
+  en: "These terms include the house rules (Appendix 1). They are the statutory contract under Japanese law and are provided in Japanese. Booking constitutes agreement to the whole of these terms.",
+  ko: "본 약관은 하우스룰(별표1)을 포함합니다. 일본 법률에 따른 계약 문서이며 일본어로 제공됩니다.",
+  zh: "本約款包含住宿規則（附表1）。依日本法律訂定，以日文提供。預訂即表示同意全部條款。",
+  th: "ข้อกำหนดนี้รวมกฎการเข้าพัก (ภาคผนวก 1) จัดทำตามกฎหมายญี่ปุ่นเป็นภาษาญี่ปุ่น",
+};
+
+// 施行日。改定時はここと TERMS_VERSION を更新する。
+const EFFECTIVE = "2026年8月14日";
+
+const SECTIONS: { h: string; body: string[] }[] = [
+  {
+    h: "第1条（適用範囲）",
+    body: [
+      "本約款は、ボンファイア株式会社（以下「当社」）が運営する宿泊施設「yah.homes kiyokawa」および「yah.homes takasago」（以下「本施設」）について、当社の公式サイト yah.homes を通じてご予約いただく宿泊契約および関連するサービスの利用に適用されます。",
+      "本約款には、別表1のハウスルールが含まれます。ハウスルールは本約款と一体のものとして効力を有します。",
+      "本約款に定めのない事項については、日本の法令または一般に確立された慣習によるものとします。",
+      "Airbnb、Booking.com その他の宿泊予約サイトを通じたご予約には、当該サイトの規約および当社が当該サイト上で表示する条件が適用され、本約款は適用されません。",
+    ],
+  },
+  {
+    h: "第2条（宿泊契約の成立）",
+    body: [
+      "宿泊契約は、お客様が本サイト上で申込みを行い、当社所定のクレジットカード決済が完了し、当社がご予約確定のメールを送信した時点で成立します。",
+      "カード決済が承認されない場合、または決済完了前に当該日程の客室が満室となった場合、宿泊契約は成立しません。この場合、与信枠の確保（オーソリ）は速やかに解放されます。",
+      "当社は、本施設の設備の故障、天災、感染症の発生、その他当社の責めに帰することができない事由により宿泊の提供が困難と判断した場合、宿泊契約の申込みをお断りすることがあります。",
+    ],
+  },
+  {
+    h: "第3条（宿泊料金の支払い）",
+    body: [
+      "宿泊料金は、ご予約時に全額を前払いいただきます。表示金額には宿泊料、清掃料および福岡市宿泊税を含みます。表示通貨は日本円です。",
+      "決済はクレジットカードに限ります。決済処理は Stripe, Inc. が行い、当社はカード番号を保持しません。",
+      "ご滞在中に生じた設備の損壊、原状回復に要する費用、および第7条に定める追加請求については、ご滞在後に別途ご請求する場合があります。",
+    ],
+  },
+  {
+    h: "第4条（キャンセルおよび変更）",
+    body: [
+      "お客様は、チェックイン日の8日前の23時59分（日本時間）までにご連絡いただくことで、無料でキャンセルできます。無料期限は予約完了画面およびご予約確定メールに明記します。",
+      "無料期限を経過した後のキャンセル、および連絡のないご不泊（ノーショー）の場合、宿泊料金の全額をキャンセル料として申し受け、ご返金はいたしません。",
+      "ご返金がある場合は、お支払いに使用されたクレジットカードへ返金します。カード会社の処理により、反映まで数日から1か月程度を要する場合があります。",
+      "ご宿泊日程・人数・棟の変更をご希望の場合は、お問い合わせフォームよりご連絡ください。変更のお手続きは、いったんキャンセルのうえ新たにご予約いただく形となるため、無料期限を経過している場合は前項が適用されます。",
+      "天災、交通機関の運休その他の不可抗力により宿泊が不可能となった場合の取扱いは、個別にご相談のうえ決定します。",
+    ],
+  },
+  {
+    h: "第5条（当社からの解除）",
+    body: [
+      "当社は、次のいずれかに該当する場合、宿泊契約を解除し、またはご滞在の中止を求めることができます。この場合、既にお支払いいただいた宿泊料金は返金いたしません。",
+      "(1) お客様が本約款または別表1のハウスルールに違反したとき。",
+      "(2) ご申告のない人数での宿泊、またはご申告のない第三者を宿泊させたとき。",
+      "(3) 本施設内でパーティー、イベント、撮影その他の宿泊以外の目的での利用が行われたとき。",
+      "(4) 暴力団、暴力団員、その他の反社会的勢力に該当すると認められるとき。",
+      "(5) 近隣に著しい迷惑を及ぼす行為があったとき。",
+      "(6) 法令または公序良俗に反する行為があったとき。",
+      "(7) 感染症の患者等であると明らかに認められるとき。",
+    ],
+  },
+  {
+    h: "第6条（宿泊者名簿）",
+    body: [
+      "旅館業法第6条および同法施行規則に基づき、宿泊されるすべての方について、氏名、住所、職業、および日本国内に住所を有しない外国人の方は国籍、旅券番号のご記入をお願いします。",
+      "日本国内に住所を有しない外国人の方については、旅券の写しの提出をお願いします。提出いただいた写しは、法令に定める期間保存し、法令に基づく請求があった場合を除き第三者に提供しません。",
+      "宿泊者名簿のご提出がない場合、当社は入室に必要な暗証番号をお渡しできません。ご予約確定後、チェックイン日の2日前までにご登録ください。",
+      "取扱いの詳細はプライバシーポリシーに定めます。",
+    ],
+  },
+  {
+    h: "第7条（利用方法および原状回復）",
+    body: [
+      "チェックイン・チェックアウトの時刻、定員および設備は、各物件ページに表示するとおりとします。定員を超える人数でのご利用はできません。",
+      "本施設は無人での運営です。入室は玄関のキーボックスに設定する暗証番号によって行い、暗証番号はご宿泊ごとに変更します。暗証番号を第三者に開示しないでください。",
+      "お客様の故意または過失により建物、設備または備品を損壊、汚損または紛失された場合、当社は原状回復に要する費用をご負担いただきます。",
+      "ご申告の人数を超える宿泊が判明した場合、当社は超過人数分の宿泊料金および清掃費用を追加でご請求することがあります。",
+      "禁煙場所での喫煙により特別な清掃または消臭が必要となった場合、その費用をご負担いただきます。",
+    ],
+  },
+  {
+    h: "第8条（責任および免責）",
+    body: [
+      "当社は、宿泊契約の履行にあたり、当社の責めに帰すべき事由によりお客様に損害を与えたときは、その損害を賠償します。ただし、当社の責めに帰すことができない事由による場合はこの限りではありません。",
+      "当社の責めに帰すべき事由により宿泊の提供ができなくなったときは、お客様の承諾を得て、同等の条件による他の宿泊施設をあっ旋するよう努めます。あっ旋ができないときは、宿泊料金の全額を返金します。この場合において、当社が別途負担する補償の額は、当該宿泊に係る宿泊料金相当額を上限とします。",
+      "本施設内に持ち込まれた現金、貴重品その他の物品の紛失または損傷については、当社の責めに帰すべき事由による場合を除き、責任を負いません。",
+      "駐車場をご利用の場合、当社は場所をお貸しするものであり、車両の管理責任を負いません。",
+      "お客様が近隣、第三者または他の宿泊者に損害を与えた場合、お客様の負担と責任において解決していただきます。",
+    ],
+  },
+  {
+    h: "第9条（アカウントおよびサイトの利用）",
+    body: [
+      "ご予約の確認・変更およびメッセージの送受信には、本サイトのマイページをご利用いただきます。ログインに用いるアカウントの管理はお客様の責任において行ってください。",
+      "本サイトの内容、写真および文章の無断転載を禁じます。",
+      "当社は、本サイトの内容を予告なく変更または停止することがあります。",
+    ],
+  },
+  {
+    h: "第10条（準拠法および管轄）",
+    body: [
+      "本約款は日本法に準拠し、日本法に従って解釈されます。",
+      "本約款または宿泊契約に関して紛争が生じた場合は、福岡地方裁判所を第一審の専属的合意管轄裁判所とします。",
+      "本約款は日本語を正文とします。他の言語による記載との間に相違がある場合、日本語の記載が優先します。",
+    ],
+  },
+  {
+    h: "第11条（改定）",
+    body: [
+      "当社は、本約款を必要に応じて改定することがあります。改定後の約款は本ページへの掲載により効力を生じます。",
+      "既に成立している宿泊契約には、ご予約時点で有効であった約款が適用されます。",
+    ],
+  },
+  {
+    h: "別表1　ハウスルール",
+    body: [
+      "本ハウスルールは、本約款第1条第2項により本約款と一体のものです。違反があった場合は第5条が適用されます。",
+      "(1) パーティー、イベント、撮影会その他の宿泊以外の目的でのご利用はできません。",
+      "(2) ご申告いただいた人数でのご利用をお願いします。タオル・寝具はご申告の人数分をご用意します。ご申告のない方の宿泊はできません。",
+      "(3) 屋内は全面禁煙です。喫煙は屋外の指定場所でお願いします。",
+      "(4) 玄関に屋外防犯カメラを設置しています。屋内に撮影機器はありません。",
+      "(5) 住宅地に立地しています。夜22時以降は、話し声、音楽、屋外での行動にご配慮ください。",
+      "(6) ペットの同伴はご遠慮ください。",
+      "(7) ゴミは分別のうえ、屋内の指定場所に置いてご出発ください。",
+      "(8) 火気の取扱い、暖房器具の無人使用はお控えください。",
+      "(9) 鍵の暗証番号は、ご同行の方以外に開示しないでください。",
+    ],
+  },
+  {
+    h: "附則",
+    body: [
+      `施行日：${EFFECTIVE}`,
+      "運営：ボンファイア株式会社（〒810-0011 福岡県福岡市中央区高砂1-18-7）",
+      "緊急のご連絡先：050-1721-4419（ご宿泊中のお客様専用）",
+    ],
+  },
+];
+
+const breadcrumb = breadcrumbJsonLd([
+  { name: t.nav.home, url: `${BASE_URL}${homeHref}` },
+  { name: HEADING[lang], url: `${BASE_URL}${localizedPath(lang, "/legal/terms")}` },
+]);
+---
+
+<SiteLayout
+  lang={lang}
+  path="/legal/terms"
+  title={TITLE[lang]}
+  description={DESC[lang]}
+  jsonLd={breadcrumb}
+  solidNav
+>
+  <section class="legal">
+    <div class="legal-inner">
+      <p class="legal-eyebrow">Legal</p>
+      <h1 class="legal-title">{HEADING[lang]}</h1>
+      {NOTE[lang] && <p class="legal-note">{NOTE[lang]}</p>}
+
+      {
+        SECTIONS.map((sec) => (
+          <div class="legal-sec">
+            <h2>{sec.h}</h2>
+            {sec.body.map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+        ))
+      }
+
+      <p class="legal-back">
+        <a href={homeHref} class="legal-back-link">
+          <Fragment set:html={lucide("chevronLeft", { size: 14, strokeWidth: 2.5 })} />
+          {ui.backToHome}
+        </a>
+      </p>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .legal { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .legal-inner { max-width: 680px; margin: 0 auto; }
+  .legal-eyebrow {
+    font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #666666; margin-bottom: 1rem;
+  }
+  .legal-title {
+    font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500;
+    color: #111111; letter-spacing: -0.01em; margin-bottom: 1rem;
+  }
+  .legal-note { font-size: 0.8rem; color: #666666; line-height: 1.7; margin-bottom: 2rem; }
+  .legal-sec {
+    /* 画面外の条文は描画を後回しに（長文ページの初回描画を速くする）。
+       contain-intrinsic-size はスクロールバー飛びを防ぐための概算高 */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px; margin-top: 2.25rem; }
+  .legal-sec h2 {
+    font-size: 1rem; font-weight: 600; color: #111111;
+    margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f2f2f2;
+  }
+  .legal-sec p { font-size: 0.875rem; line-height: 1.9; color: #333333; margin-bottom: 0.6rem; }
+  .legal-back { margin-top: 3rem; }
+  .legal-back-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.8rem; color: #555555; text-decoration: none;
+  }
+  .legal-back-link:hover { color: #111111; }
+</style>

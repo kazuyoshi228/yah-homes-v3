@@ -1,0 +1,178 @@
+---
+/* /inquiry/?t=<トークン> — 予約前のお客様がログインなしで問い合わせの続きを読む・返す画面。
+   仕様: docs/spec_inquiry_threads.md §5。読み書きとも messagesApi（トークン検証）経由で、
+   Firestore を匿名に開けない。リアルタイムではなく30秒ポーリング。noindex。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { LOCALES, localeParam, type Locale } from "../../i18n/config";
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({
+    params: { locale: localeParam(locale) },
+    props: { lang: locale as Locale },
+  }));
+}
+const { lang } = Astro.props as { lang: Locale };
+
+const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
+
+const T = {
+  en: { title: "Your inquiry", lead: "Replies from us appear here. Feel free to continue the conversation.",
+    you: "You", host: "yah.homes", placeholder: "Type your message", send: "Send", sending: "Sending...",
+    fail: "Could not send. Please try again.", gone: "This link has expired. Please contact us again from the contact form.",
+    goneCta: "Open the contact form", loading: "Loading..." },
+  ja: { title: "お問い合わせ", lead: "運営からのご返信はこちらに表示されます。続きもこのままお送りいただけます。",
+    you: "お客様", host: "yah.homes", placeholder: "メッセージを入力", send: "送信", sending: "送信中...",
+    fail: "送信できませんでした。もう一度お試しください。", gone: "このリンクは期限切れです。お手数ですが、もう一度お問い合わせフォームからご連絡ください。",
+    goneCta: "お問い合わせフォームへ", loading: "読み込み中..." },
+  ko: { title: "문의", lead: "운영의 답변이 여기에 표시됩니다. 이어서 보내실 수 있습니다.",
+    you: "고객님", host: "yah.homes", placeholder: "메시지를 입력하세요", send: "보내기", sending: "보내는 중...",
+    fail: "보내지 못했습니다. 다시 시도해 주세요.", gone: "이 링크는 만료되었습니다. 문의 양식에서 다시 연락해 주세요.",
+    goneCta: "문의 양식 열기", loading: "불러오는 중..." },
+  zh: { title: "您的諮詢", lead: "我們的回覆會顯示在這裡，您也可以直接繼續對話。",
+    you: "您", host: "yah.homes", placeholder: "請輸入訊息", send: "送出", sending: "傳送中...",
+    fail: "傳送失敗，請再試一次。", gone: "此連結已過期。請再次透過聯絡表單與我們聯繫。",
+    goneCta: "前往聯絡表單", loading: "讀取中..." },
+  th: { title: "คำถามของคุณ", lead: "คำตอบจากเราจะแสดงที่นี่ และคุณสามารถสนทนาต่อได้เลย",
+    you: "คุณ", host: "yah.homes", placeholder: "พิมพ์ข้อความ", send: "ส่ง", sending: "กำลังส่ง...",
+    fail: "ส่งไม่สำเร็จ กรุณาลองอีกครั้ง", gone: "ลิงก์นี้หมดอายุแล้ว กรุณาติดต่อเราอีกครั้งผ่านแบบฟอร์ม",
+    goneCta: "เปิดแบบฟอร์มติดต่อ", loading: "กำลังโหลด..." },
+}[lang];
+const CONTACT_HREF = lang === "en" ? "/#contact" : `/${lang}/#contact`;
+---
+
+<SiteLayout
+  lang={lang}
+  path="/inquiry"
+  title={`${T.title} | yah.homes`}
+  description={T.title}
+  noindex={true}
+  solidNav
+>
+  <section class="iq">
+    <div class="iq-container">
+      <h1 class="iq-title">{T.title}</h1>
+      <p class="iq-lead">{T.lead}</p>
+
+      <div id="iq-gone" class="iq-gone" hidden>
+        <p>{T.gone}</p>
+        <a class="iq-btn" href={CONTACT_HREF}>{T.goneCta}</a>
+      </div>
+
+      <div id="iq-app" hidden>
+        <div class="iq-thread" id="iq-thread"></div>
+        <div class="iq-compose">
+          <textarea id="iq-input" rows="2" maxlength="2000" placeholder={T.placeholder}></textarea>
+          <button type="button" class="iq-btn" id="iq-send">{T.send}</button>
+        </div>
+        <p class="iq-status" id="iq-status"></p>
+      </div>
+      <p class="iq-status" id="iq-loading">{T.loading}</p>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ MESSAGES_ENDPOINT, T }}>
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const token = new URLSearchParams(location.search).get("t") || "";
+
+  function fmt(ms) {
+    if (!ms) return "";
+    return new Date(ms).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function render(messages) {
+    $("iq-thread").innerHTML = messages.map((m) => {
+      const mine = m.from === "guest";
+      return `<div class="iq-bub ${mine ? "iq-bub-guest" : "iq-bub-host"}">
+        <p class="iq-bub-meta">${mine ? esc(T.you) : esc(T.host)} ${fmt(m.at)}</p>
+        <div class="iq-bub-body">${esc(m.body)}${m.translated ? `<div class="iq-bub-tr">${esc(m.translated)}</div>` : ""}</div>
+      </div>`;
+    }).join("");
+    $("iq-thread").scrollTop = $("iq-thread").scrollHeight;
+  }
+
+  async function load() {
+    const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "read", inquiryToken: token }) });
+    if (r.status === 410) { $("iq-loading").hidden = true; $("iq-gone").hidden = false; return false; }
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "load");
+    $("iq-loading").hidden = true;
+    $("iq-app").hidden = false;
+    render(j.messages || []);
+    return true;
+  }
+
+  async function send() {
+    const el = $("iq-input"); const body = el.value.trim();
+    if (!body) return;
+    const btn = $("iq-send"); btn.disabled = true;
+    $("iq-status").textContent = T.sending;
+    try {
+      const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", inquiryToken: token, body }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "send");
+      el.value = ""; $("iq-status").textContent = "";
+      await load();
+    } catch { $("iq-status").textContent = T.fail; }
+    btn.disabled = false;
+  }
+
+  $("iq-send").addEventListener("click", send);
+  $("iq-input").addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send();
+  });
+
+  (async () => {
+    if (!token) { $("iq-loading").hidden = true; $("iq-gone").hidden = false; return; }
+    try {
+      const alive = await load();
+      // リアルタイムにはしない（Firestoreを匿名に開けないため）。30秒ポーリングで十分
+      if (alive) setInterval(() => load().catch(() => undefined), 30000);
+    } catch {
+      $("iq-loading").textContent = T.fail;
+    }
+  })();
+</script>
+
+<style>
+  .iq { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .iq-container { max-width: 680px; margin: 0 auto; }
+  .iq-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.6rem; }
+  .iq-lead { font-size: 0.85rem; color: #555555; line-height: 1.8; margin-bottom: 2rem; }
+  .iq-gone { border: 1px solid #ececec; border-radius: 6px; padding: 1.5rem; }
+  .iq-gone p { font-size: 0.85rem; color: #333333; line-height: 1.9; margin-bottom: 1rem; }
+  .iq-thread { min-height: 160px; margin-bottom: 1rem; }
+  :global(.iq-bub) { max-width: 82%; margin-bottom: 0.9rem; }
+  :global(.iq-bub-guest) { margin-left: auto; }
+  :global(.iq-bub-meta) { font-size: 0.68rem; color: #666666; margin-bottom: 0.25rem; }
+  :global(.iq-bub-guest .iq-bub-meta) { text-align: right; }
+  :global(.iq-bub-body) {
+    font-size: 0.86rem; line-height: 1.85; color: #111111; white-space: pre-wrap;
+    border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.7rem 0.9rem;
+  }
+  :global(.iq-bub-host .iq-bub-body) { background: #111111; color: #ffffff; border-color: #111111; }
+  :global(.iq-bub-tr) { font-size: 0.76rem; color: #666666; margin-top: 0.4rem; line-height: 1.7; }
+  :global(.iq-bub-host .iq-bub-tr) { color: rgba(255,255,255,0.65); }
+  .iq-compose { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .iq-compose textarea {
+    flex: 1; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.86rem; line-height: 1.7;
+    border: 1px solid #d7d7d7; border-radius: 6px; resize: none; box-sizing: border-box;
+  }
+  /* iOS はフォント16px未満の入力欄でフォーカス時に自動ズームする。
+     スマホでは16pxにしてズームを起こさない（送信ボタンが押しづらい問題対策） */
+  @media (max-width: 720px) {
+    .iq-compose textarea { font-size: 16px; }
+  }
+
+  .iq-btn {
+    display: inline-block; padding: 0.75rem 1.6rem; background: #111111; color: #ffffff;
+    font-family: inherit; font-size: 0.9rem; font-weight: 500; border: none; border-radius: 4px;
+    cursor: pointer; text-decoration: none;
+  }
+  .iq-status { font-size: 0.78rem; color: #666666; margin-top: 0.75rem; }
+</style>

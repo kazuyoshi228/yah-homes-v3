@@ -1,0 +1,204 @@
+---
+/* 管理画面専用のナビゲーションバー（2026-08-16 発注者承認の仕様）。
+   - お客様向けナビと取り違えないよう黒地に「ADMIN」表記
+   - どの管理画面からでも1クリックで移動できる。未読メッセージ数を常時表示
+   - 表示はロールで間引く（operator < admin < owner・メニューカードと同じ3段階）
+   リンクの正本はここ1箇所。/admin/menu のカード定義とは意図的に重複させている
+   （menu は初見向けの地図・こちらは日常動線。増減時は両方を更新すること）。 */
+
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+
+// role: このリンクが見える最低ロール
+const GROUPS = [
+  {
+    label: "SSoT", role: "admin",
+    items: [
+      { href: "/admin/properties/", label: "物件ファクト", role: "owner" },
+      { href: "/admin/secrets/", label: "セキュリティ鍵番号", role: "admin" },
+      { href: "/admin/templates/", label: "定型メール", role: "admin" },
+      { href: "/admin/internal-mails/", label: "社内向け定型メール", role: "admin" },
+      { href: "/legal/terms/", label: "宿泊約款・ハウスルール", role: "owner" },
+      { href: "/admin/users/", label: "管理者台帳", role: "admin" },
+    ],
+  },
+  {
+    label: "運営", role: "operator",
+    items: [
+      { href: "/admin/partners/", label: "パートナー申請", role: "operator" },
+      { href: "/admin/mail-preview/", label: "メールテンプレート", role: "operator" },
+      { href: "/admin/notify-emails/", label: "送信先メールアドレス", role: "operator" },
+    ],
+  },
+  {
+    label: "システム", role: "operator",
+    items: [
+      { href: "/admin/manual/", label: "操作マニュアル", role: "operator" },
+      { href: "/admin/mail-log/", label: "メール送信ログ", role: "operator" },
+      { href: "/admin/health/", label: "システムヘルス", role: "owner" },
+      { href: "/admin/audit/", label: "変更履歴", role: "owner" },
+      { href: "/admin/specs/", label: "システム仕様書", role: "owner" },
+    ],
+  },
+];
+const currentPath = Astro.url.pathname;
+---
+
+<nav class="an" aria-label="管理メニュー">
+  <div class="an-inner">
+    <a class="an-brand" href="/admin/menu/">
+      <span class="an-logo">yah.homes</span>
+      <span class="an-tag">ADMIN</span>
+    </a>
+
+    <div class="an-links" id="an-links" data-path={currentPath}>
+      <a class="an-link" href="/admin/messages/" data-minrole="operator">
+        メッセージ<span class="an-badge" id="an-unread" hidden></span>
+      </a>
+      <a class="an-link" href="/admin/bookings/" data-minrole="operator">予約</a>
+      {GROUPS.map((g) => (
+        <details class="an-drop" data-minrole={g.role}>
+          <summary class="an-link">{g.label} ▾</summary>
+          <div class="an-menu">
+            {g.items.map((it) => (
+              <a class="an-item" href={it.href} data-minrole={it.role}>{it.label}</a>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+
+    <div class="an-me">
+      <details class="an-drop an-drop-right">
+        <summary class="an-link an-email" id="an-email">…</summary>
+        <div class="an-menu">
+          <a class="an-item" href="/" target="_blank" rel="noopener">サイトを見る</a>
+          <a class="an-item" href="/admin/menu/">管理メニュー</a>
+          <button type="button" class="an-item an-out" id="an-out">ログアウト</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</nav>
+
+<script define:vars={{ FB_CONFIG, OPS_ENDPOINT }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp, getApps }) => {
+    const { getAuth, onAuthStateChanged, signOut } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const app = getApps()[0] ?? initializeApp(FB_CONFIG);
+    const auth = getAuth(app);
+    const RANK = { operator: 1, admin: 2, owner: 3 };
+
+    // 現在地のリンクに印
+    const path = document.getElementById("an-links")?.dataset.path ?? location.pathname;
+    document.querySelectorAll(".an-link[href], .an-item[href]").forEach((a) => {
+      if (a.getAttribute("href") === path || a.getAttribute("href") === `${path}/`.replace(/\/\/$/, "/")) {
+        a.classList.add("is-current");
+      }
+    });
+
+    // 開いた details は他を閉じる／外側クリックで閉じる
+    document.querySelectorAll(".an-drop").forEach((d) => {
+      d.addEventListener("toggle", () => {
+        if (d.open) document.querySelectorAll(".an-drop[open]").forEach((o) => { if (o !== d) o.open = false; });
+      });
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".an-drop")) document.querySelectorAll(".an-drop[open]").forEach((o) => (o.open = false));
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return;   // 各ページ側のガードに任せる（ここでは何も消さない）
+      const emailEl = document.getElementById("an-email");
+      if (emailEl) emailEl.textContent = user.email ?? "";
+      document.getElementById("an-out")?.addEventListener("click", () =>
+        signOut(auth).then(() => location.replace("/admin/")));
+
+      // ロールで間引く
+      let myRank = 1;
+      try {
+        const token = await user.getIdToken();
+        const r = await fetch(`${OPS_ENDPOINT}?view=me`, { headers: { Authorization: `Bearer ${token}` } });
+        const j = await r.json();
+        myRank = RANK[j.role] ?? (j.isAdmin ? 2 : 1);
+      } catch { /* 判定不能は operator 相当（見せすぎない） */ }
+      document.querySelectorAll("[data-minrole]").forEach((el) => {
+        if ((RANK[el.dataset.minrole] ?? 2) > myRank) el.remove();
+      });
+
+      // 未読メッセージ数（threads.unreadForHost の合計）。失敗しても静かに諦める
+      try {
+        const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const fs = fsm.getFirestore(app);
+        const q = fsm.query(fsm.collection(fs, "threads"), fsm.where("unreadForHost", ">", 0));
+        fsm.onSnapshot(q, (snap) => {
+          let total = 0;
+          snap.forEach((d) => { total += d.data().unreadForHost || 0; });
+          const b = document.getElementById("an-unread");
+          if (b) { b.hidden = !total; b.textContent = total > 99 ? "99+" : String(total); }
+        }, () => { /* 権限なし等は非表示のまま */ });
+      } catch { /* noop */ }
+    });
+  });
+</script>
+
+<style>
+  .an { position: sticky; top: 0; z-index: 50; background: #111111; }
+  .an-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 1.25rem;
+    display: flex; align-items: center; gap: 1.25rem; height: 52px;
+  }
+  .an-brand { display: inline-flex; align-items: baseline; gap: 0.5rem; text-decoration: none; flex: none; }
+  .an-logo { font-size: 0.95rem; font-weight: 600; color: #ffffff; letter-spacing: 0.01em; }
+  .an-tag {
+    font-size: 0.6rem; font-weight: 600; letter-spacing: 0.14em; color: #111111;
+    background: #ffffff; border-radius: 3px; padding: 0.1rem 0.4rem;
+  }
+  /* overflow-x: auto を置くとドロップダウン（絶対配置）が切り取られて見えなくなる。
+     はみ出しは許容し、狭い画面ではリンクの余白を詰めて対処する */
+  .an-links { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 0; }
+  .an-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-family: inherit; font-size: 0.8rem; color: rgba(255, 255, 255, 0.75);
+    background: none; border: 0; padding: 0.45rem 0.7rem; border-radius: 5px;
+    text-decoration: none; cursor: pointer; white-space: nowrap; list-style: none;
+  }
+  /* 後置しないと基本ルールに上書きされる（同一詳細度は後勝ち） */
+  @media (max-width: 860px) {
+    .an-link { padding: 0.45rem 0.45rem; font-size: 0.74rem; }
+  }
+  .an-link:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
+  .an-link.is-current { color: #ffffff; background: rgba(255, 255, 255, 0.14); }
+  .an-badge {
+    min-width: 18px; height: 18px; border-radius: 999px; background: #ff5a5f; color: #ffffff;
+    font-size: 0.66rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 0.3rem;
+  }
+  .an-drop { position: relative; }
+  .an-drop summary { list-style: none; }
+  .an-drop summary::-webkit-details-marker { display: none; }
+  .an-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px;
+    background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); padding: 0.35rem; z-index: 60;
+  }
+  .an-drop-right .an-menu { left: auto; right: 0; }
+  .an-item {
+    display: block; width: 100%; text-align: left; font-family: inherit;
+    font-size: 0.8rem; color: #111111; text-decoration: none; background: none; border: 0;
+    padding: 0.5rem 0.7rem; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .an-item:hover { background: #f4f4f4; }
+  .an-item.is-current { background: #f4f4f4; font-weight: 500; }
+  .an-me { flex: none; }
+  .an-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 720px) {
+    .an-email { max-width: 40px; }
+  }
+</style>

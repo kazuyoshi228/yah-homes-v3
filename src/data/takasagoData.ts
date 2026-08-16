@@ -125,7 +125,7 @@ export interface TakasagoTranslations {
 export const takasagoData: Record<Lang, TakasagoTranslations> = {
   en: {
     hero: {
-      propertyName: "yah. Takasago",
+      propertyName: "yah.homes takasago",
       tagline: "A stylish whole-house stay in the heart of Fukuoka's Takasago district.",
       area: "Takasago, Chuo-ku, Fukuoka",
       capacity: "Up to 6 guests · 3 Bedrooms",
@@ -265,7 +265,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       title: "Check-in Information",
       time: "Check-in: 4:00 PM – 11:00 PM",
       checkout: "Check-out: by 10:00 AM",
-      method: "Fully contactless self check-in via security lock. Access code will be sent 24 hours before arrival.",
+      method: "Fully contactless self check-in via security lock. The access code is sent the day before arrival.",
       idVerification: "ID verification required before check-in (passport or government-issued ID).",
     },
     conditions: {
@@ -295,7 +295,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         },
         {
           q: "What is the check-in process?",
-          a: "Fully contactless self check-in via security lock. You'll receive the access code 24 hours before arrival. No need to meet anyone.",
+          a: "Fully contactless self check-in via security lock. You'll receive the access code the day before arrival. No need to meet anyone.",
         },
         {
           q: "Is early check-in or late check-out available?",
@@ -466,7 +466,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   ja: {
     hero: {
-      propertyName: "yah. 高砂",
+      propertyName: "yah.homes takasago",
       tagline: "福岡市中央区・高砂の静かな住宅街に佇む、一棟貸しの宿。",
       area: "福岡市中央区高砂",
       capacity: "最大6名 · 寝室3室",
@@ -608,7 +608,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       title: "チェックインのご案内",
       time: "チェックイン：16:00〜23:00",
       checkout: "チェックアウト：10:00まで",
-      method: "セキュリティロックによる非対面のセルフチェックインです。ご到着の24時間前に解錠コードをお送りします。",
+      method: "セキュリティロックによる非対面のセルフチェックインです。ご到着の前日に解錠コードをお送りします。",
       idVerification: "チェックイン前に本人確認が必要です（パスポートまたは公的な身分証明書）。",
     },
     conditions: {
@@ -638,7 +638,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
         },
         {
           q: "チェックインの流れを教えてください。",
-          a: "セキュリティロックによる非対面のセルフチェックインです。ご到着の24時間前に解錠コードをお送りしますので、どなたとも顔を合わせずにご入室いただけます。",
+          a: "セキュリティロックによる非対面のセルフチェックインです。ご到着の前日に解錠コードをお送りしますので、どなたとも顔を合わせずにご入室いただけます。",
         },
         {
           q: "アーリーチェックインやレイトチェックアウトはできますか？",
@@ -809,7 +809,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   ko: {
     hero: {
-      propertyName: "yah. 다카사고",
+      propertyName: "yah.homes takasago",
       tagline: "후쿠오카 다카사고 지구 중심에 위치한 세련된 단독 주택.",
       area: "다카사고, 추오구, 후쿠오카",
       capacity: "최대 6인 · 침실 3개",
@@ -949,7 +949,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       title: "체크인 정보",
       time: "체크인: 오후 4:00 – 오후 11:00",
       checkout: "체크아웃: 오전 10:00 이전",
-      method: "보안 잠금장치를 통한 완전 비대면 셀프 체크인. 입실 24시간 전에 접근 코드가 전송됩니다.",
+      method: "보안 잠금장치를 통한 완전 비대면 셀프 체크인. 입실 전날에 접근 코드를 보내드립니다.",
       idVerification: "체크인 전 신분증 확인 필요 (여권 또는 정부 발급 신분증).",
     },
     conditions: {
@@ -971,7 +971,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       items: [
         { q: "주차 가능한가요?", a: "네, 무료 전용 주차 공간 1대가 포함되어 있습니다." },
         { q: "어린 자녀가 있는 가족에게 적합한가요?", a: "네, 가족 단위로 인기가 많습니다. 다만 아기 침대 등 유아용품은 준비되어 있지 않으니 직접 지참해 주세요. 실내에 계단이 있어 어린아이는 주의가 필요합니다." },
-        { q: "체크인 절차는 어떻게 되나요?", a: "보안 잠금장치를 통한 완전 비대면 셀프 체크인입니다. 도착 24시간 전에 접근 코드를 받게 됩니다." },
+        { q: "체크인 절차는 어떻게 되나요?", a: "보안 잠금장치를 통한 완전 비대면 셀프 체크인입니다. 도착 전날에 접근 코드를 받으시게 됩니다." },
         { q: "조기 체크인 또는 늦은 체크아웃이 가능한가요?", a: "객실 상황에 따라 다릅니다. 사전에 문의해 주세요." },
         { q: "반려동물을 데려올 수 있나요?", a: "죄송하지만 반려동물은 허용되지 않습니다. 사전 통보 시 안내견은 환영합니다." },
         { q: "흡연이 가능한가요?", a: "실내 금연입니다. 지정된 야외 흡연 구역이 있습니다." },
@@ -1123,7 +1123,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
 
   zh: {
     hero: {
-      propertyName: "yah. 高砂",
+      propertyName: "yah.homes takasago",
       tagline: "位於福岡高砂地區中心的時尚整棟住宅。",
       area: "高砂，中央區，福岡",
       capacity: "最多 6 人 · 3 間臥室",
@@ -1576,7 +1576,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       title: "ข้อมูลการเช็คอิน",
       time: "เช็คอิน: 16:00 – 23:00 น.",
       checkout: "เช็คเอาต์: ก่อน 10:00 น.",
-      method: "เช็คอินด้วยตัวเองแบบไม่ต้องพบใครผ่านล็อคนิรภัย รหัสเข้าถึงจะส่งให้ 24 ชั่วโมงก่อนเดินทางมาถึง",
+      method: "เช็คอินด้วยตัวเองแบบไม่ต้องพบใครผ่านล็อคนิรภัย รหัสเข้าถึงจะส่งให้ในวันก่อนเดินทางมาถึง",
       idVerification: "ต้องยืนยันตัวตนก่อนเช็คอิน (หนังสือเดินทางหรือบัตรประชาชน)",
     },
     conditions: {
@@ -1598,7 +1598,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       items: [
         { q: "มีที่จอดรถไหม?", a: "มีที่จอดรถส่วนตัว 1 คัน ฟรี" },
         { q: "เหมาะสำหรับครอบครัวที่มีเด็กเล็กไหม?", a: "เหมาะมาก ครอบครัวเข้าพักกันเยอะ แต่เราไม่มีอุปกรณ์สำหรับทารก เช่น เปลเด็กหรือเก้าอี้สูง กรุณานำมาเอง และในบ้านมีบันได โปรดดูแลเด็กเล็กอย่างใกล้ชิด" },
-        { q: "ขั้นตอนเช็คอินเป็นอย่างไร?", a: "เช็คอินด้วยตัวเองแบบไม่ต้องพบใครผ่านล็อคนิรภัย คุณจะได้รับรหัสเข้าถึง 24 ชั่วโมงก่อนมาถึง" },
+        { q: "ขั้นตอนเช็คอินเป็นอย่างไร?", a: "เช็คอินด้วยตัวเองแบบไม่ต้องพบใครผ่านล็อคนิรภัย คุณจะได้รับรหัสเข้าถึงในวันก่อนมาถึง" },
         { q: "สามารถเช็คอินก่อนหรือเช็คเอาต์หลังได้ไหม?", a: "ขึ้นอยู่กับความพร้อมของห้องพัก กรุณาติดต่อล่วงหน้า" },
         { q: "นำสัตว์เลี้ยงมาได้ไหม?", a: "ขออภัย ที่พักนี้ไม่อนุญาตให้นำสัตว์เลี้ยงมา สุนัขนำทางได้หากแจ้งล่วงหน้า" },
         { q: "สูบบุหรี่ได้ไหม?", a: "ห้ามสูบบุหรี่ภายในที่พัก มีพื้นที่สูบบุหรี่กลางแจ้งที่กำหนดไว้" },

@@ -3,6 +3,7 @@
    見出し → 評価バッジ → Pickup Reviews（横スクロール・言語トグル・Review JSON-LD）
    → 改善リスト → クロージング */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
 import { REVIEWS } from "../../data/reviewsData";
@@ -57,21 +58,22 @@ const reviewJsonLd = {
   })),
 };
 
-function fullStars(rating: number): string {
+function fullStars(rating: number, onDark = false): string {
   return [1, 2, 3, 4, 5]
     .map(
       (i) =>
-        `<svg width="11" height="11" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="${i <= rating ? "#111111" : "#dddddd"}" stroke="#111111" stroke-width="1.5"/></svg>`
+        `<svg width="11" height="11" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="${i <= rating ? (onDark ? "#ffffff" : "#111111") : (onDark ? "#555555" : "#dddddd")}" stroke="${onDark ? "#ffffff" : "#111111"}" stroke-width="1.5"/></svg>`
     )
     .join("");
 }
+const REV_TITLE = { en: "Reviews", ja: "レビュー", ko: "리뷰", zh: "評價", th: "รีวิว" }[lang];
 ---
 
 <script is:inline type="application/ld+json" set:html={JSON.stringify(reviewJsonLd)} />
 
 <section style="background:#ffffff;padding:0 1.5rem 6rem;">
-  <div style="max-width:900px;margin:0 auto;">
-    <h2 class="rev-heading">{r.heading}</h2>
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
+    <SectionHeading num="05" label="Reviews" title={REV_TITLE} />
     <p class="rev-lead">{r.leadText}</p>
 
     <!-- Airbnb rating badges -->
@@ -90,7 +92,7 @@ function fullStars(rating: number): string {
       }
     </div>
     <!-- 鮮度の可視化（GEO: 取得日の明示） -->
-    <p style="font-size:0.72rem;color:#aaaaaa;margin:0 0 3.5rem;">{asOfLabel}</p>
+    <p style="font-size:0.72rem;color: #666666;margin:0 0 3.5rem;">{asOfLabel}</p>
 
     <!-- Pickup Review Carousel -->
     <div style="margin-bottom:3.5rem;">
@@ -109,7 +111,7 @@ function fullStars(rating: number): string {
                   <span class="rev-prop-tag">{rv.property}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
-                  <Fragment set:html={fullStars(rv.rating)} />
+                  <Fragment set:html={fullStars(rv.rating, true)} />
                   <span class="rev-date">{rv.date}</span>
                 </div>
                 <p
@@ -135,10 +137,10 @@ function fullStars(rating: number): string {
       <p class="scroll-hint">← scroll →</p>
     </div>
 
-    <div style="width:2rem;height:1px;background:#cccccc;margin-bottom:3rem;"></div>
-
     <!-- Improvement -->
-    <h3 class="imp-heading">{r.improvementHeading}</h3>
+    <div style="margin-top:4rem;">
+      <SectionHeading num="06" label="Improvements" title={r.improvementHeading} />
+    </div>
     <p class="imp-intro">{r.improvementIntro}</p>
     <ul class="imp-list">
       {r.improvements.map((item) => <li>{item}</li>)}
@@ -176,7 +178,7 @@ function fullStars(rating: number): string {
     font-size: 0.75rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #aaaaaa;
+    color: #666666;
   }
   .rate-num {
     font-size: 1.1rem;
@@ -185,14 +187,14 @@ function fullStars(rating: number): string {
   }
   .rate-count {
     font-size: 0.8rem;
-    color: #888888;
+    color: #666666;
   }
   .pickup-heading {
     font-size: clamp(0.85rem, 2vw, 0.95rem);
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #aaaaaa;
+    color: #666666;
     margin: 0 0 1.25rem;
   }
   .rev-scroll {
@@ -204,46 +206,47 @@ function fullStars(rating: number): string {
     padding-bottom: 0.5rem;
     scrollbar-width: none;
   }
+  /* レビューカードは黒背景・白文字（お客様の言葉を引用として際立たせる） */
   .rev-card {
     flex-shrink: 0;
     width: clamp(260px, 72vw, 320px);
-    border: 1px solid #e8e8e8;
+    border: 1px solid #111111;
     border-radius: 4px;
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    background: #ffffff;
+    background: #111111;
     scroll-snap-align: start;
   }
   .rev-author {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #111111;
+    color: #ffffff;
     display: block;
   }
   .rev-from {
     font-size: 0.72rem;
-    color: #aaaaaa;
+    color: rgba(255, 255, 255, 0.5);
     letter-spacing: 0.04em;
   }
   .rev-prop-tag {
     font-size: 0.65rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #888888;
-    border: 1px solid #e0e0e0;
+    color: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.28);
     border-radius: 4px;
     padding: 2px 6px;
     white-space: nowrap;
   }
   .rev-date {
     font-size: 0.7rem;
-    color: #aaaaaa;
+    color: rgba(255, 255, 255, 0.5);
   }
   .rev-body {
     font-size: 0.82rem;
-    color: #333333;
+    color: rgba(255, 255, 255, 0.88);
     line-height: 1.75;
     margin: 0;
     white-space: pre-line;
@@ -252,7 +255,7 @@ function fullStars(rating: number): string {
   .rev-toggle {
     align-self: flex-start;
     font-size: 0.7rem;
-    color: #888888;
+    color: rgba(255, 255, 255, 0.6);
     background: none;
     border: none;
     padding: 0;
@@ -263,11 +266,11 @@ function fullStars(rating: number): string {
     transition: color 0.15s ease;
   }
   .rev-toggle:hover {
-    color: #111111;
+    color: #ffffff;
   }
   .scroll-hint {
     font-size: 0.68rem;
-    color: #888888;
+    color: #666666;
     margin-top: 0.75rem;
     letter-spacing: 0.04em;
   }

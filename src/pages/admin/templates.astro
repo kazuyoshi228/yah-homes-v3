@@ -1,0 +1,489 @@
+---
+/* /admin/templates — 定型メール／メッセージのSSoT
+   運営会社が Beds24・OTA で送っている定型文を1箇所に集約する。
+   ここを直せば、以後の送信文はここが正になる。閲覧・編集は管理者台帳のメンバー。
+   noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const TEMPLATES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminTemplates";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
+  authDomain: "yah-homes.firebaseapp.com",
+  projectId: "yah-homes",
+  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
+};
+
+/* 送信タイミング。自動＝システムが送る／手動＝運営がBeds24・OTAから送る。
+   「前日リマインド」「レビュー依頼」は guestLifecycleMailer（毎日10:00 JST）が送信する。 */
+const TIMING = [
+  { t: "予約確定メッセージ", w: "ご予約が入った直後", trig: "予約成立（決済オーソリ確定 / OTA着信）", who: "全チャネル" },
+  { t: "チェックイン案内", w: "チェックイン前日 10:00 JST", trig: "翌日がチェックイン日の予約", who: "全チャネル" },
+  { t: "チェックアウト当日の案内", w: "チェックアウト当日 07:00 JST", trig: "当日がチェックアウト日の予約", who: "全チャネル" },
+  { t: "お問い合わせ自動返信", w: "フォーム送信の直後", trig: "お問い合わせフォームの送信", who: "問い合わせた方" },
+  { t: "レビューのお願い", w: "チェックアウト翌日 10:00 JST", trig: "前日がチェックアウト日の予約", who: "全チャネル" },
+  { t: "キャンセル確認", w: "キャンセル成立の直後", trig: "My Pageのセルフキャンセル / 管理画面の返金", who: "公式サイトのみ" },
+];
+
+/* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
+const VALUES = [
+  { k: "施設名", kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" },
+  { k: "チェックイン時刻", kiyokawa: "16:00", takasago: "16:00" },
+  { k: "チェックアウト時刻", kiyokawa: "10:00", takasago: "10:00" },
+  { k: "キーボックスの暗証番号", kiyokawa: "/admin/secrets/ で管理（オーナー専用）", takasago: "同左", secret: true },
+  { k: "入室マニュアルのURL", kiyokawa: "https://yah.homes/how-to/kiyokawa/", takasago: "https://yah.homes/how-to/takasago/" },
+  { k: "Google マップのURL", kiyokawa: "https://maps.app.goo.gl/DP6xuPWf132uRrv76", takasago: "https://maps.app.goo.gl/bf8zLf6qKxhSyAyA8" },
+  { k: "宿泊者名簿フォームのURL", kiyokawa: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", takasago: "https://zfrmz.jp/sZQlLvoM43I0Od6UZPzF" },
+  { k: "問い合わせ電話番号", kiyokawa: "050-1721-4419", takasago: "050-1721-4419" },
+  { k: "My Page（直販のみ）", kiyokawa: "https://yah.homes/account/", takasago: "https://yah.homes/account/" },
+  { k: "レビュー投稿先", kiyokawa: "未決", takasago: "未決", todo: true },
+];
+
+/** 差し込み記号の一覧（本文に {{...}} で書く） */
+const VARS = [
+  { k: "guestName", d: "予約者名" },
+  { k: "channel", d: "予約サイト（Airbnb / Booking.com / 公式サイト）" },
+  { k: "guests", d: "宿泊人数" },
+  { k: "nights", d: "宿泊日数" },
+  { k: "checkinDateJa", d: "チェックイン日（2026年9月16日, 水曜日）" },
+  { k: "checkoutDateJa", d: "チェックアウト日" },
+  { k: "checkinTime", d: "チェックイン時刻（物件ファクト）" },
+  { k: "checkoutTime", d: "チェックアウト時刻（物件ファクト）" },
+  { k: "registerUrl", d: "宿泊者名簿フォームのURL" },
+  { k: "manualUrl", d: "入室マニュアルのURL" },
+  { k: "keyboxCode", d: "キーボックスの暗証番号" },
+  { k: "mapUrl", d: "Google マップのURL" },
+  { k: "phone", d: "問い合わせ電話番号" },
+  { k: "propertyName", d: "施設名（yah.homes kiyokawa / yah.homes takasago）" },
+  { k: "registerDeadline", d: "宿泊者名簿の期限（チェックイン2日前）" },
+  { k: "reviewUrl", d: "レビュー投稿先（未決）" },
+  { k: "myPageUrl", d: "My Page（直販のみ）" },
+];
+---
+
+<SiteLayout adminNav
+  lang="ja"
+  path="/admin/templates"
+  title="定型メール管理 | yah.homes"
+  description="定型メール・メッセージの単一ソース"
+  noindex={true}
+  solidNav
+>
+  <section class="tp">
+    <div class="tp-container">
+      <a class="tp-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="tp-title">定型メール管理</h1>
+      <div id="tp-login" class="tp-login" hidden>
+        <p class="tp-note">オーナーのアカウントでログインしてください。</p>
+        <button id="tp-login-btn" class="tp-btn">Googleでログイン</button>
+        <p class="tp-status" id="tp-login-status"></p>
+      </div>
+
+      <div id="tp-app" hidden>
+        <div class="tp-layout">
+          <aside class="tp-side">
+            <nav class="tp-nav" aria-label="定型メール">
+              <p class="tp-side-group">ガイド</p>
+              <button type="button" class="tp-navlink" data-nav="timing">定型メール一覧</button>
+              <button type="button" class="tp-navlink" data-nav="vars">差し込み記号</button>
+              <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
+              <p class="tp-side-group">メール文面</p>
+              <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
+              <p class="tp-side-group">その他定型文</p>
+              <div id="tp-side-other"></div>
+            </nav>
+          </aside>
+
+          <div class="tp-main">
+            <section class="tp-panel" data-panel="timing" hidden>
+              <h2 class="tp-h2">定型メール一覧</h2>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>定型文</th><th>送るタイミング</th><th>きっかけ</th><th>対象</th></tr></thead>
+                  <tbody>
+                    {TIMING.map((r) => (
+                      <tr>
+                        <td class="tp-strong">{r.t}</td>
+                        <td>{r.w}</td>
+                        <td class="tp-dim">{r.trig}</td>
+                        <td class="tp-dim">{r.who}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="tp-panel" data-panel="vars" hidden>
+              <h2 class="tp-h2">差し込み記号</h2>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>記号</th><th>入る内容</th></tr></thead>
+                  <tbody>
+                    {VARS.map((v) => (
+                      <tr><td><code>{`{{${v.k}}}`}</code></td><td class="tp-dim">{v.d}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="tp-panel" data-panel="values" hidden>
+              <h2 class="tp-h2">情報テーブル</h2>
+              <div class="tp-scroll">
+                <table class="tp-grid">
+                  <thead><tr><th>入る内容</th><th>yah.homes kiyokawa</th><th>yah.homes takasago</th></tr></thead>
+                  <tbody>
+                    {VALUES.map((r) => (
+                      <tr>
+                        <td class="tp-strong">{r.k}</td>
+                        {[r.kiyokawa, r.takasago].map((val) => (
+                          <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim", val.startsWith("http") && "tp-url"]}>
+                            {val.startsWith("http")
+                              ? <a href={val} target="_blank" rel="noopener">{val}</a>
+                              : val}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div id="tp-list"></div>
+            <p class="tp-status" id="tp-status" role="status"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ TEMPLATES_ENDPOINT, FB_CONFIG }}>
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+    );
+    const auth = getAuth(initializeApp(FB_CONFIG));
+    let ME = "";
+    const $ = (id) => document.getElementById(id);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (ms) => (ms ? new Date(ms).toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" }) : "—");
+
+    async function api(method, body) {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(TEMPLATES_ENDPOINT, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401 || res.status === 403) throw new Error("unauthorized");
+      return res.json();
+    }
+
+    let DATA = null;   // API のレスポンス
+    let LANG = localStorage.getItem("yh-tpl-lang") || "ja";
+
+    const LANG_LABEL = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
+    const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4", cancel: "5", contact: "6" };
+
+    function show(key) {
+      document.querySelectorAll("[data-panel]").forEach((el) => { el.hidden = el.dataset.panel !== key; });
+      document.querySelectorAll("[data-nav]").forEach((el) => {
+        el.classList.toggle("is-active", el.dataset.nav === key);
+        el.setAttribute("aria-current", el.dataset.nav === key ? "true" : "false");
+      });
+      document.querySelectorAll(`[data-panel="${key}"] textarea`).forEach((ta) => {
+        ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`;
+      });
+      if (location.hash.slice(1) !== key) history.replaceState(null, "", `#${key}`);
+      document.querySelector(".tp-main").scrollIntoView({ block: "start", behavior: "instant" });
+    }
+
+    /** 1通ぶんの編集パネル。既定値は placeholder に出し、入力が空＝既定のまま。 */
+    function panelFor(kind) {
+      const def = DATA.kinds.find((k) => k.kind === kind);
+      const it = DATA.items.find((x) => x.kind === kind && x.lang === LANG);
+      const changed = def.fields.filter((f) => it.strings[f.key]).length;
+      return `
+        <section class="tp-panel" data-panel="${kind}" hidden>
+          <h2 class="tp-h2">${esc(def.label)}</h2>
+          <div class="tp-tabs">
+            ${DATA.langs.map((l) => `
+              <button type="button" class="tp-tab${l === LANG ? " is-active" : ""}" data-tab="${l}">
+                ${esc(LANG_LABEL[l] ?? l)}${DATA.items.find((x) => x.kind === kind && x.lang === l).updatedAt ? '<span class="tp-dot"></span>' : ""}
+              </button>`).join("")}
+          </div>
+
+          ${changed || it.updatedAt ? `<p class="tp-meta">
+            ${changed ? `<span class="tp-tag tp-tag-on">変更 ${changed} 件</span>` : ""}
+            <span class="tp-upd">${it.updatedAt ? `最終更新 ${fmt(it.updatedAt)}${it.updatedBy ? ` / ${esc(it.updatedBy)}` : ""}` : ""}</span>
+          </p>` : ""}
+
+          ${def.fields.map((f) => {
+            const dv = it.defaults[f.key] || "";
+            const on = !!it.strings[f.key];
+            // 枠の中に実際に送られる文言を入れる。上書きが無ければ既定をそのまま出す。
+            const cur = on ? it.strings[f.key] : dv;
+            return `
+            <div class="tp-field2${on ? " is-on" : ""}" data-field="${esc(f.key)}" data-def="${esc(dv)}">
+              <label class="tp-flabel" for="f-${esc(kind)}-${esc(f.key)}">
+                ${esc(f.label)}
+                ${on ? '<span class="tp-badge">変更あり</span>' : ""}
+                ${on ? `<button type="button" class="tp-reset" data-reset="${esc(f.key)}">元の文言に戻す</button>` : ""}
+              </label>
+              ${f.multiline
+                ? `<textarea id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" rows="2" spellcheck="false">${esc(cur)}</textarea>`
+                : `<input id="f-${esc(kind)}-${esc(f.key)}" data-in="${esc(f.key)}" type="text" value="${esc(cur)}" />`}
+            </div>`;
+          }).join("")}
+
+          <div class="tp-actions">
+            <button type="button" class="tp-btn" data-save="${esc(kind)}">保存する</button>
+            <button type="button" class="tp-btn-sub" data-test="${esc(kind)}">自分宛にテスト送信</button>
+            <span class="tp-saved" data-saved="${esc(kind)}"></span>
+          </div>
+        </section>`;
+    }
+
+    function render() {
+      const navBtn = (k) => {
+        const n = DATA.items.filter((x) => x.kind === k.kind && Object.values(x.strings).some(Boolean)).length;
+        return `
+        <button type="button" class="tp-navlink tp-navmail" data-nav="${esc(k.kind)}">
+          <span class="tp-navnum">${KIND_NUM[k.kind] ?? ""}</span>
+          <span class="tp-navtext">${esc(k.label)}
+            <span class="tp-navtags">5言語${n ? ` / ${n}言語で変更あり` : ""}</span>
+          </span>
+        </button>`;
+      };
+      $("tp-side-mails").innerHTML = DATA.kinds.filter((k) => k.group !== "other").map(navBtn).join("");
+      $("tp-side-other").innerHTML = DATA.kinds.filter((k) => k.group === "other").map(navBtn).join("");
+
+      $("tp-list").innerHTML = DATA.kinds.map((k) => panelFor(k.kind)).join("");
+
+      document.querySelectorAll("[data-nav]").forEach((b) =>
+        b.addEventListener("click", () => show(b.dataset.nav)));
+
+      document.querySelectorAll("[data-tab]").forEach((b) =>
+        b.addEventListener("click", () => {
+          LANG = b.dataset.tab;
+          localStorage.setItem("yh-tpl-lang", LANG);
+          const open = location.hash.slice(1);
+          render(); show(open);
+        }));
+
+      document.querySelectorAll("textarea[data-in]").forEach((ta) => {
+        const grow = () => { ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight + 2}px`; };
+        ta.addEventListener("input", grow); grow();
+      });
+
+      document.querySelectorAll("[data-reset]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const box = b.closest(".tp-field2");
+          const el = box.querySelector("[data-in]");
+          el.value = box.dataset.def || "";
+          el.dispatchEvent(new Event("input"));
+          box.classList.remove("is-on");
+          box.querySelector(".tp-badge")?.remove();
+          b.remove();
+        }));
+
+      document.querySelectorAll("[data-save]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const kind = b.dataset.save;
+          const strings = {};
+          document.querySelectorAll(`[data-panel="${kind}"] [data-in]`).forEach((el) => {
+            strings[el.dataset.in] = el.value;
+          });
+          const out = document.querySelector(`[data-saved="${kind}"]`);
+          b.disabled = true; out.textContent = "保存中...";
+          const r = await api("POST", { kind, lang: LANG, strings });
+          b.disabled = false;
+          out.textContent = r.ok ? "保存しました。次の送信から反映されます。"
+            : r.error === "unknown_vars" ? `使えない差し込み記号があります: ${(r.vars || []).join(", ")}`
+            : `保存に失敗しました（${r.error ?? ""}）`;
+          if (r.ok) load(kind);
+        }));
+
+      document.querySelectorAll("[data-test]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const kind = b.dataset.test;
+          const out = document.querySelector(`[data-saved="${kind}"]`);
+          const to = prompt("テスト送信の宛先メールアドレス", ME || "");
+          if (!to) return;
+          b.disabled = true; out.textContent = "送信中...";
+          const r = await api("POST", { kind, lang: LANG, testTo: to });
+          b.disabled = false;
+          out.textContent = r.ok ? `${to} へ送信しました。保存済みの文面で届きます。`
+            : `送信に失敗しました（${r.error ?? ""}）`;
+        }));
+    }
+
+    async function load(keep) {
+      $("tp-status").textContent = "読み込み中...";
+      try {
+        const j = await api("GET");
+        if (!j.ok) throw new Error("load");
+        DATA = j;
+        render();
+        const hash = location.hash.slice(1);
+        const valid = ["timing", "vars", "values", ...j.kinds.map((k) => k.kind)];
+        show(valid.includes(keep) ? keep : valid.includes(hash) ? hash : "timing");
+        $("tp-status").textContent = "";
+      } catch (e) {
+        $("tp-status").textContent =
+          e.message === "unauthorized" ? "この画面はオーナー専用です。" : "読み込みに失敗しました。";
+      }
+    }
+
+    $("tp-login-btn").addEventListener("click", async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch { $("tp-login-status").textContent = "ログインに失敗しました。"; }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      $("tp-login").hidden = !!user;
+      $("tp-app").hidden = !user;
+      ME = user?.email ?? "";
+      if (user) load();
+    });
+  });
+</script>
+
+<style>
+  .tp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .tp-container { max-width: 880px; margin: 0 auto; }
+  .tp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .tp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .tp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2rem; }
+  .tp-note { font-size: 0.78rem; color: #666666; line-height: 1.8; }
+  .tp-status { font-size: 0.8rem; color: #333333; min-height: 1.4em; margin-top: 0.75rem; }
+  .tp-login { border: 1px solid #eeeeee; border-radius: 4px; padding: 2rem; max-width: 420px; }
+  .tp-btn {
+    padding: 0.65rem 1.5rem; background: #111111; color: #ffffff; font-family: inherit;
+    font-size: 0.85rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .tp-btn:disabled { opacity: 0.5; }
+  .tp-btn-sub {
+    padding: 0.6rem 1.1rem; background: #ffffff; color: #111111; font-family: inherit;
+    font-size: 0.8rem; border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer;
+  }
+  .tp-btn-sub:hover { border-color: #111111; }
+
+  /* サイドバー */
+  .tp-layout { display: grid; grid-template-columns: 232px 1fr; gap: 2.5rem; align-items: start; }
+  .tp-side { position: sticky; top: 6rem; }
+  .tp-nav { display: flex; flex-direction: column; gap: 0.1rem; }
+  .tp-side-group {
+    font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #666666; margin: 1.4rem 0 0.6rem; padding-left: 0.75rem;
+  }
+  .tp-side-group:first-child { margin-top: 0; }
+  .tp-side :global(.tp-navlink) {
+    display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
+    font-family: inherit; font-size: 0.82rem; line-height: 1.55; color: #555555;
+    background: none; border: none; border-left: 2px solid transparent;
+    padding: 0.55rem 0.6rem 0.55rem 0.75rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .tp-side :global(.tp-navlink:hover) { color: #111111; }
+  .tp-side :global(.tp-navlink.is-active) { color: #111111; font-weight: 500; border-left-color: #111111; background: #fafafa; }
+  .tp-side :global(.tp-navnum) {
+    flex-shrink: 0; font-size: 0.68rem; color: #bbbbbb; font-variant-numeric: tabular-nums; min-width: 0.9em;
+  }
+  .tp-side :global(.tp-navlink.is-active .tp-navnum) { color: #111111; }
+  .tp-side :global(.tp-navtext) { display: block; }
+  .tp-side :global(.tp-navtags) {
+    display: block; margin-top: 0.15rem; font-size: 0.66rem; font-weight: 400;
+    letter-spacing: 0.06em; color: #666666;
+  }
+  .tp-side-empty { font-size: 0.76rem; color: #666666; padding-left: 0.75rem; }
+
+  .tp-main { min-width: 0; }
+  .tp-main :global(.tp-panel[hidden]) { display: none; }
+  .tp-h2 { font-size: 1.15rem; font-weight: 500; color: #111111; margin-bottom: 1.6rem; }
+
+  @media (max-width: 820px) {
+    .tp-layout { grid-template-columns: 1fr; gap: 1.75rem; }
+    .tp-side { position: static; border-bottom: 1px solid #ededed; padding-bottom: 1.25rem; }
+  }
+
+  .tp-vars { border: 1px solid #e8e8e8; border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 1.75rem; }
+  .tp-vars summary { font-size: 0.82rem; font-weight: 500; color: #111111; cursor: pointer; }
+  .tp-vars-table { width: 100%; border-collapse: collapse; margin: 0.9rem 0; }
+  .tp-vars-table th {
+    text-align: left; padding: 0.35rem 0.9rem 0.35rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.76rem; font-weight: 400; color: #111111; white-space: nowrap; vertical-align: top;
+  }
+  .tp-vars-table td { padding: 0.35rem 0; font-size: 0.76rem; color: #777777; }
+
+    #tp-list :global(.tp-meta) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+  #tp-list :global(.tp-tag) {
+    font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: #f2f2f2; color: #666666; white-space: nowrap;
+  }
+  #tp-list :global(.tp-tag-on) { background: #111111; color: #ffffff; }
+  #tp-list :global(.tp-upd) { font-size: 0.7rem; color: #666666; }
+
+  /* 言語タブ。変更のある言語には点を出す */
+  #tp-list :global(.tp-tabs) { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 1.6rem; }
+  #tp-list :global(.tp-tab) {
+    font-family: inherit; font-size: 0.76rem; color: #666666; background: none;
+    border: 1px solid #e2e2e2; border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+  }
+  #tp-list :global(.tp-tab:hover) { color: #111111; border-color: #bbbbbb; }
+  #tp-list :global(.tp-tab.is-active) { color: #ffffff; background: #111111; border-color: #111111; }
+  #tp-list :global(.tp-dot) { width: 5px; height: 5px; border-radius: 50%; background: #b42318; }
+  #tp-list :global(.tp-tab.is-active .tp-dot) { background: #ffffff; }
+
+  /* 1キーぶんの入力。既定値を下に薄く出し、空欄＝既定のままだと分かるようにする */
+  #tp-list :global(.tp-field2) { padding: 1rem 0; border-bottom: 1px solid #f2f2f2; }
+  #tp-list :global(.tp-field2.is-on) { border-left: 2px solid #111111; padding-left: 0.9rem; }
+  #tp-list :global(.tp-flabel) {
+    display: flex; align-items: center; gap: 0.5rem; font-size: 0.76rem; color: #555555; margin-bottom: 0.4rem;
+  }
+  #tp-list :global(.tp-badge) {
+    font-size: 0.62rem; color: #ffffff; background: #111111; border-radius: 999px; padding: 0.1rem 0.45rem;
+  }
+  #tp-list :global(.tp-field2 input), #tp-list :global(.tp-field2 textarea) {
+    width: 100%; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.85rem; line-height: 1.8;
+    color: #111111; border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+    overflow-y: hidden; resize: none;
+  }
+  #tp-list :global(.tp-reset) {
+    margin-left: auto; font-family: inherit; font-size: 0.68rem; color: #666666;
+    background: none; border: 1px solid #d7d7d7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer;
+  }
+  #tp-list :global(.tp-reset:hover) { border-color: #111111; color: #111111; }
+
+  .tp-scroll { overflow-x: auto; margin-bottom: 0.9rem; }
+  .tp-grid { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .tp-grid th, .tp-grid td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid #ededed; vertical-align: top; }
+  .tp-grid thead th { font-weight: 500; color: #666666; font-size: 0.72rem; white-space: nowrap; border-bottom-color: #d7d7d7; }
+  .tp-grid tbody tr:last-child td { border-bottom: none; }
+  .tp-grid code { font-size: 0.74rem; color: #111111; white-space: nowrap; }
+  .tp-strong { font-weight: 500; color: #111111; }
+  .tp-dim { color: #666666; }
+  .tp-todo { color: #b42318; }
+  .tp-url { word-break: break-all; }
+  .tp-url a { color: #111111; text-decoration: none; border-bottom: 1px solid #d7d7d7; }
+  .tp-url a:hover { border-bottom-color: #111111; }
+
+  #tp-list :global(.tp-field) { display: block; margin-bottom: 0.8rem; }
+  #tp-list :global(.tp-field span) { display: block; font-size: 0.72rem; color: #666666; margin-bottom: 0.3rem; }
+  #tp-list :global(.tp-subject) {
+    width: 100%; padding: 0.6rem 0.8rem; font-family: inherit; font-size: 0.85rem; color: #111111;
+    border: 1px solid #d7d7d7; border-radius: 4px; box-sizing: border-box;
+  }
+  #tp-list :global(.tp-lang) { background: #111111; color: #ffffff; }
+  #tp-list :global(.tp-body) {
+    overflow-y: hidden; resize: none;
+    width: 100%; padding: 0.9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem; line-height: 1.85; color: #111111; background: #ffffff;
+    border: 1px solid #d7d7d7; border-radius: 4px; resize: vertical; box-sizing: border-box;
+  }
+  #tp-list :global(.tp-actions) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+  #tp-list :global(.tp-saved) { font-size: 0.78rem; color: #555555; }
+  a.tp-eyebrow { display: block; text-decoration: none; }
+</style>

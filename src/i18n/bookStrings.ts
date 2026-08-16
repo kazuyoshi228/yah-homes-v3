@@ -19,6 +19,14 @@ export interface BookStrings {
   searching: string;
   soldOut: string;
   soldOutHint: string;
+  minStay: string;      // {n} に必要泊数
+  upstreamFailed: string;
+  tooLate: string;
+  tooFar: string;
+  priceFrom: string;    // {v} に金額
+  /** 定員超過（満室ではない。{n}=その棟の定員） */
+  overCapacity: string;
+  overCapacityHint: string;
   totalLabel: string;
   totalNote: (nights: number, guests: number) => string;
   approx: string;
@@ -26,6 +34,11 @@ export interface BookStrings {
   proceed: string;
   capacityMax: (n: number) => string;
   errorFetch: string;
+  /** 取得の進行・失敗まわり（design_booking_p1_v4.md §3.4） */
+  loadingSlow: string;
+  loadingTooLong: string;
+  retry: string;
+  conditionsChanged: string;
   changedPrice: string;
   altDates: string;
   monthLabel: (y: number, m: number) => string;
@@ -54,7 +67,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "Unavailable",
     searching: "Checking availability…",
     soldOut: "Not available for these dates",
+    overCapacity: "Up to {n} guests",
+    overCapacityHint: "This house sleeps {n}. Please reduce the number of guests, or choose the other house — changing dates will not change the capacity.",
     soldOutHint: "Try different dates or the other house.",
+    minStay: "These dates need a minimum stay of {n} nights",
+    upstreamFailed: "We could not check availability just now. Please try again in a moment.",
+    tooLate: "Bookings for these dates have closed (until 23:59 the day before check-in).",
+    tooFar: "These dates are not open for booking yet.",
+    priceFrom: "From {v} / night",
     totalLabel: "Total",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
     approx: "approx.",
@@ -62,6 +82,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "Book now",
     capacityMax: (n) => `Up to ${n} guests`,
     errorFetch: "Could not load availability. Please try again shortly.",
+    loadingSlow: "Still checking availability. This will only take a moment.",
+    loadingTooLong: "This is taking longer than usual. Please try again.",
+    retry: "Try again",
+    conditionsChanged: "Your search changed. Checking the latest availability…",
     changedPrice: "Prices or availability have changed. Please review the updated total.",
     altDates: "Nearest available dates",
     monthLabel: (y, m) => `${["January","February","March","April","May","June","July","August","September","October","November","December"][m]} ${y}`,
@@ -85,7 +109,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "満室・予約不可",
     searching: "空室を確認しています…",
     soldOut: "この日程は満室です",
+    overCapacity: "この棟は最大{n}名までです",
+    overCapacityHint: "ご人数を{n}名以下にするか、もう一方の棟をご検討ください。日程を変えても定員は変わりません。",
     soldOutHint: "日付を変更するか、もう一方の棟をご検討ください。",
+    minStay: "この日程は{n}泊からのご予約となります",
+    upstreamFailed: "ただいま空室を確認できませんでした。少し時間をおいてお試しください。",
+    tooLate: "この日程はお申し込みの期限を過ぎています（チェックイン前日23:59まで）。",
+    tooFar: "この日程はまだ受付を開始しておりません。",
+    priceFrom: "{v}〜 / 泊",
     totalLabel: "合計",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
     approx: "約",
@@ -93,6 +124,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "予約する",
     capacityMax: (n) => `最大${n}名`,
     errorFetch: "空室情報を取得できませんでした。時間をおいてお試しください。",
+    loadingSlow: "空室状況を確認中です。まもなく表示します。",
+    loadingTooLong: "確認に時間がかかっています。もう一度お試しください。",
+    retry: "再試行する",
+    conditionsChanged: "条件が変わりました。最新の空室を確認しています。",
     changedPrice: "料金または空室状況が変わりました。最新の総額をご確認ください。",
     altDates: "空きのある近い日程",
     monthLabel: (y, m) => `${y}年${m + 1}月`,
@@ -116,7 +151,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "예약 불가",
     searching: "빈방을 확인하고 있습니다…",
     soldOut: "해당 날짜는 예약이 불가합니다",
+    overCapacity: "이 숙소는 최대 {n}명까지입니다",
+    overCapacityHint: "인원을 {n}명 이하로 변경하시거나 다른 숙소를 확인해 주세요. 날짜를 바꿔도 정원은 동일합니다.",
     soldOutHint: "날짜를 변경하거나 다른 동을 확인해 주세요.",
+    minStay: "이 일정은 {n}박부터 예약하실 수 있습니다",
+    upstreamFailed: "지금은 예약 가능 여부를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    tooLate: "이 일정은 예약 마감되었습니다(체크인 전날 23:59까지).",
+    tooFar: "이 일정은 아직 예약을 받고 있지 않습니다.",
+    priceFrom: "{v}〜 / 1박",
     totalLabel: "합계",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
     approx: "약",
@@ -124,6 +166,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "예약하기",
     capacityMax: (n) => `최대 ${n}명`,
     errorFetch: "빈방 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    loadingSlow: "빈방 상황을 확인하고 있습니다. 곧 표시됩니다.",
+    loadingTooLong: "확인에 시간이 걸리고 있습니다. 다시 시도해 주세요.",
+    retry: "다시 시도",
+    conditionsChanged: "조건이 변경되었습니다. 최신 빈방을 확인하고 있습니다…",
     changedPrice: "요금 또는 예약 가능 상황이 변경되었습니다. 최신 총액을 확인해 주세요.",
     altDates: "예약 가능한 가까운 날짜",
     monthLabel: (y, m) => `${y}년 ${m + 1}월`,
@@ -147,7 +193,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "已滿房",
     searching: "正在查詢空房…",
     soldOut: "此日期已滿房",
+    overCapacity: "本棟最多可住{n}人",
+    overCapacityHint: "請將人數調整為{n}人以下，或改選另一棟。更換日期並不會改變可住人數。",
     soldOutHint: "請更換日期，或查看另一棟。",
+    minStay: "此日期最少需連住 {n} 晚",
+    upstreamFailed: "目前無法確認空房狀況，請稍後再試。",
+    tooLate: "此日期已截止受理（可預訂至入住前一天 23:59）。",
+    tooFar: "此日期尚未開放預訂。",
+    priceFrom: "{v} 起 / 晚",
     totalLabel: "總金額",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
     approx: "約",
@@ -155,6 +208,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "立即預訂",
     capacityMax: (n) => `最多 ${n} 人`,
     errorFetch: "無法取得空房資訊，請稍後再試。",
+    loadingSlow: "正在確認空房狀況，即將顯示。",
+    loadingTooLong: "確認需要較長時間，請再試一次。",
+    retry: "重新查詢",
+    conditionsChanged: "查詢條件已變更，正在確認最新空房…",
     changedPrice: "價格或空房狀況已變更，請確認最新總金額。",
     altDates: "最近的可訂日期",
     monthLabel: (y, m) => `${y}年${m + 1}月`,
@@ -178,7 +235,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     legendClosed: "ไม่ว่าง",
     searching: "กำลังตรวจสอบห้องว่าง…",
     soldOut: "วันที่เลือกไม่ว่าง",
+    overCapacity: "ที่พักนี้รองรับได้สูงสุด {n} ท่าน",
+    overCapacityHint: "กรุณาลดจำนวนผู้เข้าพักให้ไม่เกิน {n} ท่าน หรือเลือกอีกหลังหนึ่ง การเปลี่ยนวันที่ไม่ได้เปลี่ยนจำนวนที่รองรับ",
     soldOutHint: "กรุณาเปลี่ยนวันที่ หรือดูอีกหลังหนึ่ง",
+    minStay: "วันที่นี้ต้องเข้าพักอย่างน้อย {n} คืน",
+    upstreamFailed: "ขณะนี้ไม่สามารถตรวจสอบห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
+    tooLate: "ปิดรับจองสำหรับวันที่นี้แล้ว (จองได้ถึง 23:59 ของวันก่อนเช็คอิน)",
+    tooFar: "ยังไม่เปิดรับจองสำหรับวันที่นี้",
+    priceFrom: "เริ่มต้น {v} / คืน",
     totalLabel: "ราคารวม",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,
     approx: "ประมาณ",
@@ -186,6 +250,10 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     proceed: "จองเลย",
     capacityMax: (n) => `สูงสุด ${n} ท่าน`,
     errorFetch: "ไม่สามารถโหลดข้อมูลห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
+    loadingSlow: "กำลังตรวจสอบห้องว่าง อีกสักครู่จะแสดงผล",
+    loadingTooLong: "ใช้เวลานานกว่าปกติ กรุณาลองใหม่อีกครั้ง",
+    retry: "ลองใหม่",
+    conditionsChanged: "เงื่อนไขเปลี่ยนแปลง กำลังตรวจสอบห้องว่างล่าสุด…",
     changedPrice: "ราคาหรือสถานะห้องว่างมีการเปลี่ยนแปลง กรุณาตรวจสอบราคารวมล่าสุด",
     altDates: "วันที่ว่างที่ใกล้ที่สุด",
     monthLabel: (y, m) => `${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][m]} ${y}`,

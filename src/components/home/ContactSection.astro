@@ -3,6 +3,7 @@
    B8: Cloud Function `contact` へ POST → Firestore(contacts) に保存
    （ルールは全deny・Admin SDK経由のみ。ハニーポット website フィールド付き） */
 import { translations } from "../../i18n/translations";
+import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 
 interface Props {
@@ -15,10 +16,9 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
 ---
 
 <section id="contact" style="background:#f7f7f7;padding:5rem 1.5rem 6rem;">
-  <div style="max-width:560px;margin:0 auto;">
-    <p class="c-label">{c.sectionLabel}</p>
-    <h2 class="c-heading">{c.heading}</h2>
-    <p class="c-sub">{c.subheading}</p>
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem;">
+    <SectionHeading num="10" label={c.sectionLabel} title={c.heading} subtitle={c.subheading} />
+    <div>
 
     <form
       id="contact-form"
@@ -31,14 +31,16 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
       <!-- honeypot（不可視・botが埋める） -->
       <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;opacity:0;" />
 
-      <div style="margin-bottom:1.25rem;">
-        <label class="f-label" for="cf-name">Full Name <span style="color:#cc0000;">*</span></label>
-        <input class="f-input" id="cf-name" type="text" name="name" placeholder={c.namePlaceholder} autocomplete="name" required />
-      </div>
-
-      <div style="margin-bottom:1.25rem;">
-        <label class="f-label" for="cf-email">Email <span style="color:#cc0000;">*</span></label>
-        <input class="f-input" id="cf-email" type="email" name="email" placeholder={c.emailPlaceholder} autocomplete="email" required />
+      <!-- 氏名とメールは横並び（それぞれ半分幅） -->
+      <div class="f-row">
+        <div class="f-col">
+          <label class="f-label" for="cf-name">Full Name <span style="color:#cc0000;">*</span></label>
+          <input class="f-input" id="cf-name" type="text" name="name" placeholder={c.namePlaceholder} autocomplete="name" required />
+        </div>
+        <div class="f-col">
+          <label class="f-label" for="cf-email">Email <span style="color:#cc0000;">*</span></label>
+          <input class="f-input" id="cf-email" type="email" name="email" placeholder={c.emailPlaceholder} autocomplete="email" required />
+        </div>
       </div>
 
       <div style="margin-bottom:1.25rem;">
@@ -58,13 +60,14 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
       <button type="submit" class="f-submit">{c.submitBtn}</button>
     </form>
   </div>
+    </div>
 </section>
 
 <style>
   .c-label {
     font-size: 0.7rem;
     font-weight: 500;
-    color: #aaaaaa;
+    color: #666666;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     margin-bottom: 0.5rem;
@@ -122,6 +125,17 @@ const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/c
   }
   .f-submit:active {
     transform: scale(0.98);
+  }
+  /* 氏名・メールは半分幅で横並び、Message は全幅（PRカードと同じ幅に揃える） */
+  .f-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .f-col { min-width: 0; }
+  @media (max-width: 640px) {
+    .f-row { grid-template-columns: 1fr; gap: 1.25rem; }
   }
 </style>
 

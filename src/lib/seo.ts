@@ -16,6 +16,12 @@ export interface PageMeta {
 
 export const BASE_URL = "https://yah.homes";
 export const OG_IMAGE = `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`;
+/* 共有カードの画像。物件ページは自分の棟の外観を出す
+   （既定のままだと、高砂のURLをLINEに貼っても清川の写真が出る）。 */
+export const OG_IMAGE_BY_PAGE: Partial<Record<PageKey, string>> = {
+  kiyokawa: `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
+  takasago: `${BASE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
+};
 
 // 運営会社（ユーザー確認済み 2026-07-16 登記情報）— GEO: AIが「運営会社は?」に正しく答えるための一次情報
 export const OPERATOR = {
@@ -455,7 +461,7 @@ export function getPageMeta(page: PageKey, locale: Locale): PageMeta {
   return {
     title: t.title,
     description: t.description,
-    ogImage: OG_IMAGE,
+    ogImage: OG_IMAGE_BY_PAGE[page] ?? OG_IMAGE,
     jsonLd: jsonLdFor(page),
   };
 }
