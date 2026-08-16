@@ -283,10 +283,10 @@ export const beds24WeeklyReport = onSchedule(
       const rows: [string, string][] = [
         ["新規予約", esc(`${weekly.length}組 / ${weeklyNights}泊`)],
         ["キャンセル", esc(`${cxl.length}件`)],
-        ["先付け残高", esc(`計${fwdTotal}泊（清川${fwd.清川} / 高砂${fwd.高砂}）`)],
-        ["先付け率", esc(`${fwdPct}%（適正帯 28〜33%）`)],
-        ["直販売上", esc(revenue > 0 ? `¥${Math.round(revenue).toLocaleString()}（広告費 ¥${Math.round(adCost).toLocaleString()}）` : `—（広告費 ¥${Math.round(adCost).toLocaleString()}）`)],
-        ["訪問→購入 CVR", esc(cvr === "—" ? "—" : `${cvr}%（${sessions.toLocaleString()}セッション）`)],
+        // 値が長い行は2段に割る（1段目=主数値／2段目=内訳。2段目は小さく灰色にして主従を付ける）
+        ["先付け残高", `${esc(`計${fwdTotal}泊`)}<br><span style="font-size:12px;color:#888888;font-weight:400;">${esc(`清川${fwd.清川} / 高砂${fwd.高砂}　${fwdPct}%（適正帯 28〜33%）`)}</span>`],
+        ["直販売上", `${esc(revenue > 0 ? `¥${Math.round(revenue).toLocaleString()}` : "—")}<br><span style="font-size:12px;color:#888888;font-weight:400;">${esc(`広告費 ¥${Math.round(adCost).toLocaleString()}`)}</span>`],
+        ["訪問→購入 CVR", `${esc(cvr === "—" ? "—" : `${cvr}%`)}<br><span style="font-size:12px;color:#888888;font-weight:400;">${esc(`${sessions.toLocaleString()}セッション`)}</span>`],
         ["手渡し→予約（旧指標・参考）", esc(`${ratio}%（基準帯 23〜28%）`)],
       ];
       const list = (lines: string[]) => esc(lines.join("\n")) || "（データなし）";
@@ -300,8 +300,8 @@ export const beds24WeeklyReport = onSchedule(
         `【週次スコアカード】新規${weekly.length}組${weeklyNights}泊・先付け${fwdTotal}泊`,
         body,
         {
-          heading: `新規 ${weekly.length}組 ${weeklyNights}泊`,
-          lead: `${weekAgo} 〜 ${today}（予約日ベース）の実績です。`,
+          // 見出しとリード文は主要数値タイルと重複するため出さない（2026-08-16 発注者指示）
+          heading: "",
           // 一目で読ませるのは3つまで。先付け率と手渡し比率は判定帯つきで色を変える。
           stats: [
             { label: "新規予約", value: `${weekly.length}組`, sub: `${weeklyNights}泊 ／ 取消 ${cxl.length}件`, tone: weekly.length > 0 ? "good" : "warn" },

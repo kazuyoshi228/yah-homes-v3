@@ -3057,8 +3057,8 @@ export const beds24DailyObserver = onSchedule(
         ].join("\n"),
         {
           // 一目で読ませるのは「今日いくつ増えたか」と「在庫がどれだけ積んであるか」の2点に絞る
-          heading: `${netG >= 0 ? "+" : ""}${netG}組 ${netN >= 0 ? "+" : ""}${netN}泊`,
-          lead: `前回観測 ${prev.date ?? "初回"} からの差分です。`,
+          // 見出しとリード文は主要数値タイルと重複するため出さない（2026-08-16 発注者指示）
+          heading: "",
           stats: [
             { label: "新規（差引）", value: `${netG >= 0 ? "+" : ""}${netG}組`, sub: `${netN >= 0 ? "+" : ""}${netN}泊`, tone: netG > 0 ? "good" : netG < 0 ? "bad" : undefined },
             { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdRate}%（適正 28〜33%）`, tone: fwdRate < 28 ? "warn" : fwdRate > 33 ? "warn" : "good" },
@@ -3069,16 +3069,16 @@ export const beds24DailyObserver = onSchedule(
               sub: handoff
                 ? (handoff.purchase > 0
                   ? `¥${Math.round(handoff.revenue ?? 0).toLocaleString()} ／ 訪問 ${(handoff.sessions ?? 0).toLocaleString()}セッション`
-                  : `訪問 ${(handoff.sessions ?? 0).toLocaleString()}セッション ／ 手渡し ${handoff.click_airbnb + handoff.click_booking_com}（参考）`)
+                  : `訪問 ${(handoff.sessions ?? 0).toLocaleString()}セッション`)
                 : "GA4取得失敗",
               tone: handoff && handoff.purchase > 0 ? "good" : undefined,
             },
           ],
           rows: [
-            ["清川", esc(`${kNet.g >= 0 ? "+" : ""}${kNet.g}組 ${kNet.n >= 0 ? "+" : ""}${kNet.n}泊　先付け ${fwd.清川}泊（${pct(fwd.清川, 365)}）`)],
-            ["高砂", esc(`${tNet.g >= 0 ? "+" : ""}${tNet.g}組 ${tNet.n >= 0 ? "+" : ""}${tNet.n}泊　先付け ${fwd.高砂}泊（${pct(fwd.高砂, 365)}）`)],
+            // 値が長い行は2段に割る（1段目=増減／2段目=在庫や内訳。2段目は小さく灰色にして主従を付ける）
+            ["清川", `${esc(`${kNet.g >= 0 ? "+" : ""}${kNet.g}組 ${kNet.n >= 0 ? "+" : ""}${kNet.n}泊`)}<br><span style="font-size:12px;color:#888888;font-weight:400;">${esc(`先付け ${fwd.清川}泊（${pct(fwd.清川, 365)}）`)}</span>`],
+            ["高砂", `${esc(`${tNet.g >= 0 ? "+" : ""}${tNet.g}組 ${tNet.n >= 0 ? "+" : ""}${tNet.n}泊`)}<br><span style="font-size:12px;color:#888888;font-weight:400;">${esc(`先付け ${fwd.高砂}泊（${pct(fwd.高砂, 365)}）`)}</span>`],
             ["キャンセル", esc(`${events.cancelled.length}件`)],
-            ["手渡し（旧指標・参考）", esc(handoff ? `計${handoff.total}　Airbnb ${handoff.click_airbnb} / Booking ${handoff.click_booking_com} / カレンダー ${handoff.click_booking_calendar}` : "GA4取得失敗")],
             ["定点シート", esc(sheetNote)],
           ],
           blocks: [
