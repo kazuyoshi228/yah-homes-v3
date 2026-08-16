@@ -46,13 +46,13 @@ const FB_CONFIG = {
           <h2 class="au-h2">メンバーを追加・更新</h2>
           <form id="au-form" class="au-form">
             <div class="au-row">
-              <input id="af-email" type="email" placeholder="メールアドレス（Googleアカウント）" required />
-              <input id="af-name" type="text" placeholder="名前（例: Airstar 原田様）" maxlength="100" />
               <select id="af-role">
                 <option value="operator">Operator（閲覧・お客様対応）</option>
                 <option value="admin">Admin（管理操作すべて・台帳を除く）</option>
                 <option value="owner">Owner（台帳の管理まで）</option>
               </select>
+              <input id="af-name" type="text" placeholder="名前（例: Airstar 原田様）" maxlength="100" />
+              <input id="af-email" type="email" placeholder="メールアドレス（Googleアカウント）" required />
             </div>
             <div class="au-row au-checks">
               <label><input type="checkbox" id="af-partners" /> パートナー申請の通知を受け取る</label>
