@@ -33,13 +33,13 @@ const OPERATOR = [
 const SYSTEM = [
   { href: "/admin/health/", title: "システムヘルス" },
   { href: "/admin/audit/", title: "変更履歴" },
-  { href: "/admin/users/", title: "管理者台帳", role: "owner" },
+  { href: "/admin/users/", title: "管理者台帳", role: "admin" },   // Admin は Operator の追加・編集が可能（台帳ページ側で制限）
   { href: "/admin/specs/", title: "システム仕様書" },
 ];
 
 ---
 
-<SiteLayout
+<SiteLayout adminNav
   lang="ja"
   path="/admin/menu"
   title="管理メニュー | yah.homes"

@@ -3,6 +3,7 @@
 // scroll reveal（.reveal / .reveal-fade → .visible）のオブザーバも全ページ共通で有効化
 import BaseLayout from "./BaseLayout.astro";
 import Navbar from "../components/Navbar.astro";
+import AdminNav from "../components/AdminNav.astro";
 import Footer from "../components/Footer.astro";
 import type { Locale } from "../i18n/config";
 
@@ -21,8 +22,10 @@ interface Props {
   solidNav?: boolean;
   /** LCP対策: ヒーロー画像の preload（BaseLayout へ渡す） */
   preloadImage?: { href: string; imagesrcset?: string; imagesizes?: string };
+  /** 管理画面: お客様向けナビの代わりに黒い管理バーを出す */
+  adminNav?: boolean;
 }
-const { lang, path, title, description, ogImage, ogType, jsonLd, noindex, availableLocales, solidNav, preloadImage } = Astro.props;
+const { lang, path, title, description, ogImage, ogType, jsonLd, noindex, availableLocales, solidNav, preloadImage, adminNav } = Astro.props;
 ---
 
 <BaseLayout
@@ -40,7 +43,7 @@ const { lang, path, title, description, ogImage, ogType, jsonLd, noindex, availa
   <a href="#main-content" class="skip-link">{
     { ja: "本文へ移動", en: "Skip to content", ko: "본문으로 이동", zh: "跳至主要內容", th: "ข้ามไปยังเนื้อหา" }[lang] ?? "Skip to content"
   }</a>
-  <Navbar lang={lang} path={path} solid={solidNav} />
+  {adminNav ? <AdminNav /> : <Navbar lang={lang} path={path} solid={solidNav} />}
   <main id="main-content">
     <slot />
   </main>
