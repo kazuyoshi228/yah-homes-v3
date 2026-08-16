@@ -2171,8 +2171,8 @@ async function handleInquiryByToken(
   });
   notifyInquiry(parsed.threadId, t as Record<string, unknown>, "guest", text, translated)
     .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
-  appendInquiryNote(t as Record<string, unknown>, "guest", text)
-    .catch((e: unknown) => logger.warn("beds24 inquiry note failed", { e: String(e).slice(0, 120) }));
+  mirrorInquiryToBeds24(t as Record<string, unknown>, "guest", text)
+    .catch((e: unknown) => logger.warn("beds24 inquiry mirror failed", { e: String(e).slice(0, 120) }));
   res.status(200).json({ ok: true });
 }
 
@@ -2215,8 +2215,8 @@ async function handleInquiryAsHost(
   });
   notifyInquiry(threadId, t, "host", text, translated)
     .catch((e: unknown) => logger.warn("notifyInquiry failed", { e: String(e).slice(0, 120) }));
-  appendInquiryNote(t, "host", text)
-    .catch((e: unknown) => logger.warn("beds24 inquiry note failed", { e: String(e).slice(0, 120) }));
+  mirrorInquiryToBeds24(t, "host", text)
+    .catch((e: unknown) => logger.warn("beds24 inquiry mirror failed", { e: String(e).slice(0, 120) }));
   res.status(200).json({ ok: true });
 }
 
@@ -2517,10 +2517,8 @@ async function createBeds24Inquiry(
     notes: [
       "【お問い合わせ】yah.homes 公式サイトのフォームより",
       "※このカードは予約ではありません。日程・人数はダミーです。",
-      "※返信は yah.homes の管理画面「メッセージ」から行ってください（Beds24 から返信してもお客様には届きません）。",
+      "※やり取りはメッセージ受信箱に届きます。返信は yah.homes の管理画面「メッセージ」から行ってください（Beds24 から返信してもお客様には届きません）。",
       `お名前: ${name} ／ メール: ${email}`,
-      "──── 以下、やり取り（新しい発言は下に追記されます）────",
-      `[${new Date(Date.now() + 9 * 3600000).toISOString().slice(5, 16).replace("T", " ")}] お客様: ${message.slice(0, 1500)}`,
     ].join("\n"),
   }];
   const r = await fetch(`${BEDS24_API}/bookings`, {
@@ -2534,39 +2532,23 @@ async function createBeds24Inquiry(
     logger.warn("beds24 inquiry create failed", { e: JSON.stringify(row?.errors ?? j).slice(0, 200) });
     return null;
   }
+  // 1通目も受信箱へ。これが Airstar が問い合わせに気づく主経路になる
+  await noteBeds24Message(row.new.id, "guest", `【お問い合わせ】${name} 様（${email}）\n${message}`)
+    .catch((e: unknown) => logger.warn("beds24 inquiry first message failed", { e: String(e).slice(0, 120) }));
   return row.new.id;
 }
 
-/** Beds24 の予約カードの備考(notes)に会話を追記する。
- *  メッセージAPI(bookings/messages)は使わない。Beds24 の受信箱は「実在の予約に紐づく
- *  チャネル会話」向けの描画で、API作成の問い合わせカードでは安定して表示されなかったため
- *  （source:"host" は保存されても描画されず、guest 経路に寄せる回避も表示に至らなかった）。
- *  備考は予約カードを開けば必ず出るので、確実に届く。
- *  役割分担: Beds24 = 問い合わせが来たことに気づく場所 / 管理画面 = 会話と返信の場所。
- *  （Beds24 から返信してもお客様には届かないため、会話の本体は元より管理画面にしかない） */
-async function appendInquiryNote(
+/** 問い合わせのやり取りを Beds24 の受信箱へ複製する。
+ *  発言者は接頭辞で示す（予約スレッドの【直販ゲスト】/【yah.homes 運営】と同じ規則）。
+ *  運営側も source:"guest" で送るのは、source:"host" が受信箱に描画されないため。
+ *  なお Beds24 から返信してもお客様には届かない（返信は管理画面から）。 */
+async function mirrorInquiryToBeds24(
   t: Record<string, unknown>, from: "guest" | "host", text: string,
 ): Promise<void> {
   const id = Number(t.beds24Id ?? 0);
   if (!id) return;
-  const who = from === "host" ? "運営" : "お客様";
-  const stamp = new Date(Date.now() + 9 * 3600000).toISOString().slice(5, 16).replace("T", " ");
-  const line = `[${stamp}] ${who}: ${text}`;
-
-  // 既存の備考を読み、末尾に追記する（Beds24 は notes の部分更新ができないため全文を書き戻す）
-  const cur = await fetch(`${BEDS24_API}/bookings?id=${id}`, {
-    headers: { token: await beds24WriteToken() },
-  }).then((r) => r.json()) as { data?: Array<{ notes?: string }> };
-  const prev = String(cur.data?.[0]?.notes ?? "");
-  const next = `${prev}\n${line}`.slice(-4000);   // Beds24 の上限に配慮して末尾を残す
-
-  const r = await fetch(`${BEDS24_API}/bookings`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify([{ id, notes: next }]),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean }>;
-  if (!j?.[0]?.success) logger.warn("beds24 inquiry note append failed", { id });
+  const label = from === "guest" ? "【お問い合わせ】" : "【yah.homes 運営】";
+  await noteBeds24Message(id, "guest", `${label}${text}`);
 }
 
 async function noteBeds24Message(beds24Id: number, from: "guest" | "host", message: string): Promise<void> {
