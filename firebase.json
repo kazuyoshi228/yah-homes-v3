@@ -19,13 +19,13 @@
         "type": 301
       },
       {
-        "source": "/:locale/booking",
+        "regex": "^/(?P<locale>ja|ko|zh|th)/booking/?$",
         "destination": "/:locale/properties",
         "type": 301
       },
       {
-        "source": "/:locale/booking/:rest*",
-        "destination": "/:locale/properties/:rest*",
+        "regex": "^/(?P<locale>ja|ko|zh|th)/booking/(?P<rest>.*)$",
+        "destination": "/:locale/properties/:rest",
         "type": 301
       },
       {
