@@ -135,6 +135,19 @@ const conditionRows: string[] = [
   </div>
 </section>
 
+<!-- Meta ViewContent。予約機能の公開可否とは無関係なので BOOK_PREVIEW ゲートの外に置く
+     （物件への興味＝リターゲティングの母集団は、直販公開前から溜める価値がある） -->
+<script is:inline define:vars={{ propertyKey }}>
+  window.fbq?.("track", "ViewContent", {
+    content_ids: [`stay_${propertyKey}`],
+    content_type: "product",
+    content_name: `yah.homes ${propertyKey}`,
+    content_category: "whole_house_stay",
+    currency: "JPY",
+    property_id: propertyKey,
+  });
+</script>
+
 {BOOK_PREVIEW && (
   <script is:inline define:vars={{ propertyKey, priceFromLabel: DIRECT.priceFrom }}>
     // 価格の目安。/book と同じ空室カレンダーAPI（Beds24 のデイリー料金）から

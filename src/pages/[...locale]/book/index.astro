@@ -412,6 +412,13 @@ const strings = {
   $("bk-prev").addEventListener("click", () => { if (state.monthOffset > 0) { state.monthOffset--; renderCal(); } });
   $("bk-next").addEventListener("click", () => { if (state.monthOffset < MAX_OFFSET) { state.monthOffset++; renderCal(); } });
 
+  // 予約までのリードタイムを区分に丸める。具体的な宿泊日は広告基盤へ送らない（計画書 §6-3）。
+  function bucketOf(checkinDate) {
+    const d = Math.round((Date.parse(checkinDate) - Date.now()) / 86400000);
+    return d <= 3 ? "0_3_days" : d <= 7 ? "4_7_days"
+      : d <= 14 ? "8_14_days" : d <= 30 ? "15_30_days" : "over_30_days";
+  }
+
   // GA4送信のラッパー。氏名・メール・電話・カード情報は絶対に含めない（v4 §10）
   function track(name, params) {
     window.gtag?.("event", name, { ...params, lang });
@@ -492,6 +499,15 @@ const strings = {
           cache_status: j.cacheStatus ?? "unknown",
           result_summary: list.map((x) => `${x.id}:${x.available ? "open" : "full"}`).join(","),
         });
+        // Meta Search: 日程・人数が揃い、空室照会が成立した時点だけ送る。
+        // 検索文字列や具体的な宿泊日は送らない（個人の旅行計画になりうるため）。
+        if (j.ok) {
+          window.fbq?.("track", "Search", {
+            content_ids: list.map((x) => `stay_${x.id}`),
+            content_type: "product",
+            num_items: 1,
+          });
+        }
         return j;
       })
       .catch((err) => {
@@ -583,6 +599,16 @@ const strings = {
       <p class="bk-quote-direct">${strings.directNote}</p>
       <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
     track("official_value_viewed", { screen: "availability_result", prop: house.key, checkin: state.checkin });
+    // Meta ViewQuote（カスタム）: 日程・人数・価格まで確認した高意向者。
+    // リターゲティングの母集団づくりに使う。売上ではないので最終最適化先にはしない。
+    window.fbq?.("trackCustom", "ViewQuote", {
+      property_id: house.key,
+      nights,
+      guests: state.guests,
+      value: p.total,
+      currency: "JPY",
+      lead_time_bucket: bucketOf(state.checkin),
+    });
     box.querySelector(".bk-cta")?.addEventListener("click", () => {
       window.gtag?.("event", "begin_checkout", {
         currency: "JPY", value: p.total, lang,
@@ -591,9 +617,7 @@ const strings = {
       // Meta InitiateCheckout（2026-08-16）。Purchase が貯まるまでの立ち上げ期は
       // これを最適化先に使う。OTAクリック（OutboundBookingClick）とは別物として扱う。
       // 具体的な宿泊日は送らない（個人の旅行計画になりうるため）。リードタイムは丸める。
-      const leadDays = Math.round((Date.parse(state.checkin) - Date.now()) / 86400000);
-      const bucket = leadDays <= 3 ? "0_3_days" : leadDays <= 7 ? "4_7_days"
-        : leadDays <= 14 ? "8_14_days" : leadDays <= 30 ? "15_30_days" : "over_30_days";
+      const bucket = bucketOf(state.checkin);
       window.fbq?.("track", "InitiateCheckout", {
         content_ids: [`stay_${house.key}`],
         content_type: "product",
