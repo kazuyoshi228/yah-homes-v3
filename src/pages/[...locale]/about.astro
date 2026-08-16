@@ -20,7 +20,7 @@ export function getStaticPaths() {
 
 const { lang } = Astro.props as { lang: Locale };
 const t = translations[lang];
-const meta = getPageMeta("about", lang);
+const meta = await getPageMeta("about", lang);
 const ui = uiStrings[lang];
 
 const ABOUT_HERO = "/manus-storage/017_10f920ac.webp";

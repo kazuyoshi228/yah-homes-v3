@@ -9,8 +9,6 @@ export interface Property {
   exterior: string; // /manus-storage/...
   capacity: number;
   bedrooms: number;
-  rating: string;
-  reviewCount: string;
 }
 
 const IMG = "/manus-storage";
@@ -18,7 +16,6 @@ const IMG = "/manus-storage";
 /** Airbnb 評価の取得日（更新時はこの日付と rating/reviewCount を揃えて更新する）
  *  取得方法: Airbnb リスティングページの embedded JSON（guestSatisfactionOverall / reviewCount）
  *  将来: Beds24 API での自動化を検討（docs/design_geo_improvements.md Phase B） */
-export const RATING_AS_OF = "2026-07-13";
 
 export const PROPERTIES: Record<Property["key"], Property> = {
   kiyokawa: {
@@ -29,8 +26,6 @@ export const PROPERTIES: Record<Property["key"], Property> = {
     exterior: `${IMG}/kiyokawa-exterior_18a3409b.webp`,
     capacity: 7,
     bedrooms: 3,
-    rating: "4.77",
-    reviewCount: "47",
   },
   takasago: {
     key: "takasago",
@@ -40,8 +35,6 @@ export const PROPERTIES: Record<Property["key"], Property> = {
     exterior: `${IMG}/takasago-exterior_d4f7ccff.webp`,
     capacity: 6,
     bedrooms: 3,
-    rating: "4.67",
-    reviewCount: "36",
   },
 };
 

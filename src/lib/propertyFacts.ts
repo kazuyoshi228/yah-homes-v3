@@ -61,7 +61,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
   kiyokawa: {
     capacity: 7, bedrooms: 3, bedDouble: 3, bedSingle: 1,
     bath: 1, shower: 0, sink: 1, toilet: 2,
-    rating: "4.77", reviewCount: "47",
+    rating: "4.77", reviewCount: "48",
     checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
     washer: 1, dryer: 0, audio: 1, tvInch: 55, studyDesk: 1, parking: 1, theater: 0,
     fromAirportCarMin: 18, fromStationWalkMin: 15, nearestStation: "渡辺通", toTenjinWalkMin: 20, toHakataWalkMin: 25,
@@ -72,7 +72,7 @@ export const DEFAULTS: Record<PropKey, PropertyFacts> = {
   takasago: {
     capacity: 6, bedrooms: 3, bedDouble: 1, bedSingle: 4,
     bath: 1, shower: 1, sink: 3, toilet: 2,
-    rating: "4.67", reviewCount: "36",
+    rating: "4.68", reviewCount: "40",
     checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "",
     washer: 1, dryer: 0, audio: 1, tvInch: 75, studyDesk: 0, parking: 1, theater: 1,
     fromAirportCarMin: 20, fromStationWalkMin: 8, nearestStation: "渡辺通", toTenjinWalkMin: 15, toHakataWalkMin: 25,

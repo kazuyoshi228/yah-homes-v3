@@ -26,7 +26,7 @@ export function getStaticPaths() {
 }
 
 const { lang } = Astro.props as { lang: Locale };
-const meta = getPageMeta("home", lang);
+const meta = await getPageMeta("home", lang);
 ---
 
 <SiteLayout lang={lang} path="/" title={meta.title} description={meta.description} jsonLd={meta.jsonLd} preloadImage={HOME_HERO_PRELOAD}>

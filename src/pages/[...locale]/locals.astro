@@ -17,7 +17,7 @@ export function getStaticPaths() {
 }
 
 const { lang } = Astro.props as { lang: Locale };
-const meta = getPageMeta("locals", lang);
+const meta = await getPageMeta("locals", lang);
 const t = localsData[lang];
 
 const ACCENT = "#111111"; // ブランドBlack — docs/brand/Brandguidelines_yah.pdf のパレットは黒白グレーのみ

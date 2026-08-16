@@ -1,4 +1,5 @@
 ---
+import { getPropertyFacts } from "../../lib/propertyFacts";
 /* yah.homes ComparisonTable — 旧 ComparisonTable.tsx の忠実移植 */
 import { translations } from "../../i18n/translations";
 import SectionHeading from "../SectionHeading.astro";
@@ -22,8 +23,10 @@ const RATING_LABEL: Record<Locale, string> = {
   zh: "Airbnb 評分",
   th: "คะแนน Airbnb",
 };
-const kiyoRating = `★ ${PROPERTIES.kiyokawa.rating} (${PROPERTIES.kiyokawa.reviewCount})`;
-const takaRating = `★ ${PROPERTIES.takasago.rating} (${PROPERTIES.takasago.reviewCount})`;
+// 評価は property_facts が単一ソース（/admin/properties で編集）
+const { facts } = await getPropertyFacts();
+const kiyoRating = `★ ${facts.kiyokawa.rating} (${facts.kiyokawa.reviewCount})`;
+const takaRating = `★ ${facts.takasago.rating} (${facts.takasago.reviewCount})`;
 
 // 人数単位（旧実装のロジックを言語で直接分岐）
 const peopleUnit =

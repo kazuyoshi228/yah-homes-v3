@@ -1,9 +1,10 @@
 ---
 /* 両棟Airbnb予約CTA（共通部品）— HERO/レビュー直後/比較表直後/末尾で再利用。
-   URL・評価・件数・取得日は src/data/properties.ts（RATING_AS_OF / PROPERTIES）を単一ソースに参照。
+   URL は src/data/properties.ts、評価・件数・取得日は property_facts（SSoT）を参照。
    計測: BaseLayout のクリック委譲が room ID で property を自動判定し click_airbnb を送信。
    data-cta-location で配置別に分離計測する。 */
-import { PROPERTIES, RATING_AS_OF } from "../../data/properties";
+import { PROPERTIES } from "../../data/properties";
+import { getPropertyFacts } from "../../lib/propertyFacts";
 import type { Locale } from "../../i18n/config";
 
 interface Props {
@@ -23,19 +24,23 @@ const { lang, ctaLocation, showRating = false, align = "center", onLight = false
 const labelK = labels?.kiyokawa ?? "Airbnb — Kiyokawa";
 const labelT = labels?.takasago ?? "Airbnb — Takasago";
 
-const k = PROPERTIES.kiyokawa;
-const t = PROPERTIES.takasago;
+// 事実（評価・件数）は SSoT、外部リンクは properties.ts（接続情報なので別管理）
+const { facts, ratingAsOf } = await getPropertyFacts();
+const k = facts.kiyokawa;
+const t = facts.takasago;
+const kUrl = PROPERTIES.kiyokawa;
+const tUrl = PROPERTIES.takasago;
 
 const ratingLabel =
   lang === "ja"
-    ? `★${k.rating} 清川（${k.reviewCount}件）・★${t.rating} 高砂（${t.reviewCount}件）｜${RATING_AS_OF} 時点`
+    ? `★${k.rating} 清川（${k.reviewCount}件）・★${t.rating} 高砂（${t.reviewCount}件）｜${ratingAsOf} 時点`
     : lang === "ko"
-      ? `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | ${RATING_AS_OF} 기준`
+      ? `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | ${ratingAsOf} 기준`
       : lang === "zh"
-        ? `★${k.rating} 清川（${k.reviewCount}則）・★${t.rating} 高砂（${t.reviewCount}則）｜${RATING_AS_OF} 時點`
+        ? `★${k.rating} 清川（${k.reviewCount}則）・★${t.rating} 高砂（${t.reviewCount}則）｜${ratingAsOf} 時點`
         : lang === "th"
-          ? `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | ${RATING_AS_OF}`
-          : `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | as of ${RATING_AS_OF}`;
+          ? `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | ${ratingAsOf}`
+          : `★${k.rating} Kiyokawa (${k.reviewCount}) · ★${t.rating} Takasago (${t.reviewCount}) | as of ${ratingAsOf}`;
 
 const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.5 2 5.5 5.5 5.5 9.5c0 2.5 1.2 4.8 3.2 6.5L12 22l3.3-6c2-1.7 3.2-4 3.2-6.5C18.5 5.5 15.5 2 12 2zm0 10a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"></path></svg>`;
 ---
@@ -43,7 +48,7 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
 <div class:list={["ibc", `ibc-${align}`, onLight && "ibc-on-light"]}>
   <div class="ibc-pills">
     <a
-      href={k.airbnbUrl}
+      href={kUrl.airbnbUrl}
       target="_blank"
       rel="noopener noreferrer"
       class="airbnb-pill"
@@ -53,7 +58,7 @@ const AirbnbIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="curren
       {labelK}
     </a>
     <a
-      href={t.airbnbUrl}
+      href={tUrl.airbnbUrl}
       target="_blank"
       rel="noopener noreferrer"
       class="airbnb-pill"

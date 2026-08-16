@@ -7,7 +7,7 @@ import SectionHeading from "../SectionHeading.astro";
 import type { Locale } from "../../i18n/config";
 import { starRating } from "../../lib/lucide";
 import { REVIEWS } from "../../data/reviewsData";
-import { PROPERTIES, RATING_AS_OF } from "../../data/properties";
+import { getPropertyFacts } from "../../lib/propertyFacts";
 import { uiStrings } from "../../i18n/uiStrings";
 
 interface Props {
@@ -17,22 +17,24 @@ const { lang } = Astro.props;
 const t = translations[lang];
 const r = t.review;
 
-// 評価は data/properties.ts を単一ソースに（旧: 4.77/43・4.65/34 のハードコードで不整合だった）
+// 評価の単一ソースは property_facts（/admin/properties で編集）。
+// 旧: 4.77/43・4.65/34 のハードコード → data/properties.ts → SSoT、と段階的に一本化した。
+const { facts, ratingAsOf } = await getPropertyFacts();
 const RATINGS = [
   {
     id: "kiyokawa",
-    rating: Number(PROPERTIES.kiyokawa.rating),
-    reviewCount: Number(PROPERTIES.kiyokawa.reviewCount),
+    rating: Number(facts.kiyokawa.rating),
+    reviewCount: Number(facts.kiyokawa.reviewCount),
     label: t.properties.kiyokawa.name,
   },
   {
     id: "takasago",
-    rating: Number(PROPERTIES.takasago.rating),
-    reviewCount: Number(PROPERTIES.takasago.reviewCount),
+    rating: Number(facts.takasago.rating),
+    reviewCount: Number(facts.takasago.reviewCount),
     label: t.properties.takasago.name,
   },
 ];
-const asOfLabel = uiStrings[lang].ratingAsOf.replace("{date}", RATING_AS_OF);
+const asOfLabel = uiStrings[lang].ratingAsOf.replace("{date}", ratingAsOf);
 
 // Review JSON-LD（旧 ReviewCarousel と同一構造）
 const reviewJsonLd = {

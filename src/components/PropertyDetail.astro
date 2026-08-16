@@ -10,6 +10,7 @@ import { PROPERTIES, GALLERIES, type Property } from "../data/properties";
 import { uiStrings } from "../i18n/uiStrings";
 import { nearbyData } from "../data/nearbyData";
 import { PROPERTY_GEO } from "../lib/seo";
+import { getPropertyFacts } from "../lib/propertyFacts";
 import PressSection from "./PressSection.astro";
 
 // 地図ラベル（各言語）
@@ -25,6 +26,10 @@ interface Props {
 }
 const { lang, propertyKey, data: d, heroImage, floorPlanImage } = Astro.props;
 const p = PROPERTIES[propertyKey];
+// 評価・件数の単一ソースは property_facts（/admin/properties）。
+// 以前は言語別データに直書きしており、管理画面を更新してもここだけ古い値が残っていた。
+const { facts } = await getPropertyFacts();
+const pf = facts[propertyKey];
 const gallery = GALLERIES[propertyKey];
 const ui = uiStrings[lang];
 // GEO: 周辺スポット距離表（表形式はAI引用の抽出率が最も高い）
@@ -148,9 +153,9 @@ const conditionRows: string[] = [
     </div>
 
     <a href={p.airbnbUrl} target="_blank" rel="noopener noreferrer" class="pd-review" data-cta-location="property_detail">
-      <Fragment set:html={starRating(Number(d.review.rating), 14, `pd-${propertyKey}`)} />
-      <span class="pd-review-num">{d.review.rating}</span>
-      <span class="pd-review-count">{d.review.count}</span>
+      <Fragment set:html={starRating(Number(pf.rating), 14, `pd-${propertyKey}`)} />
+      <span class="pd-review-num">{pf.rating}</span>
+      <span class="pd-review-count">{d.review.count.replace('{n}', pf.reviewCount)}</span>
       <span class="pd-review-tag">{d.review.superhostLabel}</span>
       <span class="pd-review-tag">{d.review.airbnbLabel}</span>
     </a>

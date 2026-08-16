@@ -40,7 +40,7 @@ export interface KiyokawaTranslations {
   };
   // Airbnb review badge
   review: {
-    rating: string;
+    /** rating は property_facts（SSoT）から取る。ここには持たない */
     count: string;
     superhostLabel: string;
     airbnbLabel: string;
@@ -345,8 +345,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
       bookButton: "Book Now",
     },
     review: {
-      rating: "4.77",
-      count: "47 reviews",
+      count: "{n} reviews",
       superhostLabel: "Superhost",
       airbnbLabel: "View on Airbnb",
     },
@@ -690,8 +689,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
       bookButton: "予約する",
     },
     review: {
-      rating: "4.77",
-      count: "レビュー47件",
+      count: "レビュー{n}件",
       superhostLabel: "スーパーホスト",
       airbnbLabel: "Airbnbで見る",
     },
@@ -945,8 +943,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
       ],
     },
     review: {
-      rating: "4.77",
-      count: "후기 47개",
+      count: "후기 {n}개",
       superhostLabel: "슈퍼호스트",
       airbnbLabel: "Airbnb에서 보기",
     },
@@ -1262,8 +1259,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
       ],
     },
     review: {
-      rating: "4.77",
-      count: "47 則評價",
+      count: "{n} 則評價",
       superhostLabel: "超級房主",
       airbnbLabel: "在 Airbnb 上查看",
     },
@@ -1579,8 +1575,7 @@ export const kiyokawaData: Record<Lang, KiyokawaTranslations> = {
       ],
     },
     review: {
-      rating: "4.77",
-      count: "47 รีวิว",
+      count: "{n} รีวิว",
       superhostLabel: "ซูเปอร์โฮสต์",
       airbnbLabel: "ดูบน Airbnb",
     },

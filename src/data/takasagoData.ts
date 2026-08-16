@@ -35,7 +35,7 @@ export interface TakasagoTranslations {
     }[];
   };
   review: {
-    rating: string;
+    /** rating は property_facts（SSoT）から取る。ここには持たない */
     count: string;
     superhostLabel: string;
     airbnbLabel: string;
@@ -325,8 +325,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       bookButton: "Book Now",
     },
     review: {
-      rating: "4.67",
-      count: "36 reviews",
+      count: "{n} reviews",
       superhostLabel: "Superhost",
       airbnbLabel: "View on Airbnb",
     },
@@ -668,8 +667,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       bookButton: "今すぐ予約",
     },
     review: {
-      rating: "4.67",
-      count: "36件のレビュー",
+      count: "{n}件のレビュー",
       superhostLabel: "スーパーホスト",
       airbnbLabel: "Airbnbで見る",
     },
@@ -982,8 +980,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       bookButton: "지금 예약",
     },
     review: {
-      rating: "4.67",
-      count: "36개의 리뷰",
+      count: "{n}개의 리뷰",
       superhostLabel: "슈퍼호스트",
       airbnbLabel: "Airbnb에서 보기",
     },
@@ -1295,8 +1292,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       bookButton: "立即預訂",
     },
     review: {
-      rating: "4.67",
-      count: "36 則評論",
+      count: "{n} 則評論",
       superhostLabel: "超讚房東",
       airbnbLabel: "在 Airbnb 上查看",
     },
@@ -1609,8 +1605,7 @@ export const takasagoData: Record<Lang, TakasagoTranslations> = {
       bookButton: "จองเลย",
     },
     review: {
-      rating: "4.67",
-      count: "36 รีวิว",
+      count: "{n} รีวิว",
       superhostLabel: "ซูเปอร์โฮสต์",
       airbnbLabel: "ดูบน Airbnb",
     },

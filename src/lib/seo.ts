@@ -4,7 +4,8 @@
 // 構造化データ（LodgingBusiness 等）は旧サイトと違い全言語版に付与する。
 
 import type { Locale } from "../i18n/config";
-import { PROPERTIES, RATING_AS_OF } from "../data/properties";
+import { getPropertyFacts } from "./propertyFacts";
+import { PROPERTIES } from "../data/properties";
 import { PRESS } from "../data/pressData";
 
 export interface PageMeta {
@@ -219,27 +220,27 @@ const KIYOKAWA: LocaleText = {
   en: {
     title: "Newly Built Whole-House Villa in Fukuoka — Sleeps 7, Private Parking | Kiyokawa by yah.homes",
     description:
-      "Rent an entire newly built villa by the Naka River, central Fukuoka. 3 bedrooms, SIMMONS mattresses, full kitchen, private parking. One group per day, rated 4.77/5 on Airbnb. Book direct.",
+      "Rent an entire newly built villa by the Naka River, central Fukuoka. 3 bedrooms, SIMMONS mattresses, full kitchen, private parking. One group per day, rated {K_RATING}/5 on Airbnb. Book direct.",
   },
   ja: {
     title: "福岡の新築一棟貸しヴィラ「清川」｜最大7名・駐車場付・1日1組【公式】",
     description:
-      "那珂川沿い・天神と博多の中間に建つ新築の一軒家を丸ごと貸切。寝室3室・シモンズ製マットレス・フルキッチン・専用駐車場。1日1組限定、Airbnb評価★4.77。空室カレンダーからご予約。",
+      "那珂川沿い・天神と博多の中間に建つ新築の一軒家を丸ごと貸切。寝室3室・シモンズ製マットレス・フルキッチン・専用駐車場。1日1組限定、Airbnb評価★{K_RATING}。空室カレンダーからご予約。",
   },
   ko: {
     title: "후쿠오카 신축 독채 빌라 '기요카와' | 최대 7인·주차 가능·하루 한 팀 [공식]",
     description:
-      "나카강변, 덴진과 하카타 사이의 신축 주택을 통째로 대여. 침실 3개·SIMMONS 매트리스·풀 키친·전용 주차장. 하루 한 팀만, Airbnb 평점 ★4.77. 공식 사이트에서 예약.",
+      "나카강변, 덴진과 하카타 사이의 신축 주택을 통째로 대여. 침실 3개·SIMMONS 매트리스·풀 키친·전용 주차장. 하루 한 팀만, Airbnb 평점 ★{K_RATING}. 공식 사이트에서 예약.",
   },
   zh: {
     title: "福岡新建包棟民宿「清川」｜最多7人・附停車場・一天一組【官方】",
     description:
-      "那珂川畔、天神與博多之間的新建整棟民宿。3間臥室、SIMMONS床墊、完整廚房、私人停車場。一天只接待一組，Airbnb評分★4.77。官網直接預訂。",
+      "那珂川畔、天神與博多之間的新建整棟民宿。3間臥室、SIMMONS床墊、完整廚房、私人停車場。一天只接待一組，Airbnb評分★{K_RATING}。官網直接預訂。",
   },
   th: {
     title: "วิลล่าสร้างใหม่ทั้งหลังในฟุกุโอกะ 'คิโยกาวะ' | สูงสุด 7 คน มีที่จอดรถ [ทางการ]",
     description:
-      "เช่าวิลล่าสร้างใหม่ทั้งหลังริมแม่น้ำนากะ ใจกลางฟุกุโอกะ 3 ห้องนอน ที่นอน SIMMONS ครัวครบ ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb 4.77/5 จองตรงที่เว็บทางการ",
+      "เช่าวิลล่าสร้างใหม่ทั้งหลังริมแม่น้ำนากะ ใจกลางฟุกุโอกะ 3 ห้องนอน ที่นอน SIMMONS ครัวครบ ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {K_RATING}/5 จองตรงที่เว็บทางการ",
   },
 };
 
@@ -248,27 +249,27 @@ const TAKASAGO: LocaleText = {
   en: {
     title: "Whole-House Rental in Central Fukuoka — Sleeps 6, Free Parking | Takasago by yah.homes",
     description:
-      "Rent an entire house near Tenjin & Hakata. 3 bedrooms, 3 vanities, SIMMONS mattresses, parking for large cars. One group per day, rated 4.67/5 on Airbnb. Book direct.",
+      "Rent an entire house near Tenjin & Hakata. 3 bedrooms, 3 vanities, SIMMONS mattresses, parking for large cars. One group per day, rated {T_RATING}/5 on Airbnb. Book direct.",
   },
   ja: {
     title: "福岡・渡辺通の一棟貸し「高砂」｜最大6名・駐車場付・1日1組【公式】",
     description:
-      "天神・博多へ好アクセス、渡辺通駅徒歩5〜10分の一軒家を丸ごと貸切。寝室3室・洗面台3・シモンズ製マットレス・大型車も停められる専用駐車場。1日1組限定、Airbnb評価★4.67。空室カレンダーからご予約。",
+      "天神・博多へ好アクセス、渡辺通駅徒歩5〜10分の一軒家を丸ごと貸切。寝室3室・洗面台3・シモンズ製マットレス・大型車も停められる専用駐車場。1日1組限定、Airbnb評価★{T_RATING}。空室カレンダーからご予約。",
   },
   ko: {
     title: "후쿠오카 독채 숙소 '다카사고' | 최대 6인·주차 가능·하루 한 팀 [공식]",
     description:
-      "덴진·하카타 접근성 좋은 위치, 와타나베도리역 도보 5~10분. 집 한 채 통째 대여, 침실 3개·세면대 3개·SIMMONS 매트리스·대형차 주차 가능. Airbnb 평점 ★4.67. 공식 사이트에서 예약.",
+      "덴진·하카타 접근성 좋은 위치, 와타나베도리역 도보 5~10분. 집 한 채 통째 대여, 침실 3개·세면대 3개·SIMMONS 매트리스·대형차 주차 가능. Airbnb 평점 ★{T_RATING}. 공식 사이트에서 예약.",
   },
   zh: {
     title: "福岡包棟民宿「高砂」｜最多6人・附停車場・一天一組【官方】",
     description:
-      "鄰近天神・博多，渡邊通站步行5～10分鐘。整棟包棟出租：3間臥室、3個洗手台、SIMMONS床墊、可停大型車的專用停車場。一天只接待一組，Airbnb評分★4.67。官網直接預訂。",
+      "鄰近天神・博多，渡邊通站步行5～10分鐘。整棟包棟出租：3間臥室、3個洗手台、SIMMONS床墊、可停大型車的專用停車場。一天只接待一組，Airbnb評分★{T_RATING}。官網直接預訂。",
   },
   th: {
     title: "บ้านเช่าทั้งหลังในฟุกุโอกะ 'ทาคาซาโกะ' | สูงสุด 6 คน มีที่จอดรถ [ทางการ]",
     description:
-      "เช่าบ้านทั้งหลังใกล้เท็นจินและฮากาตะ เดิน 5-10 นาทีจากสถานี Watanabe-dori 3 ห้องนอน ที่นอน SIMMONS ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb 4.67/5 จองตรงที่เว็บทางการ",
+      "เช่าบ้านทั้งหลังใกล้เท็นจินและฮากาตะ เดิน 5-10 นาทีจากสถานี Watanabe-dori 3 ห้องนอน ที่นอน SIMMONS ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {T_RATING}/5 จองตรงที่เว็บทางการ",
   },
 };
 
@@ -307,6 +308,8 @@ function lodgingJsonLd(opts: {
   geo?: { lat: number; lng: number };
   rating: string;
   reviewCount: string;
+  /** 評価の取得日。SSoT(property_facts/meta) の ratingAsOf */
+  ratingAsOf: string;
   capacity: number;
   rooms: number;
   sameAs?: string[];
@@ -348,13 +351,16 @@ function lodgingJsonLd(opts: {
     // 料金の手がかり（具体額は季節変動のためレンジ表記）
     priceRange: "¥¥¥",
     // 鮮度シグナル（評価取得日）とエンティティ接続
-    dateModified: RATING_AS_OF,
+    dateModified: opts.ratingAsOf,
     ...(opts.sameAs ? { sameAs: opts.sameAs } : {}),
     provider: { "@type": "Organization", name: OPERATOR.name, alternateName: OPERATOR.alternateName },
   };
 }
 
-function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
+async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undefined> {
+  // 評価・件数・定員・寝室数の単一ソースは property_facts（/admin/properties で編集）。
+  // 以前は data/properties.ts に重複して持っており、更新漏れでズレる構造だった。
+  const { facts, ratingAsOf } = await getPropertyFacts();
   switch (page) {
     case "kiyokawa":
       return lodgingJsonLd({
@@ -366,11 +372,11 @@ function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
         addressLocality: "Chuo-ku, Fukuoka",
         postalCode: "810-0011",
         geo: PROPERTY_GEO.kiyokawa,
-        // 評価は data/properties.ts を単一ソースに（取得日: RATING_AS_OF）
-        rating: PROPERTIES.kiyokawa.rating,
-        reviewCount: PROPERTIES.kiyokawa.reviewCount,
-        capacity: PROPERTIES.kiyokawa.capacity,
-        rooms: PROPERTIES.kiyokawa.bedrooms,
+        ratingAsOf,
+        rating: facts.kiyokawa.rating,
+        reviewCount: facts.kiyokawa.reviewCount,
+        capacity: facts.kiyokawa.capacity,
+        rooms: facts.kiyokawa.bedrooms,
         sameAs: [
           PROPERTIES.kiyokawa.airbnbUrl,
           PROPERTIES.kiyokawa.bookingUrl,
@@ -401,10 +407,11 @@ function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
         addressLocality: "Chuo-ku, Fukuoka",
         postalCode: "810-0011",
         geo: PROPERTY_GEO.takasago,
-        rating: PROPERTIES.takasago.rating,
-        reviewCount: PROPERTIES.takasago.reviewCount,
-        capacity: PROPERTIES.takasago.capacity,
-        rooms: PROPERTIES.takasago.bedrooms,
+        ratingAsOf,
+        rating: facts.takasago.rating,
+        reviewCount: facts.takasago.reviewCount,
+        capacity: facts.takasago.capacity,
+        rooms: facts.takasago.bedrooms,
         sameAs: [
           PROPERTIES.takasago.airbnbUrl,
           PROPERTIES.takasago.bookingUrl,
@@ -456,12 +463,18 @@ function jsonLdFor(page: PageKey): Record<string, unknown> | undefined {
 }
 
 // 指定ページ・ロケールのメタを返す。
-export function getPageMeta(page: PageKey, locale: Locale): PageMeta {
+export async function getPageMeta(page: PageKey, locale: Locale): Promise<PageMeta> {
   const t = TEXT[page][locale];
+  // 説明文の評価値は SSoT から差し込む。文言に数値を直書きすると、管理画面で
+  // 評価を更新しても検索結果の説明文だけ古い値が残る（実際に 4.67→4.68 でズレた）。
+  const { facts } = await getPropertyFacts();
+  const description = t.description
+    .replace("{K_RATING}", facts.kiyokawa.rating)
+    .replace("{T_RATING}", facts.takasago.rating);
   return {
     title: t.title,
-    description: t.description,
+    description,
     ogImage: OG_IMAGE_BY_PAGE[page] ?? OG_IMAGE,
-    jsonLd: jsonLdFor(page),
+    jsonLd: await jsonLdFor(page),
   };
 }

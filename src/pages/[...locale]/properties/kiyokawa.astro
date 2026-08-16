@@ -16,7 +16,7 @@ export function getStaticPaths() {
 }
 
 const { lang } = Astro.props as { lang: Locale };
-const meta = getPageMeta("kiyokawa", lang);
+const meta = await getPageMeta("kiyokawa", lang);
 const breadcrumb = breadcrumbJsonLd([
   { name: translations[lang].nav.home, url: `${BASE_URL}${localizedPath(lang, "/")}` },
   { name: "yah.homes Kiyokawa", url: `${BASE_URL}${localizedPath(lang, "/properties/kiyokawa")}` },
