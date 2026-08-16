@@ -1,18 +1,114 @@
 ---
-/* /admin/specs — システム仕様書（置き場。中身はこれから） */
+/* /admin/specs — システム仕様書（Owner向けリファレンス）
+   「どこに何があり、何が正か」を1枚で引けるようにする。詳細設計はリポジトリの
+   docs/ にあり、ここは地図。日々の操作は /admin/manual（Operator向け）へ分離。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const SECTIONS: { h: string; rows?: [string, string][]; body?: string[] }[] = [
+  {
+    h: "1. 構成",
+    rows: [
+      ["サイト", "Astro（静的生成）＋ Firebase Hosting。デモ＝book-demo チャネル／本番＝yah.homes"],
+      ["バックエンド", "Cloud Functions（asia-northeast1）。デモ・本番の区別なく共通（デプロイは常に本番相当）"],
+      ["データ", "Firestore（既定 deny・読み書きは原則 Functions 経由）"],
+      ["決済", "Stripe（manual capture: オーソリ→Beds24書込成功後に確定）。現在テストキー"],
+      ["在庫・料金", "Beds24 が正。空室・料金は API で読む。予約確定時に Beds24 へ書き込む"],
+      ["メール", "Gmail SMTP（contact@mail.yah.homes）。文面は /admin/templates が正"],
+    ],
+  },
+  {
+    h: "2. 環境とデプロイ",
+    body: [
+      "デモ: BOOK_PREVIEW=1 BOOK_TEST_PROPERTY=1 でビルドし book-demo チャネルへ。検証用物件 test1 が出る。",
+      "本番: BOOK_PREVIEW=1 のみでビルド（test1 は出ない）。本番デプロイは Owner の明示承認が必要。",
+      "Cloud Functions にデモ/本番の区別はない。Functions のデプロイは即お客様に影響しうる。",
+      "画面下のフッターの環境ラベル（⚠ デモ環境／本番）で見分ける。",
+    ],
+  },
+  {
+    h: "3. 権限（3ロール）",
+    rows: [
+      ["Owner", "すべて＋管理者台帳・物件ファクト・鍵番号・返金・システム管理。root（コード固定）は kazuyoshi.yamada@bonfire.co.jp で、台帳から削除不可"],
+      ["Admin", "台帳以外の管理操作＋ Operator の追加・編集（上位ロールには触れない）"],
+      ["Operator", "お客様対応（メッセージ・予約閲覧・要対応・メモ・受信箱・送信ログ）"],
+    ],
+  },
+  {
+    h: "4. 主要データ（Firestore）",
+    rows: [
+      ["bookings", "直販予約。状態遷移: PAYMENT_PENDING → AUTHORIZED → RESERVATION_PENDING → CONFIRMED（／CANCELLED・MANUAL_REVIEW）"],
+      ["threads / messages", "メッセージ。予約1件=1スレッド。kind=inquiry は予約前の問い合わせ（マジックリンク認証）"],
+      ["admin_users", "管理者台帳＝権限と通知宛先の正"],
+      ["property_facts", "物件の公開仕様＋直販の予約ルール（定員・締切・受付上限）。公開読み取り可"],
+      ["property_secrets", "キーボックス暗証番号。Owner の画面からのみ・公開経路なし"],
+      ["mail_logs / audit_logs", "送信済みメール／管理操作の記録"],
+      ["mail_templates", "定型メールの文言上書き（コード既定→上書きのマージ方式）"],
+      ["contacts", "問い合わせフォームの原本（スレッド化と併存）"],
+    ],
+  },
+  {
+    h: "5. 自動処理（cron）",
+    rows: [
+      ["毎日 7:00", "チェックアウト当日の案内"],
+      ["毎日 10:00", "翌日チェックインの案内（暗証番号つき）＋レビュー依頼。前日10時以降に確定した直前予約は確定時に即送"],
+      ["毎日 9:00", "Beds24 との突合（直販予約がBeds24側で消えていないか）"],
+      ["毎朝 8:00", "Beds24 日次観測（別系統・定点メール）"],
+    ],
+  },
+  {
+    h: "6. 予約の受付条件（正は /admin/properties）",
+    body: [
+      "締切: チェックイン前日 23:59（設定変更可）。定員: 清川7名・高砂6名。受付: 12ヶ月先まで。",
+      "OTA 経由（Airbnb・Booking.com）にはこの設定は効かない。そちらは Beds24 側の設定が正。",
+    ],
+  },
+  {
+    h: "7. 詳細設計の場所（リポジトリ docs/）",
+    rows: [
+      ["予約P1 全体設計", "design_booking_p1_v5.md"],
+      ["メッセージ機能", "spec_admin_messages.md"],
+      ["問い合わせ統合（マジックリンク）", "spec_inquiry_threads.md"],
+      ["定型メールSSoT", "spec_mail_templates_ssot_202608.md"],
+      ["レビューページ（承認待ち）", "design_reviews_page.md"],
+      ["残タスク", "todo_direct_booking.md"],
+    ],
+  },
+];
 ---
+
 <SiteLayout adminNav lang="ja" path="/admin/specs" title="システム仕様書 | yah.homes" description="システム仕様書" noindex={true} solidNav>
   <section class="sp">
     <div class="sp-container">
-      <a class="sp-eyebrow" href="/admin/menu/">Admin</a>
+      <p class="sp-eyebrow">Admin</p>
       <h1 class="sp-title">システム仕様書</h1>
+      <p class="sp-lead">「どこに何があり、何が正か」の地図です。日々の操作は<a href="/admin/manual/">操作マニュアル</a>へ。</p>
+      {SECTIONS.map((sec) => (
+        <section class="sp-sec">
+          <h2>{sec.h}</h2>
+          {sec.body?.map((p) => <p>{p}</p>)}
+          {sec.rows && (
+            <table class="sp-table"><tbody>
+              {sec.rows.map(([k, v]) => <tr><th>{k}</th><td>{v}</td></tr>)}
+            </tbody></table>
+          )}
+        </section>
+      ))}
     </div>
   </section>
 </SiteLayout>
+
 <style>
-  .sp { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
-  .sp-container { max-width: 880px; margin: 0 auto; }
-  .sp-eyebrow { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; text-decoration: none; }
-  .sp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; }
+  .sp { background: #ffffff; padding: 4.5rem 1.5rem 5rem; min-height: 70vh; }
+  .sp-container { max-width: 780px; margin: 0 auto; }
+  .sp-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
+  .sp-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
+  .sp-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
+  .sp-lead a { color: #111111; }
+  .sp-sec { margin-top: 2.25rem; }
+  .sp-sec h2 { font-size: 1rem; font-weight: 600; color: #111111; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f2f2f2; }
+  .sp-sec p { font-size: 0.875rem; line-height: 1.95; color: #333333; margin-bottom: 0.7rem; }
+  .sp-table { width: 100%; border-collapse: collapse; }
+  .sp-table th, .sp-table td { text-align: left; font-size: 0.82rem; padding: 0.6rem 0.5rem 0.6rem 0; border-bottom: 1px solid #f4f4f4; vertical-align: top; line-height: 1.8; }
+  .sp-table th { color: #666666; font-weight: 400; width: 32%; }
+  .sp-table td { color: #111111; }
 </style>
