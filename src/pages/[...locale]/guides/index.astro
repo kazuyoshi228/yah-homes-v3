@@ -5,6 +5,7 @@ import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/
 import { getGuides, GUIDES_PREVIEW } from "../../../lib/guides";
 import { translations } from "../../../i18n/translations";
 import { BASE_URL, breadcrumbJsonLd } from "../../../lib/seo";
+import { guidesIndexMeta } from "../../../i18n/pageStrings";
 
 export function getStaticPaths() {
   return LOCALES.map((locale) => ({
@@ -16,38 +17,7 @@ export function getStaticPaths() {
 const { lang } = Astro.props as { lang: Locale };
 const guides = (await getGuides()).filter((g) => g.translations[lang]);
 
-const META: Record<Locale, { title: string; description: string; heading: string; empty: string }> = {
-  ja: {
-    title: "福岡ガイド | yah.homes — 一棟貸し・ヴィラ・エリアの選び方",
-    description: "福岡の一棟貸し・ヴィラ選びやエリアの歩き方を、現地確認の一次情報でガイド。yah.homes編集。",
-    heading: "福岡ガイド",
-    empty: "ガイド記事は準備中です。",
-  },
-  en: {
-    title: "Fukuoka Guide | yah.homes",
-    description: "First-hand guides to choosing a whole-house stay and exploring Fukuoka, by yah.homes.",
-    heading: "Fukuoka Guide",
-    empty: "Guides are coming soon.",
-  },
-  ko: {
-    title: "후쿠오카 가이드 | yah.homes",
-    description: "후쿠오카 독채 숙소 선택과 지역 정보를 현지 확인 정보로 안내합니다.",
-    heading: "후쿠오카 가이드",
-    empty: "가이드를 준비 중입니다.",
-  },
-  zh: {
-    title: "福岡指南 | yah.homes — 包棟民宿・區域攻略",
-    description: "以實地確認的第一手資訊，介紹福岡包棟民宿的選擇方式與區域攻略。",
-    heading: "福岡指南",
-    empty: "指南準備中。",
-  },
-  th: {
-    title: "คู่มือฟุกุโอกะ | yah.homes",
-    description: "คู่มือเลือกที่พักทั้งหลังและเที่ยวฟุกุโอกะ จากข้อมูลที่ตรวจสอบจริง",
-    heading: "คู่มือฟุกุโอกะ",
-    empty: "กำลังเตรียมคู่มือ",
-  },
-};
+const META = guidesIndexMeta;
 const m = META[lang];
 const noindex = GUIDES_PREVIEW || guides.length === 0;
 const breadcrumb = breadcrumbJsonLd([

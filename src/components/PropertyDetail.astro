@@ -13,6 +13,7 @@ import { PROPERTY_GEO } from "../lib/seo";
 import { getPropertyFacts } from "../lib/propertyFacts";
 import { makeFill } from "../lib/factText";
 import PressSection from "./PressSection.astro";
+import { propertyDirect } from "../i18n/pageStrings";
 
 // 地図ラベル（各言語）
 const MAP_LABEL: Record<Locale, string> = { ja: "地図", en: "Map", ko: "지도", zh: "地圖", th: "แผนที่" };
@@ -41,13 +42,7 @@ const thumb = (src: string) => src.replace(/\.webp$/, "-480.webp");
 // 直販導線（/book/ へ棟指定で遷移）。プレビュー時のみ表示し、本番は従来のOTAボタン。
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const bookHref = `${localizedPath(lang, "/book")}?prop=${propertyKey}`;
-const DIRECT = {
-  en: { note: "Booking direct on our site is the best rate.", cta: "Check availability & book", priceFrom: "From {v} / night", decide: ["Check availability and the all-in total right here.", "Cleaning fee and lodging tax are included in the price shown. Nothing to pay on arrival.", "Free cancellation until {d} days before check-in.", "Secure card payment handled by Stripe. We never store your card details.", "Questions before booking? We reply within 24 hours."] },
-  ja: { note: "公式サイトからの直接予約がお得です。", cta: "空室を見て予約する", priceFrom: "{v}〜 / 泊", decide: ["空室と総額を、この場でご確認いただけます。", "表示総額に清掃料・宿泊税を含みます。現地でのお支払いはありません。", "無料キャンセルは、チェックイン日の{d}日前まで。", "安全なカード決済。処理は Stripe が行い、カード情報を当社は保存しません。", "ご予約前のご質問には、24時間以内に返信します。"] },
-  ko: { note: "공식 사이트에서 직접 예약하시는 것이 가장 저렴합니다.", cta: "예약 가능일 보고 예약하기", priceFrom: "{v}〜 / 1박", decide: ["빈방과 총액을 이 자리에서 확인하실 수 있습니다.", "표시 금액에 청소비·숙박세가 포함됩니다. 현장에서 지불하실 금액은 없습니다.", "무료 취소는 체크인 {d}일 전까지 가능합니다.", "안전한 카드 결제. 결제는 Stripe가 처리하며 카드 정보는 보관하지 않습니다.", "예약 전 문의에는 24시간 이내에 답변드립니다."] },
-  zh: { note: "透過官網直接預訂最為優惠。", cta: "查詢空房並預訂", priceFrom: "{v} 起 / 晚", decide: ["可在此直接確認空房與總金額。", "顯示金額已含清潔費與住宿稅，現場無需再付款。", "入住日 {d} 天前可免費取消。", "安全的信用卡付款，由 Stripe 處理，本公司不會保存卡片資料。", "預訂前的疑問，我們會在 24 小時內回覆。"] },
-  th: { note: "การจองผ่านเว็บไซต์ทางการของเราคุ้มค่าที่สุด", cta: "ดูห้องว่างและจอง", priceFrom: "เริ่มต้น {v} / คืน", decide: ["ตรวจสอบห้องว่างและราคารวมได้ที่นี่", "ราคาที่แสดงรวมค่าทำความสะอาดและภาษีที่พักแล้ว ไม่มีค่าใช้จ่ายเพิ่มเมื่อเดินทางถึง", "ยกเลิกฟรีได้ถึง {d} วันก่อนวันเช็คอิน", "ชำระด้วยบัตรอย่างปลอดภัยผ่าน Stripe เราไม่จัดเก็บข้อมูลบัตรของท่าน", "มีคำถามก่อนจอง? เราตอบภายใน 24 ชั่วโมง"] },
-}[lang];
+const DIRECT = propertyDirect[lang];
 
 // 言語別テキストの {ci}/{co}/{cap} に SSoT の値を差し込む（lib/factText.ts）
 const fill = makeFill(pf, lang);

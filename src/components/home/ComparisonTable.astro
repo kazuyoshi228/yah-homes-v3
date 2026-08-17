@@ -6,6 +6,7 @@ import SectionHeading from "../SectionHeading.astro";
 import { localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
 import { nearbyData } from "../../data/nearbyData";
+import { comparisonRatingLabel } from "../../i18n/pageStrings";
 
 interface Props {
   lang: Locale;
@@ -16,13 +17,7 @@ const ct = t.comparisonTable;
 const nearby = nearbyData[lang];
 
 // GEO: Airbnb評価行（表は引用エンジンの抽出率が最も高い形式）
-const RATING_LABEL: Record<Locale, string> = {
-  en: "Airbnb Rating",
-  ja: "Airbnb評価",
-  ko: "에어비앤비 평점",
-  zh: "Airbnb 評分",
-  th: "คะแนน Airbnb",
-};
+const RATING_LABEL = comparisonRatingLabel;
 // 評価は property_facts が単一ソース（/admin/properties で編集）
 const { facts } = await getPropertyFacts();
 const kiyoRating = `★ ${facts.kiyokawa.rating} (${facts.kiyokawa.reviewCount})`;

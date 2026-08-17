@@ -9,6 +9,7 @@
    ・暗証番号は静的HTMLに含めず checkinInfo API から実行時に取得する
      （/admin/secrets で変えたら再デプロイなしで反映される）。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { howtoUI } from "../../i18n/pageStrings";
 
 type Lang = "ja" | "en" | "ko" | "zh" | "th";
 type T = Record<Lang, string>;
@@ -49,98 +50,7 @@ const LANGS: { code: Lang; label: string }[] = [
 ];
 
 /* 画面の固定文言。棟によらず共通。 */
-const UI: Record<Lang, Record<string, string>> = {
-  ja: {
-    eyebrow: "チェックイン案内", sub: "ご到着までの流れ",
-    s1: "住所と地図", s1sub: "まずはこの場所へ",
-    s2: "玄関の場所", s2sub: "建物に着いたら",
-    s3: "鍵のお受け取り", s3sub: "キーボックスを開ける",
-    s4: "駐車場", s4sub: "お車でお越しの方へ",
-    mapBtn: "Google マップで開く",
-    entranceCaption: "赤い丸が玄関ドアです。",
-    pin: "暗証番号", pinNote: "暗証番号は、公式サイトのご予約はご案内メールに、Airbnb・Booking.com のご予約は各サイトのメッセージにお送りしています。見当たらない場合は下記のお電話へ。",
-    keyAfter: "番号を合わせるとキーボックスが開きます。中の鍵で解錠し、ご入室ください。ご滞在中は鍵をお持ちください。",
-    garageTitle: "車庫のサイズ",
-    garageNote: "駐車場は狭くなっております。お車がこの寸法に収まるかどうか、事前にご確認ください。収まらない場合は、周辺のコインパーキングをご利用ください。",
-    largeTitle: "大型車もご利用いただけます",
-    largeBody: "アルファードなどの大型車も駐車可能です。",
-    helpTitle: "お困りのとき",
-    helpBody: "鍵が取り出せない、場所が分からないなど、お困りの際は下記へお電話ください。ご予約いただいたサイトのメッセージからでもご連絡いただけます。",
-    helpCall: "電話でのご連絡",
-  },
-  en: {
-    eyebrow: "Check-in guide", sub: "Getting to the house",
-    s1: "Address & map", s1sub: "Head here first",
-    s2: "Finding the entrance", s2sub: "Once you arrive",
-    s3: "Getting the key", s3sub: "Opening the key box",
-    s4: "Parking", s4sub: "If you come by car",
-    mapBtn: "Open in Google Maps",
-    entranceCaption: "The red circle marks the front door.",
-    pin: "PIN", pinNote: "Your PIN was sent by email (official-site bookings) or via the booking site\u2019s messages (Airbnb / Booking.com). If you cannot find it, please call the number below.",
-    keyAfter: "Set the dials to the PIN and the box opens. Unlock the door with the key inside, and keep it with you during your stay.",
-    garageTitle: "Garage dimensions",
-    garageNote: "The parking space is narrow. Please check that your car fits within these dimensions. If not, please use a nearby coin parking.",
-    largeTitle: "Large vehicles welcome",
-    largeBody: "Large vehicles such as the Toyota Alphard can be parked here.",
-    helpTitle: "Need help?",
-    helpBody: "If you cannot get the key out, or you cannot find the house, please call us. You can also message us through your booking site.",
-    helpCall: "Call us",
-  },
-  ko: {
-    eyebrow: "체크인 안내", sub: "도착까지의 흐름",
-    s1: "주소와 지도", s1sub: "먼저 이곳으로",
-    s2: "현관 위치", s2sub: "건물에 도착하시면",
-    s3: "열쇠 수령", s3sub: "키박스 여는 법",
-    s4: "주차장", s4sub: "차로 오시는 분께",
-    mapBtn: "Google 지도에서 열기",
-    entranceCaption: "빨간 동그라미가 현관문입니다.",
-    pin: "비밀번호", pinNote: "비밀번호는 공식 사이트 예약은 안내 메일로, Airbnb・Booking.com 예약은 각 사이트의 메시지로 보내드렸습니다. 찾을 수 없으면 아래 전화번호로 연락해 주세요.",
-    keyAfter: "번호를 맞추면 키박스가 열립니다. 안에 있는 열쇠로 문을 열고 들어가 주세요. 숙박 중에는 열쇠를 지참해 주세요.",
-    garageTitle: "차고 크기",
-    garageNote: "주차 공간이 좁습니다. 차량이 이 치수에 들어가는지 미리 확인해 주세요. 들어가지 않는 경우 주변 코인 주차장을 이용해 주세요.",
-    largeTitle: "대형차도 이용 가능합니다",
-    largeBody: "알파드 등 대형차도 주차하실 수 있습니다.",
-    helpTitle: "곤란하실 때는",
-    helpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 아래로 전화해 주세요. 예약하신 사이트의 메시지로도 연락하실 수 있습니다.",
-    helpCall: "전화 연락",
-  },
-  zh: {
-    eyebrow: "入住指南", sub: "抵達前的流程",
-    s1: "地址與地圖", s1sub: "請先前往這裡",
-    s2: "玄關位置", s2sub: "抵達建築物後",
-    s3: "領取鑰匙", s3sub: "打開密碼鎖盒",
-    s4: "停車場", s4sub: "開車前來的旅客",
-    mapBtn: "在 Google 地圖開啟",
-    entranceCaption: "紅色圓圈處為大門。",
-    pin: "密碼", pinNote: "密碼已寄送：官網預訂請查看通知郵件，Airbnb・Booking.com 預訂請查看該網站的訊息。找不到時請撥打下方電話。",
-    keyAfter: "轉到正確號碼後密碼盒即可打開。請用裡面的鑰匙開門進入，住宿期間請隨身攜帶鑰匙。",
-    garageTitle: "車庫尺寸",
-    garageNote: "停車空間較為狹窄。請事先確認您的車輛是否符合此尺寸。若無法停放，請利用附近的計時停車場。",
-    largeTitle: "大型車亦可停放",
-    largeBody: "Alphard 等大型車輛也可停放。",
-    helpTitle: "遇到問題時",
-    helpBody: "若無法取出鑰匙或找不到位置，請撥打下方電話。亦可透過您預訂的網站訊息與我們聯繫。",
-    helpCall: "電話聯繫",
-  },
-  th: {
-    eyebrow: "คู่มือเช็คอิน", sub: "ขั้นตอนก่อนถึงที่พัก",
-    s1: "ที่อยู่และแผนที่", s1sub: "เดินทางมาที่นี่ก่อน",
-    s2: "ตำแหน่งทางเข้า", s2sub: "เมื่อมาถึงอาคาร",
-    s3: "การรับกุญแจ", s3sub: "วิธีเปิดกล่องกุญแจ",
-    s4: "ที่จอดรถ", s4sub: "สำหรับผู้ที่มาด้วยรถยนต์",
-    mapBtn: "เปิดใน Google Maps",
-    entranceCaption: "วงกลมสีแดงคือประตูทางเข้า",
-    pin: "รหัส", pinNote: "รหัสถูกส่งให้แล้ว: จองผ่านเว็บไซต์ทางการดูในอีเมลแจ้งเตือน จองผ่าน Airbnb・Booking.com ดูในข้อความของเว็บไซต์นั้น หากหาไม่พบกรุณาโทรตามหมายเลขด้านล่าง",
-    keyAfter: "เมื่อตั้งรหัสถูกต้อง กล่องจะเปิดออก กรุณาใช้กุญแจด้านในเปิดประตูเข้าห้องพัก และพกกุญแจติดตัวไว้ตลอดการเข้าพัก",
-    garageTitle: "ขนาดที่จอดรถ",
-    garageNote: "ที่จอดรถค่อนข้างแคบ กรุณาตรวจสอบล่วงหน้าว่ารถของคุณอยู่ในขนาดนี้หรือไม่ หากไม่พอดี กรุณาใช้ที่จอดรถแบบหยอดเหรียญบริเวณใกล้เคียง",
-    largeTitle: "รองรับรถขนาดใหญ่",
-    largeBody: "รถขนาดใหญ่เช่น Toyota Alphard ก็สามารถจอดได้",
-    helpTitle: "หากพบปัญหา",
-    helpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเราตามหมายเลขด้านล่าง หรือติดต่อผ่านข้อความในเว็บไซต์ที่คุณจองก็ได้",
-    helpCall: "โทรหาเรา",
-  },
-};
+const UI = howtoUI;
 
 const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
 const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)}&z=17&output=embed`;

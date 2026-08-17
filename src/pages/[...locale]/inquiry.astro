@@ -4,6 +4,7 @@
    Firestore を匿名に開けない。リアルタイムではなく30秒ポーリング。noindex。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, type Locale } from "../../i18n/config";
+import { inquiryStrings } from "../../i18n/pageStrings";
 
 export function getStaticPaths() {
   return LOCALES.map((locale) => ({
@@ -15,28 +16,7 @@ const { lang } = Astro.props as { lang: Locale };
 
 const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
 
-const T = {
-  en: { title: "Your inquiry", lead: "Replies from us appear here. Feel free to continue the conversation.",
-    you: "You", host: "yah.homes", placeholder: "Type your message", send: "Send", sending: "Sending...",
-    fail: "Could not send. Please try again.", gone: "This link has expired. Please contact us again from the contact form.",
-    goneCta: "Open the contact form", loading: "Loading..." },
-  ja: { title: "お問い合わせ", lead: "運営からのご返信はこちらに表示されます。続きもこのままお送りいただけます。",
-    you: "お客様", host: "yah.homes", placeholder: "メッセージを入力", send: "送信", sending: "送信中...",
-    fail: "送信できませんでした。もう一度お試しください。", gone: "このリンクは期限切れです。お手数ですが、もう一度お問い合わせフォームからご連絡ください。",
-    goneCta: "お問い合わせフォームへ", loading: "読み込み中..." },
-  ko: { title: "문의", lead: "운영의 답변이 여기에 표시됩니다. 이어서 보내실 수 있습니다.",
-    you: "고객님", host: "yah.homes", placeholder: "메시지를 입력하세요", send: "보내기", sending: "보내는 중...",
-    fail: "보내지 못했습니다. 다시 시도해 주세요.", gone: "이 링크는 만료되었습니다. 문의 양식에서 다시 연락해 주세요.",
-    goneCta: "문의 양식 열기", loading: "불러오는 중..." },
-  zh: { title: "您的諮詢", lead: "我們的回覆會顯示在這裡，您也可以直接繼續對話。",
-    you: "您", host: "yah.homes", placeholder: "請輸入訊息", send: "送出", sending: "傳送中...",
-    fail: "傳送失敗，請再試一次。", gone: "此連結已過期。請再次透過聯絡表單與我們聯繫。",
-    goneCta: "前往聯絡表單", loading: "讀取中..." },
-  th: { title: "คำถามของคุณ", lead: "คำตอบจากเราจะแสดงที่นี่ และคุณสามารถสนทนาต่อได้เลย",
-    you: "คุณ", host: "yah.homes", placeholder: "พิมพ์ข้อความ", send: "ส่ง", sending: "กำลังส่ง...",
-    fail: "ส่งไม่สำเร็จ กรุณาลองอีกครั้ง", gone: "ลิงก์นี้หมดอายุแล้ว กรุณาติดต่อเราอีกครั้งผ่านแบบฟอร์ม",
-    goneCta: "เปิดแบบฟอร์มติดต่อ", loading: "กำลังโหลด..." },
-}[lang];
+const T = inquiryStrings[lang];
 const CONTACT_HREF = lang === "en" ? "/#contact" : `/${lang}/#contact`;
 ---
 

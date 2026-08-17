@@ -10,6 +10,7 @@ import { starRating } from "../../lib/lucide";
 import { GALLERIES, PROPERTIES } from "../../data/properties";
 import { getPropertyFacts } from "../../lib/propertyFacts";
 import { uiStrings } from "../../i18n/uiStrings";
+import { propertyCardDirectLabel } from "../../i18n/pageStrings";
 
 interface Props {
   lang: Locale;
@@ -20,7 +21,7 @@ const { facts } = await getPropertyFacts();
 // 直販ボタン: /book/ が生成されるプレビュー時のみ表示（本番は従来どおりOTAのみ）
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const BOOK_PATH = localizedPath(lang, "/book");
-const DIRECT_LABEL = { en: "Book direct — best rate", ja: "公式サイトで予約（最安）", ko: "공식 사이트에서 예약(최저가)", zh: "官網預訂（最優惠）", th: "จองผ่านเว็บทางการ (ราคาดีที่สุด)" }[lang];
+const DIRECT_LABEL = propertyCardDirectLabel[lang];
 const t = translations[lang];
 
 // 評価・リンクは data/properties.ts を単一ソースに（不整合の再発防止）
