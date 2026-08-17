@@ -253,6 +253,30 @@ export const beds24WeeklyReport = onSchedule(
       const cvr = sessions > 0 ? ((purchases / sessions) * 100).toFixed(2) : "—";
       const roas = adCost > 0 ? (revenue / adCost).toFixed(1) : "—";
 
+      // 当月・次月・次々月の稼働率（棟別・予約泊の月内重なり÷月日数）
+      const monthOcc = (offset: number) => {
+        const base = new Date(`${today}T00:00:00+09:00`);
+        const y = base.getFullYear(), m = base.getMonth() + offset;
+        const start = new Date(Date.UTC(y, m, 1)), end = new Date(Date.UTC(y, m + 1, 1));
+        const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+        const s10 = start.toISOString().slice(0, 10), e10 = end.toISOString().slice(0, 10);
+        const occ: Record<string, number> = { 清川: 0, 高砂: 0 };
+        for (const b of bookings) {
+          if (!isActive(b) || !isGuest(b)) continue;
+          const a = b.arrival > s10 ? b.arrival : s10;
+          const d = b.departure < e10 ? b.departure : e10;
+          const n = Math.round((Date.parse(d) - Date.parse(a)) / 86400000);
+          const p = PROPS[b.propertyId];
+          if (p && n > 0) occ[p] += n;
+        }
+        const label = `${start.getUTCMonth() + 1}月`;
+        return { label, days, k: occ.清川, t: occ.高砂,
+          pct: Math.round(((occ.清川 + occ.高砂) / (days * 2)) * 100),
+          kPct: Math.round((occ.清川 / days) * 100), tPct: Math.round((occ.高砂 / days) * 100) };
+      };
+      const occ3 = [monthOcc(0), monthOcc(1), monthOcc(2)];
+      const occLines = occ3.map((o) => `  ${o.label}: ${o.pct}%（清川 ${o.kPct}% / 高砂 ${o.tPct}%）`);
+
       const weeklyNights = weekly.reduce((s, b) => s + nights(b), 0);
       // 基準帯23〜28%は click_airbnb→Airbnb予約 で校正済みのため、分子はAirbnb経由のみ
       const airbnbBookings = weekly.filter((b) => /airbnb/i.test(b.referer ?? "")).length;
@@ -262,6 +286,9 @@ export const beds24WeeklyReport = onSchedule(
         `■ 週間サマリ（予約日ベース・過去7日）`,
         `新規 ${weekly.length}組 ${weeklyNights}泊 / キャンセル ${cxl.length}件`,
         `先付け残高: 清川${fwd.清川} / 高砂${fwd.高砂} / 計${fwdTotal}泊（${((fwdTotal / CAPACITY_NIGHTS_YEAR) * 100).toFixed(1)}%・適正帯28〜33%）`,
+        ``,
+        `■ 3ヶ月の稼働率（当月・次月・次々月）`,
+        ...occLines,
         ``,
         `■ 国籍別の新規予約`,
         ...Object.entries(byNat).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `  ${k}: ${v.g}組 ${v.n}泊`),
@@ -291,6 +318,13 @@ export const beds24WeeklyReport = onSchedule(
       ];
       const list = (lines: string[]) => esc(lines.join("\n")) || "（データなし）";
       const blocks = [
+        // 3ヶ月稼働率カード: 月ごとに「合計%＋棟別内訳」を横並びで
+        {
+          title: "3ヶ月の稼働率",
+          body: occ3.map((o) =>
+            `${esc(o.label)}: <b>${o.pct}%</b> <span style="font-size:12px;color:#888888;">（清川 ${o.kPct}% / 高砂 ${o.tPct}%・${o.k + o.t}/${o.days * 2}泊）</span>`
+          ).join("<br>"),
+        },
         { title: "国籍別の新規予約", body: list(Object.entries(byNat).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${k}: ${v.g}組 ${v.n}泊`)) },
         { title: `click_airbnb 国別（GA4・7日）計${clickTotal}件`, body: list(ga4Lines.map((l) => l.trim())) },
         { title: "広告 市場別（adsタブ・7日）", body: list(adsLines.map((l) => l.trim())) },
