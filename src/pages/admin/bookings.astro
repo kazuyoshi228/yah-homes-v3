@@ -3,14 +3,10 @@
    一覧・状態・ゲスト連絡先・対応メモ＝台帳メンバー／返金＝rootオーナーのみ。
    全金銭操作は audit_logs に記録される（Function側）。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const BOOKINGS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminBookings";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
 ---
 
 <SiteLayout adminNav

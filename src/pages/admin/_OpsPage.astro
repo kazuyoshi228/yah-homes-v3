@@ -2,6 +2,8 @@
 /* 運用ビュー共通の枠（mail-log / audit / health）
    コピー最小・タイトルとテーブルだけのミニマル構成。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
 interface Props {
   path: string;
@@ -10,13 +12,7 @@ interface Props {
 }
 const { path, title, view } = Astro.props;
 
-const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const OPS_ENDPOINT = ENDPOINTS.adminOps;
 ---
 
 <SiteLayout adminNav lang="ja" path={path} title={`${title} | yah.homes`} description={title} noindex={true} solidNav>

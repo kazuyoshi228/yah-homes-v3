@@ -8,6 +8,7 @@ import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/
 import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
 import { PROPERTIES } from "../../../data/properties";
 import { getPropertyFacts } from "../../../lib/propertyFacts";
+import { FB_CONFIG } from "../../../lib/adminConfig";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -31,12 +32,6 @@ const TERMS_VERSION = "2026-08-14";
 const BOOK_CREATE_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookCreate";
 // Stripe 公開可能キー（公開値・本番 2026-08-16切替）。
 const STRIPE_PK = "pk_live_51U1ewCCG370fB3RJeWxRnblGwL4h4ng0aVfvBThLFy4EtbYiBaagBekwMISeTIyGa7MKeG1ixBtkLRXVT7FOkQcI00BosqsbUy";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
 
 const { facts } = await getPropertyFacts();
 const HOUSE_META = {

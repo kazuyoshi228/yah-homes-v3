@@ -4,14 +4,10 @@
    読み取りは Firestore を直接購読（リアルタイム）。送信は messagesApi 経由。
    権限は OPERATOR 可（日々の運用）。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
 const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
 ---
 

@@ -3,14 +3,10 @@
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const PROPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminProperties";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
 
 // 比較表の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
 interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean }

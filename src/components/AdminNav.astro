@@ -1,4 +1,6 @@
 ---
+import { ENDPOINTS } from "../lib/adminConfig";
+import { FB_CONFIG } from "../lib/adminConfig";
 /* 管理画面専用のナビゲーションバー（2026-08-16 発注者承認の仕様）。
    - お客様向けナビと取り違えないよう黒地に「ADMIN」表記
    - どの管理画面からでも1クリックで移動できる。未読メッセージ数を常時表示
@@ -6,13 +8,7 @@
    リンクの正本はここ1箇所。/admin/menu のカード定義とは意図的に重複させている
    （menu は初見向けの地図・こちらは日常動線。増減時は両方を更新すること）。 */
 
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
-const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+const OPS_ENDPOINT = ENDPOINTS.adminOps;
 
 // role: このリンクが見える最低ロール
 const GROUPS = [

@@ -4,14 +4,10 @@
    ここは通知の観点で並べ替えた別の見え方。編集は Owner のみ（adminUsers API が保証）。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const USERS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminUsers";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const USERS_ENDPOINT = ENDPOINTS.adminUsers;
 
 // 通知の種類。key は admin_users のフィールド名。
 const KINDS = [

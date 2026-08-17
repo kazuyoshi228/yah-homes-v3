@@ -7,6 +7,7 @@ import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";
 import { PROPERTIES } from "../../../data/properties";
 import { getPropertyFacts } from "../../../lib/propertyFacts";
+import { FB_CONFIG } from "../../../lib/adminConfig";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -23,12 +24,6 @@ const { lang } = Astro.props as { lang: Locale };
 const ACCOUNT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/accountApi";
 const BOOK_PATH = localizedPath(lang, "/book");
 const ACCOUNT_PATH = localizedPath(lang, "/account");
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
 const { facts } = await getPropertyFacts();
 const HOUSE_META = {
   kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },

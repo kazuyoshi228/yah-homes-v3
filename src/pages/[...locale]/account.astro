@@ -7,6 +7,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
 import { getPropertyFacts } from "../../lib/propertyFacts";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -26,12 +27,6 @@ const BOOK_PATH = localizedPath(lang, "/book");
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
 // 決済未完了の予約から戻る先。日程と人数を持たせて入力をやり直させない。
 const RESUME_PATH = localizedPath(lang, "/book/checkout");
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
 
 const A = {
   en: {

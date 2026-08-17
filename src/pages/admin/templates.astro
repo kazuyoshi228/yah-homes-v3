@@ -4,14 +4,10 @@
    ここを直せば、以後の送信文はここが正になる。閲覧・編集は管理者台帳のメンバー。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const TEMPLATES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminTemplates";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const TEMPLATES_ENDPOINT = ENDPOINTS.adminTemplates;
 
 /* 送信タイミング。自動＝システムが送る／手動＝運営がBeds24・OTAから送る。
    「前日リマインド」「レビュー依頼」は guestLifecycleMailer（毎日10:00 JST）が送信する。 */

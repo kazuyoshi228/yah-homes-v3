@@ -3,14 +3,10 @@
    認証: Firebase Auth（Google）。閲覧=台帳メンバー・編集=rootオーナーのみ（Function側で検証）。
    通知フラグ: パートナー申請 / 定点観測 / 直販予約（該当メールの宛先に追加される） */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const USERS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminUsers";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const USERS_ENDPOINT = ENDPOINTS.adminUsers;
 ---
 
 <SiteLayout adminNav

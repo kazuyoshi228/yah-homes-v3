@@ -4,13 +4,8 @@
    各画面は個別にもログイン枠を持つが、入口をここに一本化して迷いをなくす。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
 ---
 
 <SiteLayout

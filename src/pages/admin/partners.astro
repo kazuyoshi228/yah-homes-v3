@@ -4,15 +4,11 @@
    noindex・sitemap除外（/adminはastro.config filter済み）・サイト内リンクなし。
    機能: 申請一覧・ステータス台帳・確定行から管理会社向けAirbnbブロック依頼文の生成コピー。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const ADMIN_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/partnersAdmin";
+const ADMIN_ENDPOINT = ENDPOINTS.partnersAdmin;
 // Firebase Webアプリ設定（公開値・firebase apps:sdkconfig より）
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
 ---
 
 <SiteLayout adminNav

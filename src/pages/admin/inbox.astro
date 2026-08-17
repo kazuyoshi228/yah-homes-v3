@@ -3,14 +3,10 @@
    本文に個人情報（氏名・メール・相談内容）を含むため、閲覧は root オーナーのみ。
    保存先は contact Function が書き込む Firestore `contacts`。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const INBOX_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminInbox";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const INBOX_ENDPOINT = ENDPOINTS.adminInbox;
 ---
 
 <SiteLayout adminNav

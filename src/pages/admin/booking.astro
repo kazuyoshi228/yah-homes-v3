@@ -5,15 +5,11 @@
    一覧・メッセージ・通知メールからのハブになる。データは既存API（adminBookings ?id= /
    messagesApi）と Firestore 購読の再配置で、新しい書き込み経路は作らない。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const BOOKINGS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminBookings";
-const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
+const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
 const PROP: Record<string, string> = { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago", test: "yah.homes test1（検証用）" };
 const MAIL_LABEL: Record<string, string> = {
   confirm: "予約確定メール", checkin: "チェックイン案内", checkout: "チェックアウト案内",

@@ -13,6 +13,12 @@ import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
 import { createHmac, createHash, timingSafeEqual } from "node:crypto";
 import { logger } from "firebase-functions/v2";
+import type { MailKind } from "./mail-l10n.js";
+import { CONTACT_L10N, LIFECYCLE_L10N, MAIL_FIELDS, MAIL_L10N, CANCEL_L10N } from "./mail-l10n.js";
+import { BEDS24_API, BOOKING_PROP_IDS, BOOKING_ROOM_IDS, BEDS24_WRITE_ALLOWED, BEDS24_WRITE_REFRESH,
+         INQUIRY_BEDS24, beds24WriteToken, beds24WriteTarget, cancelBeds24Booking, createBeds24Booking,
+         createBeds24Inquiry, mirrorInquiryToBeds24, noteBeds24, noteBeds24Cancellation,
+         noteBeds24Message, noteBeds24NewBooking, postBeds24Note } from "./beds24Client.js";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
@@ -47,9 +53,6 @@ function clientIp(req: { headers: Record<string, unknown>; ip?: string }): strin
   return (xf.split(",")[0] || String(req.ip ?? "")).trim() || "unknown";
 }
 
-// メール通知用シークレット（`firebase functions:secrets:set` で登録）
-// SMTP_USER: 送信元 Gmail/Workspace アドレス / SMTP_PASS: アプリパスワード /
-const BEDS24_WRITE_REFRESH = defineSecret("BEDS24_WRITE_REFRESH");
 const INQUIRY_LINK_SECRET = defineSecret("INQUIRY_LINK_SECRET");
 const SMTP_USER = defineSecret("SMTP_USER");
 const SMTP_PASS = defineSecret("SMTP_PASS");
@@ -297,53 +300,6 @@ function isSafeEmail(v: string): boolean {
   return m[1].length <= 64;
 }
 
-const CONTACT_L10N: Record<string, Record<string, string>> = {
-  ja: {
-    subject: "【yah.homes】お問い合わせありがとうございます",
-    heading: "お問い合わせありがとうございます",
-    lead: "{name} 様、お問い合わせを承りました。24時間以内に担当よりご連絡いたします。",
-    msgTitle: "いただいた内容",
-    cta: "空室を見る",
-    note: "お急ぎの場合は、このメールにそのままご返信ください。",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  en: {
-    subject: "Thank you for contacting yah.homes",
-    heading: "Thank you for contacting yah.homes",
-    lead: "Dear {name}, we have received your inquiry. A member of our team will get back to you within 24 hours.",
-    msgTitle: "Your message",
-    cta: "See availability",
-    note: "If you have any urgent questions, simply reply to this email.",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  ko: {
-    subject: "[yah.homes] 문의해 주셔서 감사합니다",
-    heading: "문의해 주셔서 감사합니다",
-    lead: "{name} 님, 문의를 접수했습니다. 24시간 이내에 담당자가 연락드리겠습니다.",
-    msgTitle: "보내주신 내용",
-    cta: "빈방 보기",
-    note: "급하신 경우 이 메일에 그대로 회신해 주세요.",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  zh: {
-    subject: "【yah.homes】感謝您的來信",
-    heading: "感謝您的來信",
-    lead: "{name} 您好，我們已收到您的詢問，將於 24 小時內與您聯繫。",
-    msgTitle: "您的訊息",
-    cta: "查詢空房",
-    note: "如有急事，請直接回覆這封郵件。",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  th: {
-    subject: "[yah.homes] ขอบคุณที่ติดต่อเรา",
-    heading: "ขอบคุณที่ติดต่อเรา",
-    lead: "เรียนคุณ {name} เราได้รับข้อความของคุณแล้ว ทีมงานจะติดต่อกลับภายใน 24 ชั่วโมง",
-    msgTitle: "ข้อความของคุณ",
-    cta: "ดูห้องว่าง",
-    note: "หากมีเรื่องเร่งด่วน กรุณาตอบกลับอีเมลฉบับนี้ได้เลย",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-};
 
 // ─── パートナー日程申請フォーム（/ja/partners/・design_partners_page.md §4.5-1） ───
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
@@ -639,45 +595,6 @@ const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
 const GITHUB_DISPATCH_TOKEN = defineSecret("GITHUB_DISPATCH_TOKEN");
 const GA4_API_SECRET = defineSecret("GA4_API_SECRET"); // read専用（bookingApi・定点観測で共用）
 const META_CAPI_TOKEN = defineSecret("META_CAPI_TOKEN"); // Meta Conversions API のアクセストークン
-const BEDS24_API = "https://beds24.com/api/v2";
-// 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
-// test = 検証用物件 yah.homes test1（デモ面にのみカードを出す）
-const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238, test: 346442 };
-// 書き込みに使う roomId。清川・高砂は運営会社アカウントからリンクされた物件で、
-// linkedProperties: true の書込トークン（2026-08-10 発行）で到達できる。
-const BOOKING_ROOM_IDS: Record<string, number> = {
-  kiyokawa: 580741,
-  takasago: 608871,
-  test: 715198,
-};
-
-// ─── Beds24 書き込み（予約作成）───
-// 書込を許可する物件の許可リスト。ここに無いIDへは書き込まない。
-// roomId 未設定と合わせた二重の防御は維持する（棟を増やすときは両方に足す）。
-const BEDS24_WRITE_ALLOWED = new Set<number>([278158, 291238, 346442]);
-
-let beds24WriteTokenCache: { token: string; expires: number } | null = null;
-
-/** リフレッシュトークンからアクセストークンを取得する（24時間有効・23時間キャッシュ）。 */
-async function beds24WriteToken(): Promise<string> {
-  if (beds24WriteTokenCache && beds24WriteTokenCache.expires > Date.now()) return beds24WriteTokenCache.token;
-  const r = await fetch(`${BEDS24_API}/authentication/token`, {
-    headers: { refreshToken: BEDS24_WRITE_REFRESH.value() },
-  });
-  const j = (await r.json()) as { token?: string; expiresIn?: number };
-  if (!j.token) throw new Error("beds24 write token refresh failed");
-  const ttl = Math.max(600, Math.min((j.expiresIn ?? 86400) - 3600, 82800));
-  beds24WriteTokenCache = { token: j.token, expires: Date.now() + ttl * 1000 };
-  return j.token;
-}
-
-/** 書込先の解決。許可リストに無い、または roomId が未設定なら null（＝書き込まない）。 */
-function beds24WriteTarget(prop: string): { propertyId: number; roomId: number } | null {
-  const propertyId = BOOKING_PROP_IDS[prop];
-  const roomId = BOOKING_ROOM_IDS[prop];
-  if (!propertyId || !roomId || !BEDS24_WRITE_ALLOWED.has(propertyId)) return null;
-  return { propertyId, roomId };
-}
 
 // ─── 在庫の排他ロック（二重予約の防止）───
 // Beds24 は在庫0でも API 経由の書き込みを受け付ける（実測: 在庫が -1 になる）ため、
@@ -733,124 +650,23 @@ async function releaseInventoryLocks(prop: string, checkin: string, checkout: st
   }
 }
 
-/** Beds24 の予約を取り消す（status を cancelled に更新する。削除はしない）。 */
-async function cancelBeds24Booking(beds24Id: number): Promise<void> {
-  const r = await fetch(`${BEDS24_API}/bookings`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify([{ id: beds24Id, status: "cancelled" }]),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean; errors?: unknown }>;
-  if (!j?.[0]?.success) throw new Error(`beds24 cancel failed: ${JSON.stringify(j?.[0]?.errors ?? j).slice(0, 200)}`);
-}
 
 /** 新規予約を Beds24 の受信箱に知らせる（2026-08-16 発注者指摘）。
     予約自体は API で Beds24 に作られるが、それだけでは**受信箱に何も出ない**ため、
     受信箱を見ている運営会社は新規予約に気づけない（キャンセルだけ通知していた）。
     キャンセル通知と同じ2本立て（受信箱に出る guest ＋ 記録用の internalNote）。
     失敗しても予約確定は止めない。 */
-async function noteBeds24NewBooking(beds24Id: number, text: string): Promise<void> {
-  try {
-    await postBeds24Note(beds24Id, "guest", `【直販システム】公式サイトから新しいご予約が入りました。\n${text}`);
-    await postBeds24Note(beds24Id, "internalNote", text);
-  } catch (err) {
-    logger.warn("beds24 new booking note failed", { beds24Id, err: String(err).slice(0, 120) });
-  }
-}
 
-/** bookings/messages への投稿（新規予約・キャンセル通知で共用） */
-async function postBeds24Note(beds24Id: number, source: string, message: string): Promise<void> {
-  const r = await fetch(`${BEDS24_API}/bookings/messages`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 500), source }]),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean }>;
-  if (!j?.[0]?.success) logger.warn("beds24 note failed", { beds24Id, source });
-}
 
 /** キャンセルの経緯を Beds24 に残す（運営がBeds24だけ見ていても分かるように）。
     2本立てにする理由: internalNote は予約のInfoタブにしか出ず、運営会社が日常的に見ている
     メッセージ受信箱の一覧には並ばない（2026-08-15 発注者指摘・実画面で確認）。
     受信箱に出るのは guest ソースのメッセージだけなので、通知はそちらで送り、
     経緯の記録として internalNote も残す。失敗してもキャンセル処理は止めない。 */
-async function noteBeds24Cancellation(beds24Id: number, text: string): Promise<void> {
-  try {
-    await postBeds24Note(beds24Id, "guest", `【直販システム】このご予約はキャンセルされました。\n${text}`);
-    await postBeds24Note(beds24Id, "internalNote", text);
-  } catch (err) {
-    logger.warn("beds24 cancel note failed", { beds24Id, err: String(err).slice(0, 120) });
-  }
-}
 
 /** Beds24 の予約に内部メモを残す。運営がBeds24画面（Infoタブ）で経緯を追えるようにする。
     記録の失敗でキャンセル・返金を止めない。 */
-async function noteBeds24(beds24Id: number, message: string): Promise<void> {
-  try {
-    const r = await fetch(`${BEDS24_API}/bookings/messages`, {
-      method: "POST",
-      headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-      body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 900), source: "internalNote" }]),
-    });
-    const j = (await r.json()) as Array<{ success?: boolean }>;
-    if (!j?.[0]?.success) logger.warn("noteBeds24 not saved", { beds24Id });
-  } catch (err) {
-    logger.warn("noteBeds24 failed", { beds24Id, err: String(err).slice(0, 120) });
-  }
-}
 
-/** Beds24 に予約を作成し、Beds24側の予約IDを返す。 */
-async function createBeds24Booking(bookingId: string, b: BookingDoc & Record<string, unknown>): Promise<number> {
-  const target = beds24WriteTarget(b.prop);
-  if (!target) throw new Error(`beds24 write not permitted for ${b.prop}`);
-  if (!BEDS24_WRITE_ALLOWED.has(target.propertyId)) throw new Error(`beds24 write blocked: ${target.propertyId}`);
-
-  const full = String(b.name ?? "").trim();
-  const sp = full.indexOf(" ");
-  const firstName = sp > 0 ? full.slice(0, sp) : full || "Guest";
-  const lastName = sp > 0 ? full.slice(sp + 1) : "";
-  const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
-  const arrival = String(b.arrival ?? "").trim();
-
-  const payload = [{
-    roomId: target.roomId,
-    status: "confirmed",
-    arrival: b.checkin,
-    departure: b.checkout,
-    numAdult: b.guests,
-    numChild: 0,
-    firstName,
-    lastName,
-    email: b.email,
-    phone: String(b.phone ?? ""),
-    price: b.total,
-    // Beds24 は referer を "API" に上書きするため、直販の識別は custom1 / reference で行う
-    custom1: `yah.homes direct / ${bookingId}`,
-    reference: bookingId,
-    notes: [
-      "yah.homes 公式サイトからの直接予約",
-      `予約ID: ${bookingId}`,
-      arrival ? `到着予定: ${arrival}` : "",
-      b.leadGuest ? `代表者: ${String(b.leadGuest)}` : "",
-    ].filter(Boolean).join("\n"),
-    invoiceItems: [{
-      type: "charge",
-      description: `${nights}泊${b.guests}名 宿泊料・宿泊税・清掃料込み`,
-      qty: 1,
-      amount: b.total,
-    }],
-  }];
-
-  const r = await fetch(`${BEDS24_API}/bookings`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean; new?: { id?: number }; errors?: unknown }>;
-  const row = j?.[0];
-  if (!row?.success || !row.new?.id) throw new Error(`beds24 create failed: ${JSON.stringify(row?.errors ?? j).slice(0, 200)}`);
-  return row.new.id;
-}
 
 type AvailCache = { data: Record<string, boolean>; prices: Record<string, number>; expires: number };
 const availCache: Record<string, AvailCache> = {};
@@ -1111,198 +927,6 @@ export const bookingApi = onRequest(
    毎朝10時JSTに走り、対象日の予約へ1通ずつ送る。送信済みフラグで二重送信を防ぐ。
    入室コードは別系統（運営会社が送る）のため、ここでは触れない。 */
 
-const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
-  ja: {
-    coSubject: "【yah.homes】本日 {co} チェックアウトです",
-    coHeading: "本日がチェックアウトです",
-    coLead: "ご滞在ありがとうございました。本日 {co} がチェックアウトのお時間です。",
-    coTitle: "お帰りの前に",
-    coBody: "・鍵はキーボックスへお戻しください。<br>・駐車場も {co} までにお願いします。<br>・お忘れ物、大型のゴミ（スーツケース・衣類など）の置き忘れにご注意ください。",
-    coNoteTitle: "お掃除は不要です",
-    coNote: "特別な清掃や片付けは必要ありません。そのままお発ちください。",
-    coBye: "またお会いできる日を楽しみにしています。",
-    remSubject: "【yah.homes】明日のご宿泊について",
-    remHeading: "明日、お待ちしております",
-    remLead: "ご到着が明日となりました。当日の流れをご確認ください。",
-    remCheckin: "チェックイン", remCheckout: "チェックアウト", remGuests: "人数", remArrival: "到着予定時刻",
-    remPlace: "場所", remEntry: "入室について",
-    remEntryBody: "玄関のキーボックスでの受け渡しです。暗証番号は別途お送りしています。届いていない場合は My Page のメッセージからご連絡ください。",
-    remCodeLabel: "暗証番号 / PIN",
-    remEntryBodyCode: "玄関のキーボックスでの受け渡しです。上の暗証番号でキーボックスを開き、中の鍵でご入室ください。",
-    remArrivalNote: "到着時刻に制限はありません。深夜のご到着でも問題ありません。",
-    remHelp: "お困りのとき", remHelpBody: "鍵が取り出せない、場所が分からないなど、その場でお困りの際はお電話ください。",
-    remManual: "入室の手順（写真つき）", remManualBody: "住所・玄関の場所・鍵の開け方・駐車場を写真でご案内しています。ご到着前にご覧ください。",
-    remCta: "予約を確認する",
-    footer: "yah.homes【Operated by AIRSTAR】",
-    revTplTitle: "レビュー",
-    revCatClean: "清潔度",
-    revCatComm: "コミュニケーション",
-    revCatLoc: "ロケーション",
-    revCatOther: "備品・設備",
-    revCommentLabel: "コメント",
-    revTplHint: "下のボタンを押すと、記入用の返信メールが開きます。★の数（1〜5）を調整し、コメントを添えてそのままお送りください。このメールへの普通のご返信でも、もちろん構いません。",
-    revTplAdjust: "（★を1〜5個に調整してください）",
-    revMailSubject: "【レビュー】ご滞在の感想（予約 {no}）",
-    revCta: "レビューを書いて返信する",
-    revSubject: "【yah.homes】ご滞在はいかがでしたか",
-    revHeading: "ご利用ありがとうございました",
-    revLead: "先日はyah.homesにご宿泊いただきありがとうございました。お気づきの点があれば、このメールにご返信ください。良かった点も、直すべき点も、そのままお聞かせいただけると助かります。",
-    revNote: "いただいたご意見は、次のお客様のために必ず反映します。実際に、大通りに面したロールスクリーンを遮光タイプに変更したのもお客様のご指摘がきっかけでした。",
-    stay: "ご滞在", nights: "{n}泊",
-  },
-  en: {
-    coSubject: "[yah.homes] Check-out is today at {co}",
-    coHeading: "Check-out is today",
-    coLead: "Thank you for staying with us. Check-out is today at {co}.",
-    coTitle: "Before you go",
-    coBody: "・Return the key to the key box.<br>・Please vacate the parking space by {co}.<br>・Please double-check you haven't left anything behind, especially larger items (suitcases, clothing).",
-    coNoteTitle: "No cleaning needed",
-    coNote: "No need to clean or tidy up — just head out as you are.",
-    coBye: "We hope to see you again.",
-    remSubject: "[yah.homes] Your stay starts tomorrow",
-    remHeading: "See you tomorrow",
-    remLead: "Your arrival is tomorrow. Here is what to expect on the day.",
-    remCheckin: "Check-in", remCheckout: "Check-out", remGuests: "Guests", remArrival: "Estimated arrival",
-    remPlace: "Location", remEntry: "Getting in",
-    remEntryBody: "Self check-in with a key box at the entrance. The code has been sent separately — if you have not received it, message us from My Page.",
-    remCodeLabel: "PIN",
-    remEntryBodyCode: "Self check-in with a key box at the entrance. Use the PIN above to open the box, then unlock the door with the key inside.",
-    remArrivalNote: "There's no cut-off time for arrival — late-night check-ins are no problem at all.",
-    remHelp: "Need help?", remHelpBody: "If you cannot get the key out or you cannot find the house, please call us.",
-    remManual: "Step-by-step guide (with photos)", remManualBody: "The address, the entrance, how to open the key box, and parking — all with photos. Worth a look before you arrive.",
-    remCta: "View your booking",
-    footer: "yah.homes【Operated by AIRSTAR】",
-    revTplTitle: "Your review",
-    revCatClean: "Cleanliness",
-    revCatComm: "Communication",
-    revCatLoc: "Location",
-    revCatOther: "Amenities & facilities",
-    revCommentLabel: "Comments",
-    revTplHint: "The button below opens a pre-filled reply. Adjust the stars (1–5), add your comments, and just hit send. A plain reply to this email works too, of course.",
-    revTplAdjust: "(adjust to 1–5 stars)",
-    revMailSubject: "[Review] My stay (booking {no})",
-    revCta: "Write your review",
-    revSubject: "[yah.homes] How was your stay?",
-    revHeading: "Thank you for staying with us",
-    revLead: "Thank you for choosing yah.homes. If anything stood out — good or bad — just hit reply and let us know.",
-    revNote: "We act on what we hear. The blackout roller blind facing the main street was added because a guest told us the light was too bright.",
-    stay: "Your stay", nights: "{n} nights",
-  },
-  ko: {
-    coSubject: "[yah.homes] 오늘 {co} 체크아웃입니다",
-    coHeading: "오늘이 체크아웃일입니다",
-    coLead: "이용해 주셔서 감사합니다. 오늘 {co}가 체크아웃 시간입니다.",
-    coTitle: "나가시기 전에",
-    coBody: "・열쇠는 키박스에 넣어 주세요.<br>・주차장도 {co}까지 비워 주세요.<br>・분실물이 없는지 확인해 주시고, 큰 쓰레기(캐리어·의류 등)는 두고 가지 말아 주세요.",
-    coNoteTitle: "청소는 필요 없습니다",
-    coNote: "따로 청소하거나 정리하실 필요는 없습니다. 그대로 나가셔도 됩니다.",
-    coBye: "다시 뵐 수 있기를 기다리겠습니다.",
-    remSubject: "[yah.homes] 내일 체크인 안내",
-    remHeading: "내일 뵙겠습니다",
-    remLead: "내일 도착 예정이시네요. 당일 안내 사항을 미리 확인해 주세요.",
-    remCheckin: "체크인", remCheckout: "체크아웃", remGuests: "인원", remArrival: "도착 예정 시각",
-    remPlace: "위치", remEntry: "입실 안내",
-    remEntryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호는 별도로 보내드렸습니다. 받지 못하셨다면 My Page 메시지로 연락해 주세요.",
-    remCodeLabel: "비밀번호",
-    remEntryBodyCode: "현관 키박스를 이용한 셀프 체크인입니다. 위의 비밀번호로 키박스를 열고, 안에 있는 열쇠로 입실해 주세요.",
-    remArrivalNote: "도착 시간 제한은 없습니다. 늦은 밤 도착도 괜찮습니다.",
-    remHelp: "곤란하실 때는", remHelpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 전화해 주세요.",
-    remManual: "입실 안내 (사진 포함)", remManualBody: "주소・현관 위치・열쇠 여는 법・주차장을 사진으로 안내해 드립니다. 도착 전에 확인해 주세요.",
-    remCta: "예약 확인하기",
-    footer: "yah.homes【Operated by AIRSTAR】",
-    revTplTitle: "리뷰",
-    revCatClean: "청결도",
-    revCatComm: "커뮤니케이션",
-    revCatLoc: "위치",
-    revCatOther: "비품·설비",
-    revCommentLabel: "코멘트",
-    revTplHint: "아래 버튼을 누르면 작성용 회신 메일이 열립니다. 별 개수(1~5)를 조정하고 코멘트를 적어 그대로 보내 주세요. 이 메일에 일반 회신을 주셔도 물론 괜찮습니다.",
-    revTplAdjust: "(별을 1~5개로 조정해 주세요)",
-    revMailSubject: "[리뷰] 숙박 후기 (예약 {no})",
-    revCta: "리뷰 작성하고 회신하기",
-    revSubject: "[yah.homes] 숙박은 어떠셨나요?",
-    revHeading: "이용해 주셔서 감사합니다",
-    revLead: "yah.homes를 이용해 주셔서 감사합니다. 좋았던 점도 아쉬웠던 점도, 이 메일에 회신해 편하게 알려주세요.",
-    revNote: "보내주신 의견은 다음 고객님을 위해 반드시 반영합니다. 큰길 쪽 롤스크린을 암막 타입으로 바꾼 것도 고객님의 의견이 계기가 되었습니다.",
-    stay: "숙박", nights: "{n}박",
-  },
-  zh: {
-    coSubject: "【yah.homes】今日 {co} 退房",
-    coHeading: "今天是退房日",
-    coLead: "感謝您的入住。今日 {co} 為退房時間。",
-    coTitle: "離開前請確認",
-    coBody: "・請將鑰匙放回密碼鑰匙盒。<br>・停車位也請於 {co} 前騰出。<br>・請確認是否遺留物品或大型垃圾（行李箱、衣物等）。",
-    coNoteTitle: "無需打掃",
-    coNote: "不需要特別清潔或整理，直接離開即可。",
-    coBye: "期待再次與您相見。",
-    remSubject: "【yah.homes】明天入住提醒",
-    remHeading: "明天見",
-    remLead: "您的入住日就在明天，請確認當天的流程。",
-    remCheckin: "入住", remCheckout: "退房", remGuests: "人數", remArrival: "預計抵達時間",
-    remPlace: "位置", remEntry: "入住方式",
-    remEntryBody: "以門口密碼鎖自助入住。密碼已另行寄送，若未收到請透過 My Page 訊息與我們聯繫。",
-    remCodeLabel: "密碼",
-    remEntryBodyCode: "透過玄關的密碼鑰匙盒自助入住。請以上方密碼打開鑰匙盒，再用裡面的鑰匙開門進入。",
-    remArrivalNote: "抵達時間沒有限制，深夜抵達也沒問題。",
-    remHelp: "遇到問題時", remHelpBody: "若無法取出鑰匙或找不到位置，請撥打電話與我們聯繫。",
-    remManual: "入住步驟（附照片）", remManualBody: "以照片說明地址、玄關位置、開鎖方式與停車場。抵達前建議先看一下。",
-    remCta: "查看預訂",
-    footer: "yah.homes【Operated by AIRSTAR】",
-    revTplTitle: "您的評價",
-    revCatClean: "清潔度",
-    revCatComm: "溝通",
-    revCatLoc: "位置",
-    revCatOther: "設備與備品",
-    revCommentLabel: "意見",
-    revTplHint: "按下方按鈕會開啟已填好格式的回覆郵件。調整星數（1～5）、寫下您的意見後直接寄出即可。直接回覆這封郵件也完全沒問題。",
-    revTplAdjust: "（請將★調整為1～5個）",
-    revMailSubject: "【評價】住宿心得（預訂 {no}）",
-    revCta: "撰寫評價並回覆",
-    revSubject: "【yah.homes】這次入住還滿意嗎",
-    revHeading: "感謝您的入住",
-    revLead: "感謝您選擇 yah.homes。無論是好的地方還是需要改進的地方，都歡迎直接回覆這封郵件告訴我們。",
-    revNote: "您的意見我們一定會落實。面向大馬路的遮光捲簾，就是因為住客反映光線太亮才更換的。",
-    stay: "住宿", nights: "{n}晚",
-  },
-  th: {
-    coSubject: "[yah.homes] เช็คเอาท์วันนี้ เวลา {co}",
-    coHeading: "วันนี้เป็นวันเช็คเอาท์",
-    coLead: "ขอบคุณที่เข้าพักกับเรา เวลาเช็คเอาท์ของวันนี้คือ {co}",
-    coTitle: "ก่อนออกจากที่พัก",
-    coBody: "・กรุณาใส่กุญแจกลับเข้ากล่องกุญแจ<br>・กรุณานำรถออกจากที่จอดภายในเวลา {co}<br>・กรุณาตรวจสอบสิ่งของและขยะชิ้นใหญ่ (กระเป๋าเดินทาง เสื้อผ้า) ที่อาจลืมไว้",
-    coNoteTitle: "ไม่ต้องทำความสะอาด",
-    coNote: "ไม่จำเป็นต้องทำความสะอาดหรือเก็บกวาด ออกจากที่พักได้เลย",
-    coBye: "หวังว่าจะได้พบกันอีก",
-    remSubject: "[yah.homes] เข้าพักพรุ่งนี้",
-    remHeading: "พบกันพรุ่งนี้",
-    remLead: "วันเข้าพักของคุณคือพรุ่งนี้ กรุณาตรวจสอบรายละเอียดของวันนั้น",
-    remCheckin: "เช็คอิน", remCheckout: "เช็คเอาท์", remGuests: "จำนวนผู้เข้าพัก", remArrival: "เวลาถึงโดยประมาณ",
-    remPlace: "สถานที่", remEntry: "การเข้าที่พัก",
-    remEntryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู รหัสได้ส่งแยกไปแล้ว หากยังไม่ได้รับ กรุณาติดต่อเราผ่านข้อความใน My Page",
-    remCodeLabel: "รหัส",
-    remEntryBodyCode: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู ใช้รหัสด้านบนเปิดกล่อง แล้วใช้กุญแจด้านในเปิดประตูเข้าห้องพัก",
-    remArrivalNote: "ไม่มีข้อจำกัดเรื่องเวลามาถึง มาดึกก็ไม่มีปัญหา",
-    remHelp: "หากพบปัญหา", remHelpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเรา",
-    remManual: "ขั้นตอนการเข้าพัก (มีรูปประกอบ)", remManualBody: "อธิบายที่อยู่ ตำแหน่งประตู วิธีเปิดกล่องกุญแจ และที่จอดรถพร้อมรูปภาพ ควรดูก่อนเดินทางมาถึง",
-    remCta: "ดูการจอง",
-    footer: "yah.homes【Operated by AIRSTAR】",
-    revTplTitle: "รีวิวของคุณ",
-    revCatClean: "ความสะอาด",
-    revCatComm: "การสื่อสาร",
-    revCatLoc: "ทำเลที่ตั้ง",
-    revCatOther: "สิ่งอำนวยความสะดวก",
-    revCommentLabel: "ความคิดเห็น",
-    revTplHint: "กดปุ่มด้านล่างเพื่อเปิดอีเมลตอบกลับที่เตรียมแบบฟอร์มไว้แล้ว ปรับจำนวนดาว (1–5) เขียนความคิดเห็น แล้วส่งได้เลย หรือจะตอบกลับอีเมลนี้ตามปกติก็ได้เช่นกัน",
-    revTplAdjust: "(ปรับดาวเป็น 1–5 ดวง)",
-    revMailSubject: "[รีวิว] การเข้าพัก (การจอง {no})",
-    revCta: "เขียนรีวิวและตอบกลับ",
-    revSubject: "[yah.homes] การเข้าพักเป็นอย่างไรบ้าง",
-    revHeading: "ขอบคุณที่เข้าพักกับเรา",
-    revLead: "ขอบคุณที่เลือก yah.homes หากมีสิ่งใดที่ประทับใจหรือควรปรับปรุง กรุณาตอบกลับอีเมลนี้และบอกเราตรง ๆ",
-    revNote: "เรานำความเห็นไปปรับปรุงจริง ม่านม้วนกันแสงฝั่งถนนใหญ่ก็เปลี่ยนเพราะผู้เข้าพักบอกว่าแสงจ้าเกินไป",
-    stay: "การเข้าพัก", nights: "{n} คืน",
-  },
-};
 
 
 
@@ -1379,8 +1003,6 @@ export const beds24CancelWatcher = onSchedule(
 // テンプレートが持つのは「文言キーの上書き辞書」だけ。HTMLの骨格・表・ボタンの配置は
 // コードが持ち続ける。編集でレイアウトが壊れないこと、テンプレートが欠けても
 // 必ず送れることの2点を、この形で担保する。
-export type MailKind = "confirm" | "checkin" | "checkout" | "review" | "cancel" | "contact";
-
 /** その通・その言語のコード既定（＝テンプレート未設定時に出る文言） */
 export function mailDefaults(kind: MailKind, lang: string): Record<string, string> {
   const src = kind === "confirm" ? MAIL_L10N : kind === "cancel" ? CANCEL_L10N
@@ -1661,90 +1283,6 @@ export const guestLifecycleMailer = onSchedule(
 // 閲覧・編集は管理者台帳のメンバー。差し込み記号は {{...}} で統一する。
 /** 画面に並べるキーの定義。ラベルは編集者向けの日本語。ここに無いキーは編集させない
     （文言でないもの＝日付書式や単位のプレースホルダを触らせないため）。 */
-const MAIL_FIELDS: Record<MailKind, { key: string; label: string; multiline?: boolean }[]> = {
-  confirm: [
-    { key: "subject", label: "件名" },
-    { key: "lead", label: "書き出し", multiline: true },
-    { key: "registerTitle", label: "宿泊者名簿・見出し" },
-    { key: "registerLead", label: "宿泊者名簿・主文" },
-    { key: "registerDue", label: "宿泊者名簿・期限の言い方（{d}に日付が入る）" },
-    { key: "registerBtn", label: "宿泊者名簿・ボタンの文字" },
-    { key: "registerBody", label: "宿泊者名簿・説明", multiline: true },
-    { key: "registerWarn", label: "宿泊者名簿・未登録時の注意", multiline: true },
-    { key: "cancelNote", label: "キャンセル料・注記", multiline: true },
-    { key: "changeNote", label: "日程変更について", multiline: true },
-    { key: "payNote", label: "お支払い・注記", multiline: true },
-    { key: "cta", label: "主ボタンの文字" },
-    { key: "cta2", label: "副ボタンの文字" },
-    { key: "ctaNote", label: "ボタン下の注記", multiline: true },
-    { key: "entryTitle", label: "入室について・見出し" },
-    { key: "entryBody", label: "入室について・本文", multiline: true },
-    { key: "safetyTitle", label: "お願い・見出し" },
-    { key: "safetyBody", label: "お願い・本文", multiline: true },
-    { key: "contactBody", label: "問い合わせ・本文", multiline: true },
-    { key: "footer", label: "フッター" },
-  ],
-  checkin: [
-    { key: "remSubject", label: "件名" },
-    { key: "remHeading", label: "見出し" },
-    { key: "remLead", label: "書き出し", multiline: true },
-    { key: "remEntry", label: "入室について・見出し" },
-    { key: "remEntryBodyCode", label: "入室について・本文（暗証番号カードの下に出る）", multiline: true },
-    { key: "remEntryBody", label: "入室について・予備文面（番号が読めなかった場合）", multiline: true },
-    { key: "remArrivalNote", label: "到着時刻の注記", multiline: true },
-    { key: "remManual", label: "入室の手順・見出し" },
-    { key: "remManualBody", label: "入室の手順・本文", multiline: true },
-    { key: "remHelp", label: "お困りのとき・見出し" },
-    { key: "remHelpBody", label: "お困りのとき・本文", multiline: true },
-    { key: "remPlace", label: "場所・見出し" },
-    { key: "remCta", label: "ボタンの文字" },
-    { key: "footer", label: "フッター" },
-  ],
-  checkout: [
-    { key: "coSubject", label: "件名（{co}に時刻が入る）" },
-    { key: "coHeading", label: "見出し" },
-    { key: "coLead", label: "書き出し", multiline: true },
-    { key: "coTitle", label: "お帰りの前に・見出し" },
-    { key: "coBody", label: "お帰りの前に・本文（改行は <br>）", multiline: true },
-    { key: "coNoteTitle", label: "掃除について・見出し" },
-    { key: "coNote", label: "掃除について・本文", multiline: true },
-    { key: "coBye", label: "結び" },
-    { key: "footer", label: "フッター" },
-  ],
-  cancel: [
-    { key: "subject", label: "件名" },
-    { key: "lead", label: "書き出し" },
-    { key: "refundNote", label: "返金の説明（返金がある場合）", multiline: true },
-    { key: "noRefundNote", label: "返金なしの説明（期限超過の場合）", multiline: true },
-    { key: "again", label: "結び（再訪の誘い）", multiline: true },
-    { key: "cta", label: "ボタンの文字" },
-    { key: "contact", label: "問い合わせ文" },
-    { key: "footer", label: "フッター" },
-  ],
-  contact: [
-    { key: "subject", label: "件名" },
-    { key: "heading", label: "見出し" },
-    { key: "lead", label: "書き出し（{name}にお名前が入る）", multiline: true },
-    { key: "msgTitle", label: "引用ブロックの見出し" },
-    { key: "cta", label: "ボタンの文字" },
-    { key: "note", label: "結びの注記", multiline: true },
-    { key: "footer", label: "フッター" },
-  ],
-  review: [
-    { key: "revSubject", label: "件名" },
-    { key: "revHeading", label: "見出し" },
-    { key: "revLead", label: "書き出し", multiline: true },
-    { key: "revCatClean", label: "評価項目1" },
-    { key: "revCatComm", label: "評価項目2" },
-    { key: "revCatLoc", label: "評価項目3" },
-    { key: "revCatOther", label: "評価項目4" },
-    { key: "revCommentLabel", label: "記載欄のラベル" },
-    { key: "revTplHint", label: "記入方法の説明", multiline: true },
-    { key: "revNote", label: "補足", multiline: true },
-    { key: "revCta", label: "ボタンの文字" },
-    { key: "footer", label: "フッター" },
-  ],
-};
 const MAIL_KINDS: MailKind[] = ["confirm", "checkin", "checkout", "review", "cancel", "contact"];
 const MAIL_KIND_LABEL: Record<MailKind, string> = {
   confirm: "予約確定メッセージ", checkin: "チェックイン案内",
@@ -2059,7 +1597,7 @@ export const adminOps = onRequest(
       if (view === "me") {
         // ログイン中の本人の権限。メニューの出し分けに使う（機微情報は返さない）。
         const role = await getRole(email);
-        // isAdmin は旧クライアント互換（admin 以上で true）
+        // isAdmin キーは旧クライアント互換のレスポンス項目（admin 以上で true）。関数名の isRootOwner とは別物
         res.status(200).json({ ok: true, email, role, isAdmin: !!role && ROLE_RANK[role] >= ROLE_RANK.admin });
         return;
       }
@@ -2379,7 +1917,7 @@ export const messagesApi = onRequest(
       const decoded = await getAuth().verifyIdToken(m[1]);
       uid = decoded.uid; email = (decoded.email ?? "").toLowerCase();
     } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    const isStaff = !!email && (isAdmin(email) || !!(await getAdminUser(email)));
+    const isStaff = !!email && (isRootOwner(email) || !!(await getAdminUser(email)));
 
     const idStr = String(bookingId ?? "");
     if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
@@ -2552,80 +2090,9 @@ async function notifyMessage(
   });
 }
 
-/** Beds24 の予約へメッセージを複製する（Airbnb等と同じ受信箱に並べる） */
-// ─── 問い合わせを Beds24 の受信箱に載せる（spec_inquiry_to_beds24_202608.md）───
-// Beds24 のメッセージは予約IDにしか紐づかないため、問い合わせ1件につき
-// status:"inquiry" の予約を1件作り、その受信箱にやり取りを流す。
-// 宛先は本番サイトに出ない専用物件（346442）— 清川・高砂の在庫と受信箱を汚さない。
-const INQUIRY_BEDS24 = { propertyId: 346442, roomId: 715198 };
 
-async function createBeds24Inquiry(
-  threadId: string, name: string, email: string, message: string,
-): Promise<number | null> {
-  const d = new Date(Date.now() + 86400000);          // Beds24 は日程必須。過去日は拒否されうるので翌日から1泊
-  const arrival = d.toISOString().slice(0, 10);
-  const departure = new Date(d.getTime() + 86400000).toISOString().slice(0, 10);
-  const sp = name.indexOf(" ");
-  const payload = [{
-    roomId: INQUIRY_BEDS24.roomId,
-    // status は "new"（通常の予約と同じ）。"inquiry" は Beds24 の画面で既定の絞り込みから
-    // 外れて見つけられないことがあり、「Beds24 だけ見ていれば拾える」という目的を果たせない。
-    // 宛先が販売しない専用物件なので、在庫を持つステータスでも実害がない。
-    status: "new",
-    arrival, departure,
-    numAdult: 1, numChild: 0,
-    firstName: sp > 0 ? name.slice(0, sp) : name || "Guest",
-    lastName: sp > 0 ? name.slice(sp + 1) : "",
-    email,
-    price: 0,
-    custom1: `yah.homes inquiry / ${threadId}`,
-    reference: threadId,
-    notes: [
-      "【お問い合わせ】yah.homes 公式サイトのフォームより",
-      "※このカードは予約ではありません。日程・人数はダミーです。",
-      "※やり取りはメッセージ受信箱に届きます。返信は yah.homes の管理画面「メッセージ」から行ってください（Beds24 から返信してもお客様には届きません）。",
-      `お名前: ${name} ／ メール: ${email}`,
-    ].join("\n"),
-  }];
-  const r = await fetch(`${BEDS24_API}/bookings`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean; new?: { id?: number }; errors?: unknown }>;
-  const row = j?.[0];
-  if (!row?.success || !row.new?.id) {
-    logger.warn("beds24 inquiry create failed", { e: JSON.stringify(row?.errors ?? j).slice(0, 200) });
-    return null;
-  }
-  // 1通目も受信箱へ。これが Airstar が問い合わせに気づく主経路になる
-  await noteBeds24Message(row.new.id, "guest", `【お問い合わせ】${name} 様（${email}）\n${message}`)
-    .catch((e: unknown) => logger.warn("beds24 inquiry first message failed", { e: String(e).slice(0, 120) }));
-  return row.new.id;
-}
 
-/** 問い合わせのやり取りを Beds24 の受信箱へ複製する。
- *  発言者は接頭辞で示す（予約スレッドの【直販ゲスト】/【yah.homes 運営】と同じ規則）。
- *  運営側も source:"guest" で送るのは、source:"host" が受信箱に描画されないため。
- *  なお Beds24 から返信してもお客様には届かない（返信は管理画面から）。 */
-async function mirrorInquiryToBeds24(
-  t: Record<string, unknown>, from: "guest" | "host", text: string,
-): Promise<void> {
-  const id = Number(t.beds24Id ?? 0);
-  if (!id) return;
-  const label = from === "guest" ? "【お問い合わせ】" : "【yah.homes 運営】";
-  await noteBeds24Message(id, "guest", `${label}${text}`);
-}
 
-async function noteBeds24Message(beds24Id: number, from: "guest" | "host", message: string): Promise<void> {
-  const r = await fetch(`${BEDS24_API}/bookings/messages`, {
-    method: "POST",
-    headers: { token: await beds24WriteToken(), "Content-Type": "application/json" },
-    body: JSON.stringify([{ bookingId: beds24Id, message: message.slice(0, 900), source: from }]),
-  });
-  const j = (await r.json()) as Array<{ success?: boolean }>;
-  if (!j?.[0]?.success) logger.warn("beds24 message mirror not saved", { beds24Id });
-}
 
 // ─── 入室案内の暗証番号（/how-to/:prop から取得） ───
 // 番号を静的HTMLへ焼き込むと、gitとビルド成果物に残り、番号を変えるたび再デプロイが要る。
@@ -2713,12 +2180,12 @@ export const adminSecrets = onRequest(
 /* 権限は2階層のみ。用語は ADMIN / OPERATOR で統一する（旧: owner / root / PARTNERS_ADMIN）。
    ADMIN    … 台帳から削除できない固定アカウント。鍵番号・文面・物件・返金・台帳編集・再デプロイ。
    OPERATOR … 管理者台帳のメンバー。予約閲覧・問い合わせ対応など日々の運用のみ。
-   判定は必ず isAdmin() / requireAdmin() を通す（各APIに条件を手書きしない）。 */
+   判定は必ず isRootOwner()（root判定）/ requireAdmin()（Admin以上）を通す（各APIに条件を手書きしない）。 */
 const ADMIN_EMAILS = ["kazuyoshi.yamada@bonfire.co.jp"];
 const PARTNERS_ADMIN_EMAILS = ADMIN_EMAILS; // 後方互換（通知宛先の既定値として参照）
 
 /** ADMIN か（台帳の role には依存しない・固定アカウントのみ） */
-function isAdmin(email: string): boolean {
+function isRootOwner(email: string): boolean {
   return ADMIN_EMAILS.includes(email);
 }
 
@@ -2730,7 +2197,7 @@ function isAdmin(email: string): boolean {
    台帳の role フィールドで付与する。旧データの "owner" はそのまま owner として扱う。 */
 type Role = "owner" | "admin" | "operator";
 async function getRole(email: string): Promise<Role | null> {
-  if (isAdmin(email)) return "owner";
+  if (isRootOwner(email)) return "owner";
   const u = await getAdminUser(email);
   if (!u) return null;
   return u.role === "owner" ? "owner" : u.role === "admin" ? "admin" : "operator";
@@ -2746,7 +2213,7 @@ async function requireAdmin(email: string, res: { status: (n: number) => { json:
 }
 /** owner でなければ 403。管理者台帳の変更にだけ使う。 */
 function requireOwner(email: string, res: { status: (n: number) => { json: (b: unknown) => void } }): boolean {
-  if (isAdmin(email)) return false;
+  if (isRootOwner(email)) return false;
   res.status(403).json({ ok: false, error: "owner_only" });
   return true;
 }
@@ -2785,7 +2252,7 @@ async function verifyAdmin(req: { headers: Record<string, unknown> }): Promise<s
     const decoded = await getAuth().verifyIdToken(m[1]);
     const email = (decoded.email ?? "").toLowerCase();
     if (!decoded.email_verified) return null;
-    if (isAdmin(email)) return email;
+    if (isRootOwner(email)) return email;
     if (await getAdminUser(email)) return email; // 台帳メンバー（operator以上）
     return null;
   } catch {
@@ -3899,143 +3366,6 @@ const MAIL_PROP = {
   },
 } as Record<string, { name: string; image: string; address: string; map: string; register?: string; manual?: string }>;
 
-const MAIL_L10N: Record<string, Record<string, string>> = {
-  ja: {
-    registerTitle: "ご宿泊の前にお願いしたいこと",
-    registerLead: "宿泊者名簿のご登録（ご宿泊者 全員分）",
-    registerDue: "{d} までにお願いします",
-    registerBtn: "宿泊者名簿を登録する",
-    registerBody: "旅館業法により、ご宿泊されるすべての方の情報をいただくことが義務づけられています。日本国内に住所のない外国籍のお客様は、あわせてご宿泊者全員分のパスポート画像が必要です。",
-    registerWarn: "ご登録の確認後、入室方法をお送りします。ご登録がない場合、暗証番号をお送りできません。",
-    subject: "【yah.homes】ご予約が確定しました", greetSuffix: " 様",
-    lead: "yah.homes をご予約いただきありがとうございます。ご予約が確定しました。",
-    bookingNo: "予約番号", checkTitle: "ご予約内容",
-    checkin: "チェックイン", checkout: "チェックアウト", stay: "お客様のご予約", guestsRow: "宿泊者の内訳",
-    house: "お部屋", arrival: "到着予定時刻", checkinWindow: "{ci}〜（時間の制限はありません）", checkoutWindow: "〜{co}",
-    nights: "{n}泊", guests: "大人{g}名",
-    cancelTitle: "キャンセル料", cancelFree: "{d} まで", cancelAfter: "{d} 以降", cancelNote: "キャンセル期限は日本時間での表記です。", changeNote: "日程・人数の変更をご希望の場合は、一度キャンセルのうえ、あらためてご予約くださいませ（無料キャンセル期間内であれば追加のご負担はありません）。無料キャンセル期間を過ぎている場合は、My Page のメッセージからご相談ください。",
-    payTitle: "お支払い", payTotal: "合計料金", payPaid: "お支払い済み", payOnSite: "現地でのお支払い",
-    payNote: "宿泊料・宿泊税・清掃料が含まれています。追加のご請求はありません。",
-    ctaTitle: "予約内容の確認・変更", cta: "予約内容の変更・キャンセル", cta2: "メッセージを送る",
-    ctaNote: "ご予約時のアカウントでログインすると、到着予定時刻の登録やご予約の確認ができます。",
-    entryTitle: "入室について",
-    entryBody: "玄関のキーボックスでの受け渡しです。暗証番号と詳しい入室手順は、ご到着の前日にメールでお送りします。深夜のご到着でも問題ありません。",
-    placeTitle: "場所", placeBtn: "地図を開く",
-    placeNote: "正確な住所は入室のご案内とあわせてお送りします。",
-    safetyTitle: "安全のために",
-    safetyBody: "当社からメールやお電話で、カード情報の再入力や追加のお支払いをお願いすることはありません。そのようなご連絡を受け取られた場合は、リンクを開かずに下記までご連絡ください。",
-    contactTitle: "ご不明な点", contactBody: "My Page のメッセージからご連絡ください。ご予約ごとにやり取りが残ります。",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  en: {
-    registerTitle: "One thing before your stay",
-    registerLead: "Register the guest list (all guests)",
-    registerDue: "Please complete by {d}",
-    registerBtn: "Register guest list",
-    registerBody: "Japanese law requires us to collect details for every person staying. Guests without an address in Japan also need to submit a photo of each guest's passport.",
-    registerWarn: "We will send your entry instructions once we have your registration. Without it, we cannot send the key box PIN.",
-    subject: "[yah.homes] Your booking is confirmed", greetSuffix: "",
-    lead: "Thank you for booking with yah.homes. Your reservation is confirmed.",
-    bookingNo: "Booking ID", checkTitle: "Booking details",
-    checkin: "Check-in", checkout: "Check-out", stay: "Your reservation", guestsRow: "Guests",
-    house: "House", arrival: "Estimated arrival", checkinWindow: "from {ci} (arrive any time after that)", checkoutWindow: "until {co}",
-    nights: "{n} nights", guests: "{g} adults",
-    cancelTitle: "Cancellation fee", cancelFree: "Until {d}", cancelAfter: "From {d}", cancelNote: "Deadlines are shown in Japan time (JST).", changeNote: "To change your dates or party size, please cancel this booking and make a new one — within the free cancellation period there is no extra cost. If the free cancellation period has passed, message us from My Page.",
-    payTitle: "Payment", payTotal: "Total", payPaid: "Paid", payOnSite: "Due on arrival",
-    payNote: "Room rate, lodging tax and cleaning fee are included. There is nothing more to pay.",
-    ctaTitle: "Manage your booking", cta: "Change or cancel your booking", cta2: "Send us a message",
-    ctaNote: "Sign in with the account you used to book to add your arrival time or review the booking.",
-    entryTitle: "Getting in",
-    entryBody: "Self check-in with a key box at the entrance. We will email the code and full instructions the day before your arrival. Late-night arrivals are fine.",
-    placeTitle: "Location", placeBtn: "Open in Maps",
-    placeNote: "The exact address is sent together with the check-in instructions.",
-    safetyTitle: "Staying safe",
-    safetyBody: "We will never email or call you to re-enter your card details or ask for an extra payment. If you receive such a message, do not open the link and contact us below.",
-    contactTitle: "Questions?", contactBody: "Message us from My Page — each booking has its own thread.",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  ko: {
-    registerTitle: "숙박 전 부탁드릴 사항",
-    registerLead: "숙박자 명부 등록 (투숙객 전원)",
-    registerDue: "{d}까지 부탁드립니다",
-    registerBtn: "숙박자 명부 등록하기",
-    registerBody: "일본 여관업법에 따라 숙박하시는 모든 분의 정보를 등록하는 것이 의무화되어 있습니다. 일본 내 주소가 없는 외국 국적 고객님은 전원의 여권 사본(이미지)도 함께 제출해 주셔야 합니다.",
-    registerWarn: "등록이 확인되면 입실 방법을 보내드립니다. 등록이 없으면 키박스 비밀번호를 보내드릴 수 없습니다.",
-    subject: "[yah.homes] 예약이 확정되었습니다", greetSuffix: " 님",
-    lead: "yah.homes를 예약해 주셔서 감사합니다. 예약이 확정되었습니다.",
-    bookingNo: "예약번호", checkTitle: "예약 내용",
-    checkin: "체크인", checkout: "체크아웃", stay: "고객님의 예약", guestsRow: "인원",
-    house: "숙소", arrival: "도착 예정 시각", checkinWindow: "{ci}~ (시간 제한 없음)", checkoutWindow: "~{co}",
-    nights: "{n}박", guests: "성인 {g}명",
-    cancelTitle: "취소 수수료", cancelFree: "{d}까지", cancelAfter: "{d} 이후", cancelNote: "취소 기한은 일본 시간 기준입니다.", changeNote: "날짜나 인원 변경을 원하시면 예약을 취소하신 후 다시 예약해 주세요(무료 취소 기간 내라면 추가 부담은 없습니다). 무료 취소 기간이 지난 경우에는 My Page 메시지로 상담해 주세요.",
-    payTitle: "결제", payTotal: "총 금액", payPaid: "결제 완료", payOnSite: "현지 결제",
-    payNote: "숙박료·숙박세·청소비가 포함되어 있습니다. 추가 청구는 없습니다.",
-    ctaTitle: "예약 확인·변경", cta: "예약 변경·취소", cta2: "메시지 보내기",
-    ctaNote: "예약하신 계정으로 로그인하면 도착 예정 시각 등록과 예약 확인이 가능합니다.",
-    entryTitle: "입실 안내",
-    entryBody: "현관 키박스를 이용한 셀프 체크인입니다. 비밀번호와 자세한 입실 안내는 도착 전날 메일로 보내드립니다. 늦은 시간 도착도 괜찮습니다.",
-    placeTitle: "위치", placeBtn: "지도 열기",
-    placeNote: "정확한 주소는 입실 안내와 함께 보내드립니다.",
-    safetyTitle: "안전 안내",
-    safetyBody: "당사는 메일이나 전화로 카드 정보 재입력이나 추가 결제를 요청하지 않습니다. 그런 연락을 받으시면 링크를 열지 마시고 아래로 연락해 주세요.",
-    contactTitle: "문의", contactBody: "My Page 메시지로 연락해 주세요. 예약별로 대화가 남습니다.",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  zh: {
-    registerTitle: "入住前想麻煩您一件事",
-    registerLead: "登記住宿者名冊（全體住宿者）",
-    registerDue: "請於 {d} 前完成",
-    registerBtn: "登記住宿者名冊",
-    registerBody: "依日本旅館業法規定，我們必須取得每一位住宿者的資料。在日本沒有住址的外籍旅客，另需提供全體住宿者的護照照片。",
-    registerWarn: "確認登記後，我們會寄送入住方式。未完成登記，恕無法提供鑰匙盒的密碼。",
-    subject: "【yah.homes】您的預訂已確認", greetSuffix: " 您好",
-    lead: "感謝您預訂 yah.homes，您的預訂已確認。",
-    bookingNo: "預訂編號", checkTitle: "預訂內容",
-    checkin: "入住", checkout: "退房", stay: "您的預訂", guestsRow: "人數",
-    house: "房源", arrival: "預計抵達時間", checkinWindow: "{ci} 起（無時間限制）", checkoutWindow: "{co} 前",
-    nights: "{n}晚", guests: "成人 {g} 位",
-    cancelTitle: "取消費用", cancelFree: "{d} 前", cancelAfter: "{d} 起", cancelNote: "取消期限以日本時間為準。", changeNote: "如需變更日期或人數，請先取消本次預訂後重新預訂（在免費取消期限內不會產生額外費用）。若已超過免費取消期限，請透過 My Page 訊息與我們聯繫。",
-    payTitle: "付款", payTotal: "總金額", payPaid: "已付金額", payOnSite: "現場付款",
-    payNote: "已含住宿費、住宿稅與清潔費，不會另外收費。",
-    ctaTitle: "查看與變更預訂", cta: "變更或取消預訂", cta2: "傳送訊息",
-    ctaNote: "以預訂時使用的帳號登入，即可登記抵達時間或查看預訂。",
-    entryTitle: "入住方式",
-    entryBody: "透過玄關的密碼鑰匙盒自助入住。密碼與詳細入住說明，將於抵達前一天以電子郵件寄送。深夜抵達也沒問題。",
-    placeTitle: "位置", placeBtn: "開啟地圖",
-    placeNote: "詳細地址將與入住說明一併寄送。",
-    safetyTitle: "安全提醒",
-    safetyBody: "本公司不會以郵件或電話要求您重新輸入信用卡資訊或額外付款。若收到此類訊息，請勿開啟連結並與我們聯繫。",
-    contactTitle: "有任何問題", contactBody: "請透過 My Page 訊息與我們聯繫，每筆預訂都有獨立的對話紀錄。",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-  th: {
-    registerTitle: "ขอความร่วมมือก่อนการเข้าพัก",
-    registerLead: "ลงทะเบียนรายชื่อผู้เข้าพัก (ทุกท่าน)",
-    registerDue: "กรุณาดำเนินการภายใน {d}",
-    registerBtn: "ลงทะเบียนรายชื่อผู้เข้าพัก",
-    registerBody: "กฎหมายญี่ปุ่นกำหนดให้เราต้องเก็บข้อมูลของผู้เข้าพักทุกท่าน ผู้เข้าพักที่ไม่มีที่อยู่ในญี่ปุ่นต้องส่งรูปหนังสือเดินทางของทุกท่านด้วย",
-    registerWarn: "เราจะส่งวิธีเข้าห้องพักหลังได้รับการลงทะเบียนแล้ว หากไม่ลงทะเบียน เราไม่สามารถส่งรหัสกล่องกุญแจให้ได้",
-    subject: "[yah.homes] ยืนยันการจองของคุณแล้ว", greetSuffix: "",
-    lead: "ขอบคุณที่จองที่พักกับ yah.homes การจองของคุณได้รับการยืนยันแล้ว",
-    bookingNo: "หมายเลขการจอง", checkTitle: "รายละเอียดการจอง",
-    checkin: "เช็คอิน", checkout: "เช็คเอาท์", stay: "การจองของคุณ", guestsRow: "ผู้เข้าพัก",
-    house: "ที่พัก", arrival: "เวลาถึงโดยประมาณ", checkinWindow: "ตั้งแต่ {ci} (ไม่จำกัดเวลา)", checkoutWindow: "ก่อน {co}",
-    nights: "{n} คืน", guests: "ผู้ใหญ่ {g} ท่าน",
-    cancelTitle: "ค่าธรรมเนียมการยกเลิก", cancelFree: "ถึง {d}", cancelAfter: "ตั้งแต่ {d}", cancelNote: "กำหนดเวลาแสดงตามเวลาญี่ปุ่น (JST)", changeNote: "หากต้องการเปลี่ยนวันที่หรือจำนวนผู้เข้าพัก กรุณายกเลิกการจองนี้แล้วจองใหม่ (ภายในระยะเวลายกเลิกฟรีจะไม่มีค่าใช้จ่ายเพิ่ม) หากพ้นระยะเวลายกเลิกฟรีแล้ว กรุณาติดต่อผ่านข้อความใน My Page",
-    payTitle: "การชำระเงิน", payTotal: "ราคารวม", payPaid: "ชำระแล้ว", payOnSite: "ชำระที่ที่พัก",
-    payNote: "รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาดแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม",
-    ctaTitle: "จัดการการจอง", cta: "เปลี่ยนแปลงหรือยกเลิกการจอง", cta2: "ส่งข้อความ",
-    ctaNote: "เข้าสู่ระบบด้วยบัญชีที่ใช้จอง เพื่อระบุเวลาที่จะมาถึงหรือตรวจสอบการจอง",
-    entryTitle: "การเข้าที่พัก",
-    entryBody: "เช็คอินด้วยตนเองผ่านกล่องกุญแจที่หน้าประตู เราจะส่งรหัสและขั้นตอนการเข้าที่พักโดยละเอียดทางอีเมล 1 วันก่อนวันเข้าพัก มาถึงดึกก็ไม่มีปัญหา",
-    placeTitle: "สถานที่", placeBtn: "เปิดแผนที่",
-    placeNote: "ที่อยู่โดยละเอียดจะส่งพร้อมกับคำแนะนำการเช็คอิน",
-    safetyTitle: "เพื่อความปลอดภัย",
-    safetyBody: "เราจะไม่ส่งอีเมลหรือโทรขอให้คุณกรอกข้อมูลบัตรใหม่หรือชำระเงินเพิ่ม หากได้รับข้อความลักษณะนี้ กรุณาอย่าเปิดลิงก์และติดต่อเราตามด้านล่าง",
-    contactTitle: "หากมีข้อสงสัย", contactBody: "กรุณาติดต่อเราผ่านข้อความใน My Page แต่ละการจองจะมีห้องสนทนาแยกกัน",
-    footer: "yah.homes【Operated by AIRSTAR】",
-  },
-};
 
 function buildConfirmationMail(
   lang: string,
@@ -4321,43 +3651,6 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
   }
 }
 
-const CANCEL_L10N: Record<string, Record<string, string>> = {
-  ja: { subject: "【yah.homes】ご予約をキャンセルしました", greetSuffix: " 様", bookingNo: "予約番号",
-    lead: "ご予約のキャンセルを承りました。", refundTitle: "ご返金",
-    paid: "お支払い済み金額", fee: "キャンセル料", refund: "ご返金額",
-    refundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。",
-    noRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。",
-    again: "またのご利用をお待ちしております。日程を改めてのご予約はこちらから承ります。",
-    cta: "空室を見る", contact: "ご不明な点は My Page のメッセージからご連絡ください。", footer: "yah.homes【Operated by AIRSTAR】" },
-  en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "", bookingNo: "Booking ID",
-    lead: "We have cancelled your booking.", refundTitle: "Refund",
-    paid: "Paid", fee: "Cancellation fee", refund: "Refund",
-    refundNote: "We are refunding to the card you used. Depending on your card issuer, it can take from a few days to about a month to appear.",
-    noRefundNote: "The free cancellation deadline had passed, so no refund applies.",
-    again: "We hope to welcome you another time. You can book new dates any time.",
-    cta: "See availability", contact: "If you have any questions, message us from My Page.", footer: "yah.homes【Operated by AIRSTAR】" },
-  ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님", bookingNo: "예약번호",
-    lead: "예약 취소를 접수했습니다.", refundTitle: "환불",
-    paid: "결제 완료 금액", fee: "취소 수수료", refund: "환불 금액",
-    refundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 반영까지 며칠에서 한 달 정도 걸릴 수 있습니다.",
-    noRefundNote: "무료 취소 기한이 지나 환불은 없습니다.",
-    again: "다음 기회에 다시 모시겠습니다. 새로운 날짜로 언제든지 예약하실 수 있습니다.",
-    cta: "빈방 보기", contact: "궁금하신 점은 My Page 메시지로 연락해 주세요.", footer: "yah.homes【Operated by AIRSTAR】" },
-  zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好", bookingNo: "預訂編號",
-    lead: "已受理您的預訂取消。", refundTitle: "退款",
-    paid: "已付金額", fee: "取消費用", refund: "退款金額",
-    refundNote: "將退款至您使用的信用卡。依發卡機構作業，反映時間可能需要數日至一個月左右。",
-    noRefundNote: "已超過免費取消期限，故不予退款。",
-    again: "期待再次為您服務，隨時歡迎重新選擇日期預訂。",
-    cta: "查詢空房", contact: "如有任何問題，請透過 My Page 訊息與我們聯繫。", footer: "yah.homes【Operated by AIRSTAR】" },
-  th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "", bookingNo: "หมายเลขการจอง",
-    lead: "เราได้ยกเลิกการจองของคุณแล้ว", refundTitle: "การคืนเงิน",
-    paid: "ชำระแล้ว", fee: "ค่าธรรมเนียมการยกเลิก", refund: "จำนวนเงินคืน",
-    refundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ ขึ้นอยู่กับผู้ออกบัตร อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน",
-    noRefundNote: "เลยกำหนดยกเลิกฟรีแล้ว จึงไม่มีการคืนเงิน",
-    again: "หวังว่าจะได้ต้อนรับคุณอีกครั้ง คุณสามารถจองวันใหม่ได้ตลอดเวลา",
-    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาติดต่อเราผ่านข้อความใน My Page", footer: "yah.homes【Operated by AIRSTAR】" },
-};
 
 /** キャンセル確認メール（お客様宛・確定メールと同じカード構成）。失敗しても取消は成立させる。 */
 async function buildCancellationMail(
@@ -4773,14 +4066,14 @@ export const adminUsers = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    const isRoot = isAdmin(email);
+    const isRoot = isRootOwner(email);
 
     try {
       if (req.method === "GET") {
         const snap = await db.collection("admin_users").get();
         const items = snap.docs.map((d) => {
           const v = d.data();
-          const root = isAdmin(d.id);
+          const root = isRootOwner(d.id);
           return { email: d.id, name: root && !v.name ? "オーナー" : (v.name ?? ""),
             // root は台帳の値に関わらず owner 表示（実権限もコード側で owner 固定）
             role: root ? "owner" : v.role === "owner" ? "owner" : v.role === "admin" ? "admin" : "operator",
@@ -4813,7 +4106,7 @@ export const adminUsers = onRequest(
         const targetStr = typeof target === "string" ? target.trim().toLowerCase() : "";
         if (!isSafeEmail(targetStr)) { res.status(400).json({ ok: false, error: "invalid_email" }); return; }
         if (actorRole === "admin") {
-          if (isAdmin(targetStr)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
+          if (isRootOwner(targetStr)) { res.status(403).json({ ok: false, error: "owner_only" }); return; }
           const existing = await getAdminUser(targetStr);
           const existingRole = existing ? (existing.role === "owner" ? "owner" : existing.role === "admin" ? "admin" : "operator") : null;
           if (existingRole && existingRole !== "operator") { res.status(403).json({ ok: false, error: "owner_only" }); return; }
@@ -4827,7 +4120,7 @@ export const adminUsers = onRequest(
         /* オーナー自身の行は「通知の宛先」としてだけ編集できる。
            権限（role）はコード側の ADMIN_EMAILS が正なので触らせない。削除もさせない
            ＝ 台帳をいくら操作しても自分を締め出せない。 */
-        if (isAdmin(targetStr)) {
+        if (isRootOwner(targetStr)) {
           if (action === "delete") { res.status(400).json({ ok: false, error: "root_protected" }); return; }
           await ref.set({
             role: "owner",
@@ -4889,7 +4182,7 @@ export const adminBookings = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    const isRoot = isAdmin(email);
+    const isRoot = isRootOwner(email);
     // 返金・返金なしキャンセルは Admin 以上（2026-08-17 発注者判断で UI/API を統一）。
     // 以前は API=Admin可・UI=Ownerのみ表示と食い違っており、画面にボタンが無くても
     // API を直接叩けば Admin が返金できる状態だった（セキュリティ監査①）。

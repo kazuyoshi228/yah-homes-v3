@@ -4,14 +4,10 @@
    文言は /admin/templates の保存内容が反映される（同じ組み立て経路を通す）。
    noindex・sitemap除外。閲覧は管理者台帳のメンバー。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_CONFIG } from "../../lib/adminConfig";
 
-const PREVIEW_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminMailPreview";
-const FB_CONFIG = {
-  apiKey: "AIzaSyBgHbTL5caL-itDIFTlSZNMPeHNsSnwEDs",
-  authDomain: "yah-homes.firebaseapp.com",
-  projectId: "yah-homes",
-  appId: "1:18500698213:web:8b4cf08b97d916c216068c",
-};
+const PREVIEW_ENDPOINT = ENDPOINTS.adminMailPreview;
 const LANGS = [
   { code: "ja", label: "日本語" },
   { code: "en", label: "English" },
@@ -119,7 +115,7 @@ const KINDS = [
     const $ = (id) => document.getElementById(id);
 
     // 実物のテスト送信は ADMIN 限定。台帳メンバー（OPERATOR）にはボタンを出さない。
-    const OPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminOps";
+    const OPS_ENDPOINT = ENDPOINTS.adminOps;
     let isAdmin = false;
     async function loadRole() {
       try {
