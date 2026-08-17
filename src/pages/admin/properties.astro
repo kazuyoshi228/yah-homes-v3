@@ -3,7 +3,6 @@
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { DEFAULTS, DEFAULT_RATING_AS_OF } from "../../lib/propertyFacts";
 
 const PROPS_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/adminProperties";
 const FB_CONFIG = {
@@ -198,7 +197,7 @@ const HOUSES = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, DEFAULTS, DEFAULT_RATING_AS_OF, FIELD_KEYS }}>
+<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -221,7 +220,9 @@ const HOUSES = [
     function fill(prop, data) {
       FIELD_KEYS.forEach((f) => {
         const el = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`);
-        if (el) el.value = data[f] ?? DEFAULTS[prop][f] ?? "";
+        // Firestore の値をそのまま出す。既定値で埋めない（埋めると「設定済み」に
+        // 見えてしまい、未設定に気づけないため・SSoTは Firestore のみ）
+        if (el) el.value = data[f] ?? "";
       });
     }
 
@@ -232,7 +233,7 @@ const HOUSES = [
         if (!j.ok) throw new Error("load");
         fill("kiyokawa", j.items.kiyokawa ?? {});
         fill("takasago", j.items.takasago ?? {});
-        $("ap-asof").value = j.items.meta?.ratingAsOf ?? DEFAULT_RATING_AS_OF;
+        $("ap-asof").value = j.items.meta?.ratingAsOf ?? "";
         $("ap-status").textContent = "";
       } catch (e) {
         $("ap-status").textContent = e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";

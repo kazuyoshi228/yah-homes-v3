@@ -17,20 +17,34 @@ const readCode = (p) =>
 const errors = [];
 const fail = (file, msg) => errors.push(`${file}: ${msg}`);
 
-// ── SSoT を読む（propertyFacts.ts の DEFAULTS）──
+// ── SSoT を読む（Firestore property_facts）──
+// propertyFacts.ts の DEFAULTS は廃止した（Firestore とズレる影のコピーだったため）。
+// ここでも同じ Firestore を見るので、検査の基準と本番の表示が必ず一致する。
 const facts = read("src/lib/propertyFacts.ts");
-const ssot = {};
-for (const key of ["kiyokawa", "takasago"]) {
-  const seg = facts.slice(facts.indexOf(`  ${key}: {`));
-  const pick = (f) => (seg.match(new RegExp(`${f}: "?([\\d.]+)"?`)) ?? [])[1];
-  ssot[key] = {
-    capacity: pick("capacity"),
-    rating: pick("rating"),
-    reviewCount: pick("reviewCount"),
-    checkinTime: (seg.match(/checkinTime: "([^"]*)"/) ?? [])[1],
-    checkoutTime: (seg.match(/checkoutTime: "([^"]*)"/) ?? [])[1],
-  };
+const PROJECT = (facts.match(/const PROJECT = ["`]([^"`]+)["`]/) ?? [])[1];
+if (!PROJECT) { console.error("✗ propertyFacts.ts から Firebase プロジェクトIDを読めませんでした"); process.exit(1); }
+const REST = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/property_facts`;
+const fsVal = (v) => v?.stringValue ?? v?.integerValue ?? String(v?.doubleValue ?? "");
+let ssot;
+try {
+  const json = await fetch(REST, { signal: AbortSignal.timeout(8000) }).then((r) => r.json());
+  ssot = {};
+  for (const doc of json.documents ?? []) {
+    const key = doc.name.split("/").pop();
+    if (key !== "kiyokawa" && key !== "takasago") continue;
+    const f = doc.fields ?? {};
+    ssot[key] = {
+      capacity: fsVal(f.capacity), rating: fsVal(f.rating), reviewCount: fsVal(f.reviewCount),
+      checkinTime: fsVal(f.checkinTime), checkoutTime: fsVal(f.checkoutTime),
+    };
+  }
+  if (!ssot.kiyokawa || !ssot.takasago) throw new Error("property_facts が揃っていません");
+} catch (e) {
+  console.error(`✗ SSoT（Firestore）を読めませんでした: ${String(e).slice(0, 100)}`);
+  console.error("  表記の整合を検査できないため中止します。\n");
+  process.exit(1);
 }
+
 const PROP_FILES = { kiyokawa: "src/data/kiyokawaData.ts", takasago: "src/data/takasagoData.ts" };
 
 // ── 1. 提供していない決済手段を書いていないか ──

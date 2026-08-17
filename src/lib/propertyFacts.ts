@@ -3,7 +3,11 @@
  *
  * 真実の源: Firestore `property_facts/{key}`（/admin/properties で編集）
  * ページはビルド時にここから読み、HTMLへ焼き込む（クライアントfetchはAIクローラーに見えないため禁止）。
- * Firestore が読めない場合は下の DEFAULTS にフォールバックし、ビルドは絶対に落とさない。
+ * Firestore が読めない場合はビルドを落とす。フォールバック用の既定値は置かない。
+ * 理由: 静的サイトはビルドが落ちても公開中の本番が生き残る。一方、古い値で
+ * ビルドが「成功」すると、誰も気づかないまま古い評価・時刻が本番へ出る
+ * （2026-08-16 に実際に評価が 47件/48件でズレた）。落ちる方が安全。
+ * 初回投入の種は scripts/seed-property-facts.mjs に隔離してある。
  *
  * 反映手順: /admin/properties で保存 → 「サイトに反映」で再ビルド → 全ページが更新される。
  */
@@ -59,34 +63,7 @@ export interface PropertyFacts {
 
 export type PropKey = "kiyokawa" | "takasago";
 
-/** Firestore 未取得時のフォールバック。初回投入時の初期値も兼ねる。 */
-export const DEFAULTS: Record<PropKey, PropertyFacts> = {
-  kiyokawa: {
-    capacity: 7, bedrooms: 3, bedDouble: 3, bedSingle: 1,
-    bath: 1, shower: 0, sink: 1, toilet: 2,
-    rating: "4.77", reviewCount: "48",
-    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "", freeCancelDays: 8,
-    washer: 1, dryer: 0, audio: 1, tvInch: 55, studyDesk: 1, parking: 1, theater: 0,
-    fromAirportCarMin: 18, fromStationWalkMin: 15, nearestStation: "渡辺通", toTenjinWalkMin: 20, toHakataWalkMin: 25,
-    spotMarketMin: 7, spotMarketM: 550, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
-    spotCanalMin: 15, spotCanalM: 1200, spotNakasuWalkMin: 20, spotNakasuTaxiMin: 5,
-    spotOhoriCarMin: 10, spotOhoriM: 3000,
-  },
-  takasago: {
-    capacity: 6, bedrooms: 3, bedDouble: 1, bedSingle: 4,
-    bath: 1, shower: 1, sink: 3, toilet: 2,
-    rating: "4.68", reviewCount: "40",
-    checkinTime: "16:00", checkoutTime: "10:00", checkinEndTime: "", freeCancelDays: 8,
-    washer: 1, dryer: 0, audio: 1, tvInch: 75, studyDesk: 0, parking: 1, theater: 1,
-    fromAirportCarMin: 20, fromStationWalkMin: 8, nearestStation: "渡辺通", toTenjinWalkMin: 15, toHakataWalkMin: 25,
-    spotMarketMin: 10, spotMarketM: 800, spotSumiyoshiMin: 15, spotSumiyoshiM: 1200,
-    spotCanalMin: 18, spotCanalM: 1400, spotNakasuWalkMin: 25, spotNakasuTaxiMin: 7,
-    spotOhoriCarMin: 10, spotOhoriM: 2700,
-  },
-};
 
-/** 評価の取得日（Firestore の meta/ratingAsOf を優先） */
-export const DEFAULT_RATING_AS_OF = "2026-07-13";
 
 const PROJECT = "yah-homes";
 const REST = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/property_facts`;
@@ -107,68 +84,60 @@ function str(v: FsValue | undefined, fallback: string): string {
 
 let cache: { facts: Record<PropKey, PropertyFacts>; ratingAsOf: string } | null = null;
 
-/** ビルド時に一度だけ Firestore を読む。失敗時は DEFAULTS を返す（ビルドは落とさない）。 */
+/** Firestore のフィールドを型に写す。未設定・型違いはビルドを落とす（黙って既定値に倒さない）。 */
+function reqNum(f: Record<string, FsValue | undefined>, k: string, key: string): number {
+  const v = num(f[k], Number.NaN);
+  if (!Number.isFinite(v)) throw new Error(`property_facts/${key}.${k} が未設定です`);
+  return v;
+}
+function reqStr(f: Record<string, FsValue | undefined>, k: string, key: string): string {
+  const v = str(f[k], "\u0000");
+  if (v === "\u0000") throw new Error(`property_facts/${key}.${k} が未設定です`);
+  return v;
+}
+
+/** ビルド時に一度だけ Firestore を読む。読めなければ例外を投げてビルドを落とす。 */
 export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, PropertyFacts>; ratingAsOf: string }> {
   if (cache) return cache;
 
-  const facts: Record<PropKey, PropertyFacts> = {
-    kiyokawa: { ...DEFAULTS.kiyokawa },
-    takasago: { ...DEFAULTS.takasago },
-  };
-  let ratingAsOf = DEFAULT_RATING_AS_OF;
+  const res = await fetch(REST, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`[propertyFacts] Firestore を読めませんでした（${res.status}）。ビルドを中止します。`);
+  const json = (await res.json()) as { documents?: FsDoc[] };
 
-  try {
-    const res = await fetch(REST, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`firestore ${res.status}`);
-    const json = (await res.json()) as { documents?: FsDoc[] };
-    for (const doc of json.documents ?? []) {
-      const key = doc.name.split("/").pop() as PropKey | "meta";
-      const f = doc.fields ?? {};
-      if (key === "meta") {
-        ratingAsOf = str(f.ratingAsOf, ratingAsOf);
-        continue;
-      }
-      if (key !== "kiyokawa" && key !== "takasago") continue;
-      const d = DEFAULTS[key];
-      facts[key] = {
-        capacity: num(f.capacity, d.capacity),
-        bedrooms: num(f.bedrooms, d.bedrooms),
-        bedDouble: num(f.bedDouble, d.bedDouble),
-        bedSingle: num(f.bedSingle, d.bedSingle),
-        bath: num(f.bath, d.bath),
-        shower: num(f.shower, d.shower),
-        sink: num(f.sink, d.sink),
-        toilet: num(f.toilet, d.toilet),
-        rating: str(f.rating, d.rating),
-        reviewCount: str(f.reviewCount, d.reviewCount),
-        checkinTime: str(f.checkinTime, d.checkinTime),
-        checkoutTime: str(f.checkoutTime, d.checkoutTime),
-        checkinEndTime: str(f.checkinEndTime, d.checkinEndTime),
-        freeCancelDays: num(f.freeCancelDays, d.freeCancelDays),
-        washer: num(f.washer, d.washer),
-        dryer: num(f.dryer, d.dryer),
-        audio: num(f.audio, d.audio),
-        tvInch: num(f.tvInch, d.tvInch),
-        fromAirportCarMin: num(f.fromAirportCarMin, d.fromAirportCarMin),
-        fromStationWalkMin: num(f.fromStationWalkMin, d.fromStationWalkMin),
-        nearestStation: str(f.nearestStation, d.nearestStation),
-        toTenjinWalkMin: num(f.toTenjinWalkMin, d.toTenjinWalkMin),
-        toHakataWalkMin: num(f.toHakataWalkMin, d.toHakataWalkMin),
-        spotMarketMin: num(f.spotMarketMin, d.spotMarketMin), spotMarketM: num(f.spotMarketM, d.spotMarketM),
-        spotSumiyoshiMin: num(f.spotSumiyoshiMin, d.spotSumiyoshiMin), spotSumiyoshiM: num(f.spotSumiyoshiM, d.spotSumiyoshiM),
-        spotCanalMin: num(f.spotCanalMin, d.spotCanalMin), spotCanalM: num(f.spotCanalM, d.spotCanalM),
-        spotNakasuWalkMin: num(f.spotNakasuWalkMin, d.spotNakasuWalkMin), spotNakasuTaxiMin: num(f.spotNakasuTaxiMin, d.spotNakasuTaxiMin),
-        spotOhoriCarMin: num(f.spotOhoriCarMin, d.spotOhoriCarMin), spotOhoriM: num(f.spotOhoriM, d.spotOhoriM),
-        studyDesk: num(f.studyDesk, d.studyDesk),
-        parking: num(f.parking, d.parking),
-        theater: num(f.theater, d.theater),
-      };
-    }
-    console.log("[propertyFacts] Firestore から取得しました");
-  } catch (err) {
-    console.log(`[propertyFacts] Firestore を読めませんでした（${String(err).slice(0, 80)}）— 既定値でビルドします`);
+  const facts = {} as Record<PropKey, PropertyFacts>;
+  let ratingAsOf = "";
+  for (const doc of json.documents ?? []) {
+    const key = doc.name.split("/").pop() as PropKey | "meta";
+    const f = doc.fields ?? {};
+    if (key === "meta") { ratingAsOf = str(f.ratingAsOf, ""); continue; }
+    if (key !== "kiyokawa" && key !== "takasago") continue;
+    const n = (k: string) => reqNum(f, k, key);
+    const t = (k: string) => reqStr(f, k, key);
+    facts[key] = {
+      capacity: n("capacity"), bedrooms: n("bedrooms"), bedDouble: n("bedDouble"), bedSingle: n("bedSingle"),
+      bath: n("bath"), shower: n("shower"), sink: n("sink"), toilet: n("toilet"),
+      rating: t("rating"), reviewCount: t("reviewCount"),
+      checkinTime: t("checkinTime"), checkoutTime: t("checkoutTime"),
+      checkinEndTime: str(f.checkinEndTime, ""),   // 空＝受付終了なし。空が正常値なので必須にしない
+      freeCancelDays: n("freeCancelDays"),
+      washer: n("washer"), dryer: n("dryer"), audio: n("audio"), tvInch: n("tvInch"),
+      studyDesk: n("studyDesk"), parking: n("parking"), theater: n("theater"),
+      fromAirportCarMin: n("fromAirportCarMin"), fromStationWalkMin: n("fromStationWalkMin"),
+      nearestStation: t("nearestStation"),
+      toTenjinWalkMin: n("toTenjinWalkMin"), toHakataWalkMin: n("toHakataWalkMin"),
+      spotMarketMin: n("spotMarketMin"), spotMarketM: n("spotMarketM"),
+      spotSumiyoshiMin: n("spotSumiyoshiMin"), spotSumiyoshiM: n("spotSumiyoshiM"),
+      spotCanalMin: n("spotCanalMin"), spotCanalM: n("spotCanalM"),
+      spotNakasuWalkMin: n("spotNakasuWalkMin"), spotNakasuTaxiMin: n("spotNakasuTaxiMin"),
+      spotOhoriCarMin: n("spotOhoriCarMin"), spotOhoriM: n("spotOhoriM"),
+    };
   }
+  for (const key of ["kiyokawa", "takasago"] as const) {
+    if (!facts[key]) throw new Error(`[propertyFacts] property_facts/${key} が見つかりません。ビルドを中止します。`);
+  }
+  if (!ratingAsOf) throw new Error("[propertyFacts] property_facts/meta.ratingAsOf が未設定です。ビルドを中止します。");
 
+  console.log("[propertyFacts] Firestore から取得しました（SSoT）");
   cache = { facts, ratingAsOf };
   return cache;
 }

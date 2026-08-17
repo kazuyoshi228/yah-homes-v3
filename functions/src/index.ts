@@ -331,7 +331,12 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
 // ─── パートナー日程申請フォーム（/ja/partners/・design_partners_page.md §4.5-1） ───
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
 const PARTNERS_NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp";
-const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, either: 7, both: 6, test: 7 };
+/* 受け付ける物件キーの一覧。定員などの「値」はここに置かない（正は property_facts）。
+   以前は capacity をここにも持っており、SSoT とズレうる二重管理になっていた。 */
+const PROP_KEYS = ["kiyokawa", "takasago", "either", "both", "test"] as const;
+/* パートナー申請フォームの人数上限。予約の定員判定とは別物（申請は仮の希望人数で、
+   実際の定員判定は予約時に property_facts で行う）。安全側に振った固定値。 */
+const PARTNER_MAX_GUESTS = 7;
 
 /* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
    Firestore が読めないときも予約を止めないよう、既定値へ倒す。
@@ -340,9 +345,13 @@ const PROPERTY_CAPACITY: Record<string, number> = { kiyokawa: 7, takasago: 6, ei
    前日10:00の定期ジョブに間に合わない予約は、確定時に入室案内を即送る
    （sendReminderIfLate）ので、この時間まで開けても案内は必ず届く。 */
 const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "23:59", maxMonths: 12, freeCancelDays: 8 };
-async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number; freeCancelDays: number }> {
+/* 定員が取れないときは null を返し、呼び出し側で予約を断る（2026-08-17 発注者判断）。
+   定員を推測して受けると定員超過の予約が成立しうる。Firestore が読めない状況は稀で、
+   そのとき1件の予約機会を捨てるコストより、定員超過を1件通すコストの方が高い。
+   締切・上限・無料取消は「安全側に倒した固定値」で続行してよい（実データの複製ではない）。 */
+async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number; freeCancelDays: number } | null> {
   const fallback = {
-    capacity: PROPERTY_CAPACITY[prop] ?? 1,
+    capacity: 0,   // 未取得。呼び出し側で弾く
     cutoffDays: BOOKING_RULE_DEFAULTS.cutoffDays,
     cutoffTime: BOOKING_RULE_DEFAULTS.cutoffTime,
     maxMonths: BOOKING_RULE_DEFAULTS.maxMonths,
@@ -350,21 +359,21 @@ async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDay
   };
   try {
     const f = (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).data();
-    if (!f) return fallback;
+    if (!f) return null;   // ドキュメントが無い＝定員が分からない
     const cap = Number(f.capacity);
     const mon = Number(f.bookingMaxMonths);
     const days = Number(f.bookingCutoffDays);
     const cut = String(f.bookingCutoffTime ?? "");
     const fcd = Number(f.freeCancelDays);
     return {
-      capacity: Number.isInteger(cap) && cap > 0 ? cap : fallback.capacity,
+      capacity: Number.isInteger(cap) && cap > 0 ? cap : 0,   // 0 は呼び出し側で弾かれる
       // 0 も有効な設定（当日まで受ける）なので >= 0 で見る
       cutoffDays: Number.isInteger(days) && days >= 0 ? days : fallback.cutoffDays,
       cutoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cut) ? cut : fallback.cutoffTime,
       maxMonths: Number.isInteger(mon) && mon > 0 ? mon : fallback.maxMonths,
       freeCancelDays: Number.isInteger(fcd) && fcd >= 0 ? fcd : fallback.freeCancelDays,
     };
-  } catch { return fallback; }
+  } catch { return null; }   // 読めない＝定員が分からない。呼び出し側で断る
 }
 /** 予約を受け付けてよい日程か。理由つきで返す（画面に何が起きたか出せるように）。 */
 function checkBookingWindow(
@@ -422,7 +431,7 @@ export const partnersApply = onRequest(
     const nameStr = typeof name === "string" ? name.trim() : "";
     const emailStr = typeof email === "string" ? email.trim() : "";
     const mediaStr = typeof mediaUrl === "string" ? mediaUrl.trim() : "";
-    const propStr = typeof property === "string" && property in PROPERTY_CAPACITY ? property : "";
+    const propStr = typeof property === "string" && (PROP_KEYS as readonly string[]).includes(property) ? property : "";
     const date1Str = typeof date1 === "string" ? date1.trim() : "";
     const date2Str = typeof date2 === "string" ? date2.trim() : "";
     const guestsNum = Number(guests);
@@ -433,7 +442,7 @@ export const partnersApply = onRequest(
     if (!/^https?:\/\/\S+/.test(mediaStr) || mediaStr.length > 500) { res.status(400).json({ ok: false, error: "invalid_media_url" }); return; }
     if (!propStr) { res.status(400).json({ ok: false, error: "invalid_property" }); return; }
     if (!isMonToWed(date1Str) || !isMonToWed(date2Str)) { res.status(400).json({ ok: false, error: "invalid_date" }); return; }
-    if (!Number.isInteger(guestsNum) || guestsNum < 1 || guestsNum > PROPERTY_CAPACITY[propStr]) { res.status(400).json({ ok: false, error: "invalid_guests" }); return; }
+    if (!Number.isInteger(guestsNum) || guestsNum < 1 || guestsNum > PARTNER_MAX_GUESTS) { res.status(400).json({ ok: false, error: "invalid_guests" }); return; }
 
     await db.collection("partner_applications").add({
       name: nameStr,
@@ -1006,7 +1015,13 @@ export const bookingApi = onRequest(
       // 定員・締切・先の上限は property_facts が正（/admin/properties）。
       // ここを定数のままにすると、検索では選べるのに決済で弾かれる、が起きる。
       const rules = Object.fromEntries(await Promise.all(props.map(async (k) => [k, await bookingRules(k)] as const)));
-      const maxCap = Math.max(...props.map((k) => rules[k].capacity));
+      // 定員が取れない棟があれば照会自体を断る（推測して受けると定員超過が通るため）
+      if (props.some((k) => !rules[k] || rules[k].capacity < 1)) {
+        logger.warn("bookingApi: property_facts を読めず照会を中止", { props });
+        res.status(503).json({ ok: false, error: "facts_unavailable" });
+        return;
+      }
+      const maxCap = Math.max(...props.map((k) => rules[k]!.capacity));
       if (!isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
           !Number.isInteger(guests) || guests < 1 || guests > maxCap) {
         res.status(400).json({ ok: false, error: "invalid_quote_params" });
@@ -1017,7 +1032,7 @@ export const bookingApi = onRequest(
         const results = await Promise.all(
           props.map(async (k) => {
             // 受け付けられない棟はBeds24を叩かずに理由つきで返す（満室と混ぜない）
-            const w = checkBookingWindow(checkin, guests, rules[k]);
+            const w = checkBookingWindow(checkin, guests, rules[k]!);
             if (!w.ok) {
               return { data: { id: k, prop: k, available: false, reason: w.error }, cached: true };
             }
@@ -3391,7 +3406,7 @@ export const bookCreate = onRequest(
     const authProvider = typeof b.authProvider === "string" ? b.authProvider.slice(0, 20) : "";
 
     const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-    if (!(prop in PROPERTY_CAPACITY) || !isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
+    if (!(PROP_KEYS as readonly string[]).includes(prop) || !isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
         !Number.isInteger(guests) || guests < 1 || !name || !phone || !rulesAccepted || !idempotencyKey) {
       res.status(400).json({ ok: false, error: "invalid_input" });
       return;
@@ -3424,6 +3439,12 @@ export const bookCreate = onRequest(
       // 受付の可否（定員・締切・先の上限）。正本は property_facts（/admin/properties）。
       // 在庫の問い合わせより前に見る（弾く予約で Beds24 を叩かない）。
       const rules = await bookingRules(prop);
+      if (!rules || rules.capacity < 1) {
+        // 定員が分からない状態で受けると定員超過の予約が成立しうる（2026-08-17 発注者判断）
+        logger.warn("bookCreate: property_facts を読めず受付を中止", { prop });
+        res.status(503).json({ ok: false, error: "facts_unavailable" });
+        return;
+      }
       const win = checkBookingWindow(checkin, guests, rules);
       if (!win.ok) { res.status(400).json({ ok: false, error: win.error }); return; }
 
