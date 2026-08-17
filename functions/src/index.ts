@@ -344,36 +344,35 @@ const PARTNER_MAX_GUESTS = 7;
 /* 既定は「前日23:59まで」＝運営会社（Airstar）の OTA 側の締めと同一。
    前日10:00の定期ジョブに間に合わない予約は、確定時に入室案内を即送る
    （sendReminderIfLate）ので、この時間まで開けても案内は必ず届く。 */
-const BOOKING_RULE_DEFAULTS = { cutoffDays: 1, cutoffTime: "23:59", maxMonths: 12, freeCancelDays: 8 };
-/* 定員が取れないときは null を返し、呼び出し側で予約を断る（2026-08-17 発注者判断）。
-   定員を推測して受けると定員超過の予約が成立しうる。Firestore が読めない状況は稀で、
-   そのとき1件の予約機会を捨てるコストより、定員超過を1件通すコストの方が高い。
-   締切・上限・無料取消は「安全側に倒した固定値」で続行してよい（実データの複製ではない）。 */
+/* 予約ルールの正は property_facts のみ。既定値は持たない（2026-08-17 発注者判断）。
+   1項目でも欠けたら null を返し、呼び出し側で予約・照会を断る。
+   既定値に倒すと、管理画面の設定と実際の挙動が食い違っていても誰も気づけない。
+   定員なら定員超過、無料取消日数なら返金額の食い違いに直結する。
+   稀な障害時に1件諦める方が、間違った条件で1件成立させるより安い。 */
 async function bookingRules(prop: string): Promise<{ capacity: number; cutoffDays: number; cutoffTime: string; maxMonths: number; freeCancelDays: number } | null> {
-  const fallback = {
-    capacity: 0,   // 未取得。呼び出し側で弾く
-    cutoffDays: BOOKING_RULE_DEFAULTS.cutoffDays,
-    cutoffTime: BOOKING_RULE_DEFAULTS.cutoffTime,
-    maxMonths: BOOKING_RULE_DEFAULTS.maxMonths,
-    freeCancelDays: BOOKING_RULE_DEFAULTS.freeCancelDays,
-  };
   try {
     const f = (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).data();
-    if (!f) return null;   // ドキュメントが無い＝定員が分からない
+    if (!f) return null;
     const cap = Number(f.capacity);
     const mon = Number(f.bookingMaxMonths);
     const days = Number(f.bookingCutoffDays);
     const cut = String(f.bookingCutoffTime ?? "");
     const fcd = Number(f.freeCancelDays);
-    return {
-      capacity: Number.isInteger(cap) && cap > 0 ? cap : 0,   // 0 は呼び出し側で弾かれる
-      // 0 も有効な設定（当日まで受ける）なので >= 0 で見る
-      cutoffDays: Number.isInteger(days) && days >= 0 ? days : fallback.cutoffDays,
-      cutoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cut) ? cut : fallback.cutoffTime,
-      maxMonths: Number.isInteger(mon) && mon > 0 ? mon : fallback.maxMonths,
-      freeCancelDays: Number.isInteger(fcd) && fcd >= 0 ? fcd : fallback.freeCancelDays,
-    };
-  } catch { return null; }   // 読めない＝定員が分からない。呼び出し側で断る
+    // 0 も有効な設定（当日まで受ける／当日まで無料）なので >= 0 で見る
+    const ok = Number.isInteger(cap) && cap > 0
+      && Number.isInteger(days) && days >= 0
+      && /^([01]\d|2[0-3]):[0-5]\d$/.test(cut)
+      && Number.isInteger(mon) && mon > 0
+      && Number.isInteger(fcd) && fcd >= 0;
+    if (!ok) {
+      logger.error("property_facts の予約ルールが不完全です", { prop, cap, days, cut, mon, fcd });
+      return null;
+    }
+    return { capacity: cap, cutoffDays: days, cutoffTime: cut, maxMonths: mon, freeCancelDays: fcd };
+  } catch (e) {
+    logger.error("property_facts を読めませんでした", { prop, e: String(e).slice(0, 160) });
+    return null;
+  }
 }
 /** 予約を受け付けてよい日程か。理由つきで返す（画面に何が起きたか出せるように）。 */
 function checkBookingWindow(
@@ -1016,7 +1015,7 @@ export const bookingApi = onRequest(
       // ここを定数のままにすると、検索では選べるのに決済で弾かれる、が起きる。
       const rules = Object.fromEntries(await Promise.all(props.map(async (k) => [k, await bookingRules(k)] as const)));
       // 定員が取れない棟があれば照会自体を断る（推測して受けると定員超過が通るため）
-      if (props.some((k) => !rules[k] || rules[k].capacity < 1)) {
+      if (props.some((k) => !rules[k])) {
         logger.warn("bookingApi: property_facts を読めず照会を中止", { props });
         res.status(503).json({ ok: false, error: "facts_unavailable" });
         return;
@@ -3439,7 +3438,7 @@ export const bookCreate = onRequest(
       // 受付の可否（定員・締切・先の上限）。正本は property_facts（/admin/properties）。
       // 在庫の問い合わせより前に見る（弾く予約で Beds24 を叩かない）。
       const rules = await bookingRules(prop);
-      if (!rules || rules.capacity < 1) {
+      if (!rules) {
         // 定員が分からない状態で受けると定員超過の予約が成立しうる（2026-08-17 発注者判断）
         logger.warn("bookCreate: property_facts を読めず受付を中止", { prop });
         res.status(503).json({ ok: false, error: "facts_unavailable" });

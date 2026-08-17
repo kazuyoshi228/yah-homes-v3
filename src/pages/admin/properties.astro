@@ -175,6 +175,8 @@ const HOUSES = [
         <section class="ap-card">
           <h2 class="ap-house">評価の取得日</h2>
           <p class="ap-note">サイト上に「評価は◯◯時点」と表示される日付です。評価を更新したら合わせて直してください。</p>
+          <p class="ap-warn" id="ap-warn-kiyokawa" hidden></p>
+          <p class="ap-warn" id="ap-warn-takasago" hidden></p>
           <div class="ap-actions">
             <input type="date" id="ap-asof" />
             <button class="ap-btn" id="ap-save-asof">保存する</button>
@@ -217,13 +219,26 @@ const HOUSES = [
       return res.json();
     }
 
+    // 予約の受付判定に必須の項目。1つでも欠けると予約・空室照会が止まる
+    // （既定値に倒さない設計＝間違った条件で成立させない・2026-08-17 発注者判断）
+    const REQUIRED = ["capacity", "bookingCutoffDays", "bookingCutoffTime", "bookingMaxMonths", "freeCancelDays"];
+
     function fill(prop, data) {
       FIELD_KEYS.forEach((f) => {
         const el = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`);
         // Firestore の値をそのまま出す。既定値で埋めない（埋めると「設定済み」に
         // 見えてしまい、未設定に気づけないため・SSoTは Firestore のみ）
         if (el) el.value = data[f] ?? "";
+        if (el && REQUIRED.includes(f)) el.classList.toggle("ap-missing", !data[f] && data[f] !== 0);
       });
+      const missing = REQUIRED.filter((f) => !data[f] && data[f] !== 0);
+      const warn = document.getElementById(`ap-warn-${prop}`);
+      if (warn) {
+        warn.textContent = missing.length
+          ? `⚠ 未設定の必須項目があります（${missing.join("・")}）。この棟は予約を受け付けられません。`
+          : "";
+        warn.hidden = missing.length === 0;
+      }
     }
 
     async function load() {
@@ -291,6 +306,8 @@ const HOUSES = [
   .ap-card { border: 1px solid #e8e8e8; border-radius: 4px; padding: 1.75rem; margin-bottom: 1.5rem; }
   .ap-deploy { background: #f7f7f7; border-color: #d7d7d7; }
   .ap-house { font-size: 1rem; font-weight: 500; color: #111111; margin-bottom: 1rem; }
+  .ap-warn { font-size: 0.82rem; color: #b3261e; line-height: 1.8; margin-bottom: 0.5rem; }
+  :global(.ap-missing) { border-color: #b3261e !important; background: #fdf3f2; }
   .ap-note { font-size: 0.8rem; color: #666666; line-height: 1.8; margin-bottom: 1rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
