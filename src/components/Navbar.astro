@@ -570,6 +570,13 @@ const langList = LOCALES.map((code) => ({
     padding: 1rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
     position: relative;
     z-index: 51;
+    /* #site-nav が position:fixed のため、項目が画面を超えるとスクロールできず
+       下の項目に触れなくなる（2026-08-17 発注者指摘・実機）。メニュー自体を
+       スクロール領域にする。100dvh はモバイルのURLバー伸縮に追従するため。 */
+    max-height: calc(100dvh - 56px);
+    overflow-y: auto;
+    overscroll-behavior: contain;   /* 端で背面ページが動かないように */
+    -webkit-overflow-scrolling: touch;
   }
   #site-nav.menu-open .mobile-menu {
     display: block;

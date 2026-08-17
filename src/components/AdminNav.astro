@@ -207,6 +207,12 @@ const currentPath = Astro.url.pathname;
     .an-links {
       display: none; order: 4; flex: 0 0 100%; flex-direction: column;
       align-items: stretch; gap: 0; padding-bottom: 0.4rem;
+      /* 親が sticky のため、項目が画面を超えると下に触れなくなる。
+         メニュー自体をスクロール領域にする（お客様向けNavbarと同じ対策） */
+      max-height: calc(100dvh - 60px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
     .an-links.is-open { display: flex; }
     .an-link { font-size: 0.85rem; padding: 0.65rem 0.5rem; border-radius: 0; }
