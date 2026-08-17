@@ -80,8 +80,15 @@ const currentPath = Astro.url.pathname;
 
     <div class="an-me">
       <details class="an-drop an-drop-right">
-        <summary class="an-link an-email" id="an-email">…</summary>
+        <summary class="an-link an-account" aria-label="アカウント">
+          <svg class="an-account-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+          <span class="an-email" id="an-email"></span>
+        </summary>
         <div class="an-menu">
+          <p class="an-me-email" id="an-me-email"></p>
           <a class="an-item" href="/" target="_blank" rel="noopener">サイトを見る</a>
           <a class="an-item" href="/admin/menu/">管理メニュー</a>
           <button type="button" class="an-item an-out" id="an-out">ログアウト</button>
@@ -132,6 +139,8 @@ const currentPath = Astro.url.pathname;
       if (!user) return;   // 各ページ側のガードに任せる（ここでは何も消さない）
       const emailEl = document.getElementById("an-email");
       if (emailEl) emailEl.textContent = user.email ?? "";
+      const meEmail = document.getElementById("an-me-email");
+      if (meEmail) meEmail.textContent = user.email ?? "";
       document.getElementById("an-out")?.addEventListener("click", () =>
         signOut(auth).then(() => location.replace("/admin/")));
 
@@ -202,7 +211,9 @@ const currentPath = Astro.url.pathname;
      横スクロールして見出しが画面外へずれる（2026-08-16 発注者指摘・実機で確認）。
      折り返す案も試したが、ナビが2〜3段になり画面を圧迫するため採らなかった。 */
   @media (max-width: 720px) {
-    .an-inner { height: auto; min-height: 52px; padding: 0.4rem 0.9rem; gap: 0.5rem; }
+    /* flex-wrap が無いとリンク群が行内に押し込まれ、右半分に寄って表示される
+       （2026-08-17 発注者指摘・実機）。畳んだメニューを次の行に落とすために必須。 */
+    .an-inner { height: auto; min-height: 52px; padding: 0.4rem 0.9rem; gap: 0.5rem; flex-wrap: wrap; }
     .an-burger { display: flex; margin-left: auto; order: 3; }
     .an-links {
       display: none; order: 4; flex: 0 0 100%; flex-direction: column;
@@ -223,7 +234,6 @@ const currentPath = Astro.url.pathname;
     }
     .an-item { font-size: 0.82rem; padding: 0.55rem 1rem; }
     .an-me { order: 2; margin-left: auto; }
-    .an-email { max-width: 140px; }
   }
   .an-link:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
   .an-link.is-current { color: #ffffff; background: rgba(255, 255, 255, 0.14); }
@@ -249,8 +259,16 @@ const currentPath = Astro.url.pathname;
   .an-item:hover { background: #f4f4f4; }
   .an-item.is-current { background: #f4f4f4; font-weight: 500; }
   .an-me { flex: none; }
-  .an-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  .an-account { gap: 0.4rem; }
+  .an-account-icon { flex: none; }
+  .an-email { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .an-me-email {
+    font-size: 0.72rem; color: #666666; padding: 0.5rem 1rem 0.4rem;
+    border-bottom: 1px solid #f0f0f0; margin-bottom: 0.25rem; word-break: break-all;
+  }
+  /* 狭い画面はアイコンのみ。以前は max-width:40px で文字が途中で切れていた
+     （2026-08-17 発注者指摘）。メールはメニューを開けば全文が読める。 */
   @media (max-width: 720px) {
-    .an-email { max-width: 40px; }
+    .an-email { display: none; }
   }
 </style>
