@@ -53,6 +53,22 @@ const MAIL_LABEL: Record<string, string> = {
             <div class="bd-op" id="bd-refund-wrap" hidden>
               <button type="button" class="bd-btn-sub bd-refund" id="bd-refund">返金する</button>
             </div>
+
+            <!-- システム印（決済・返金の失敗）の手動解決。該当状態のときだけ出す。
+                 お金は動かさない。返金が要るなら先に上の「返金する」を使う。 -->
+            <div class="bd-resolve" id="bd-resolve-wrap" hidden>
+              <p class="bd-resolve-title">要対応を解決する</p>
+              <p class="bd-note">
+                決済または返金の処理が完了しなかった予約です。Stripe 側などで対応を終えてから、
+                この予約をどちらの状態にするか選んでください。<strong>この操作でお金は動きません。</strong>
+              </p>
+              <textarea id="bd-resolve-reason" rows="2" maxlength="500"
+                        placeholder="対応した内容を記録してください（必須）例: Stripe の画面で全額返金済み"></textarea>
+              <div class="bd-resolve-btns">
+                <button type="button" class="bd-btn-sub" id="bd-resolve-cancel">キャンセル済みとして確定</button>
+                <button type="button" class="bd-btn-sub" id="bd-resolve-confirm">予約確定に戻す</button>
+              </div>
+            </div>
             <p class="bd-note" id="bd-op-status"></p>
           </section>
         </div>
@@ -204,6 +220,8 @@ const MAIL_LABEL: Record<string, string> = {
       booking = j.booking; mails = j.mails ?? [];
       renderHead(); renderInfo(); renderTimeline();
       $("bd-flag").checked = !!booking.needsAction;
+      // システム印が立っているときだけ解決操作を出す
+      $("bd-resolve-wrap").hidden = !["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(booking.status);
       $("bd-memo").textContent = booking.adminMemo ?? booking.failureReason ?? "";
       if (j.isRoot && booking.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(booking.status)) {
         $("bd-refund-wrap").hidden = false;
@@ -224,6 +242,18 @@ const MAIL_LABEL: Record<string, string> = {
           body: JSON.stringify({ action: "read", bookingId: id, as: "host" }) });
       } catch { /* noop */ }
     }
+
+    async function resolveTo(to, label) {
+      const reason = $("bd-resolve-reason").value.trim();
+      if (!reason) { $("bd-op-status").textContent = "対応した内容の記録が必要です。"; return; }
+      if (!confirm(`この予約を「${label}」にします。よろしいですか？\n（この操作でお金は動きません）`)) return;
+      $("bd-op-status").textContent = "処理中...";
+      const r = await api("POST", { action: "resolve", bookingId: id, to, reason });
+      if (r?.ok) { $("bd-op-status").textContent = "解決しました。"; load(); }
+      else $("bd-op-status").textContent = `解決できませんでした（${r?.error ?? "error"}）。`;
+    }
+    $("bd-resolve-cancel")?.addEventListener("click", () => resolveTo("CANCELLED", "キャンセル済み"));
+    $("bd-resolve-confirm")?.addEventListener("click", () => resolveTo("CONFIRMED", "予約確定"));
 
     $("bd-flag")?.addEventListener("change", async (e) => {
       const r = await api("POST", { action: "flag", bookingId: id, flag: e.target.checked });
@@ -284,6 +314,16 @@ const MAIL_LABEL: Record<string, string> = {
   .bd-btn-sub:hover { border-color: #111111; }
   :global(.bd-refund) { border-color: #c0392b; color: #c0392b; }
   .bd-memo { font-size: 0.78rem; color: #666666; }
+  .bd-resolve {
+    margin-top: 1rem; padding: 0.9rem; border: 1px solid #e8e8e8; border-radius: 6px; background: #fafafa;
+  }
+  .bd-resolve-title { font-size: 0.85rem; font-weight: 600; color: #111111; margin-bottom: 0.4rem; }
+  .bd-resolve textarea {
+    width: 100%; margin: 0.5rem 0; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.82rem;
+    border: 1px solid #d7d7d7; border-radius: 5px; resize: vertical; box-sizing: border-box;
+  }
+  .bd-resolve-btns { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  @media (max-width: 720px) { .bd-resolve textarea { font-size: 16px; } }
   .bd-note { font-size: 0.78rem; color: #666666; line-height: 1.8; }
   .bd-thread { min-height: 200px; max-height: 60vh; overflow-y: auto; margin-bottom: 1rem; }
   :global(.bd-bub) { max-width: 86%; margin-bottom: 0.9rem; }

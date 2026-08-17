@@ -4892,6 +4892,38 @@ export const adminBookings = onRequest(
         const v = snap.data();
         if (!v) { res.status(404).json({ ok: false, error: "not_found" }); return; }
 
+        /* システム印（MANUAL_REVIEW / CAPTURE_RETRY）の手動解決。
+           これらは決済・返金の失敗で自動的に立つ状態で、手動チェックを外しても消えない。
+           解決手段が無いと「要対応」に永久に居座る（2026-08-16 実例: テストキーで決済した
+           予約を本番キーで返金しようとして失敗し MANUAL_REVIEW になった）。
+           金銭は動かさない。返金が要るなら先に「返金する」を使い、そのあとここで状態を畳む。
+           日々の対応者が塞げないと意味がないので Operator まで可（発注者判断）。 */
+        if (action === "resolve") {
+          const to = String((req.body as Record<string, unknown>)?.to ?? "");
+          const why = String((req.body as Record<string, unknown>)?.reason ?? "").trim();
+          if (!["CANCELLED", "CONFIRMED"].includes(to)) { res.status(400).json({ ok: false, error: "invalid_to" }); return; }
+          if (!why) { res.status(400).json({ ok: false, error: "reason_required" }); return; }
+          if (!["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(String(v.status))) {
+            // 正常な予約の状態を書き換える口にはしない
+            res.status(400).json({ ok: false, error: "not_resolvable" }); return;
+          }
+          await ref.update({
+            status: to,
+            needsAction: false,
+            resolvedBy: email,
+            resolvedAt: FieldValue.serverTimestamp(),
+            resolveReason: why.slice(0, 500),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          await db.collection("audit_logs").add({
+            actor: email, action: "booking_resolve", target: idStr,
+            value: `${String(v.status)} → ${to} / ${why.slice(0, 200)}`,
+            at: FieldValue.serverTimestamp(),
+          });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
         // 対応メモ（台帳メンバー可）
         if (action === "flag") {
           // 手動の「要対応」印。システム印（MANUAL_REVIEW等）とは独立に、人が立てて人が消す
