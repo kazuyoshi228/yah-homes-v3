@@ -27,6 +27,10 @@ interface Props {
   keyPlace: T;
   /** 駐車場の説明（5言語） */
   parking: T;
+  /** 設備のご案内（5言語）: ゴミ・ブレーカー・給湯器 */
+  trash: T;
+  breaker: T;
+  heater: T;
   /** 玄関を示す赤丸。x/y/r はいずれも写真の「幅」に対する%（y も幅基準なので真円になる）。
       aspect は写真の 高さ÷幅。写真に描き込まず重ねるのは、写真を差し替えても位置だけ直せるため。 */
   entranceMark?: { x: number; y: number; r: number; aspect: number };
@@ -38,7 +42,7 @@ interface Props {
 const {
   prop, name, zip, addressJa, addressEn,
   photoEntrance, photoKeybox, photoParking,
-  keyPlace, parking, entranceMark, garageSize, parkingLargeCar,
+  keyPlace, parking, trash, breaker, heater, entranceMark, garageSize, parkingLargeCar,
 } = Astro.props;
 
 const LANGS: { code: Lang; label: string }[] = [
@@ -152,13 +156,23 @@ const garage = garageSize
         <p class="ht-text" data-t="helpBody"></p>
         <p class="ht-call"><span data-t="helpCall"></span>：<a href="tel:+815017214419">050-1721-4419</a></p>
       </section>
+
+      <!-- 設備のご案内（2026-08-17 発注者指示: ゴミ・ブレーカー・給湯器） -->
+      <section class="ht-block">
+        <h2 class="ht-h2"><span data-t="facTitle"></span></h2>
+        <dl class="ht-fac">
+          <dt data-t="facTrash"></dt><dd data-p="trash"></dd>
+          <dt data-t="facBreaker"></dt><dd data-p="breaker"></dd>
+          <dt data-t="facHeater"></dt><dd data-p="heater"></dd>
+        </dl>
+      </section>
     </div>
   </section>
 </SiteLayout>
 
-<script define:vars={{ prop, UI, keyPlace, parking, garage }}>
+<script define:vars={{ prop, UI, keyPlace, parking, trash, breaker, heater, garage }}>
   (() => {
-    const PROPTEXT = { keyPlace, parking };
+    const PROPTEXT = { keyPlace, parking, trash, breaker, heater };
     const LANGS = Object.keys(UI);
     const pick = () => {
       // 既定は英語（2026-08-17 発注者指示）。お客様の多数派が訪日客のため。
@@ -255,4 +269,7 @@ const garage = garageSize
     .ht { padding: 5.5rem 1.25rem 4rem; }
     .ht-code-val { font-size: 2.2rem; }
   }
+  .ht-fac { margin: 0; }
+  .ht-fac dt { font-weight: 600; color: #111111; margin-top: 0.9rem; }
+  .ht-fac dd { margin: 0.15rem 0 0; color: #333333; line-height: 1.9; }
 </style>

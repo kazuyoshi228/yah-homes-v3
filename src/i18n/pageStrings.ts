@@ -8,6 +8,10 @@
 
 export const howtoUI = {
   ja: {
+    facTitle: "設備のご案内",
+    facTrash: "ゴミ",
+    facBreaker: "ブレーカー",
+    facHeater: "給湯器",
     eyebrow: "チェックイン案内", sub: "ご到着までの流れ",
     s1: "住所と地図", s1sub: "まずはこの場所へ",
     s2: "玄関の場所", s2sub: "建物に着いたら",
@@ -26,6 +30,10 @@ export const howtoUI = {
     helpCall: "電話でのご連絡",
   },
   en: {
+    facTitle: "Facilities",
+    facTrash: "Trash",
+    facBreaker: "Circuit breaker",
+    facHeater: "Water heater",
     eyebrow: "Check-in guide", sub: "Getting to the house",
     s1: "Address & map", s1sub: "Head here first",
     s2: "Finding the entrance", s2sub: "Once you arrive",
@@ -44,6 +52,10 @@ export const howtoUI = {
     helpCall: "Call us",
   },
   ko: {
+    facTitle: "시설 안내",
+    facTrash: "쓰레기",
+    facBreaker: "차단기(두꺼비집)",
+    facHeater: "온수기",
     eyebrow: "체크인 안내", sub: "도착까지의 흐름",
     s1: "주소와 지도", s1sub: "먼저 이곳으로",
     s2: "현관 위치", s2sub: "건물에 도착하시면",
@@ -62,6 +74,10 @@ export const howtoUI = {
     helpCall: "전화 연락",
   },
   zh: {
+    facTitle: "設備說明",
+    facTrash: "垃圾",
+    facBreaker: "斷路器",
+    facHeater: "熱水器",
     eyebrow: "入住指南", sub: "抵達前的流程",
     s1: "地址與地圖", s1sub: "請先前往這裡",
     s2: "玄關位置", s2sub: "抵達建築物後",
@@ -80,6 +96,10 @@ export const howtoUI = {
     helpCall: "電話聯繫",
   },
   th: {
+    facTitle: "ข้อมูลอุปกรณ์",
+    facTrash: "ขยะ",
+    facBreaker: "เบรกเกอร์",
+    facHeater: "เครื่องทำน้ำอุ่น",
     eyebrow: "คู่มือเช็คอิน", sub: "ขั้นตอนก่อนถึงที่พัก",
     s1: "ที่อยู่และแผนที่", s1sub: "เดินทางมาที่นี่ก่อน",
     s2: "ตำแหน่งทางเข้า", s2sub: "เมื่อมาถึงอาคาร",
