@@ -1,6 +1,5 @@
 // @ts-check
 import { defineConfig } from "astro/config";
-import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -18,7 +17,6 @@ export default defineConfig({
   // ルーティングは案A（src/pages/[...locale]/ の動的ルート＋getStaticPaths）で
   // 翻訳データ駆動で全言語を静的生成する。Astro組み込みi18nの物理フォルダ方式は使わない。
   integrations: [
-    react(),
     sitemap({
       // 管理画面（/admin/*）・thankyou・入室案内（/how-to/* = 宿泊者専用）はインデックス対象外。
       filter: (page) =>

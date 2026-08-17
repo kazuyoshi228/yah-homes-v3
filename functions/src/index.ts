@@ -2632,19 +2632,6 @@ async function noteBeds24Message(beds24Id: number, from: "guest" | "host", messa
 // 実行時に property_secrets から読むことで、/admin/secrets の変更が即座にページへ反映される。
 // 認証は掛けない（OTA経由のお客様もURLだけで開くため）。したがって守っているのは
 // 「URLを知っていること」のみ＝Google Sitesと同水準。トークン化はv5 §9の未決事項。
-/* 【廃止】暗証番号を返す無認証API（P0-1③・2026-08-16 発注者決定で C 案を採用）。
-   番号は「メール（直販）と 予約サイトのメッセージ（OTA）」でのみ届ける。
-   入室案内ページは番号を表示しなくなったため、このAPIの用途は消滅した。
-   エンドポイントは 410 を返して残す（旧ページのキャッシュや古いブックマークが
-   叩いても、404 で「壊れた」と誤解させないため）。次の大掃除で削除してよい。 */
-export const checkinInfo = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, cors: true },
-  async (_req, res) => {
-    res.set("Cache-Control", "no-store");
-    res.status(410).json({ ok: false, error: "gone",
-      note: "The PIN is delivered by email (direct bookings) or via the booking site's messages (OTA)." });
-  }
-);
 
 // ─── セキュリティ鍵番号の管理（/admin/secrets） ───
 // キーボックス番号は物理キーそのもの。property_facts は公開読み取りを許可しているため、

@@ -268,7 +268,7 @@ const strings = {
                 <p class="bk-house-price" data-pricefrom={h.key} hidden></p>
                 <table class="bk-house-spec">
                   <tbody>
-                    {specRows(h.key).map(([label, value]) => (
+                    {specRows(h.key as "kiyokawa" | "takasago").map(([label, value]) => (
                       <tr><th>{label}</th><td>{value}</td></tr>
                     ))}
                   </tbody>

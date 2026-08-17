@@ -32,7 +32,7 @@ const SUPPORT = [
   { href: "/admin/messages/", title: "メッセージ" },
   { href: "/admin/bookings/", title: "直販予約 管理" },
 ];
-const OPERATOR = [
+const OPERATOR: { href: string; title: string; role?: string }[] = [
   { href: "/admin/partners/", title: "パートナー申請 管理" },
   { href: "/admin/mail-preview/", title: "メールテンプレート" },
   { href: "/admin/notify-emails/", title: "送信先メールアドレス管理" },
