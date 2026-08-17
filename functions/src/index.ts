@@ -3138,7 +3138,7 @@ export const beds24DailyObserver = onSchedule(
       // 棟別・全体の差引（新規 − キャンセル − 物理削除）。メールの主要数値に使う。
       const kNet = { g: kNew.g - kCxl.g - kDel.g, n: kNew.n - kCxl.n - kDel.n };
       const tNet = { g: tNew.g - tCxl.g - tDel.g, n: tNew.n - tCxl.n - tDel.n };
-      const netG = kNet.g + tNet.g, netN = kNet.n + tNet.n;
+      const grossNewN = events.new.reduce((s2, l) => s2 + (Number(l.match(/〜(\d+)泊/)?.[1]) || 0), 0);
       const notes: string[] = [];
       if (fwdRate < 28) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を下回り`);
       if (fwdRate > 33) notes.push(`先付け率 ${fwdRate}% が適正帯(28〜33%)を上回り`);
@@ -3146,7 +3146,7 @@ export const beds24DailyObserver = onSchedule(
       if (events.cancelled.length >= 3) notes.push(`キャンセル${events.cancelled.length}件（塊）`);
 
       await mail(
-        `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 清川${kNew.g - kCxl.g - kDel.g >= 0 ? "+" : ""}${kNew.g - kCxl.g - kDel.g}組${kNew.n - kCxl.n - kDel.n}泊・高砂${tNew.g - tCxl.g - tDel.g >= 0 ? "+" : ""}${tNew.g - tCxl.g - tDel.g}組${tNew.n - tCxl.n - tDel.n}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
+        `【定点】${+today.slice(5, 7)}/${+today.slice(8, 10)} 新規${events.new.length}件${grossNewN}泊・先付け${fwdTotal}泊(${fwdRate}%)`,
         [
           `=== Beds24 日次観測 ${today}（前回: ${prev.date ?? "初回"}）===`, ``,
           `【サマリ（定点シート形式）】`,
@@ -3171,7 +3171,13 @@ export const beds24DailyObserver = onSchedule(
           // 見出しとリード文は主要数値タイルと重複するため出さない（2026-08-16 発注者指示）
           heading: "",
           stats: [
-            { label: "新規（差引）", value: `${netG >= 0 ? "+" : ""}${netG}組`, sub: `${netN >= 0 ? "+" : ""}${netN}泊`, tone: netG > 0 ? "good" : netG < 0 ? "bad" : undefined },
+            {
+              // 差引だと大型新規が取消と相殺されて見えないため、先頭カードはグロス新規（2026-08-18 発注者指示）
+              label: "新規予約",
+              value: `${events.new.length}件`,
+              sub: `${grossNewN}泊` + (events.cancelled.length + events.deleted.length > 0 ? `（取消${events.cancelled.length}・削除${events.deleted.length}は棟別行で差引）` : ""),
+              tone: events.new.length > 0 ? "good" : undefined,
+            },
             { label: "先付け残高", value: `${fwdTotal}泊`, sub: `${fwdRate}%（適正 28〜33%）`, tone: fwdRate < 28 ? "warn" : fwdRate > 33 ? "warn" : "good" },
             {
               // 主指標は直販（purchase）。手渡しは旧CV定義の指標なので補足に降格した（2026-08-16 CV切替）
@@ -3193,8 +3199,9 @@ export const beds24DailyObserver = onSchedule(
             ["定点シート", esc(sheetNote)],
           ],
           blocks: [
+            // 新規の明細を最上段に（先頭カードの「n件」の中身がすぐ見えるように）
+            ...(events.new.length ? [{ title: "新規予約の明細", body: esc(events.new.map((l) => `+ ${l}`).join("\n")) }] : []),
             ...(notes.length ? [{ title: "⚠ 特記", body: esc(notes.join("\n")) }] : []),
-            ...(events.new.length ? [{ title: `新規予約 ${events.new.length}件`, body: esc(events.new.map((l) => `+ ${l}`).join("\n")) }] : []),
             ...(events.cancelled.length ? [{ title: `キャンセル ${events.cancelled.length}件`, body: esc(events.cancelled.map((l) => `- ${l}`).join("\n")) }] : []),
             ...(events.changed.length ? [{ title: `変更 ${events.changed.length}件`, body: esc(events.changed.map((l) => `* ${l}`).join("\n")) }] : []),
             ...(events.deleted.length ? [{ title: `物理削除 ${events.deleted.length}件（差引済み）`, body: esc(events.deleted.map((l) => `- ${l}`).join("\n")) }] : []),
