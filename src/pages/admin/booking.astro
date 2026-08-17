@@ -58,15 +58,15 @@ const MAIL_LABEL: Record<string, string> = {
                  お金は動かさない。返金が要るなら先に上の「返金する」を使う。 -->
             <div class="bd-resolve" id="bd-resolve-wrap" hidden>
               <p class="bd-resolve-title">要対応を解決する</p>
-              <p class="bd-note">
-                決済または返金の処理が完了しなかった予約です。Stripe 側などで対応を終えてから、
-                この予約をどちらの状態にするか選んでください。<strong>この操作でお金は動きません。</strong>
-              </p>
+              <p class="bd-note"><span id="bd-resolve-lead"></span><strong>この操作でお金は動きません。</strong></p>
               <textarea id="bd-resolve-reason" rows="2" maxlength="500"
                         placeholder="対応した内容を記録してください（必須）例: Stripe の画面で全額返金済み"></textarea>
-              <div class="bd-resolve-btns">
+              <div class="bd-resolve-btns" id="bd-resolve-status-btns" hidden>
                 <button type="button" class="bd-btn-sub" id="bd-resolve-cancel">キャンセル済みとして確定</button>
                 <button type="button" class="bd-btn-sub" id="bd-resolve-confirm">予約確定に戻す</button>
+              </div>
+              <div class="bd-resolve-btns" id="bd-resolve-flag-btn" hidden>
+                <button type="button" class="bd-btn-sub" id="bd-resolve-flag">対応済みにする</button>
               </div>
             </div>
             <p class="bd-note" id="bd-op-status"></p>
@@ -220,8 +220,17 @@ const MAIL_LABEL: Record<string, string> = {
       booking = j.booking; mails = j.mails ?? [];
       renderHead(); renderInfo(); renderTimeline();
       $("bd-flag").checked = !!booking.needsAction;
-      // システム印が立っているときだけ解決操作を出す
-      $("bd-resolve-wrap").hidden = !["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(booking.status);
+      // 「要対応」はシステム印（決済・返金の失敗）と手動チェックの2種類あるが、
+      // 運営から見れば同じなので、どちらでも同じ枠から解決できるようにする。
+      const isSystemFlag = ["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(booking.status);
+      const isFlagged = booking.needsAction === true;
+      $("bd-resolve-wrap").hidden = !isSystemFlag && !isFlagged;
+      // 状態の付け替えはシステム印のときだけ。正常な予約の状態は変えさせない
+      $("bd-resolve-status-btns").hidden = !isSystemFlag;
+      $("bd-resolve-flag-btn").hidden = isSystemFlag || !isFlagged;
+      $("bd-resolve-lead").textContent = isSystemFlag
+        ? "決済または返金の処理が完了しなかった予約です。Stripe 側などで対応を終えてから、この予約をどちらの状態にするか選んでください。"
+        : "「要対応」の付箋が付いています。対応が済んだら、内容を記録して解除してください。";
       $("bd-memo").textContent = booking.adminMemo ?? booking.failureReason ?? "";
       if (j.isRoot && booking.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(booking.status)) {
         $("bd-refund-wrap").hidden = false;
@@ -254,6 +263,7 @@ const MAIL_LABEL: Record<string, string> = {
     }
     $("bd-resolve-cancel")?.addEventListener("click", () => resolveTo("CANCELLED", "キャンセル済み"));
     $("bd-resolve-confirm")?.addEventListener("click", () => resolveTo("CONFIRMED", "予約確定"));
+    $("bd-resolve-flag")?.addEventListener("click", () => resolveTo("flag_only", "対応済み（要対応を解除）"));
 
     $("bd-flag")?.addEventListener("change", async (e) => {
       const r = await api("POST", { action: "flag", bookingId: id, flag: e.target.checked });

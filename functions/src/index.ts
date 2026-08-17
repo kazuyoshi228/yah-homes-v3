@@ -4944,14 +4944,21 @@ export const adminBookings = onRequest(
         if (action === "resolve") {
           const to = String((req.body as Record<string, unknown>)?.to ?? "");
           const why = String((req.body as Record<string, unknown>)?.reason ?? "").trim();
-          if (!["CANCELLED", "CONFIRMED"].includes(to)) { res.status(400).json({ ok: false, error: "invalid_to" }); return; }
           if (!why) { res.status(400).json({ ok: false, error: "reason_required" }); return; }
-          if (!["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(String(v.status))) {
+          const isSystemFlag = ["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(String(v.status));
+          // to="flag_only" は手動チェックだけを外す（状態は変えない）。
+          // 運営から見れば同じ「要対応」なので、同じ枠から解決できるようにする
+          // （2026-08-17 発注者指摘）。理由は両方とも記録に残す。
+          if (to === "flag_only") {
+            if (v.needsAction !== true) { res.status(400).json({ ok: false, error: "not_flagged" }); return; }
+          } else if (!["CANCELLED", "CONFIRMED"].includes(to)) {
+            res.status(400).json({ ok: false, error: "invalid_to" }); return;
+          } else if (!isSystemFlag) {
             // 正常な予約の状態を書き換える口にはしない
             res.status(400).json({ ok: false, error: "not_resolvable" }); return;
           }
           await ref.update({
-            status: to,
+            ...(to === "flag_only" ? {} : { status: to }),
             needsAction: false,
             resolvedBy: email,
             resolvedAt: FieldValue.serverTimestamp(),
@@ -4960,7 +4967,9 @@ export const adminBookings = onRequest(
           });
           await db.collection("audit_logs").add({
             actor: email, action: "booking_resolve", target: idStr,
-            value: `${String(v.status)} → ${to} / ${why.slice(0, 200)}`,
+            value: to === "flag_only"
+              ? `要対応チェックを解除（状態は ${String(v.status)} のまま） / ${why.slice(0, 200)}`
+              : `${String(v.status)} → ${to} / ${why.slice(0, 200)}`,
             at: FieldValue.serverTimestamp(),
           });
           res.status(200).json({ ok: true });
