@@ -151,10 +151,10 @@ const garage = garageSize
 ---
 
 <SiteLayout
-  lang="ja"
+  lang="en"
   path={`/how-to/${prop}`}
-  title={`【${name}】チェックイン案内 | yah.homes`}
-  description="ご入室の手順とアクセスのご案内"
+  title={`Check-in Guide — ${name} | yah.homes`}
+  description="How to check in and get to the house"
   noindex={true}
   solidNav
 >
@@ -251,14 +251,10 @@ const garage = garageSize
     const PROPTEXT = { keyPlace, parking };
     const LANGS = Object.keys(UI);
     const pick = () => {
+      // 既定は英語（2026-08-17 発注者指示）。お客様の多数派が訪日客のため。
+      // 一度選んだ言語は端末に保存され、次回以降はそれを優先する。
       const saved = localStorage.getItem("yh-howto-lang");
       if (LANGS.includes(saved)) return saved;
-      // ブラウザの言語から推定。zh-* は繁体字1本に寄せる（サイト全体の方針）。
-      const n = (navigator.language || "en").toLowerCase();
-      if (n.startsWith("ja")) return "ja";
-      if (n.startsWith("ko")) return "ko";
-      if (n.startsWith("zh")) return "zh";
-      if (n.startsWith("th")) return "th";
       return "en";
     };
 
