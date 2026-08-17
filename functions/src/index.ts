@@ -3052,10 +3052,23 @@ export const beds24DailyObserver = onSchedule(
         else if (wasActive && active(b) && (p.arrival !== b.arrival || p.n !== nightsOf(b)))
           events.changed.push(`${label}（旧: ${p.arrival}〜${p.n}泊）`);
       }
-      // 物理削除の検知: 前回スナップショットに居たのに今回のAPI結果から消えた予約（テスト予約の削除等）
+      // 物理削除の検知: 前回スナップショットに居たのに今回のAPI結果から消えた予約（テスト予約の削除等）。
+      // 誤検知対策: ①取得窓(arrivalFrom)の後端から外れただけの過去予約は対象外
+      //             ②ID指定で再照会し、本当に存在しない場合のみ削除と判定（一覧APIの一時欠落を除外）
       for (const [id, p] of Object.entries(prev.bookings)) {
         if (seenIds.has(id) || p.status === "cancelled") continue;
         if (p.guest === false) continue; // オーナー利用・テスト等は新規にも数えていないので差引もしない
+        if (p.arrival < from) continue; // 窓落ち（過去到着分）は削除ではない
+        const rc = await fetch(`https://beds24.com/api/v2/bookings?id=${id}&includeCancelled=true`, {
+          headers: { token: BEDS24_TOKEN.value() },
+        }).then((r) => r.json() as Promise<{ data?: Beds24Booking[] }>).catch(() => null);
+        const found = rc?.data?.[0];
+        if (found) {
+          // 存在する＝一覧からの一時欠落。キャンセル済みならキャンセルとして計上
+          if (found.status === "cancelled")
+            events.cancelled.push(`${p.prop} ${found.arrival}〜${p.n}泊 ${found.firstName ?? ""} ${found.lastName ?? ""} [${found.referer || found.apiSource || "?"}] `);
+          continue;
+        }
         events.deleted.push(`${p.prop} ${p.arrival}〜${p.n}泊 (ID:${id})`);
       }
 
