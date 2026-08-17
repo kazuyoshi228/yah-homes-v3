@@ -11,7 +11,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
-import { createHmac, createHash } from "node:crypto";
+import { createHmac, createHash, timingSafeEqual } from "node:crypto";
 import { logger } from "firebase-functions/v2";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -155,6 +155,23 @@ export const contact = onRequest(
   if (!messageStr || messageStr.length > 5000) {
     res.status(400).json({ ok: false, error: "invalid_message" });
     return;
+  }
+
+  // 同一メールアドレスは1日3件まで（spec_inquiry_to_beds24_202608.md §6・監査②）。
+  // 1通ごとに通知メール＋Beds24カード作成が走る増幅構造のため、素直な連投を
+  // ここで止める。equality クエリのみで引き（複合インデックス不要）、時刻は手元で見る。
+  try {
+    const dayAgo = Date.now() - 24 * 3600 * 1000;
+    const prev = await db.collection("contacts").where("email", "==", emailStr).get();
+    const recent = prev.docs.filter((d) => (d.data().createdAt?.toMillis?.() ?? 0) > dayAgo);
+    if (recent.length >= 3) {
+      logger.warn("contact rate limited", { email: emailStr, recent: recent.length });
+      res.status(429).json({ ok: false, error: "rate_limited" });
+      return;
+    }
+  } catch (e) {
+    // 制限の判定に失敗しても受付は止めない（問い合わせを失う方が損）
+    logger.warn("contact rate check failed", { e: String(e).slice(0, 120) });
   }
 
   const contactRef = await db.collection("contacts").add({
@@ -2175,7 +2192,12 @@ async function handleInquiryByToken(
   const t = tsnap.data();
   // kind と tokenHash の両方を照合。どちらか欠けたら 410（存在も明かさない）
   // 現行と1つ前のリンクを有効とする（通知のたびに再発行するため、直前のメールのリンクも生かす）
-  const hashOk = t?.tokenHash === parsed.hash || t?.prevTokenHash === parsed.hash;
+  // 比較は timingSafeEqual（監査⑤）。=== は一致した文字数に応じて時間が変わり、
+  // 理論上ハッシュを1文字ずつ推測できる。実害はほぼ無いが作法として塞ぐ。
+  const eq = (a: unknown, b: string) =>
+    typeof a === "string" && a.length === b.length &&
+    timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const hashOk = eq(t?.tokenHash, parsed.hash) || eq(t?.prevTokenHash, parsed.hash);
   if (!tsnap.exists || t?.kind !== "inquiry" || !hashOk) {
     res.status(410).json({ ok: false, error: "gone" }); return;
   }
