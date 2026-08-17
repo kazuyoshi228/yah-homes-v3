@@ -68,12 +68,14 @@ const ROWS: Row[] = [
 // 予約行（表の最終行に各棟の予約導線を格納）
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const BOOK_PATH = localizedPath(lang, "/book");
+// OTA行は「予約する」ではなく「レビューを見る」。直販行だけを予約導線にする
+// （同じ文言・同じ重さで並べると、比較のために離脱しやすい・計画書§5）
 const BOOK_LABELS = {
-  en: { head: "Book", btn: "Book now", direct: "Our site (best rate)" },
-  ja: { head: "ご予約", btn: "予約する", direct: "自社ウェブサイト（最安）" },
-  ko: { head: "예약", btn: "예약하기", direct: "공식 사이트(최저가)" },
-  zh: { head: "預訂", btn: "立即預訂", direct: "官網（最優惠）" },
-  th: { head: "จอง", btn: "จองเลย", direct: "เว็บทางการ (ถูกที่สุด)" },
+  en: { head: "Book", btn: "Book now", ota: "See reviews", direct: "Our site (best rate)" },
+  ja: { head: "ご予約", btn: "予約する", ota: "レビューを見る", direct: "自社ウェブサイト（最安）" },
+  ko: { head: "예약", btn: "예약하기", ota: "후기 보기", direct: "공식 사이트(최저가)" },
+  zh: { head: "預訂", btn: "立即預訂", ota: "查看評價", direct: "官網（最優惠）" },
+  th: { head: "จอง", btn: "จองเลย", ota: "ดูรีวิว", direct: "เว็บทางการ (ถูกที่สุด)" },
 }[lang];
 const BOOK_LINKS = {
   kiyokawa: { airbnb: PROPERTIES.kiyokawa.airbnbUrl, booking: PROPERTIES.kiyokawa.bookingUrl, direct: `${BOOK_PATH}?prop=kiyokawa` },
@@ -126,7 +128,7 @@ const SH_SUB = { en: 'Side by side, so you can pick the right house', ja: '2棟�
           {(["kiyokawa", "takasago"] as const).map((k) => (
             <td class="val book-cell">
               <a class="cmp-btn" href={BOOK_LINKS[k].airbnb} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
-                {BOOK_LABELS.btn}
+                {BOOK_LABELS.ota}
               </a>
             </td>
           ))}
@@ -136,7 +138,7 @@ const SH_SUB = { en: 'Side by side, so you can pick the right house', ja: '2棟�
           {(["kiyokawa", "takasago"] as const).map((k) => (
             <td class="val book-cell">
               <a class="cmp-btn" href={BOOK_LINKS[k].booking} target="_blank" rel="noopener noreferrer" data-cta-location="compare_table">
-                {BOOK_LABELS.btn}
+                {BOOK_LABELS.ota}
               </a>
             </td>
           ))}
@@ -172,15 +174,20 @@ const SH_SUB = { en: 'Side by side, so you can pick the right house', ja: '2棟�
     font-weight: 500;
     letter-spacing: 0.02em;
     text-align: center;
-    text-decoration: none;
-    color: #111111;
-    background: #ffffff;
-    border: 1px solid #d7d7d7;
+    /* OTA行は補助リンク（テキスト）。直販の行だけを主CTA（青ボタン）にして、
+       同じ重さのボタンを並べない（計画書§5・2026-08-16 発注者承認） */
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: #bbbbbb;
+    color: #555555;
+    background: none;
+    border: 0;
     border-radius: 4px;
-    transition: background 0.2s ease;
   }
-  .cmp-btn:hover { background: #f7f7f7; }
+  .cmp-btn:hover { color: #111111; text-decoration-color: #111111; }
   .cmp-btn-direct {
+    text-decoration: none;
+    padding: 0.55rem 0.7rem;
     color: #ffffff;
     background: #1a56db;   /* CTA Blue（ブランドパレット適用外・2026-08-16 発注者判断） */
     border-color: #1a56db;

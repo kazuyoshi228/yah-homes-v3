@@ -29,7 +29,12 @@ const BUILT = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })
 </script>
 
 <style>
-  .af { background: #111111; margin-top: 4rem; }
+  /* 管理画面は内容が短いページ（台帳・仕様書など）が多く、margin-top だけだと
+     フッターが画面の途中で止まり下に白地が残る（2026-08-17 発注者指摘）。
+     ページ全体を縦フレックスにして、本文が短いときは下端へ押し出す。 */
+  :global(body:has(.af)) { min-height: 100vh; display: flex; flex-direction: column; }
+  :global(body:has(.af) > main) { flex: 1 0 auto; }
+  .af { background: #111111; margin-top: 4rem; flex: none; }
   .af-inner {
     max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; height: 44px;
     display: flex; align-items: center; gap: 1.25rem;

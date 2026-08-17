@@ -152,30 +152,23 @@
   }
 
   /* ── Booking button ── */
+  /* OTAは補助リンク（テキスト）。直販CTAと同じ重さのボタンを並べると、
+     比較のために離脱しやすい（計画書§5・2026-08-16 発注者承認）。
+     役割も「予約先」から「レビューの確認先」に変えている。 */
   .btn-booking {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 0.625rem 1rem;
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    border: 1px solid #e8e8e8;
-    background: #ffffff;
-    color: #111111;
-    transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      transform 0.15s ease;
+    display: inline-block;
+    padding: 0.15rem 0;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: #555555;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: #bbbbbb;
+    background: none;
+    border: 0;
   }
-  .btn-booking:hover {
-    background: #f5f5f5;
-    border-color: #666666;
-    transform: translateY(-1px);
-  }
-  .btn-booking:active {
-    transform: scale(0.98);
-  }
+
+  .btn-booking:hover { color: #111111; text-decoration-color: #111111; }
 
   /* ── Direct booking button（自社予約への主CTA・黒） ── */
   .btn-direct {
