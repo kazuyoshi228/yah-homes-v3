@@ -92,7 +92,7 @@ const FB_CONFIG = {
       return res.json();
     }
 
-    function render(isRoot) {
+    function render(canRefund) {
       const onlyReview = $("ab-only-review").checked;
       // 「要対応のみ」= システム印（決済の要確認）＋ 手動チェックの両方。棟フィルタと併用可
       const propFilter = document.getElementById("ab-prop")?.value ?? "";
@@ -115,7 +115,7 @@ const FB_CONFIG = {
             <input type="checkbox" class="ab-flag" data-id="${esc(b.id)}" ${b.needsAction ? "checked" : ""} />
           </td>
           <td class="ab-nowrap">
-            ${isRoot && b.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(b.status)
+            ${canRefund && b.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(b.status)
               ? `<button class="ab-btn-sub ab-refund" data-id="${esc(b.id)}" data-total="${esc(b.total)}">返金する</button>`
               : `<span class="ab-sub">—</span>`}
           </td>
@@ -171,7 +171,7 @@ const FB_CONFIG = {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
         cache = j.items || [];
-        render(j.isRoot);
+        render(j.canRefund);
         $("ab-status").textContent = "";
       } catch (e) {
         $("ab-status").textContent = e.message === "unauthorized" ? "このアカウントには権限がありません。" : "読み込みに失敗しました。";

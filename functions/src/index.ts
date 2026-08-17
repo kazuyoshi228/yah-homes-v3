@@ -4881,6 +4881,11 @@ export const adminBookings = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     const isRoot = isAdmin(email);
+    // 返金・返金なしキャンセルは Admin 以上（2026-08-17 発注者判断で UI/API を統一）。
+    // 以前は API=Admin可・UI=Ownerのみ表示と食い違っており、画面にボタンが無くても
+    // API を直接叩けば Admin が返金できる状態だった（セキュリティ監査①）。
+    const actorRole = await getRole(email);
+    const canRefund = !!actorRole && ROLE_RANK[actorRole] >= ROLE_RANK.admin;
 
     try {
       if (req.method === "GET") {
@@ -4894,7 +4899,7 @@ export const adminBookings = onRequest(
           const mails = mailsSnap.docs
             .map((d) => { const m = d.data(); return { kind: m.kind, ok: m.ok === true, subject: m.subject ?? "", at: m.at?.toMillis?.() ?? 0 }; })
             .sort((a, b) => a.at - b.at);
-          res.status(200).json({ ok: true, isRoot,
+          res.status(200).json({ ok: true, isRoot, canRefund,
             booking: {
               id: doc.id, prop: v.prop, checkin: v.checkin, checkout: v.checkout, guests: v.guests,
               total: v.total, status: v.status, name: v.name ?? null, email: v.email ?? null,
@@ -4922,7 +4927,7 @@ export const adminBookings = onRequest(
             createdAt: v.createdAt?.toMillis?.() ?? null,
           };
         });
-        res.status(200).json({ ok: true, isRoot, items });
+        res.status(200).json({ ok: true, isRoot, canRefund, items });
         return;
       }
 

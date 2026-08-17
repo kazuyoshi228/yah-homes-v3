@@ -231,7 +231,7 @@ const MAIL_LABEL: Record<string, string> = {
       const isFlagged = booking.needsAction === true;
       $("bd-resolve-wrap").hidden = !isSystemFlag && !isFlagged;
       // 返金できない／手作業で返金済みの予約を畳む口。キャンセル済みには出さない
-      $("bd-nrf-wrap").hidden = booking.status === "CANCELLED";
+      $("bd-nrf-wrap").hidden = booking.status === "CANCELLED" || !j.canRefund;
       // 状態の付け替えはシステム印のときだけ。正常な予約の状態は変えさせない
       $("bd-resolve-status-btns").hidden = !isSystemFlag;
       $("bd-resolve-flag-btn").hidden = isSystemFlag || !isFlagged;
@@ -239,7 +239,7 @@ const MAIL_LABEL: Record<string, string> = {
         ? "決済または返金の処理が完了しなかった予約です。Stripe 側などで対応を終えてから、この予約をどちらの状態にするか選んでください。"
         : "「要対応」の付箋が付いています。対応が済んだら、内容を記録して解除してください。";
       $("bd-memo").textContent = booking.adminMemo ?? booking.failureReason ?? "";
-      if (j.isRoot && booking.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(booking.status)) {
+      if (j.canRefund && booking.paymentIntentId && ["CONFIRMED", "AUTHORIZED", "RESERVATION_PENDING", "MANUAL_REVIEW"].includes(booking.status)) {
         $("bd-refund-wrap").hidden = false;
       }
       $("bd-grid").hidden = false;
