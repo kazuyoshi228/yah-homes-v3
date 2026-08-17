@@ -396,18 +396,23 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   function track(name, params) {
     window.gtag?.("event", name, { ...params, lang, device, webview: isWebViewUA });
   }
-  // GA4のclient_idを取得（サーバー送信のpurchaseとクライアントのイベントを同一ユーザーとして結合するため）
-  function gaClientId() {
+  /* GA4の client_id と session_id を取得。
+     サーバー送信の purchase を「同一ユーザーの、同一セッションのイベント」としてGA4に合流させるために両方が要る。
+     session_id が無いと GA4 は新規セッションとして扱い、参照元が失われて Unassigned になる
+     （2026-08-16 実測: 直販初日の purchase 2件がすべて Unassigned だった）。 */
+  function gaField(field) {
     return new Promise((resolve) => {
       if (!window.gtag) return resolve("");
       let done = false;
       const t = setTimeout(() => { if (!done) { done = true; resolve(""); } }, 800);
-      window.gtag("get", "G-VJ5DDRML79", "client_id", (id) => {
+      window.gtag("get", "G-VJ5DDRML79", field, (v) => {
         if (done) return;
-        done = true; clearTimeout(t); resolve(id || "");
+        done = true; clearTimeout(t); resolve(v == null ? "" : String(v));
       });
     });
   }
+  const gaClientId = () => gaField("client_id");
+  const gaSessionId = () => gaField("session_id");
 
   const startedAt = Date.now();
   const elapsed = () => Math.round((Date.now() - startedAt) / 1000);
@@ -663,6 +668,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           prop, checkin, checkout, guests, lang, idempotencyKey,
           // 購買行動の突合用（個人情報ではない）
           clientId: await gaClientId(),
+          sessionId: await gaSessionId(),
           gclid: new URLSearchParams(location.search).get("gclid") || sessionStorage.getItem("yah_gclid") || "",
           utm: {
             source: sessionStorage.getItem("yah_utm_source") || "",

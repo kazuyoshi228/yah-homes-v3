@@ -3384,6 +3384,8 @@ export const bookCreate = onRequest(
     const idempotencyKey = typeof b.idempotencyKey === "string" ? b.idempotencyKey.slice(0, 100) : "";
     // GA4のclient_id・広告のgclid/UTM（購買行動の突合用・個人情報ではない）
     const clientId = typeof b.clientId === "string" ? b.clientId.slice(0, 64) : "";
+    // session_id はサーバー送信の purchase を同一セッションに合流させるために要る（無いと参照元が Unassigned になる）
+    const sessionId = typeof b.sessionId === "string" ? b.sessionId.slice(0, 32) : "";
     const gclid = typeof b.gclid === "string" ? b.gclid.slice(0, 200) : "";
     const utm = typeof b.utm === "object" && b.utm ? b.utm : null;
     const authProvider = typeof b.authProvider === "string" ? b.authProvider.slice(0, 20) : "";
@@ -3452,7 +3454,7 @@ export const bookCreate = onRequest(
         status: "PAYMENT_PENDING", stateVersion: 0, operationId, idempotencyKey,
         roomId: q.data?.[0]?.roomId ?? null,
         policyVersion: "2026-08-08", termsVersion, freeCancelUntilAt,
-        clientId: clientId || null, gclid: gclid || null, utm, authProvider: authProvider || null,
+        clientId: clientId || null, sessionId: sessionId || null, gclid: gclid || null, utm, authProvider: authProvider || null,
         createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
       });
 
@@ -3655,6 +3657,7 @@ async function fulfillBooking(pi: Stripe.PaymentIntent, stripe: Stripe): Promise
       id: bookingId, uid: cur.uid, prop: cur.prop, total: cur.total, guests: cur.guests,
       nights: Math.round((Date.parse(cur.checkout) - Date.parse(cur.checkin)) / 86400000),
       lang: String(c2.lang ?? ""), authProvider: String(c2.authProvider ?? ""), clientId: String(c2.clientId ?? ""),
+      sessionId: String(c2.sessionId ?? ""),
     });
     // 広告計測（Meta）。失敗しても予約確定は成立させる
     await sendMetaPurchase({
@@ -3735,7 +3738,7 @@ async function sendMetaPurchase(b: {
 const GA4_MEASUREMENT_ID = "G-VJ5DDRML79";
 async function sendPurchaseEvent(booking: {
   id: string; uid: string; prop: string; total: number; nights?: number; guests: number;
-  lang?: string; authProvider?: string; clientId?: string;
+  lang?: string; authProvider?: string; clientId?: string; sessionId?: string;
 }): Promise<void> {
   const secret = GA4_API_SECRET.value();
   if (!secret || secret.startsWith("placeholder")) return; // 未設定時は送らない（障害にしない）
@@ -3752,6 +3755,9 @@ async function sendPurchaseEvent(booking: {
               transaction_id: booking.id,
               currency: "JPY",
               value: booking.total,
+              // この2つが無いとGA4が新規セッションを作り、参照元が失われる（Unassignedになる）
+              session_id: booking.sessionId || undefined,
+              engagement_time_msec: 1,
               lang: booking.lang ?? null,
               auth_provider: booking.authProvider ?? null,
               guests: booking.guests,
@@ -3775,7 +3781,7 @@ async function sendPurchaseEvent(booking: {
  * transaction_id は purchase と同一（＝GA4側で相殺される）。
  */
 async function sendRefundEvent(booking: {
-  id: string; uid?: string; total: number; refundAmount: number; clientId?: string;
+  id: string; uid?: string; total: number; refundAmount: number; clientId?: string; sessionId?: string;
 }): Promise<void> {
   const secret = GA4_API_SECRET.value();
   if (!secret || secret.startsWith("placeholder")) return; // 未設定時は送らない（障害にしない）
@@ -3793,6 +3799,8 @@ async function sendRefundEvent(booking: {
               currency: "JPY",
               // 全額返金なら value を省略しても相殺されるが、部分返金と区別するため常に入れる
               value: booking.refundAmount,
+              session_id: booking.sessionId || undefined,
+              engagement_time_msec: 1,
             },
           }],
         }),
@@ -4613,7 +4621,7 @@ export const accountApi = onRequest(
           // GA4 の purchase を相殺する（Google Ads の入札が幻のCVを学習しないように）
           await sendRefundEvent({
             id: idStr, uid: String(v.uid ?? ""), total: Number(v.total ?? 0),
-            refundAmount, clientId: String(v.clientId ?? ""),
+            refundAmount, clientId: String(v.clientId ?? ""), sessionId: String(v.sessionId ?? ""),
           });
 
           await sendCancellationMail(idStr, v, refundAmount);
@@ -4995,7 +5003,7 @@ export const adminBookings = onRequest(
           // GA4 の purchase を相殺する（Google Ads の入札が幻のCVを学習しないように）
           await sendRefundEvent({
             id: idStr, uid: String(v.uid ?? ""), total: Number(v.total ?? 0),
-            refundAmount, clientId: String(v.clientId ?? ""),
+            refundAmount, clientId: String(v.clientId ?? ""), sessionId: String(v.sessionId ?? ""),
           });
 
           // 管理側の返金でもお客様へキャンセル確認メールを送る
