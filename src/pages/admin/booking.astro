@@ -53,6 +53,11 @@ const MAIL_LABEL: Record<string, string> = {
             <div class="bd-op" id="bd-refund-wrap" hidden>
               <button type="button" class="bd-btn-sub bd-refund" id="bd-refund">返金する</button>
             </div>
+            <!-- Stripe で返金できない／既に手作業で返金済みの予約を畳むための操作。
+                 Beds24 の取消と在庫解放は「返金する」と同じように行う。 -->
+            <div class="bd-op" id="bd-nrf-wrap" hidden>
+              <button type="button" class="bd-btn-sub bd-refund" id="bd-nrf">返金せずにキャンセルする</button>
+            </div>
 
             <!-- システム印（決済・返金の失敗）の手動解決。該当状態のときだけ出す。
                  お金は動かさない。返金が要るなら先に上の「返金する」を使う。 -->
@@ -225,6 +230,8 @@ const MAIL_LABEL: Record<string, string> = {
       const isSystemFlag = ["MANUAL_REVIEW", "CAPTURE_RETRY"].includes(booking.status);
       const isFlagged = booking.needsAction === true;
       $("bd-resolve-wrap").hidden = !isSystemFlag && !isFlagged;
+      // 返金できない／手作業で返金済みの予約を畳む口。キャンセル済みには出さない
+      $("bd-nrf-wrap").hidden = booking.status === "CANCELLED";
       // 状態の付け替えはシステム印のときだけ。正常な予約の状態は変えさせない
       $("bd-resolve-status-btns").hidden = !isSystemFlag;
       $("bd-resolve-flag-btn").hidden = isSystemFlag || !isFlagged;
@@ -264,6 +271,21 @@ const MAIL_LABEL: Record<string, string> = {
     $("bd-resolve-cancel")?.addEventListener("click", () => resolveTo("CANCELLED", "キャンセル済み"));
     $("bd-resolve-confirm")?.addEventListener("click", () => resolveTo("CONFIRMED", "予約確定"));
     $("bd-resolve-flag")?.addEventListener("click", () => resolveTo("flag_only", "対応済み（要対応を解除）"));
+
+    $("bd-nrf")?.addEventListener("click", async () => {
+      const reason = prompt("返金せずにキャンセル扱いにします。理由を記録してください（必須）\n例: Stripe の画面で返金済み／テスト決済のため返金不要");
+      if (reason === null) return;
+      if (!reason.trim()) { $("bd-op-status").textContent = "理由の記録が必要です。"; return; }
+      if (!confirm("この予約をキャンセル扱いにします。Beds24 の予約も取り消し、押さえている日程を解放します。\nStripe での返金は行いません。よろしいですか？")) return;
+      $("bd-op-status").textContent = "処理中...";
+      const r = await api("POST", { action: "cancelNoRefund", bookingId: id, reason: reason.trim() });
+      if (r?.ok) {
+        $("bd-op-status").textContent = r.beds24Cancelled === false
+          ? "キャンセル扱いにしました（Beds24 の取消は失敗。Beds24 側を確認してください）。"
+          : "キャンセル扱いにしました。";
+        load();
+      } else $("bd-op-status").textContent = `失敗しました（${r?.error ?? "error"}）。`;
+    });
 
     $("bd-flag")?.addEventListener("change", async (e) => {
       const r = await api("POST", { action: "flag", bookingId: id, flag: e.target.checked });

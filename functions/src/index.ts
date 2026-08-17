@@ -5057,6 +5057,46 @@ export const adminBookings = onRequest(
           return;
         }
 
+        /* 返金せずにキャンセル扱いにする（2026-08-17 発注者指示）。
+           Stripe で返金できない予約が実在する: テストキーで決済したものを本番キーで
+           返そうとすると必ず失敗する（TB5RKGWM の例）。返金を Stripe の画面で
+           手作業で済ませた場合も同じ。
+           状態だけ書き換えると Beds24 に予約が残り、在庫ロックも解放されず、
+           その日程が永久に売れなくなる。返金以外の後始末は「返金する」と同一にする。 */
+        if (action === "cancelNoRefund") {
+          if (await requireAdmin(email, res)) return;   // 確定済みの予約を消すので Admin 以上
+          const why = String((req.body as Record<string, unknown>)?.reason ?? "").trim();
+          if (!why) { res.status(400).json({ ok: false, error: "reason_required" }); return; }
+          if (String(v.status) === "CANCELLED") { res.status(400).json({ ok: false, error: "already_cancelled" }); return; }
+
+          let beds24CancelError = "";
+          if (v.beds24Id) {
+            try {
+              await cancelBeds24Booking(Number(v.beds24Id));
+              await noteBeds24Cancellation(Number(v.beds24Id),
+                `【直販】運営が返金なしでキャンセル扱いにしました。理由: ${why.slice(0, 200)}`);
+            } catch (e) {
+              beds24CancelError = String(e).slice(0, 160);
+            }
+          }
+          // 押さえていた宿泊日を解放する（これを忘れるとその日程が永久に売れなくなる）
+          await releaseInventoryLocks(String(v.prop), String(v.checkin), String(v.checkout), idStr);
+
+          const cur2 = (await ref.get()).data() as { status: string; stateVersion: number };
+          await transition(ref, { status: [cur2.status], stateVersion: cur2.stateVersion },
+            { status: "CANCELLED", needsAction: false, refundedAmount: 0,
+              cancelledWithoutRefundBy: email, cancelReason: why.slice(0, 500),
+              beds24CancelError: beds24CancelError || null, cancelledAt: FieldValue.serverTimestamp() });
+          await db.collection("audit_logs").add({
+            actor: email, action: "booking_cancel_no_refund", target: idStr,
+            value: `${cur2.status} → CANCELLED（返金なし） / ${why.slice(0, 200)}`,
+            beds24Id: v.beds24Id ?? null, beds24CancelError: beds24CancelError || null,
+            at: FieldValue.serverTimestamp(),
+          });
+          res.status(200).json({ ok: true, beds24Cancelled: !beds24CancelError });
+          return;
+        }
+
         res.status(400).json({ ok: false, error: "invalid_action" });
         return;
       }
