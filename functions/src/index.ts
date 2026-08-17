@@ -331,12 +331,22 @@ const CONTACT_L10N: Record<string, Record<string, string>> = {
 // ─── パートナー日程申請フォーム（/ja/partners/・design_partners_page.md §4.5-1） ───
 // 通知先はページ掲載の連絡先と同一（Secretにしない公開情報）。送信元は既存SMTP_USERを流用。
 const PARTNERS_NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp";
-/* 受け付ける物件キーの一覧。定員などの「値」はここに置かない（正は property_facts）。
-   以前は capacity をここにも持っており、SSoT とズレうる二重管理になっていた。 */
-const PROP_KEYS = ["kiyokawa", "takasago", "either", "both", "test"] as const;
+/* パートナー申請フォームの選択肢。物件そのものではなく「フォームの仕様」なので
+   property_facts からは導出しない（either=どちらでも可 / both=両方は宿ではない）。 */
+const PARTNER_PROPERTY_CHOICES = ["kiyokawa", "takasago", "either", "both"] as const;
 /* パートナー申請フォームの人数上限。予約の定員判定とは別物（申請は仮の希望人数で、
    実際の定員判定は予約時に property_facts で行う）。安全側に振った固定値。 */
 const PARTNER_MAX_GUESTS = 7;
+
+/* 予約を受け付ける物件かどうかは property_facts の実在で判定する（2026-08-17 発注者判断）。
+   コードに一覧を持つと SSoT が2箇所になるため置かない。
+   読めない場合は false を返す＝受け付けない（bookingRules と同じ fail-closed）。 */
+async function isBookableProp(prop: string): Promise<boolean> {
+  if (!/^[a-z0-9_-]{1,32}$/.test(prop)) return false;   // ドキュメントIDに使う前の形式検査
+  try {
+    return (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).exists;
+  } catch { return false; }
+}
 
 /* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
    Firestore が読めないときも予約を止めないよう、既定値へ倒す。
@@ -430,7 +440,7 @@ export const partnersApply = onRequest(
     const nameStr = typeof name === "string" ? name.trim() : "";
     const emailStr = typeof email === "string" ? email.trim() : "";
     const mediaStr = typeof mediaUrl === "string" ? mediaUrl.trim() : "";
-    const propStr = typeof property === "string" && (PROP_KEYS as readonly string[]).includes(property) ? property : "";
+    const propStr = typeof property === "string" && (PARTNER_PROPERTY_CHOICES as readonly string[]).includes(property) ? property : "";
     const date1Str = typeof date1 === "string" ? date1.trim() : "";
     const date2Str = typeof date2 === "string" ? date2.trim() : "";
     const guestsNum = Number(guests);
@@ -3405,8 +3415,13 @@ export const bookCreate = onRequest(
     const authProvider = typeof b.authProvider === "string" ? b.authProvider.slice(0, 20) : "";
 
     const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-    if (!(PROP_KEYS as readonly string[]).includes(prop) || !isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
+    if (!isDate(checkin) || !isDate(checkout) || checkout <= checkin ||
         !Number.isInteger(guests) || guests < 1 || !name || !phone || !rulesAccepted || !idempotencyKey) {
+      res.status(400).json({ ok: false, error: "invalid_input" });
+      return;
+    }
+    // 物件の正否は property_facts の実在で見る（コードに一覧を持たない）
+    if (!(await isBookableProp(prop))) {
       res.status(400).json({ ok: false, error: "invalid_input" });
       return;
     }
