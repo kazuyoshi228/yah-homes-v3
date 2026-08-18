@@ -37,25 +37,26 @@ const VALUES = [
   { k: "レビュー投稿先", kiyokawa: "未決", takasago: "未決", todo: true },
 ];
 
-/** 差し込み記号の一覧（本文に {{...}} で書く） */
+/** 差し込み記号の一覧（本文に {{...}} で書く）。
+    サーバーの許可リスト（functions MAIL_VARS）と1対1で一致させる。
+    ここに無い記号は保存時に弾かれ、逆にここに載せた記号は必ず保存が通る。 */
 const VARS = [
   { k: "guestName", d: "予約者名" },
-  { k: "channel", d: "予約サイト（Airbnb / Booking.com / 公式サイト）" },
+  { k: "bookingNo", d: "予約番号（例 3IW0UFXG）" },
+  { k: "propertyName", d: "施設名（yah.homes kiyokawa / yah.homes takasago）" },
   { k: "guests", d: "宿泊人数" },
   { k: "nights", d: "宿泊日数" },
-  { k: "checkinDateJa", d: "チェックイン日（2026年9月16日, 水曜日）" },
-  { k: "checkoutDateJa", d: "チェックアウト日" },
+  { k: "checkin", d: "チェックイン日（2026-09-16 の形式）" },
+  { k: "checkout", d: "チェックアウト日（2026-09-18 の形式）" },
   { k: "checkinTime", d: "チェックイン時刻（物件ファクト）" },
   { k: "checkoutTime", d: "チェックアウト時刻（物件ファクト）" },
-  { k: "registerUrl", d: "宿泊者名簿フォームのURL" },
+  { k: "registerUrl", d: "宿泊者名簿フォームのURL（予約確定メールで値が入る）" },
+  { k: "registerDeadline", d: "宿泊者名簿の期限＝チェックイン2日前（予約確定メールで値が入る）" },
   { k: "manualUrl", d: "入室マニュアルのURL" },
-  { k: "keyboxCode", d: "キーボックスの暗証番号" },
   { k: "mapUrl", d: "Google マップのURL" },
   { k: "phone", d: "問い合わせ電話番号" },
-  { k: "propertyName", d: "施設名（yah.homes kiyokawa / yah.homes takasago）" },
-  { k: "registerDeadline", d: "宿泊者名簿の期限（チェックイン2日前）" },
-  { k: "reviewUrl", d: "レビュー投稿先（未決）" },
   { k: "myPageUrl", d: "My Page（直販のみ）" },
+  { k: "bookUrl", d: "予約ページのURL（チェックイン案内以降のメールで値が入る）" },
   { k: "chatUrl", d: "チャットのURL（施設別。チャット未対応の棟では空になる）" },
 ];
 ---
@@ -115,6 +116,7 @@ const VARS = [
 
             <section class="tp-panel" data-panel="vars" hidden>
               <h2 class="tp-h2">差し込み記号</h2>
+              <p class="tp-note">メールの種類によって値が入らない記号は空文字になります（エラーにはなりません）。キーボックスの暗証番号は差し込み記号にはせず、チェックイン案内が自動で載せます（/admin/secrets が正）。</p>
               <div class="tp-scroll">
                 <table class="tp-grid">
                   <thead><tr><th>記号</th><th>入る内容</th></tr></thead>
