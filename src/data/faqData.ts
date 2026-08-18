@@ -125,7 +125,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "宿で料理はできますか？",
-            a: "はい。どちらもコンロ・冷蔵庫・電子レンジ・炊飯器・基本的な調理器具を備えたフルキッチンつきです。徒歩5分圏内にスーパーやコンビニがあります。",
+            a: "はい。どちらもコンロ・冷蔵庫・電子レンジ・炊飯器・基本的な調理器具を備えたフルキッチンつきです。徒歩圏内にスーパーやコンビニがあります。",
           },
           {
             q: "キャンセルポリシーは？",
@@ -245,7 +245,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "Can I cook at the property?",
-            a: "Yes. Both properties have fully equipped kitchens with Cooktops, refrigerators, microwaves, rice cookers, and basic cooking utensils. Grocery stores and convenience stores are within a 5-minute walk.",
+            a: "Yes. Both properties have fully equipped kitchens with Cooktops, refrigerators, microwaves, rice cookers, and basic cooking utensils. Grocery stores and convenience stores are within walking distance.",
           },
           {
             q: "What is your cancellation policy?",
@@ -365,7 +365,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "숙소에서 요리할 수 있나요?",
-            a: "네. 두 숙소 모두 IH 쿡탑, 냉장고, 전자레인지, 밥솥, 기본 조리도구를 갖춘 풀 키친이 있습니다. 도보 5분 이내에 슈퍼마켓과 편의점이 있습니다.",
+            a: "네. 두 숙소 모두 IH 쿡탑, 냉장고, 전자레인지, 밥솥, 기본 조리도구를 갖춘 풀 키친이 있습니다. 도보 거리에 슈퍼마켓과 편의점이 있습니다.",
           },
           {
             q: "취소 정책은 어떻게 되나요?",
@@ -489,7 +489,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "可以在住宿內烹飪嗎？",
-            a: "可以。兩處住宿均配備完整廚房，包括IH電磁爐、冰箱、微波爐、電飯鍋和基本廚具。步行5分鐘內有超市和便利店。",
+            a: "可以。兩處住宿均配備完整廚房，包括IH電磁爐、冰箱、微波爐、電飯鍋和基本廚具。步行範圍內有超市和便利店。",
           },
           {
             q: "取消政策是什麼？",
@@ -609,7 +609,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "ทำอาหารในที่พักได้หรือไม่?",
-            a: "ได้ ทั้งสองแห่งมีครัวครบครันพร้อมเตาแม่เหล็กไฟฟ้า ตู้เย็น ไมโครเวฟ หม้อหุงข้าว และอุปกรณ์ทำอาหารพื้นฐาน มีซูเปอร์มาร์เก็ตและร้านสะดวกซื้อในระยะเดิน 5 นาที",
+            a: "ได้ ทั้งสองแห่งมีครัวครบครันพร้อมเตาแม่เหล็กไฟฟ้า ตู้เย็น ไมโครเวฟ หม้อหุงข้าว และอุปกรณ์ทำอาหารพื้นฐาน มีซูเปอร์มาร์เก็ตและร้านสะดวกซื้อในระยะระยะเดินถึง",
           },
           {
             q: "นโยบายการยกเลิกคืออะไร?",
