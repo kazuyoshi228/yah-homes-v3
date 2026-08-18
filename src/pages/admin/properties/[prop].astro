@@ -221,7 +221,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                           ) : r.type === "time" ? (
                             <input type="time" data-prop={h.key} data-field={r.key} />
                           ) : r.type === "text" ? (
-                            <input type="text" inputmode="decimal" placeholder={r.placeholder} data-prop={h.key} data-field={r.key} />
+                            <input type="text" class:list={["ap-input-wide"]} placeholder={r.placeholder} data-prop={h.key} data-field={r.key} />
                           ) : (
                             <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field={r.key} />
                           )}
@@ -703,6 +703,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-qr-url { font-size: 0.85rem; color: #111111; margin-bottom: 1rem; word-break: break-all; }
   .ap-qr-dl { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .ap-qr-dl a { text-decoration: none; }
+  /* URL・住所などの文字入力は全文が見える幅に（2026-08-18 発注者指摘） */
+  .ap-input-wide { width: min(100%, 560px) !important; }
   .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
