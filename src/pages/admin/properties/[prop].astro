@@ -207,7 +207,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             </p>
           ) : (
             <table class="ap-chat-table">
-              <thead><tr><th>設問</th><th>回答</th></tr></thead>
+              <thead>
+                <tr><th colspan={2} class="ap-chat-house">{propLabel}</th></tr>
+                <tr><th>設問</th><th>回答</th></tr>
+              </thead>
               <tbody>
                 {CHAT_INFO[propKey].map((r) => (
                   <tr><th>{r.q}</th><td>{r.a}</td></tr>
@@ -362,6 +365,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-chat-prop.is-active { background: #111111; border-color: #111111; color: #ffffff; }
   .ap-chat-empty { padding: 2rem 0; }
   .ap-chat-table { width: 100%; border-collapse: collapse; }
+  .ap-chat-table :global(.ap-chat-house) {
+    text-align: center; font-size: 0.85rem; font-weight: 500; color: #111111;
+    padding: 0.6rem 0.75rem; border-bottom: 2px solid #111111;   /* 概要の表と同じバー */
+  }
   .ap-chat-table th, .ap-chat-table td {
     text-align: left; vertical-align: top; padding: 0.6rem 0.75rem;
     border-bottom: 1px solid #f0f0f0; font-size: 0.84rem; line-height: 1.8;
