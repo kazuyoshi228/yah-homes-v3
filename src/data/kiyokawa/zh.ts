@@ -232,7 +232,8 @@ export const zh: KiyokawaTranslations = {
     items: [
       { from: "福岡機場", time: "開車約 18 分鐘" },
       { from: "博多站", time: "開車約 10 分鐘 / 地鐵約 20 分鐘" },
-      { from: "天神", time: "開車約 8 分鐘 / 步行可達" },
+      { from: "天神", time: "開車約 {tenjinCar} 分鐘 / 步行可達" },
+      { from: "渡邊通站（1號出口）", time: "步行約{station}分鐘" },
       { from: "Canal City 博多", time: "開車約 15 分鐘" },
       { from: "太宰府", time: "開車約 30 分鐘" },
     ],

@@ -30,9 +30,7 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
   {
     label: "客室",
     rows: [
-      { key: "bedrooms", label: "寝室", type: "num" },
-      { key: "bedDouble", label: "・ダブルベッド", type: "num", indent: true },
-      { key: "bedSingle", label: "・シングルベッド", type: "num", indent: true },
+      { key: "bedrooms", label: "寝室数", type: "num", note: "変えるとBRの行数が連動します" },
     ],
   },
   {
@@ -68,7 +66,6 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "floorAreaM2", label: "延床面積", type: "num", unit: "㎡" },
       { key: "floors", label: "階数", type: "num", unit: "階建て" },
       { key: "layoutLabel", label: "間取り表記", type: "text", placeholder: "3LDK" },
-      { key: "bedroomLayout", label: "部屋別ベッド内訳", type: "text", placeholder: "BR1: シングル1 / BR2: ダブル2 / …", note: "物件ページの寝室ガイド・llms.txt に使用" },
     ],
   },
   {
@@ -137,7 +134,9 @@ const FACILITY_SECTIONS: { label: string; rows: FactRow[] }[] = [
   },
 ];
 const ALL_SECTIONS = [...SECTIONS, ...FACILITY_SECTIONS];
-const FIELD_KEYS = ALL_SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
+/* BR別内訳のUIから自動生成される値（画面上は隠しフィールド・保存/読込は従来どおり） */
+const HIDDEN_KEYS = ["bedDouble", "bedSingle", "bedroomLayout"];
+const FIELD_KEYS = [...ALL_SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key)), ...HIDDEN_KEYS];
 
 // 施設別ページ（/admin/properties/{prop}/・2026-08-18 発注者指示のURL構成）。
 // ファクト編集があるのは清川・高砂のみ。新施設3つはチャット用情報だけを持つ。
@@ -263,6 +262,20 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                       ))}
                     </tr>
                   ))}
+                  {sec.label === "客室" && (
+                    <>
+                      <tr id="ap-bed-anchor" hidden><td></td></tr>
+                      <tr>
+                        <th class="ap-row-label">合計（自動集計）</th>
+                        <td>
+                          <span id="ap-bed-totals" class="ap-bed-totals"></span>
+                          <input type="hidden" data-prop={propKey} data-field="bedDouble" id="ap-bedDouble" />
+                          <input type="hidden" data-prop={propKey} data-field="bedSingle" id="ap-bedSingle" />
+                          <input type="hidden" data-prop={propKey} data-field="bedroomLayout" id="ap-bedroomLayout" />
+                        </td>
+                      </tr>
+                    </>
+                  )}
                   {sec.label === "定員" && (
                     <tr>
                       <th class="ap-row-label">評価の取得日</th>
@@ -618,12 +631,56 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         : `保存に失敗しました（${r.error ?? "error"}）`;
     });
 
+    /* 客室: 寝室数に連動した BR-1..n の内訳入力。合計（ダブル/シングル）と
+       bedroomLayout 文字列はここから自動生成し、隠しフィールド経由で保存する。
+       表記ルール: 各行に「ダブル2」「シングル1」のように書く（数字省略は1台と数える）。 */
+    function bedInputs() { return [...document.querySelectorAll(".ap-bed-input")]; }
+    function recomputeBeds() {
+      const lines = bedInputs().map((el, i) => ({ n: i + 1, v: el.value.trim() })).filter((x) => x.v);
+      $("ap-bedroomLayout").value = lines.map((x) => `BR${x.n}: ${x.v}`).join(" / ");
+      const count = (re) => bedInputs().reduce((sum, el) => {
+        let s2 = 0;
+        for (const m of el.value.matchAll(re)) s2 += m[1] ? Number(m[1]) : 1;
+        return sum + s2;
+      }, 0);
+      const dbl = count(/ダブル\s*(\d*)/g);
+      const sgl = count(/シングル\s*(\d*)/g);
+      $("ap-bedDouble").value = String(dbl);
+      $("ap-bedSingle").value = String(sgl);
+      $("ap-bed-totals").textContent = `・ダブルベッド ${dbl}台\n・シングルベッド ${sgl}台`;
+    }
+    function renderBedRooms() {
+      const anchor = $("ap-bed-anchor");
+      if (!anchor) return;
+      const rooms = Math.min(12, Math.max(1, Number(document.querySelector(`[data-prop="${PROP}"][data-field="bedrooms"]`)?.value) || 1));
+      const existing = bedInputs().map((el) => el.value);
+      const fromLayout = ($("ap-bedroomLayout").value || "").split("/").map((x) => x.replace(/^\s*BR\d+[:：]?\s*/, "").trim());
+      document.querySelectorAll(".ap-bed-row").forEach((tr) => tr.remove());
+      for (let i = rooms; i >= 1; i--) {
+        const tr = document.createElement("tr");
+        tr.className = "ap-bed-row";
+        tr.innerHTML = `<th class="ap-row-label ap-indent">BR-${i}</th>
+          <td><input type="text" class="ap-bed-input ap-input-wide" placeholder="例: ダブル2 ／ シングル1" data-br="${i}"></td>`;
+        anchor.after(tr);
+      }
+      bedInputs().forEach((el, i) => {
+        el.value = existing[i] ?? fromLayout[i] ?? "";
+        el.addEventListener("input", recomputeBeds);
+      });
+      recomputeBeds();
+    }
+    document.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t?.dataset?.field === "bedrooms") renderBedRooms();
+    });
+
     async function load() {
       $("ap-status").textContent = "読み込み中...";
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
         if (HAS_FACTS) fill(PROP, j.items[PROP] ?? {});
+        if (HAS_FACTS) renderBedRooms();
         renderChat(j.items[urlProp()]?.chatInfo ?? [], j.canEdit === true);
         // 閲覧は全メンバー・編集は Owner のみ（2026-08-18 発注者判断）。
         // Owner 以外は入力を無効化し、保存バーを隠して読み取り専用にする
@@ -781,6 +838,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-qr-dl a { text-decoration: none; }
   /* URL・住所などの文字入力は全文が見える幅に（2026-08-18 発注者指摘） */
   .ap-input-wide { width: min(100%, 560px) !important; }
+  .ap-bed-totals { font-size: 0.85rem; color: #333333; line-height: 2; white-space: pre-line; }
   .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }

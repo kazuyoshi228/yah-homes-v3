@@ -141,7 +141,8 @@ export const en: KiyokawaTranslations = {
     items: [
       { from: "Fukuoka Airport", time: "~{airport} min by car" },
       { from: "Hakata Station", time: "~{hakataCar} min by car / ~{hakataSubway} min by subway" },
-      { from: "Tenjin", time: "~8 min by car / walkable" },
+      { from: "Tenjin", time: "~{tenjinCar} min by car / walkable" },
+      { from: "Watanabe-dori Station (Exit 1)", time: "~{station} min walk" },
       { from: "Canal City Hakata", time: "~15 min by car" },
       { from: "Dazaifu", time: "~30 min by car" },
     ],
