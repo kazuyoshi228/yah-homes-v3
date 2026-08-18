@@ -4478,13 +4478,14 @@ export const adminProperties = onRequest(
           const propStr = String(prop ?? "");
           if (!CHAT_KEYS.includes(propStr)) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
           if (chatInfo.length > 300) { res.status(400).json({ ok: false, error: "too_many_rows" }); return; }
-          const rows: { q: string; a: string }[] = [];
+          const rows: { q: string; a: string; cat?: string }[] = [];
           for (const r of chatInfo) {
             const q = String((r as Record<string, unknown>)?.q ?? "").trim();
             const a = String((r as Record<string, unknown>)?.a ?? "").trim();
+            const cat = String((r as Record<string, unknown>)?.cat ?? "").trim().slice(0, 40);
             if (!q && !a) continue;                       // 空行は黙って捨てる
             if (q.length > 200 || a.length > 4000) { res.status(400).json({ ok: false, error: "row_too_long" }); return; }
-            rows.push({ q, a });
+            rows.push(cat ? { q, a, cat } : { q, a });
           }
           await db.collection("property_facts").doc(propStr).set(
             { chatInfo: rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });

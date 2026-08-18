@@ -208,6 +208,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           </div>
           <div class="ap-chat-actions" id="ap-chat-savebar" hidden>
             <button type="button" class="ap-btn-sub" id="ap-chat-addrow">＋ 行を追加</button>
+            <button type="button" class="ap-btn-sub" id="ap-chat-addcat">＋ 分類を追加</button>
             <button class="ap-btn" id="ap-chat-save">保存する</button>
             <span class="ap-saved" id="ap-chat-saved"></span>
           </div>
@@ -289,6 +290,30 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       return m ? m[1] : PROP;
     }
     let chatEditable = false;
+    /* 分類の見出し行。編集時は名前を書き換え可・「＋」でその分類の末尾に行を足す。
+       分類はデータ上は各行の cat フィールド（保存時に見出しから割り当て直す）。 */
+    function catRow(name) {
+      const tr = document.createElement("tr");
+      tr.className = "ap-chat-cat";
+      if (chatEditable) {
+        tr.innerHTML = `<th colspan="2"><input class="ap-chat-catname" placeholder="分類名"></th>
+          <td class="ap-chat-rowop"><button type="button" class="ap-chat-catadd" title="この分類に行を追加" aria-label="この分類に行を追加">＋</button></td>`;
+        tr.querySelector(".ap-chat-catname").value = name;
+        tr.querySelector(".ap-chat-catadd").addEventListener("click", () => {
+          let next = tr.nextElementSibling;
+          while (next && !next.classList.contains("ap-chat-cat")) next = next.nextElementSibling;
+          const row = chatRow("", "");
+          if (next) next.before(row); else tr.parentElement.append(row);
+          row.querySelector(".ap-chat-q")?.focus();
+        });
+      } else {
+        const th = document.createElement("th");
+        th.colSpan = 3;
+        th.textContent = name || "未分類";
+        tr.append(th);
+      }
+      return tr;
+    }
     function chatRow(q, a) {
       const tr = document.createElement("tr");
       if (chatEditable) {
@@ -315,17 +340,40 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       chatEditable = canEdit;
       const tbody = $("ap-chat-tbody");
       tbody.textContent = "";
-      rows.forEach((r) => tbody.append(chatRow(r.q ?? "", r.a ?? "")));
+      // cat を1つでも持つデータは分類見出しで区切る（値が変わるたびに新しい見出し）
+      const hasCat = rows.some((r) => String(r.cat ?? "") !== "");
+      let cur = null;
+      rows.forEach((r) => {
+        const cat = String(r.cat ?? "");
+        if (hasCat && cat !== cur) { tbody.append(catRow(cat)); cur = cat; }
+        tbody.append(chatRow(r.q ?? "", r.a ?? ""));
+      });
       $("ap-chat-table").hidden = rows.length === 0 && !canEdit;
       $("ap-chat-empty").hidden = rows.length > 0 || canEdit;
       $("ap-chat-savebar").hidden = !canEdit;
     }
     $("ap-chat-addrow")?.addEventListener("click", () => $("ap-chat-tbody").append(chatRow("", "")));
+    $("ap-chat-addcat")?.addEventListener("click", () => {
+      const tb = $("ap-chat-tbody");
+      const head = catRow("");
+      tb.append(head, chatRow("", ""));
+      head.querySelector(".ap-chat-catname")?.focus();
+    });
     $("ap-chat-save")?.addEventListener("click", async () => {
-      const rows = [...$("ap-chat-tbody").querySelectorAll("tr")].map((tr) => ({
-        q: tr.querySelector(".ap-chat-q")?.value ?? "",
-        a: tr.querySelector(".ap-chat-a")?.value ?? "",
-      }));
+      const rows = [];
+      let cur = "";
+      for (const tr of $("ap-chat-tbody").querySelectorAll("tr")) {
+        if (tr.classList.contains("ap-chat-cat")) {
+          cur = (tr.querySelector(".ap-chat-catname")?.value ?? "").trim();
+          continue;
+        }
+        const row = {
+          q: tr.querySelector(".ap-chat-q")?.value ?? "",
+          a: tr.querySelector(".ap-chat-a")?.value ?? "",
+        };
+        if (cur) row.cat = cur;
+        rows.push(row);
+      }
       $("ap-chat-saved").textContent = "保存しています…";
       const r = await api("POST", { prop: urlProp(), chatInfo: rows });
       $("ap-chat-saved").textContent = r.ok
@@ -427,6 +475,19 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-chat-table :global(textarea:focus) { outline: none; background: #f7f9ff; }
   .ap-chat-table :global(tbody tr:hover) { background: #fafafa; }
   .ap-chat-rowop { width: 36px; text-align: center; }
+  .ap-chat-table :global(tr.ap-chat-cat th) {
+    background: #f6f6f6; padding: 0.6rem 0.75rem; border-bottom: 1px solid #e5e5e5;
+    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; color: #333333;
+  }
+  .ap-chat-table :global(tr.ap-chat-cat td) { background: #f6f6f6; padding: 0.3rem 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .ap-chat-table :global(.ap-chat-catname) {
+    border: 0; background: transparent; font: inherit; font-weight: 600; width: 100%; padding: 0.1rem 0.25rem;
+  }
+  .ap-chat-table :global(.ap-chat-catname:focus) { outline: none; background: #ffffff; }
+  .ap-chat-table :global(.ap-chat-catadd) {
+    border: 0; background: transparent; cursor: pointer; font-size: 1rem; color: #666666; padding: 0.2rem 0.4rem;
+  }
+  .ap-chat-table :global(.ap-chat-catadd:hover) { color: #111111; }
   .ap-chat-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; }
   .ap-chat-table :global(.ap-chat-del) {
     border: 0; background: none; color: #bbbbbb; font-size: 1rem; cursor: pointer;
