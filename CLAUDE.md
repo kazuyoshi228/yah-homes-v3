@@ -115,6 +115,7 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 
 ## 変更してはいけない / 前提
 
+- 🚨 **GA4計測の生命線: `src/layouts/BaseLayout.astro` の `window.gtag = gtag;` を削除・移動しない（2026-08-18 修正・デプロイ済み）。** Astro の `define:vars` はインラインスクリプトを IIFE でラップするため、この1行がないと `function gtag()` がグローバルに出ず、`window.gtag?.(...)` で送る全カスタムイベント（book導線の `availability_requested`/`begin_checkout`/`booking_complete_viewed`、contact の `contact_submit`）が**エラーも出さずに全滅**する。checkout の `gtag("get")` も失敗して purchase が Unassigned になる（過去に実際に起きた）。GA4スクリプト周りをリファクタする場合も、`window.gtag` がグローバルに公開されている状態を必ず維持し、デプロイ後に本番コンソールで `typeof window.gtag === "function"` を確認すること。
 - 🚨 **セキュリティルール（`firestore.rules`）／ Cloud Functions（`functions/src/*`）／ Storage ルール（`storage.rules`）は、ユーザーの許可なく変更しない。** セキュリティ・課金・データ整合に直結するため、変更が必要な場合はまず内容を提案し、承認を得てから実施する（デプロイも同様にユーザー指示が必須）。
 - 🔧 **Beds24 連携（予約カレンダー同期・webhook）** は旧実装（`_reference_original/server/webhooks/`）を参照しつつ Functions へ移植予定。認証・鍵の扱いは設計図で確定させるまで実装しない。
 - **magazine.yah.mobi との連携**：`/locals` 等でグルメ・ローカル記事を magazine 側の Firestore から取り込む構想（コンテンツの一次ソースは magazine に一本化）。SEO 上重要な埋め込みは**必ず SSG でビルド時に焼き込む**（クライアント fetch は AI クローラーに見えない）。magazine 記事更新をトリガーに再ビルドする方式を設計図で決める。
