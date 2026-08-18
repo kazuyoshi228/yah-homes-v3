@@ -9,12 +9,12 @@ export const zh: TakasagoTranslations = {
     propertyName: "yah.homes takasago",
     tagline: "位於福岡高砂地區中心的時尚整棟住宅。",
     area: "高砂，中央區，福岡",
-    capacity: "最多 {cap} 人 · 3 間臥室",
+    capacity: "最多 {cap} 人 · {rooms} 間臥室",
     bookNow: "立即預訂",
   },
   overview: {
     title: "房源概覽",
-    bedrooms: "3 間臥室",
+    bedrooms: "{rooms} 間臥室",
     beds: "1 張雙人床 + 4 張單人床",
     maxGuests: "最多 {cap} 人",
     area: "高砂 · 中央區，福岡",
@@ -207,7 +207,7 @@ export const zh: TakasagoTranslations = {
         "臥室 1：1 張雙人床",
         "臥室 2：2 張單人床",
         "臥室 3：2 張單人床",
-        "（3 間臥室，最多 {cap} 人）",
+        "（{rooms} 間臥室，最多 {cap} 人）",
       ],
     },
     facilityGuide: {
@@ -284,7 +284,7 @@ export const zh: TakasagoTranslations = {
   },
   floorPlan: {
     title: "平面圖",
-    subtitle: "3 層獨棟住宅 · 1F：玄關 & 車庫 · 2F：客廳/餐廳/廚房、影音室、浴室 & 淋浴間 · 3F：3 間臥室 & 陽台",
+    subtitle: "3 層獨棟住宅 · 1F：玄關 & 車庫 · 2F：客廳/餐廳/廚房、影音室、浴室 & 淋浴間 · 3F：{rooms} 間臥室 & 陽台",
     imageAlt: "高砂平面圖 – 1F 玄關 & 車庫，2F 客廳餐廳廚房、影音室、浴室 & 淋浴間，3F 臥室 & 陽台",
   },
   contact: {

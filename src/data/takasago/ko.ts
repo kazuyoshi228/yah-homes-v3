@@ -9,12 +9,12 @@ export const ko: TakasagoTranslations = {
     propertyName: "yah.homes takasago",
     tagline: "후쿠오카 다카사고 지구 중심에 위치한 세련된 단독 주택.",
     area: "다카사고, 추오구, 후쿠오카",
-    capacity: "최대 {cap}인 · 침실 3개",
+    capacity: "최대 {cap}인 · 침실 {rooms}개",
     bookNow: "지금 예약",
   },
   overview: {
     title: "숙소 개요",
-    bedrooms: "침실 3개",
+    bedrooms: "침실 {rooms}개",
     beds: "더블 침대 1개 + 싱글 침대 4개",
     maxGuests: "6인 (최대)",
     area: "다카사고 · 추오구, 후쿠오카",
@@ -208,7 +208,7 @@ export const ko: TakasagoTranslations = {
         "침실 1: 더블 침대 1개",
         "침실 2: 싱글 침대 2개",
         "침실 3: 싱글 침대 2개",
-        "(침실 3개, 최대 {cap}인)",
+        "(침실 {rooms}개, 최대 {cap}인)",
       ],
     },
     facilityGuide: {
@@ -285,7 +285,7 @@ export const ko: TakasagoTranslations = {
   },
   floorPlan: {
     title: "평면도",
-    subtitle: "3층 단독 주택 · 1층: 현관 & 차고 · 2층: 거실/식당/주방, 시어터 룸, 욕실 & 샤워 부스 · 3층: 침실 3개 & 발코니",
+    subtitle: "3층 단독 주택 · 1층: 현관 & 차고 · 2층: 거실/식당/주방, 시어터 룸, 욕실 & 샤워 부스 · 3층: 침실 {rooms}개 & 발코니",
     imageAlt: "다카사고 평면도 – 1층 현관 & 차고, 2층 거실 식당 주방, 시어터 룸, 욕실 & 샤워 부스, 3층 침실 & 발코니",
   },
   contact: {

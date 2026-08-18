@@ -108,28 +108,28 @@ const HOME: LocaleText = {
     title:
       "yah.homes | Whole-House Villa Rental Fukuoka — Private Home for Group/Family Trip",
     description:
-      "yah.homes offers whole-house villa rentals in Fukuoka, Japan. Kiyokawa (7 guests) and Takasago (6 guests) — privately designed homes perfect for group trips, family vacations, and workcations. Book on Airbnb or Booking.com.",
+      "yah.homes offers whole-house villa rentals in Fukuoka, Japan. Kiyokawa ({K_CAP} guests) and Takasago ({T_CAP} guests) — privately designed homes perfect for group trips, family vacations, and workcations. Book on Airbnb or Booking.com.",
   },
   ja: {
     title: "yah.homes | 福岡の一棟貸しヴィラ — グループ・家族旅行のための貸切の家",
     description:
-      "yah.homesは福岡の都心部（中央区）にある新築の一棟貸し・貸別荘ヴィラ。清川（最大7名）と高砂（最大6名）——グループ旅行・家族旅行・ワーケーションに最適な、まるごと貸切のプライベートな家。AirbnbまたはBooking.comで予約できます。",
+      "yah.homesは福岡の都心部（中央区）にある新築の一棟貸し・貸別荘ヴィラ。清川（最大{K_CAP}名）と高砂（最大{T_CAP}名）——グループ旅行・家族旅行・ワーケーションに最適な、まるごと貸切のプライベートな家。AirbnbまたはBooking.comで予約できます。",
   },
   ko: {
     title: "yah.homes | 후쿠오카 통째 빌라 렌탈 — 가족·단체 여행 전용 주택",
     description:
-      "yah.homes는 일본 후쿠오카의 통째 빌라 렌탈 브랜드입니다. 기요카와(최대 7명)와 다카사고(최대 6명) — 가족 여행, 단체 여행에 완벽한 독립 주택. Airbnb 또는 Booking.com에서 예약 가능.",
+      "yah.homes는 일본 후쿠오카의 통째 빌라 렌탈 브랜드입니다. 기요카와(최대 {K_CAP}명)와 다카사고(최대 {T_CAP}명) — 가족 여행, 단체 여행에 완벽한 독립 주택. Airbnb 또는 Booking.com에서 예약 가능.",
   },
   zh: {
     title: "yah.homes | 福岡包棟民宿・整棟別墅 — 家庭·團體旅行專用住宿",
     description:
-      "yah.homes 是福岡市中心的包棟民宿品牌。清川（最多7人）和高砂（最多6人）——適合家庭旅行、親子住宿、團體旅遊的整棟包棟別墅。可透過 Airbnb 或 Booking.com 預訂。",
+      "yah.homes 是福岡市中心的包棟民宿品牌。清川（最多{K_CAP}人）和高砂（最多{T_CAP}人）——適合家庭旅行、親子住宿、團體旅遊的整棟包棟別墅。可透過 Airbnb 或 Booking.com 預訂。",
   },
   th: {
     title:
       "yah.homes | เช่าวิล่าทั้งหลังฟุกุโอกะ — ที่พักส่วนตัวสำหรับครอบครัว/กลุ่มเพื่อน",
     description:
-      "yah.homes คือแบรนด์เช่าวิล่าทั้งหลังในฟุกุโอกะ ประเทศญี่ปุ่น คิโยกาวะ (สูงสุด 7 คน) และทาคาซาโกะ (สูงสุด 6 คน) — เหมาะสำหรับทริปครอบครัวและกลุ่มเพื่อน จองผ่าน Airbnb หรือ Booking.com",
+      "yah.homes คือแบรนด์เช่าวิล่าทั้งหลังในฟุกุโอกะ ประเทศญี่ปุ่น คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) — เหมาะสำหรับทริปครอบครัวและกลุ่มเพื่อน จองผ่าน Airbnb หรือ Booking.com",
   },
 };
 
@@ -194,85 +194,85 @@ const BOOKING: LocaleText = {
   en: {
     title: "Book Your Stay | yah.homes — Whole-House Stays in Fukuoka",
     description:
-      "Reserve your stay at yah.homes Fukuoka on Airbnb — Kiyokawa (up to 7 guests) and Takasago (up to 6 guests). Newly built whole-house rentals with SIMMONS mattresses and full kitchens.",
+      "Reserve your stay at yah.homes Fukuoka on Airbnb — Kiyokawa (up to {K_CAP} guests) and Takasago (up to {T_CAP} guests). Newly built whole-house rentals with SIMMONS mattresses and full kitchens.",
   },
   ja: {
     title: "ご予約 | yah.homes — 福岡の一棟貸しの宿",
     description:
-      "yah.homes福岡をAirbnbで予約——清川（最大7名）・高砂（最大6名）。シモンズ製マットレスとフルキッチンを備えた新築の一棟貸しです。",
+      "yah.homes福岡をAirbnbで予約——清川（最大{K_CAP}名）・高砂（最大{T_CAP}名）。シモンズ製マットレスとフルキッチンを備えた新築の一棟貸しです。",
   },
   ko: {
     title: "예약하기 | yah.homes — 후쿠오카 통째 빌라",
     description:
-      "yah.homes 후쿠오카를 Airbnb에서 예약하세요 — 기요카와(최대 7명)·다카사고(최대 6명). SIMMONS 매트리스와 풀 키친을 갖춘 신축 통째 빌라입니다.",
+      "yah.homes 후쿠오카를 Airbnb에서 예약하세요 — 기요카와(최대 {K_CAP}명)·다카사고(최대 {T_CAP}명). SIMMONS 매트리스와 풀 키친을 갖춘 신축 통째 빌라입니다.",
   },
   zh: {
     title: "立即預訂 | yah.homes — 福岡包棟民宿",
     description:
-      "透過 Airbnb 預訂 yah.homes 福岡 — 清川（最多7人）與高砂（最多6人）。配備 SIMMONS 床墊與完整廚房的新建整棟住宿。",
+      "透過 Airbnb 預訂 yah.homes 福岡 — 清川（最多{K_CAP}人）與高砂（最多{T_CAP}人）。配備 SIMMONS 床墊與完整廚房的新建整棟住宿。",
   },
   th: {
     title: "จองที่พัก | yah.homes — ที่พักทั้งหลังในฟุกุโอกะ",
     description:
-      "จอง yah.homes ฟุกุโอกะผ่าน Airbnb — คิโยกาวะ (สูงสุด 7 คน) และทาคาซาโกะ (สูงสุด 6 คน) บ้านพักใหม่ทั้งหลังพร้อมที่นอน SIMMONS และครัวครบครัน",
+      "จอง yah.homes ฟุกุโอกะผ่าน Airbnb — คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) บ้านพักใหม่ทั้งหลังพร้อมที่นอน SIMMONS และครัวครบครัน",
   },
 };
 
 // CTR改善（2026-07-14 高砂と同一設計: クエリ語彙先頭・数字3つ・公式）
 const KIYOKAWA: LocaleText = {
   en: {
-    title: "Newly Built Whole-House Villa in Fukuoka — Sleeps 7, Private Parking | Kiyokawa by yah.homes",
+    title: "Newly Built Whole-House Villa in Fukuoka — Sleeps {K_CAP}, Private Parking | Kiyokawa by yah.homes",
     description:
-      "Rent an entire newly built villa by the Naka River, central Fukuoka. 3 bedrooms, SIMMONS mattresses, full kitchen, private parking. One group per day, rated {K_RATING}/5 on Airbnb. Book direct.",
+      "Rent an entire newly built villa by the Naka River, central Fukuoka. {K_ROOMS} bedrooms, SIMMONS mattresses, full kitchen, private parking. One group per day, rated {K_RATING}/5 on Airbnb. Book direct.",
   },
   ja: {
-    title: "福岡の新築一棟貸しヴィラ「清川」｜最大7名・駐車場付・1日1組【公式】",
+    title: "福岡の新築一棟貸しヴィラ「清川」｜最大{K_CAP}名・駐車場付・1日1組【公式】",
     description:
-      "那珂川沿い・天神と博多の中間に建つ新築の一軒家を丸ごと貸切。寝室3室・シモンズ製マットレス・フルキッチン・専用駐車場。1日1組限定、Airbnb評価★{K_RATING}。空室カレンダーからご予約。",
+      "那珂川沿い・天神と博多の中間に建つ新築の一軒家を丸ごと貸切。寝室{K_ROOMS}室・シモンズ製マットレス・フルキッチン・専用駐車場。1日1組限定、Airbnb評価★{K_RATING}。空室カレンダーからご予約。",
   },
   ko: {
-    title: "후쿠오카 신축 독채 빌라 '기요카와' | 최대 7인·주차 가능·하루 한 팀 [공식]",
+    title: "후쿠오카 신축 독채 빌라 '기요카와' | 최대 {K_CAP}인·주차 가능·하루 한 팀 [공식]",
     description:
-      "나카강변, 덴진과 하카타 사이의 신축 주택을 통째로 대여. 침실 3개·SIMMONS 매트리스·풀 키친·전용 주차장. 하루 한 팀만, Airbnb 평점 ★{K_RATING}. 공식 사이트에서 예약.",
+      "나카강변, 덴진과 하카타 사이의 신축 주택을 통째로 대여. 침실 {K_ROOMS}개·SIMMONS 매트리스·풀 키친·전용 주차장. 하루 한 팀만, Airbnb 평점 ★{K_RATING}. 공식 사이트에서 예약.",
   },
   zh: {
-    title: "福岡新建包棟民宿「清川」｜最多7人・附停車場・一天一組【官方】",
+    title: "福岡新建包棟民宿「清川」｜最多{K_CAP}人・附停車場・一天一組【官方】",
     description:
-      "那珂川畔、天神與博多之間的新建整棟民宿。3間臥室、SIMMONS床墊、完整廚房、私人停車場。一天只接待一組，Airbnb評分★{K_RATING}。官網直接預訂。",
+      "那珂川畔、天神與博多之間的新建整棟民宿。{K_ROOMS}間臥室、SIMMONS床墊、完整廚房、私人停車場。一天只接待一組，Airbnb評分★{K_RATING}。官網直接預訂。",
   },
   th: {
-    title: "วิลล่าสร้างใหม่ทั้งหลังในฟุกุโอกะ 'คิโยกาวะ' | สูงสุด 7 คน มีที่จอดรถ [ทางการ]",
+    title: "วิลล่าสร้างใหม่ทั้งหลังในฟุกุโอกะ 'คิโยกาวะ' | สูงสุด {K_CAP} คน มีที่จอดรถ [ทางการ]",
     description:
-      "เช่าวิลล่าสร้างใหม่ทั้งหลังริมแม่น้ำนากะ ใจกลางฟุกุโอกะ 3 ห้องนอน ที่นอน SIMMONS ครัวครบ ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {K_RATING}/5 จองตรงที่เว็บทางการ",
+      "เช่าวิลล่าสร้างใหม่ทั้งหลังริมแม่น้ำนากะ ใจกลางฟุกุโอกะ {K_ROOMS} ห้องนอน ที่นอน SIMMONS ครัวครบ ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {K_RATING}/5 จองตรงที่เว็บทางการ",
   },
 };
 
 // CTR改善（2026-07-14 SC実測: 表示69・クリック0 → ブランド先頭をやめ、クエリ語彙＋数字を先頭に）
 const TAKASAGO: LocaleText = {
   en: {
-    title: "Whole-House Rental in Central Fukuoka — Sleeps 6, Free Parking | Takasago by yah.homes",
+    title: "Whole-House Rental in Central Fukuoka — Sleeps {T_CAP}, Free Parking | Takasago by yah.homes",
     description:
-      "Rent an entire house near Tenjin & Hakata. 3 bedrooms, 3 vanities, SIMMONS mattresses, parking for large cars. One group per day, rated {T_RATING}/5 on Airbnb. Book direct.",
+      "Rent an entire house near Tenjin & Hakata. {T_ROOMS} bedrooms, {T_SINK} vanities, SIMMONS mattresses, parking for large cars. One group per day, rated {T_RATING}/5 on Airbnb. Book direct.",
   },
   ja: {
-    title: "福岡・渡辺通の一棟貸し「高砂」｜最大6名・駐車場付・1日1組【公式】",
+    title: "福岡・渡辺通の一棟貸し「高砂」｜最大{T_CAP}名・駐車場付・1日1組【公式】",
     description:
-      "天神・博多へ好アクセス、渡辺通駅徒歩5〜10分の一軒家を丸ごと貸切。寝室3室・洗面台3・シモンズ製マットレス・大型車も停められる専用駐車場。1日1組限定、Airbnb評価★{T_RATING}。空室カレンダーからご予約。",
+      "天神・博多へ好アクセス、渡辺通駅徒歩{T_STATION}分の一軒家を丸ごと貸切。寝室{T_ROOMS}室・洗面台{T_SINK}・シモンズ製マットレス・大型車も停められる専用駐車場。1日1組限定、Airbnb評価★{T_RATING}。空室カレンダーからご予約。",
   },
   ko: {
-    title: "후쿠오카 독채 숙소 '다카사고' | 최대 6인·주차 가능·하루 한 팀 [공식]",
+    title: "후쿠오카 독채 숙소 '다카사고' | 최대 {T_CAP}인·주차 가능·하루 한 팀 [공식]",
     description:
-      "덴진·하카타 접근성 좋은 위치, 와타나베도리역 도보 5~10분. 집 한 채 통째 대여, 침실 3개·세면대 3개·SIMMONS 매트리스·대형차 주차 가능. Airbnb 평점 ★{T_RATING}. 공식 사이트에서 예약.",
+      "덴진·하카타 접근성 좋은 위치, 와타나베도리역 도보 {T_STATION}분. 집 한 채 통째 대여, 침실 {T_ROOMS}개·세면대 {T_SINK}개·SIMMONS 매트리스·대형차 주차 가능. Airbnb 평점 ★{T_RATING}. 공식 사이트에서 예약.",
   },
   zh: {
-    title: "福岡包棟民宿「高砂」｜最多6人・附停車場・一天一組【官方】",
+    title: "福岡包棟民宿「高砂」｜最多{T_CAP}人・附停車場・一天一組【官方】",
     description:
-      "鄰近天神・博多，渡邊通站步行5～10分鐘。整棟包棟出租：3間臥室、3個洗手台、SIMMONS床墊、可停大型車的專用停車場。一天只接待一組，Airbnb評分★{T_RATING}。官網直接預訂。",
+      "鄰近天神・博多，渡邊通站步行{T_STATION}分鐘。整棟包棟出租：{T_ROOMS}間臥室、{T_SINK}個洗手台、SIMMONS床墊、可停大型車的專用停車場。一天只接待一組，Airbnb評分★{T_RATING}。官網直接預訂。",
   },
   th: {
-    title: "บ้านเช่าทั้งหลังในฟุกุโอกะ 'ทาคาซาโกะ' | สูงสุด 6 คน มีที่จอดรถ [ทางการ]",
+    title: "บ้านเช่าทั้งหลังในฟุกุโอกะ 'ทาคาซาโกะ' | สูงสุด {T_CAP} คน มีที่จอดรถ [ทางการ]",
     description:
-      "เช่าบ้านทั้งหลังใกล้เท็นจินและฮากาตะ เดิน 5-10 นาทีจากสถานี Watanabe-dori 3 ห้องนอน ที่นอน SIMMONS ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {T_RATING}/5 จองตรงที่เว็บทางการ",
+      "เช่าบ้านทั้งหลังใกล้เท็นจินและฮากาตะ เดิน {T_STATION} นาทีจากสถานี Watanabe-dori {T_ROOMS} ห้องนอน ที่นอน SIMMONS ที่จอดรถส่วนตัว รับวันละหนึ่งกลุ่ม คะแนน Airbnb {T_RATING}/5 จองตรงที่เว็บทางการ",
   },
 };
 
@@ -472,11 +472,15 @@ export async function getPageMeta(page: PageKey, locale: Locale): Promise<PageMe
   // 説明文の評価値は SSoT から差し込む。文言に数値を直書きすると、管理画面で
   // 評価を更新しても検索結果の説明文だけ古い値が残る（実際に 4.67→4.68 でズレた）。
   const { facts } = await getPropertyFacts();
-  const description = t.description
-    .replace("{K_RATING}", facts.kiyokawa.rating)
-    .replace("{T_RATING}", facts.takasago.rating);
+  const K = facts.kiyokawa, T = facts.takasago;
+  const inject = (v: string) => v
+    .replace(/\{K_RATING\}/g, K.rating).replace(/\{T_RATING\}/g, T.rating)
+    .replace(/\{K_CAP\}/g, String(K.capacity)).replace(/\{T_CAP\}/g, String(T.capacity))
+    .replace(/\{K_ROOMS\}/g, String(K.bedrooms)).replace(/\{T_ROOMS\}/g, String(T.bedrooms))
+    .replace(/\{T_SINK\}/g, String(T.sink)).replace(/\{T_STATION\}/g, String(T.fromStationWalkMin));
+  const description = inject(t.description);
   return {
-    title: t.title,
+    title: inject(t.title),
     description,
     ogImage: OG_IMAGE_BY_PAGE[page] ?? OG_IMAGE,
     jsonLd: await jsonLdFor(page),

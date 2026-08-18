@@ -9,12 +9,12 @@ export const zh: KiyokawaTranslations = {
     propertyName: "yah.homes kiyokawa",
     tagline: "位於充滿活力的清川地區，全新打造的獨棟民宅。",
     area: "清川，中央區，福岡",
-    capacity: "最多 {cap} 人 · 3 間臥室",
+    capacity: "最多 {cap} 人 · {rooms} 間臥室",
     bookNow: "立即預訂",
   },
   overview: {
     title: "房源概覽",
-    bedrooms: "3 間臥室",
+    bedrooms: "{rooms} 間臥室",
     beds: "雙人床 3 張 + 單人床 1 張",
     maxGuests: "最多 {cap} 人",
     area: "清川 · 福岡市中央區",
@@ -133,7 +133,7 @@ export const zh: KiyokawaTranslations = {
     highlights: [
       {
         title: "1. 極致睡眠體驗（SIMMONS 頂級床墊）",
-        body: "3 間臥室均配備頂級酒店所使用的 SIMMONS 頂級床墊。每張床邊均設有插座，確保您得到充分休息。",
+        body: "{rooms} 間臥室均配備頂級酒店所使用的 SIMMONS 頂級床墊。每張床邊均設有插座，確保您得到充分休息。",
       },
       {
         title: "2. 震撼影院級家庭娛樂",
@@ -150,7 +150,7 @@ export const zh: KiyokawaTranslations = {
         "臥室 1：單人床 1 張",
         "臥室 2：雙人床 2 張",
         "臥室 3：雙人床 1 張",
-        "（3 間臥室最多可容納 7 位）",
+        "（{rooms} 間臥室最多可容納 7 位）",
       ],
     },
     facilityGuide: {
@@ -288,7 +288,7 @@ export const zh: KiyokawaTranslations = {
   },
   floorPlan: {
     title: "平面圖",
-    subtitle: "3 層獨棟居宅 · 1F：浴室 & 車庫 · 2F：客廳/餐廳/廚房 · 3F：3 間臥室 & 陽台",
+    subtitle: "3 層獨棟居宅 · 1F：浴室 & 車庫 · 2F：客廳/餐廳/廚房 · 3F：{rooms} 間臥室 & 陽台",
     imageAlt: "清川平面圖 – 1F 浴室 & 車庫，2F 客廳/餐廳/廚房，3F 臥室 & 陽台",
   },
   contact: {

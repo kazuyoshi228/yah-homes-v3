@@ -1,6 +1,10 @@
 // yah.homes — 周辺スポット距離表（GEO: AI引用・地図系クエリ対応）
-// 対象5スポットはユーザー指定（2026-07-14）。距離は地図実測ベースの概算。
+// 対象5スポットはユーザー指定（2026-07-14）。
+// 距離・所要時間の正本は property_facts の spot*（/admin/properties）。
+// このファイルは各言語の「言い回しテンプレート」だけを持ち、数値を書かない
+// （5言語×2棟×5行=50値の直書きが管理画面と無関係に残っていた 2026-08-18 監査の是正）。
 import type { Locale } from "../i18n/config";
+import type { PropertyFacts } from "../lib/propertyFacts";
 
 export interface NearbyRow {
   /** スポット名（各言語） */
@@ -16,55 +20,66 @@ export interface NearbyData {
   rows: NearbyRow[];
 }
 
-export const nearbyData: Record<Locale, NearbyData> = {
+interface NearbyTpl {
+  title: string;
+  names: { market: string; sumiyoshi: string; canal: string; nakasu: string; ohori: string };
+  /** {min}=分 {dist}=距離 {walk}/{taxi}=中洲の2値 */
+  walk: string;
+  walkTaxi: string;
+  car: string;
+  m: string;
+  km: string;
+}
+
+const TPL: Record<Locale, NearbyTpl> = {
   en: {
     title: "Distances to Popular Spots",
-    rows: [
-      { name: "Yanagibashi Rengo Market", kiyokawa: "About 7 min on foot (550 m)", takasago: "About 10 min on foot (800 m)" },
-      { name: "Sumiyoshi Shrine", kiyokawa: "About 15 min on foot (1.2 km)", takasago: "About 15 min on foot (1.2 km)" },
-      { name: "Canal City Hakata", kiyokawa: "About 15 min on foot (1.2 km)", takasago: "About 18 min on foot (1.4 km)" },
-      { name: "Nakasu (yatai food stalls)", kiyokawa: "About 20 min on foot / 5 min by taxi", takasago: "About 25 min on foot / 7 min by taxi" },
-      { name: "Ohori Park", kiyokawa: "About 10 min by car (3 km)", takasago: "About 10 min by car (2.7 km)" },
-    ],
+    names: { market: "Yanagibashi Rengo Market", sumiyoshi: "Sumiyoshi Shrine", canal: "Canal City Hakata", nakasu: "Nakasu (yatai food stalls)", ohori: "Ohori Park" },
+    walk: "About {min} min on foot ({dist})", walkTaxi: "About {walk} min on foot / {taxi} min by taxi",
+    car: "About {min} min by car ({dist})", m: "{v} m", km: "{v} km",
   },
   ja: {
     title: "人気スポットまでの距離",
-    rows: [
-      { name: "柳橋連合市場", kiyokawa: "徒歩約7分（550m）", takasago: "徒歩約10分（800m）" },
-      { name: "住吉神社", kiyokawa: "徒歩約15分（1.2km）", takasago: "徒歩約15分（1.2km）" },
-      { name: "キャナルシティ博多", kiyokawa: "徒歩約15分（1.2km）", takasago: "徒歩約18分（1.4km）" },
-      { name: "中洲（屋台街）", kiyokawa: "徒歩約20分／タクシー約5分", takasago: "徒歩約25分／タクシー約7分" },
-      { name: "大濠公園", kiyokawa: "車で約10分（3km）", takasago: "車で約10分（2.7km）" },
-    ],
+    names: { market: "柳橋連合市場", sumiyoshi: "住吉神社", canal: "キャナルシティ博多", nakasu: "中洲（屋台街）", ohori: "大濠公園" },
+    walk: "徒歩約{min}分（{dist}）", walkTaxi: "徒歩約{walk}分／タクシー約{taxi}分",
+    car: "車で約{min}分（{dist}）", m: "{v}m", km: "{v}km",
   },
   ko: {
     title: "인기 스팟까지의 거리",
-    rows: [
-      { name: "야나기바시 연합시장", kiyokawa: "도보 약 7분(550m)", takasago: "도보 약 10분(800m)" },
-      { name: "스미요시 신사", kiyokawa: "도보 약 15분(1.2km)", takasago: "도보 약 15분(1.2km)" },
-      { name: "캐널시티 하카타", kiyokawa: "도보 약 15분(1.2km)", takasago: "도보 약 18분(1.4km)" },
-      { name: "나카스(야타이 거리)", kiyokawa: "도보 약 20분／택시 약 5분", takasago: "도보 약 25분／택시 약 7분" },
-      { name: "오호리 공원", kiyokawa: "차로 약 10분(3km)", takasago: "차로 약 10분(2.7km)" },
-    ],
+    names: { market: "야나기바시 연합시장", sumiyoshi: "스미요시 신사", canal: "캐널시티 하카타", nakasu: "나카스(야타이 거리)", ohori: "오호리 공원" },
+    walk: "도보 약 {min}분({dist})", walkTaxi: "도보 약 {walk}분／택시 약 {taxi}분",
+    car: "차로 약 {min}분({dist})", m: "{v}m", km: "{v}km",
   },
   zh: {
     title: "到人氣景點的距離",
-    rows: [
-      { name: "柳橋連合市場", kiyokawa: "步行約7分鐘（550m）", takasago: "步行約10分鐘（800m）" },
-      { name: "住吉神社", kiyokawa: "步行約15分鐘（1.2km）", takasago: "步行約15分鐘（1.2km）" },
-      { name: "博多運河城（Canal City）", kiyokawa: "步行約15分鐘（1.2km）", takasago: "步行約18分鐘（1.4km）" },
-      { name: "中洲（屋台街）", kiyokawa: "步行約20分鐘／計程車約5分鐘", takasago: "步行約25分鐘／計程車約7分鐘" },
-      { name: "大濠公園", kiyokawa: "開車約10分鐘（3km）", takasago: "開車約10分鐘（2.7km）" },
-    ],
+    names: { market: "柳橋連合市場", sumiyoshi: "住吉神社", canal: "博多運河城（Canal City）", nakasu: "中洲（屋台街）", ohori: "大濠公園" },
+    walk: "步行約{min}分鐘（{dist}）", walkTaxi: "步行約{walk}分鐘／計程車約{taxi}分鐘",
+    car: "開車約{min}分鐘（{dist}）", m: "{v}m", km: "{v}km",
   },
   th: {
     title: "ระยะทางไปยังสถานที่ยอดนิยม",
-    rows: [
-      { name: "ตลาดยานางิบาชิ", kiyokawa: "เดินประมาณ 7 นาที (550 ม.)", takasago: "เดินประมาณ 10 นาที (800 ม.)" },
-      { name: "ศาลเจ้าสุมิโยชิ", kiyokawa: "เดินประมาณ 15 นาที (1.2 กม.)", takasago: "เดินประมาณ 15 นาที (1.2 กม.)" },
-      { name: "คาแนลซิตี้ ฮากาตะ", kiyokawa: "เดินประมาณ 15 นาที (1.2 กม.)", takasago: "เดินประมาณ 18 นาที (1.4 กม.)" },
-      { name: "นากาสุ (ถนนรถเข็นอาหาร)", kiyokawa: "เดินประมาณ 20 นาที / แท็กซี่ประมาณ 5 นาที", takasago: "เดินประมาณ 25 นาที / แท็กซี่ประมาณ 7 นาที" },
-      { name: "สวนโอโฮริ", kiyokawa: "ขับรถประมาณ 10 นาที (3 กม.)", takasago: "ขับรถประมาณ 10 นาที (2.7 กม.)" },
-    ],
+    names: { market: "ตลาดยานางิบาชิ", sumiyoshi: "ศาลเจ้าสุมิโยชิ", canal: "คาแนลซิตี้ ฮากาตะ", nakasu: "นากาสุ (ถนนรถเข็นอาหาร)", ohori: "สวนโอโฮริ" },
+    walk: "เดินประมาณ {min} นาที ({dist})", walkTaxi: "เดินประมาณ {walk} นาที / แท็กซี่ประมาณ {taxi} นาที",
+    car: "ขับรถประมาณ {min} นาที ({dist})", m: "{v} ม.", km: "{v} กม.",
   },
 };
+
+/** SSoT の spot* から言語別の距離表を組み立てる（PropertyDetail / ComparisonTable 共用） */
+export function getNearby(lang: Locale, K: PropertyFacts, T: PropertyFacts): NearbyData {
+  const t = TPL[lang];
+  const dist = (m: number) =>
+    m < 1000 ? t.m.replace("{v}", String(m)) : t.km.replace("{v}", String(Number((m / 1000).toFixed(1))));
+  const walk = (min: number, m: number) => t.walk.replace("{min}", String(min)).replace("{dist}", dist(m));
+  const car = (min: number, m: number) => t.car.replace("{min}", String(min)).replace("{dist}", dist(m));
+  const nakasu = (w: number, x: number) => t.walkTaxi.replace("{walk}", String(w)).replace("{taxi}", String(x));
+  return {
+    title: t.title,
+    rows: [
+      { name: t.names.market, kiyokawa: walk(K.spotMarketMin, K.spotMarketM), takasago: walk(T.spotMarketMin, T.spotMarketM) },
+      { name: t.names.sumiyoshi, kiyokawa: walk(K.spotSumiyoshiMin, K.spotSumiyoshiM), takasago: walk(T.spotSumiyoshiMin, T.spotSumiyoshiM) },
+      { name: t.names.canal, kiyokawa: walk(K.spotCanalMin, K.spotCanalM), takasago: walk(T.spotCanalMin, T.spotCanalM) },
+      { name: t.names.nakasu, kiyokawa: nakasu(K.spotNakasuWalkMin, K.spotNakasuTaxiMin), takasago: nakasu(T.spotNakasuWalkMin, T.spotNakasuTaxiMin) },
+      { name: t.names.ohori, kiyokawa: car(K.spotOhoriCarMin, K.spotOhoriM), takasago: car(T.spotOhoriCarMin, T.spotOhoriM) },
+    ],
+  };
+}

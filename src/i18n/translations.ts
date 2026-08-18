@@ -223,8 +223,8 @@ const en: Translations = {
     bookingBtn: "See ratings on Booking.com",
     airbnbBtn: "See reviews on Airbnb",
     reviewsLabel: "reviews · Airbnb",
-    kiyokawa: { name: "Kiyokawa", info: "3 Bedrooms / 7 People" },
-    takasago: { name: "Takasago", info: "3 Bedrooms / 6 People" },
+    kiyokawa: { name: "Kiyokawa", info: "{rooms} Bedrooms / {cap} People" },
+    takasago: { name: "Takasago", info: "{rooms} Bedrooms / {cap} People" },
     wonderHeadline: "yah. Wonder here",
     wonderBody: [
       "Go deeper into this town.",
@@ -393,8 +393,8 @@ const ko: Translations = {
     bookingBtn: "Booking.com 평점 보기",
     airbnbBtn: "Airbnb 후기 보기",
     reviewsLabel: "개 리뷰 · Airbnb",
-    kiyokawa: { name: "기요카와", info: "침실 3개 / 최대 7인" },
-    takasago: { name: "다카사고", info: "침실 3개 / 최대 6인" },
+    kiyokawa: { name: "기요카와", info: "침실 {rooms}개 / 최대 {cap}인" },
+    takasago: { name: "다카사고", info: "침실 {rooms}개 / 최대 {cap}인" },
     wonderHeadline: "yah. Wonder here",
     wonderBody: [
       "이 도시를, 더 깊이.",
@@ -562,8 +562,8 @@ const zh: Translations = {
     bookingBtn: "在 Booking.com 查看評分",
     airbnbBtn: "在 Airbnb 查看評價",
     reviewsLabel: "則評價 · Airbnb",
-    kiyokawa: { name: "清川", info: "3間臥室 / 最多7人" },
-    takasago: { name: "高砂", info: "3間臥室 / 最多6人" },
+    kiyokawa: { name: "清川", info: "{rooms}間臥室 / 最多{cap}人" },
+    takasago: { name: "高砂", info: "{rooms}間臥室 / 最多{cap}人" },
     wonderHeadline: "yah. Wonder here",
     wonderBody: [
       "這座城市，再深入一點。",
@@ -731,8 +731,8 @@ const th: Translations = {
     bookingBtn: "ดูคะแนนบน Booking.com",
     airbnbBtn: "ดูรีวิวบน Airbnb",
     reviewsLabel: "รีวิว · Airbnb",
-    kiyokawa: { name: "คิโยคาวะ", info: "3 ห้องนอน / สูงสุด 7 คน" },
-    takasago: { name: "ทากาซาโกะ", info: "3 ห้องนอน / สูงสุด 6 คน" },
+    kiyokawa: { name: "คิโยคาวะ", info: "{rooms} ห้องนอน / สูงสุด {cap} คน" },
+    takasago: { name: "ทากาซาโกะ", info: "{rooms} ห้องนอน / สูงสุด {cap} คน" },
     wonderHeadline: "yah. Wonder here",
     wonderBody: [
       "เมืองนี้ — ลึกลงไปอีก",
@@ -901,8 +901,8 @@ const ja: Translations = {
     bookingBtn: "Booking.com の評価を見る",
     airbnbBtn: "Airbnb のレビューを見る",
     reviewsLabel: "件のレビュー · Airbnb",
-    kiyokawa: { name: "清川", info: "寝室3室 / 最大7名" },
-    takasago: { name: "高砂", info: "寝室3室 / 最大6名" },
+    kiyokawa: { name: "清川", info: "寝室{rooms}室 / 最大{cap}名" },
+    takasago: { name: "高砂", info: "寝室{rooms}室 / 最大{cap}名" },
     wonderHeadline: "yah. Wonder here",
     // ブランドガイドライン「yah. homes Statement (Jpn)」逐語
     wonderBody: [

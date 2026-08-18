@@ -1,4 +1,5 @@
 ---
+import { makeFill } from "../../lib/factText";
 /* yah.homes PropertiesSection — 旧 PropertiesSection.tsx の忠実移植
    Wonder Here コピー＋ロゴ → 縦書き Properties ラベル＋2カラムカード
    （3/4画像・photos バッジ・星評価・Airbnb / Booking.com / Gallery ボタン）
@@ -38,7 +39,7 @@ const PROPERTY_META = [
     rating: Number(facts.kiyokawa.rating),
     reviewCount: Number(facts.kiyokawa.reviewCount),
     name: t.properties.kiyokawa.name,
-    info: t.properties.kiyokawa.info,
+    info: makeFill(facts.kiyokawa, lang)(t.properties.kiyokawa.info),
   },
   {
     id: "takasago",
@@ -52,7 +53,7 @@ const PROPERTY_META = [
     rating: Number(facts.takasago.rating),
     reviewCount: Number(facts.takasago.reviewCount),
     name: t.properties.takasago.name,
-    info: t.properties.takasago.info,
+    info: makeFill(facts.takasago, lang)(t.properties.takasago.info),
   },
 ];
 // ステートメントの署名（誰が言っているのかを示す。/book/ の信頼ブロックと同じ写真・同じ扱い）

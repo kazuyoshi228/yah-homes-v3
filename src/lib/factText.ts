@@ -24,8 +24,11 @@ export function makeFill(facts: PropertyFacts, lang: Locale): (v: string) => str
   const co = fmtTime(facts.checkoutTime, lang);
   const cap = String(facts.capacity);
   const d = String(facts.freeCancelDays);
+  const rooms = String(facts.bedrooms), bd = String(facts.bedDouble), bs = String(facts.bedSingle);
+  const tv = String(facts.tvInch);
   return (v: string) =>
-    v.replace(/\{ci\}/g, ci).replace(/\{co\}/g, co).replace(/\{cap\}/g, cap).replace(/\{d\}/g, d);
+    v.replace(/\{ci\}/g, ci).replace(/\{co\}/g, co).replace(/\{cap\}/g, cap).replace(/\{d\}/g, d)
+     .replace(/\{rooms\}/g, rooms).replace(/\{bd\}/g, bd).replace(/\{bs\}/g, bs).replace(/\{tv\}/g, tv);
 }
 
 /** オブジェクト内のすべての文字列にプレースホルダ差し込みを適用する。

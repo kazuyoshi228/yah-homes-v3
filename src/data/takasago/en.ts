@@ -9,13 +9,13 @@ export const en: TakasagoTranslations = {
     propertyName: "yah.homes takasago",
     tagline: "A stylish whole-house stay in the heart of Fukuoka's Takasago district.",
     area: "Takasago, Chuo-ku, Fukuoka",
-    capacity: "Up to {cap} guests · 3 Bedrooms",
+    capacity: "Up to {cap} guests · {rooms} Bedrooms",
     bookNow: "Book Now",
   },
   overview: {
     title: "Property Overview",
-    bedrooms: "3 Bedrooms",
-    beds: "1 Double Bed + 4 Single Beds",
+    bedrooms: "{rooms} Bedrooms",
+    beds: "{bd} Double Bed + {bs} Single Beds",
     maxGuests: "{cap} guests (max)",
     area: "Takasago · Chuo-ku, Fukuoka",
   },
@@ -235,7 +235,7 @@ export const en: TakasagoTranslations = {
         "Bedroom 1: 1 double bed",
         "Bedroom 2: 2 single beds",
         "Bedroom 3: 2 single beds",
-        "(Up to {cap} guests across 3 bedrooms)",
+        "(Up to {cap} guests across {rooms} bedrooms)",
       ],
     },
     facilityGuide: {
@@ -312,7 +312,7 @@ export const en: TakasagoTranslations = {
   },
   floorPlan: {
     title: "Floor Plan",
-    subtitle: "3-storey single-family home · 1F: Entrance & Garage · 2F: Living/Dining/Kitchen, Theater Room, Bathroom & Shower · 3F: 3 Bedrooms & Balcony",
+    subtitle: "3-storey single-family home · 1F: Entrance & Garage · 2F: Living/Dining/Kitchen, Theater Room, Bathroom & Shower · 3F: {rooms} Bedrooms & Balcony",
     imageAlt: "Takasago floor plan – 1F entrance & garage, 2F living dining kitchen, theater room, bathroom & shower, 3F bedrooms & balcony",
   },
   contact: {

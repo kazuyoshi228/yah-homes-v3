@@ -9,12 +9,12 @@ export const ja: TakasagoTranslations = {
     propertyName: "yah.homes takasago",
     tagline: "福岡市中央区・高砂の静かな住宅街に佇む、一棟貸しの宿。",
     area: "福岡市中央区高砂",
-    capacity: "最大{cap}名 · 寝室3室",
+    capacity: "最大{cap}名 · 寝室{rooms}室",
     bookNow: "今すぐ予約",
   },
   overview: {
     title: "宿の概要",
-    bedrooms: "寝室3室",
+    bedrooms: "寝室{rooms}室",
     beds: "ダブルベッド1台＋シングルベッド4台",
     maxGuests: "最大{cap}名",
     area: "福岡市中央区・高砂",
@@ -237,7 +237,7 @@ export const ja: TakasagoTranslations = {
         "寝室1：ダブルベッド1台",
         "寝室2：シングルベッド2台",
         "寝室3：シングルベッド2台",
-        "（寝室3室・最大{cap}名まで）",
+        "（寝室{rooms}室・最大{cap}名まで）",
       ],
     },
     facilityGuide: {
@@ -314,8 +314,8 @@ export const ja: TakasagoTranslations = {
   },
   floorPlan: {
     title: "間取り",
-    subtitle: "3階建てメゾネットタイプの一軒家 · 1階：玄関・ガレージ · 2階：リビング・ダイニング・キッチン、シアタールーム、浴室 · 3階：寝室3室・バルコニー",
-    imageAlt: "yah. 高砂 間取り図 – 1階 玄関・ガレージ、2階 リビング・ダイニング・キッチン、シアタールーム、浴室、3階 寝室3室・バルコニー",
+    subtitle: "3階建てメゾネットタイプの一軒家 · 1階：玄関・ガレージ · 2階：リビング・ダイニング・キッチン、シアタールーム、浴室 · 3階：寝室{rooms}室・バルコニー",
+    imageAlt: "yah. 高砂 間取り図 – 1階 玄関・ガレージ、2階 リビング・ダイニング・キッチン、シアタールーム、浴室、3階 寝室{rooms}室・バルコニー",
   },
   contact: {
     title: "ご不明な点はありませんか？",

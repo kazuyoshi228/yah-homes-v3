@@ -9,7 +9,7 @@ import { localizedPath } from "../i18n/config";
 import { lucide, starRating } from "../lib/lucide";
 import { PROPERTIES, GALLERIES, type Property } from "../data/properties";
 import { uiStrings } from "../i18n/uiStrings";
-import { nearbyData } from "../data/nearbyData";
+import { getNearby } from "../data/nearbyData";
 import { PROPERTY_GEO } from "../lib/seo";
 import { getPropertyFacts } from "../lib/propertyFacts";
 import { makeFill, fillDeep } from "../lib/factText";
@@ -36,7 +36,7 @@ const pf = facts[propertyKey];
 const gallery = GALLERIES[propertyKey];
 const ui = uiStrings[lang];
 // GEO: 周辺スポット距離表（表形式はAI引用の抽出率が最も高い）
-const nearby = nearbyData[lang];
+const nearby = getNearby(lang, facts.kiyokawa, facts.takasago);
 
 const thumb = (src: string) => src.replace(/\.webp$/, "-480.webp");
 

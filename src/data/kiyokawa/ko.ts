@@ -9,12 +9,12 @@ export const ko: KiyokawaTranslations = {
     propertyName: "yah.homes kiyokawa",
     tagline: "활기찬 기요카와 지구에 새로 지어진 단독 주택.",
     area: "기요카와, 추오구, 후쿠오카",
-    capacity: "최대 {cap}인 · 침실 3개",
+    capacity: "최대 {cap}인 · 침실 {rooms}개",
     bookNow: "지금 예약",
   },
   overview: {
     title: "숙소 개요",
-    bedrooms: "침실 3개",
+    bedrooms: "침실 {rooms}개",
     beds: "더블 침대 3개 + 싱글 침대 1개",
     maxGuests: "최대 {cap}인",
     area: "기요카와 · 후쿠오카 중앙구",
@@ -137,7 +137,7 @@ export const ko: KiyokawaTranslations = {
       },
       {
         title: "2. 압도적인 홈 엔터테인먼트",
-        body: "55인치 대형 TV와 일본제 고품질 앰프, 플로어형 스피커를 설치했습니다. 영화관 수준의 음향으로 영화와 동영상을 즐기세요. (각종 스트리밍 서비스는 본인 계정으로 로그인하여 이용하세요)",
+        body: "{tv}인치 대형 TV와 일본제 고품질 앰프, 플로어형 스피커를 설치했습니다. 영화관 수준의 음향으로 영화와 동영상을 즐기세요. (각종 스트리밍 서비스는 본인 계정으로 로그인하여 이용하세요)",
       },
       {
         title: "3. '살듯이 여행하는' 충실한 설비",
@@ -168,7 +168,7 @@ export const ko: KiyokawaTranslations = {
     equipment: {
       title: "설비 & 가전",
       items: [
-        "55인치 TV",
+        "{tv}인치 TV",
         "일본제 고품질 앰프 & 플로어형 스피커",
         "드럼식 세탁건조기",
         "냉장고 (냉동실 포함)",
@@ -219,7 +219,7 @@ export const ko: KiyokawaTranslations = {
       "고속 Wi-Fi",
       "전용 주차장 (1대, 무료)",
       "전 침실 Simmons 프리미엄 매트리스",
-      "55인치 스마트 TV + 일본제 고품질 오디오",
+      "{tv}인치 스마트 TV + 일본제 고품질 오디오",
       "전 객실 에어컨",
       "업무용 데스크 (1인)",
       "넓은 거실 & 다이닝 공간",
@@ -288,7 +288,7 @@ export const ko: KiyokawaTranslations = {
   },
   floorPlan: {
     title: "평면도",
-    subtitle: "3층 단독 주택 · 1F: 욕실 & 차고 · 2F: 거실/식당/주방 · 3F: 침실 3개 & 발코니",
+    subtitle: "3층 단독 주택 · 1F: 욕실 & 차고 · 2F: 거실/식당/주방 · 3F: 침실 {rooms}개 & 발코니",
     imageAlt: "청카와 평면도 – 1F 욕실 & 차고, 2F 거실/식당/주방, 3F 침실 & 발코니",
   },
   contact: {

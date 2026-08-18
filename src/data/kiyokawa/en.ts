@@ -9,13 +9,13 @@ export const en: KiyokawaTranslations = {
     propertyName: "yah.homes kiyokawa",
     tagline: "Newly built single family home in the vibrant Kiyokawa district.",
     area: "Kiyokawa, Chuo-ku, Fukuoka",
-    capacity: "Up to {cap} guests · 3 Bedrooms",
+    capacity: "Up to {cap} guests · {rooms} Bedrooms",
     bookNow: "Book Now",
   },
   overview: {
     title: "Property Overview",
-    bedrooms: "3 Bedrooms",
-    beds: "3 Double Beds + 1 Single Bed",
+    bedrooms: "{rooms} Bedrooms",
+    beds: "{bd} Double Beds + {bs} Single Bed",
     maxGuests: "{cap} guests (max)",
     area: "Kiyokawa · Chuo-ku, Fukuoka",
   },
@@ -128,7 +128,7 @@ export const en: KiyokawaTranslations = {
       "High-speed Wi-Fi",
       "Private parking (1 car, free)",
       "Simmons premium mattresses in all bedrooms",
-      "55-inch Smart TV + high-quality Japanese audio system",
+      "{tv}-inch Smart TV + high-quality Japanese audio system",
       "Air conditioning in all rooms",
       "Work desk (1 person)",
       "Spacious living & dining area",
@@ -226,7 +226,7 @@ export const en: KiyokawaTranslations = {
       },
       {
         title: "2. Cinematic Home Entertainment",
-        body: "Enjoy a 55-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
+        body: "Enjoy a {tv}-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
       },
       {
         title: "3. Live Like a Local — Fully Equipped",
@@ -239,7 +239,7 @@ export const en: KiyokawaTranslations = {
         "Bedroom 1: 1 single bed",
         "Bedroom 2: 2 double beds",
         "Bedroom 3: 1 double bed",
-        "(Up to {cap} guests across 3 bedrooms)",
+        "(Up to {cap} guests across {rooms} bedrooms)",
       ],
     },
     facilityGuide: {
@@ -257,7 +257,7 @@ export const en: KiyokawaTranslations = {
     equipment: {
       title: "Appliances & Equipment",
       items: [
-        "55-inch TV",
+        "{tv}-inch TV",
         "High-quality Japanese-made amplifier & floor-standing speakers",
         "Drum-type washer-dryer",
         "Refrigerator (with freezer)",
@@ -315,7 +315,7 @@ export const en: KiyokawaTranslations = {
   },
   floorPlan: {
     title: "Floor Plan",
-    subtitle: "3-storey single-family home · 1F: Bathroom & Garage · 2F: Living/Dining/Kitchen · 3F: 3 Bedrooms & Balcony",
+    subtitle: "3-storey single-family home · 1F: Bathroom & Garage · 2F: Living/Dining/Kitchen · 3F: {rooms} Bedrooms & Balcony",
     imageAlt: "Kiyokawa floor plan – 1F bathroom & garage, 2F living dining kitchen, 3F bedrooms & balcony",
   },
   contact: {

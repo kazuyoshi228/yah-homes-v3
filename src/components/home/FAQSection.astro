@@ -15,7 +15,15 @@ const { lang } = Astro.props;
 const rawData = faqData[lang] ?? faqData.en;
 // FAQ はサイト共通の文章。時刻・定員は SSoT から差し込む（2棟とも同一設定）。
 const { facts } = await getPropertyFacts();
-const fill = makeFill(facts.kiyokawa, lang);
+const baseFill = makeFill(facts.kiyokawa, lang);
+const K = facts.kiyokawa, T = facts.takasago;
+/* サイト共通FAQは両棟を1文で語るため、棟別トークンをここで差し込む */
+const fill = (v: string) => baseFill(v)
+  .replace(/\{kcap\}/g, String(K.capacity)).replace(/\{tcap\}/g, String(T.capacity))
+  .replace(/\{krooms\}/g, String(K.bedrooms)).replace(/\{trooms\}/g, String(T.bedrooms))
+  .replace(/\{kbd\}/g, String(K.bedDouble)).replace(/\{kbs\}/g, String(K.bedSingle))
+  .replace(/\{tbd\}/g, String(T.bedDouble)).replace(/\{tbs\}/g, String(T.bedSingle))
+  .replace(/\{ttoilet\}/g, String(T.toilet)).replace(/\{tsink\}/g, String(T.sink));
 const data = {
   ...rawData,
   categories: rawData.categories.map((c) => ({
