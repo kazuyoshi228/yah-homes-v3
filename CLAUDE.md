@@ -1,6 +1,6 @@
 # CLAUDE.md — yah.homes 開発ガイド（AI/開発者向け）
 
-yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋直接予約）。旧サイト（Manus 製・React 19 + Vite の完全CSR + Express/tRPC）を廃し、**検索・AI に正しく評価される静的サイトとして作り直す**プロジェクト。フロント **Astro（SSG）+ React アイランド**、バックエンド Firebase（Cloud Functions v2 / Firestore / Auth / Storage / Hosting）。Firebase プロジェクト: **`yah-homes`**（[コンソール](https://console.firebase.google.com/u/0/project/yah-homes/overview)）。magazine.yah.mobi とは**別プロジェクト**（データ・権限・課金・障害を分離）。
+yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋直接予約）。旧サイト（Manus 製・React 19 + Vite の完全CSR + Express/tRPC）を廃し、**検索・AI に正しく評価される静的サイトとして作り直す**プロジェクト。フロント **Astro 7（SSG）・Reactアイランド不使用（素のJS）**、バックエンド Firebase（Cloud Functions v2 / Firestore / Auth / Storage / Hosting）。Firebase プロジェクト: **`yah-homes`**（[コンソール](https://console.firebase.google.com/u/0/project/yah-homes/overview)）。magazine.yah.mobi とは**別プロジェクト**（データ・権限・課金・障害を分離）。
 
 ## 🚨 絶対ルール（例外なし・最優先）
 
@@ -57,7 +57,7 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 | 対象 | ブランチ | コマンド | 反映先 URL |
 |---|---|---|---|
 | 確認用（dev） | `dev` | `firebase hosting:channel:deploy dev --expires 30d --project yah-homes` | https://yah-homes--dev-zk8qztud.web.app （ハッシュ `zk8qztud` はチャンネル固定・失効時は再デプロイで延長） |
-| 本番 | `main` | `firebase deploy --only hosting` | https://yah-homes.web.app （初回リリース済み 2026-07-13。独自ドメイン yah.homes は未接続） |
+| 本番 | `main` | `scripts/safe-deploy.sh live（BOOK_PREVIEW=1・必須ページ/計測タグ検査つき。素の firebase deploy は2026-08-17の本番404事故の原因のため使わない）` | https://yah.homes（独自ドメイン接続済み）
 
 - 🚨 **本番リリース（`firebase deploy --only hosting` / `main`）は、必ずユーザーの明示的な指示があるときのみ実行する。AI は自発的に本番へデプロイしてはならない。** 変更が完成しても、デプロイは提案にとどめ、「デプロイして」等の指示を待つ。
 - `dev` の内容は dev チャンネル URL にのみデプロイする。本番（`firebase deploy`）は `main` をリリースするときだけ。
@@ -92,10 +92,9 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
   - pnpm / firebase：`~/node-lts/bin`
   - 非対話シェルで `node: command not found` になる場合は、コマンド先頭で `export PATH="/Users/kazuyoshi228/node22/bin:/Users/kazuyoshi228/node-lts/bin:$PATH"` を通す。
 - 依存管理は **pnpm**。パッケージ追加は `pnpm add <pkg>`。🚨 `npm install` / `npm add` は `node_modules`（.pnpm レイアウト）と衝突するため使わない（`npm run <script>` の実行は可）。
-- 🔧 TODO（雛形確定後に更新）：
   - ビルド：`pnpm build`（Astro。出力 `dist/`）。Hosting の `public` は `dist`。
   - 型チェック：`pnpm exec astro check` ＋ `pnpm exec tsc --noEmit`
-  - テスト：`pnpm exec vitest run`
+  - 自動テストは未整備（v5 §8-2 #9）
   - プレビュー：`pnpm dev`（Astro dev server / 右ビューア）
 - `functions/` は別管理（独自 `package-lock.json`、npm）。依存は `functions/` 内で `npm install`、ビルドは `npm run build`（tsc）、テストは `npm test`。
 - Firestore エミュレータ用に Java（`~/jdk21`）を使用。エミュレータ起動：`firebase emulators:start`。
@@ -131,16 +130,11 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 
 ---
 
-### 現在地（2026-07 時点の進行メモ）
+### 現在地（2026-08-18）
 
-- 方針確定：Astro + React アイランドの SSG／別 Firebase プロジェクト `yah-homes`／旧環境への応急パッチはせず移行に一本化。
-- 済：git（`dev`）・GitHub `yah-homes-v2`（SSH）・Astro 雛形（Astro 5 + React + Tailwind v4）。
-- 済：公開全ページ SSG 化（Home/About/Locals/Booking/Kiyokawa/Takasago/Thankyou × 4言語）＋管理画面の枠6ページ（noindex）。build 35ページ / `astro check` 0エラー。
-- 済：ブランド資産保全（Manus CDN → `public/manus-storage` 画像188点）・National2 フォント自ホスト・SEO（メタ/hreflang/canonical/JSON-LD/sitemap）。
-- 既知の残課題：(1) 画像のレスポンシブ派生 -480/-768 は未取得（ベースのみ・srcset未実装）。(2) 旧デザインの一部セクション（比較表・レビュー・FAQ詳細・カルーセル）は未移植＝ビジュアル磨き込みは次段階。(3) 問い合わせフォームは UI のみ（送信は次フェーズ）。(4) `logo_yah_*.svg` 等一部アセットは403で未取得。
-- 済：Firebase接続（Hosting devチャンネル稼働・301リダイレクト検証済み）・Blaze移行・Firestore有効化・contact関数デプロイ（問い合わせフォーム稼働・Firestore保存・ルールは全deny維持）・GA4導入（G-VJ5DDRML79）・ブランドガイドライン準拠（モノクローム4色）。
-- 未了：Storage有効化（firebase.jsonから一時除外中）・独自ドメイン接続・本番デプロイ。
-- 次アクション候補：①Astro 雛形作成と UI 資産の移植設計図 → ②`firebase init`（Hosting/Functions/Firestore を `yah-homes` に紐付け）→ ③28 ページ（7×4 言語）の SSG 化。
+- 直販 /book 本番稼働（Stripe本番・実決済/返金検証済み）・My Page・メッセージ/問い合わせスレッド・チャットサポート（chat.yah.homes）稼働
+- 管理画面21ページ・/admin/properties は7ビュー（基本情報/施設概要/設備/移動・距離/チャット用情報/QRコード/共通情報）
+- 宿の事実は property_facts（71フィールド×2棟＋meta）に完全集約・check-consistency が毎ビルド検査
 
 
 ## 仕様書・設計書の書式（2026-08-18 発注者指示）

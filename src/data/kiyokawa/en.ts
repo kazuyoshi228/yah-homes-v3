@@ -166,7 +166,6 @@ export const en: KiyokawaTranslations = {
   booking: {
     title: "Book Direct & Save",
     subtitle: "Reserve directly with us for the best rate — no platform fees.",
-    comingSoon: "Online booking system coming soon. Please contact us to reserve.",
   },
   faq: {
     title: "Frequently Asked Questions",
@@ -227,11 +226,11 @@ export const en: KiyokawaTranslations = {
       },
       {
         title: "2. Cinematic Home Entertainment",
-        body: "Enjoy a {tv}-inch {tv}-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
+        body: "Enjoy a {tv}-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
       },
       {
         title: "3. Live Like a Local — Fully Equipped",
-        body: "A spacious full kitchen with a large refrigerator and ample cookware lets you cook with fresh local ingredients. A dedicated work desk (for 1) and high-speed Wi-Fi make it ideal for workcation stays. In May 2026, a new drum-type washer-dryer was installed — wash and dry with a single button press, perfect for long stays.\n\nFree private parking (1 space) is included, making it a great base for driving tours.\n\n[Owner's Notice]\nApril 2026: Washing machine upgraded to a drum-type washer-dryer. One button completes the full wash-to-dry cycle.",
+        body: "A spacious full kitchen with a large refrigerator and ample cookware lets you cook with fresh local ingredients. A dedicated work desk (for 1) and high-speed Wi-Fi make it ideal for workcation stays. In April 2026, a new drum-type washer-dryer was installed — wash and dry with a single button press, perfect for long stays.\n\nFree private parking (1 space) is included, making it a great base for driving tours.\n\n[Owner's Notice]\nApril 2026: Washing machine upgraded to a drum-type washer-dryer. One button completes the full wash-to-dry cycle.",
       },
     ],
     bedroomGuide: {

@@ -161,7 +161,6 @@ export const ko: TakasagoTranslations = {
   booking: {
     title: "직접 예약하고 절약하세요",
     subtitle: "최저 요금으로 직접 예약하세요 — 플랫폼 수수료 없음.",
-    comingSoon: "온라인 예약 시스템 준비 중입니다. 예약을 위해 문의해 주세요.",
   },
   faq: {
     title: "자주 묻는 질문",

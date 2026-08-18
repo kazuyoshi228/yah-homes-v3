@@ -1329,7 +1329,7 @@ export const adminTemplates = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    // 文面はお客様への体験に直結するため、編集はオーナーのみに限定する。
+    // 文面の編集は Admin 以上（requireAdmin）。
     if (await requireAdmin(email, res)) return;
 
     try {
@@ -2130,7 +2130,7 @@ export const adminSecrets = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    // 鍵番号は物理キーそのもの。台帳メンバーではなく root オーナーのみに限定する。
+    // 鍵番号の閲覧・変更は Admin 以上（requireAdmin）。
     if (await requireAdmin(email, res)) return;
 
     const PROPS = ["kiyokawa", "takasago"] as const;
@@ -2186,8 +2186,8 @@ export const adminSecrets = onRequest(
 );
 
 // ─── パートナー申請 管理API（/admin/partners・design_partners_page.md §4.6） ───
-// 認証: Firebase Auth（Google）IDトークン検証＋許可メール限定。個人情報を扱うためFunction経由のみ。
-/* 権限は2階層のみ。用語は ADMIN / OPERATOR で統一する（旧: owner / root / PARTNERS_ADMIN）。
+// 認証: Firebase Auth（Google）IDトークン検証（台帳メンバー＝Operator以上）。個人情報を扱うためFunction経由のみ。
+/* 権限は3ロール（owner / admin / operator・下記コメント参照）。
    ADMIN    … 台帳から削除できない固定アカウント。鍵番号・文面・物件・返金・台帳編集・再デプロイ。
    OPERATOR … 管理者台帳のメンバー。予約閲覧・問い合わせ対応など日々の運用のみ。
    判定は必ず isRootOwner()（root判定）/ requireAdmin()（Admin以上）を通す（各APIに条件を手書きしない）。 */
@@ -2228,7 +2228,7 @@ function requireOwner(email: string, res: { status: (n: number) => { json: (b: u
   return true;
 }
 
-// 管理者台帳（/admin/users）: { name, role: "owner"|"operator", notifyPartners, notifyTeiten, notifyBookings }
+// 管理者台帳（/admin/users）: { name, role: "owner"|"admin"|"operator", notifyPartners, notifyTeiten, notifyBookings }
 async function getAdminUser(email: string): Promise<{ role: string } | null> {
   const doc = await db.collection("admin_users").doc(email).get();
   return doc.exists ? (doc.data() as { role: string }) : null;
@@ -4504,7 +4504,7 @@ export const adminProperties = onRequest(
 
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
-    // 物件ファクトは表示の正本のため、編集・閲覧ともrootオーナー限定（2026-08-08 発注者指示）
+    // 物件ファクトは表示の正本のため、（旧仕様の記述を削除）閲覧は台帳メンバー全員・編集はOwner（2026-08-08 発注者指示）
     // 閲覧は台帳メンバー全員に開放（2026-08-18 発注者判断）。チャット用情報を
     // 日々のお客様対応で参照するのは Operator のため。編集（POST）は従来どおり Owner のみ。
     const roleP = await getRole(email);
@@ -4693,7 +4693,7 @@ export const adminProperties = onRequest(
 );
 
 
-// ─── 再ビルド発火（/admin/properties の「サイトに反映」・v4 §8-4） ───
+// ─── 再ビルド発火（現在UIからは未使用・将来の「サイトに反映」ボタン用に温存） ───
 // 静的サイトのため、Firestoreの変更をページへ反映するにはビルドが必要。
 // GitHub Actions の repository_dispatch を叩き、deploy.yml が本番へデプロイする。
 export const adminRebuild = onRequest(

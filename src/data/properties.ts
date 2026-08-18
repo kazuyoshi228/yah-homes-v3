@@ -1,5 +1,5 @@
 // 物件の外部リンク・画像・基本スペック（旧予約ページの実値）。
-// 予約は自前エンジンではなく Airbnb ディープリンク＋Beds24 iframe。
+// 直販予約（/book・Stripe）が本番稼働。OTA（Airbnb/Booking.com）への導線も併記。
 
 export interface Property {
   key: "kiyokawa" | "takasago";

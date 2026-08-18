@@ -2,9 +2,9 @@
 import { chatUrlFor, qrPaths } from "../../../lib/chatLinks";
 import { propDisplayName } from "../../../lib/propNames";
 import { BASE_URL, OPERATOR_PHONE } from "../../../lib/seo";
-/* /admin/properties — 物件ファクトの単一ソース（SSoT・design_booking_p1_v4.md §8-4）
+/* /admin/properties — 物件ファクトの単一ソース（SSoT・design_booking_p1_v5.md §8-4）
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
-   ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
+   ※ 静的サイトのため、サイト表示への反映は次回のビルド＆デプロイ時（メール・チャットは即時反映）。 */
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { CHAT_PROPS } from "../../../data/adminChatInfo";
 import { FB_SDK, ENDPOINTS } from "../../../lib/adminConfig";
@@ -16,7 +16,7 @@ import { resolve } from "node:path";
 const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
 
 
-// 比較表の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
+// 施設概要の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
 interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean; note?: string }
 const SECTIONS: { label: string; rows: FactRow[] }[] = [
   {
@@ -444,7 +444,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         <div id="ap-view-common" hidden>
           <p class="ap-note">
             棟をまたぐ共通の値（正本: property_facts/meta）。サイトの会社表記・構造化データ・
-            メール・チャットの電話、決済画面の宿泊税がここを見ます。
+            チャットの電話、決済画面の宿泊税がここを見ます（メールの電話は現状コード定数・別途SSoT化予定）。
           </p>
           <div class="ap-tablewrap">
             <table class="ap-table">
@@ -731,10 +731,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         ? `保存しました（${r.saved}行）`
         : `保存に失敗しました（${r.error ?? "error"}）`;
     });
-
-    /* 客室: 寝室数に連動した BR-1..n の内訳入力。合計（ダブル/シングル）と
-       bedroomLayout 文字列はここから自動生成し、隠しフィールド経由で保存する。
-       表記ルール: 各行に「ダブル2」「シングル1」のように書く（数字省略は1台と数える）。 */
     /* 客室: 寝室数に連動した BR-1..n の内訳（シングル/ダブルの2列・数値）。
        合計と bedroomLayout 文字列はここから自動生成し、隠しフィールド経由で保存する。 */
     function bedRows() { return [...document.querySelectorAll(".ap-bed-row")]; }

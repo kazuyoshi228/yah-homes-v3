@@ -1,6 +1,6 @@
 # 仕様書: Beds24クラウド定点観測（Cloud Functions日次実行）
 
-> v0.3（2026-08-05）／status: **承認待ち**
+> v0.3（2026-08-05）／status: **実装済み（2026-08-18 状態行を実態に同期）
 > 変更履歴: v0.3=週次スコアカードメール（月曜8:00）・GA4 Data API連携・Google Adsスクリプト連携（adsタブ）を追加／v0.2=シートID修正・Sheets API有効化手順・トークン命名整理／v0.1=初版
 > 目的: 現在Mac上で動いている日次観測（beds24-daily.mjs）をFirebase Cloud Functionsへ移設し、**PCの起動状態と無関係に毎朝8:00 JSTに実行**→シート自動記入→結果メール通知まで完結させる。
 > 関連: scripts/beds24-daily.mjs（ロジックの原型・移植元）／databook_beds24_202608.md（KPI定義）

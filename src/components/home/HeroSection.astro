@@ -20,7 +20,7 @@ const bt = BOOK_STRINGS[lang];
 const BOOK_PATH = localizedPath(lang, "/book");
 const SEARCH_CTA = { en: "See availability", ja: "空室を見る", ko: "예약 가능일 보기", zh: "查詢空房", th: "ดูห้องว่าง" }[lang];
 const MAX_GUESTS = 8;
-// 本番は /book/ が未公開（BOOK_PREVIEW ゲートで生成されない）ため、検索ボックスを出すと
+// 直販 /book/ は本番公開済み（BOOK_PREVIEW=1 で常時ビルド）。ゲートを閉じた場合のみ、検索ボックスを出すと
 // 「空室を見る」が404になる。Footer/Navbar/PropertyDetail と同じゲートを掛ける。
 const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 const SHOW_HERO_SEARCH = BOOK_PREVIEW;

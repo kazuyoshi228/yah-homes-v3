@@ -49,7 +49,7 @@ flowchart TB
     CONTACT -.->|⚠ 自動転送 未設定| GM
 
     %% 検証済み・未実装
-    CONTACT -.->|同期ジョブ（未実装）<br/>メール→guestメッセージ転記| INBOX
+    CONTACT -.->|同期ジョブ（beds24CancelWatcher 稼働中）<br/>メール→guestメッセージ転記| INBOX
     INBOX -.->|同期ジョブ（未実装）<br/>host返信→メール配達| GD
     BK -.->|Webhook設定あり<br/>⚠ 受け口 /api/webhooks/beds24 未実装| SITE
 ```

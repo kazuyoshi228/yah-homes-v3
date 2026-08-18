@@ -192,11 +192,11 @@ const LOCALS: LocaleText = {
   th: {
     title: "คู่มือท้องถิ่น — คิโยกาวะ ฟุกุโอกะ | yah.homes",
     description:
-      "ค้นพบ 16 สถานที่แนะนำใกล้ yah.homes คิโยกาวะ — คาเฟ่ ร้านอาหาร ตลาด และสถานที่วัฒนธรรม",
+      "ค้นพบ {SPOTS} สถานที่แนะนำใกล้ yah.homes คิโยกาวะ — คาเฟ่ ร้านอาหาร ตลาด และสถานที่วัฒนธรรม",
   },
 };
 
-// /booking はコンバージョンページ（Airbnb予約CTA）— description も実態に一致させる
+// /booking は /properties へ301。直販は /book（BOOKING文言は要事業判断で保留中）
 const BOOKING: LocaleText = {
   en: {
     title: "Book Your Stay | yah.homes — Whole-House Stays in Fukuoka",

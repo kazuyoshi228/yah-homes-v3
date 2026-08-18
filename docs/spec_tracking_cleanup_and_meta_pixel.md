@@ -2,7 +2,7 @@
 
 **作成**: 2026-08-15
 **対象**: `src/layouts/BaseLayout.astro`（1ファイル）
-**状態**: 承認待ち（未実装）
+**状態**: 実装済み（2026-08-18 状態行を実態に同期）
 **関連**: `docs/spec_direct_booking_conversion_switch.md`（直販CV切替の前提条件）
 
 ---

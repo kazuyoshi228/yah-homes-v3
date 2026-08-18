@@ -163,7 +163,6 @@ export const ja: TakasagoTranslations = {
   booking: {
     title: "直接予約がいちばんお得",
     subtitle: "公式サイトからの直接予約なら、プラットフォーム手数料なしの最安値でご案内します。",
-    comingSoon: "オンライン予約システムは準備中です。ご予約はお問い合わせください。",
   },
   faq: {
     title: "よくあるご質問",

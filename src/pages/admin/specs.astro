@@ -11,7 +11,7 @@ const SECTIONS: { h: string; rows?: [string, string][]; body?: string[] }[] = [
       ["サイト", "Astro（静的生成）＋ Firebase Hosting。デモ＝book-demo チャネル／本番＝yah.homes"],
       ["バックエンド", "Cloud Functions（asia-northeast1）。デモ・本番の区別なく共通（デプロイは常に本番相当）"],
       ["データ", "Firestore（既定 deny・読み書きは原則 Functions 経由）"],
-      ["決済", "Stripe（manual capture: オーソリ→Beds24書込成功後に確定）。現在テストキー"],
+      ["決済", "Stripe（manual capture: オーソリ→Beds24書込成功後に確定）。本番キー稼働中（2026-08-16切替・実決済/返金の通しテスト済み）"],
       ["在庫・料金", "Beds24 が正。空室・料金は API で読む。予約確定時に Beds24 へ書き込む"],
       ["メール", "Gmail SMTP（contact@mail.yah.homes）。文面は /admin/templates が正"],
     ],
@@ -58,7 +58,7 @@ const SECTIONS: { h: string; rows?: [string, string][]; body?: string[] }[] = [
   {
     h: "6. 予約の受付条件（正は /admin/properties）",
     body: [
-      "締切: チェックイン前日 23:59（設定変更可）。定員: 清川7名・高砂6名。受付: 12ヶ月先まで。",
+      "締切: チェックイン前日 23:59（設定変更可）。定員・受付期間・締切は /admin/properties（SSoT）が正。",
       "OTA 経由（Airbnb・Booking.com）にはこの設定は効かない。そちらは Beds24 側の設定が正。",
     ],
   },

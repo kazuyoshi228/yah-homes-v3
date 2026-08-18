@@ -7,9 +7,9 @@ Last updated: {{UPDATED}}. This file follows the llms.txt standard (https://llms
 ## Pages
 
 - [Home](https://yah.homes/): Brand overview, properties, reviews, FAQ (also in [Japanese](https://yah.homes/ja/), [Korean](https://yah.homes/ko/), [Traditional Chinese](https://yah.homes/zh/), [Thai](https://yah.homes/th/))
-- [Kiyokawa — property details & booking](https://yah.homes/booking/kiyokawa/): Up to {{K_CAP}} guests, {{K_ROOMS}} bedrooms, riverside Kiyokawa district
-- [Takasago — property details & booking](https://yah.homes/booking/takasago/): Up to {{T_CAP}} guests, {{T_ROOMS}} bedrooms, near Yakuin
-- [Local Guide](https://yah.homes/locals/): 16 curated spots within walking distance of Kiyokawa
+- [Kiyokawa — property details & booking](https://yah.homes/properties/kiyokawa/): Up to {{K_CAP}} guests, {{K_ROOMS}} bedrooms, riverside Kiyokawa district
+- [Takasago — property details & booking](https://yah.homes/properties/takasago/): Up to {{T_CAP}} guests, {{T_ROOMS}} bedrooms, near Yakuin
+- [Local Guide](https://yah.homes/locals/): 15 curated spots within walking distance of Kiyokawa
 - [About](https://yah.homes/about/): Design philosophy and Director Kazuyoshi Yamada
 - [Full AI reference](https://yah.homes/llms-full.txt): FAQ, detailed pricing guidance, complete local guide, brand positioning
 
@@ -54,7 +54,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 - {{K_TV}}-inch large TV
 - High-quality amplifier and tall-boy audio speakers (cinema-quality sound)
 - High-speed Wi-Fi
-- Washing machine
+- Drum-type washer-dryer (wash & dry in one cycle)
 - Independent bathroom
 - Private parking ({{K_PK}} car)
 - Bedside power outlets in all rooms
@@ -66,6 +66,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
   "福岡・清川の那珂川沿いに新築一棟貸切ヴィラ「yah.homes kiyokawa」が誕生！家族やグループで泊まれる“暮らす旅”空間の提供を開始しました！"
 
 **Book:**
+- Direct booking: https://yah.homes/book?prop=kiyokawa
 - Airbnb: https://www.airbnb.jp/rooms/1427842426961787667
 - Booking.com: https://www.booking.com/Share-Tyhode
 
@@ -88,7 +89,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 - Full kitchen (cookware, tableware, large refrigerator)
 - Private parking for large vehicles (Alphard-class)
 - High-speed Wi-Fi
-- Washing machine
+- Drum-type washer-dryer (wash & dry in one cycle)
 - Bathroom + separate shower booth
 - 3 washbasins (no morning rush even for large groups)
 - Work desk + office chair
@@ -98,7 +99,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 **Book:**
 - Airbnb: https://www.airbnb.jp/rooms/1497546315476018480
 - Booking.com: https://www.booking.com/Share-K2G3CO
-- Direct: https://yah.homes/booking/takasago
+- Direct booking: https://yah.homes/book?prop=takasago
 
 ---
 
@@ -118,7 +119,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 
 Full interactive guide: https://yah.homes/locals
 
-The Kiyokawa area (Chuo-ku, Fukuoka) is a residential neighborhood away from tourist zones, rich in everyday local food culture. yah.homes curates 16 recommended spots within walking distance of the property.
+The Kiyokawa area (Chuo-ku, Fukuoka) is a residential neighborhood away from tourist zones, rich in everyday local food culture. yah.homes curates 15 recommended spots within walking distance of the property.
 
 ### Cafe & Morning (4 spots)
 - **manucoffee roasters Kujira Store** — 10:00–19:00 | Street-style HipHop cafe, coffee beans & apparel souvenirs | https://maps.app.goo.gl/H2dyhvtKrQjDZt1W6
@@ -146,7 +147,7 @@ The Kiyokawa area (Chuo-ku, Fukuoka) is a residential neighborhood away from tou
 ### Taxi Card (Japanese address for cab drivers)
 〒{{K_ZIP}} {{K_ADDR_JA}}　目的地はホテルではなく見た目は普通の一軒家です。
 
-### All 16 spots on Google Maps
+### All 15 spots on Google Maps
 https://maps.app.goo.gl/Q9WvY6tSinSvKEm46
 
 ---

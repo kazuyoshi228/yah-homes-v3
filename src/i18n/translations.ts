@@ -136,12 +136,6 @@ export interface Translations {
   // Booking CTA
   bookingCta: {
     heading: string;
-    kiyokawa: string;
-    takasago: string;
-  };
-  // FAQ
-  faq: {
-    body: string;
   };
   // Footer
   footer: {
@@ -309,11 +303,6 @@ const en: Translations = {
   },
   bookingCta: {
     heading: "Ready To Explore Fukuoka?",
-    kiyokawa: "Book Kiyokawa on Airbnb",
-    takasago: "Book Takasago on Airbnb",
-  },
-  faq: {
-    body: "For the FAQ, please refer to the information on each booking website.",
   },
   footer: {
     address: "Fukuoka, Japan",
@@ -478,11 +467,6 @@ const ko: Translations = {
   },
   bookingCta: {
     heading: "후쿠오카를 탐험할 준비가 되셨나요?",
-    kiyokawa: "Kiyokawa 에어비앤비로 예약",
-    takasago: "Takasago 에어비앤비로 예약",
-  },
-  faq: {
-    body: "자주 묻는 질문은 각 예약 사이트의 정보를 참고해 주세요.",
   },
   footer: {
     address: "일본 후쿠오카",
@@ -647,11 +631,6 @@ const zh: Translations = {
   },
   bookingCta: {
     heading: "準備探索福岡了嗎？",
-    kiyokawa: "在Airbnb預訂Kiyokawa",
-    takasago: "在Airbnb預訂Takasago",
-  },
-  faq: {
-    body: "如有常見問題，請參閱各訂房網站上的相關說明。",
   },
   footer: {
     address: "日本福岡",
@@ -816,11 +795,6 @@ const th: Translations = {
   },
   bookingCta: {
     heading: "พร้อมสำรวจฟุกุโอกะแล้วหรือยัง?",
-    kiyokawa: "จอง Kiyokawa ผ่าน Airbnb",
-    takasago: "จอง Takasago ผ่าน Airbnb",
-  },
-  faq: {
-    body: "สำหรับคำถามที่พบบ่อย กรุณาดูข้อมูลบนเว็บไซต์จองแต่ละแห่ง",
   },
   footer: {
     address: "ฟุกุโอกะ ประเทศญี่ปุ่น",
@@ -988,11 +962,6 @@ const ja: Translations = {
   },
   bookingCta: {
     heading: "Ready To Explore Fukuoka?",
-    kiyokawa: "清川を Airbnb で予約",
-    takasago: "高砂を Airbnb で予約",
-  },
-  faq: {
-    body: "よくあるご質問は、各予約サイトの情報もあわせてご確認ください。",
   },
   footer: {
     address: "日本・福岡",

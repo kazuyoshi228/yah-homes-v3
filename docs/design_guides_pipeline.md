@@ -1,6 +1,6 @@
 # 計画書: ガイド配管 — magazine Firestore → yah.homes /guides/ 描画
 
-日付: 2026-07-14 / ステータス: **承認待ち**
+日付: 2026-07-14 / ステータス: **実装済み（2026-08-18 状態行を実態に同期）
 関連: content_strategy_yah_homes.md（目標: オーガニック月1,000人）/ magazine Blueprint v9 §7-1（頭⑤ yah.homes配信）・§8-2（編集=別プロジェクト、公開=静的パブリッシュ）
 
 ## 0. 一行要約

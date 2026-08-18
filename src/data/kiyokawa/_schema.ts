@@ -87,7 +87,6 @@ export interface KiyokawaTranslations {
   booking: {
     title: string;
     subtitle: string;
-    comingSoon: string;
   };
   // House Rules
   houseRules: {

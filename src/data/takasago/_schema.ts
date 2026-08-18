@@ -77,7 +77,6 @@ export interface TakasagoTranslations {
   booking: {
     title: string;
     subtitle: string;
-    comingSoon: string;
   };
   houseRules: {
     title: string;

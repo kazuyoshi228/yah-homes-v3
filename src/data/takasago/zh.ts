@@ -160,7 +160,6 @@ export const zh: TakasagoTranslations = {
   booking: {
     title: "直接預訂更划算",
     subtitle: "直接向我們預訂享最優惠價格 — 無平台手續費。",
-    comingSoon: "線上預訂系統即將推出。請聯絡我們進行預訂。",
   },
   faq: {
     title: "常見問題",

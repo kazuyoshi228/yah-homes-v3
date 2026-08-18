@@ -1,5 +1,5 @@
 /**
- * 物件ファクトの単一ソース（SSoT）— design_booking_p1_v4.md §8-4
+ * 物件ファクトの単一ソース（SSoT）— design_booking_p1_v5.md §8-4
  *
  * 真実の源: Firestore `property_facts/{key}`（/admin/properties で編集）
  * ページはビルド時にここから読み、HTMLへ焼き込む（クライアントfetchはAIクローラーに見えないため禁止）。
@@ -9,7 +9,7 @@
  * （2026-08-16 に実際に評価が 47件/48件でズレた）。落ちる方が安全。
  * 初回投入の種は scripts/seed-property-facts.mjs に隔離してある。
  *
- * 反映手順: /admin/properties で保存 → 「サイトに反映」で再ビルド → 全ページが更新される。
+ * 反映手順: /admin/properties で保存 → 次回のビルド＆デプロイで全ページに反映（メール・チャットは即時）。
  */
 
 export interface PropertyFacts {

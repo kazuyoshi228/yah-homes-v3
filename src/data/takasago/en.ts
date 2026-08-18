@@ -161,7 +161,6 @@ export const en: TakasagoTranslations = {
   booking: {
     title: "Book Direct & Save",
     subtitle: "Reserve directly with us for the best rate — no platform fees.",
-    comingSoon: "Online booking system coming soon. Please contact us to reserve.",
   },
   faq: {
     title: "Frequently Asked Questions",

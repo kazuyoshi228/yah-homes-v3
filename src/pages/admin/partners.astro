@@ -1,8 +1,8 @@
 ---
 import { CHAT_PROPS } from "../../data/adminChatInfo";
 const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p) => [p.key, p.label]));
-/* パートナー申請 管理画面 — design_partners_page.md §4.6（v0.8）
-   認証: Firebase Auth（Google）・許可メール = kazuyoshi.yamada@bonfire.co.jp のみ（Function側で検証）。
+/* パートナー申請 管理画面 — design_partners_page.md §4.6（v0.9）
+   認証: Firebase Auth（Google）・台帳メンバー（Operator以上・Function側で検証）。
    noindex・sitemap除外（/adminはastro.config filter済み）・サイト内リンクなし。
    機能: 申請一覧・ステータス台帳・確定行から管理会社向けAirbnbブロック依頼文の生成コピー。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";

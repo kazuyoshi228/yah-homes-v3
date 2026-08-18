@@ -2,7 +2,7 @@
 import { ARRIVAL_TIMES } from "../../../lib/propNames";
 /* /book/checkout — 予約の「確定」ページ（design_booking_p1_v4.md §3〜5・MS3）
    構成はBooking.comの2カラム（左=予約サマリ固定／右=入力ステップ）を参考に、ブランド準拠のモノクロームで再構成。
-   現段階: 認証・入力・同意・最終確認まで。Stripe決済の結線はMS3で追加（ボタンは無効表示）。
+   Stripe本番決済まで結線済み（2026-08-16 本番キー切替・実決済/返金検証済み）。
    公開ガード: BOOK_PREVIEW=1 のときのみ生成・noindex。 */
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/config";

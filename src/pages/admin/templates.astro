@@ -2,7 +2,7 @@
 import { LANG_LABELS } from "../../i18n/config";
 /* /admin/templates — 定型メール／メッセージのSSoT
    運営会社が Beds24・OTA で送っている定型文を1箇所に集約する。
-   ここを直せば、以後の送信文はここが正になる。閲覧・編集は管理者台帳のメンバー。
+   ここを直せば、以後の送信文はここが正になる。閲覧・編集は Admin 以上。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
@@ -58,7 +58,7 @@ const VARS = [
       <a class="tp-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="tp-title">定型メール管理</h1>
       <div id="tp-login" class="tp-login" hidden>
-        <p class="tp-note">オーナーのアカウントでログインしてください。</p>
+        <p class="tp-note">Admin 以上のアカウントでログインしてください。</p>
         <button id="tp-login-btn" class="tp-btn">Googleでログイン</button>
         <p class="tp-status" id="tp-login-status"></p>
       </div>

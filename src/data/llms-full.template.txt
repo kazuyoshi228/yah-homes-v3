@@ -67,7 +67,7 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Booking:**
 - Airbnb: https://www.airbnb.jp/rooms/1427842426961787667
 - Booking.com: https://www.booking.com/Share-Tyhode
-- Direct inquiry: https://yah.homes/kiyokawa
+- Direct inquiry: https://yah.homes/properties/kiyokawa/
 
 **PR coverage:**
 - PR TIMES (2025-06-27): https://prtimes.jp/main/html/rd/p/000000021.000054152.html
@@ -116,7 +116,7 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Booking:**
 - Airbnb: https://www.airbnb.jp/rooms/1497546315476018480
 - Booking.com: https://www.booking.com/Share-K2G3CO
-- Direct: https://yah.homes/booking/takasago
+- Direct booking: https://yah.homes/book?prop=takasago
 
 **PR coverage:**
 - PR TIMES (2026-06-19): https://prtimes.jp/main/html/rd/p/000000006.000036399.html
@@ -161,7 +161,7 @@ Pricing varies by season, length of stay, and platform. For accurate current pri
 ## LOCAL GUIDE — KIYOKAWA (Vol.1)
 
 Full interactive guide with map: https://yah.homes/locals
-Google Maps collection (all 16 spots): https://maps.app.goo.gl/Q9WvY6tSinSvKEm46
+Google Maps collection (all 15 spots): https://maps.app.goo.gl/Q9WvY6tSinSvKEm46
 
 All spots are within walking distance of yah.homes kiyokawa.
 
@@ -252,7 +252,7 @@ A: Yes. High-speed fiber optic Wi-Fi is included at no additional charge. Passwo
 A: Yes. The kitchen includes a refrigerator, microwave, IH cooking range, rice cooker, kettle, toaster, and basic cooking utensils and tableware. Cooking oil, salt, and pepper are also provided.
 
 **Q: Is there a washing machine?**
-A: Yes. A washing machine (and dryer at kiyokawa) is available for guest use. Laundry detergent is provided.
+A: Yes. Kiyokawa has a drum-type washer-dryer (wash-to-dry in one cycle); Takasago has a washing machine. Laundry detergent is provided.
 
 **Q: How many towels are provided?**
 A: One bath towel and one face towel per guest. Additional towels can be arranged on request in advance (a fee may apply).
@@ -326,13 +326,13 @@ A: Yes. We recommend purchasing travel insurance that covers accommodation cance
 | Page | URL | Description |
 |------|-----|-------------|
 | Home | https://yah.homes/ | Main landing page with property overview |
-| Kiyokawa Booking | https://yah.homes/kiyokawa | Kiyokawa property detail and booking |
-| Takasago Booking | https://yah.homes/takasago | Takasago property detail and booking |
+| Kiyokawa Booking | https://yah.homes/properties/kiyokawa/ | Kiyokawa property detail and booking |
+| Takasago Booking | https://yah.homes/properties/takasago/ | Takasago property detail and booking |
 | About | https://yah.homes/about | Brand story and philosophy |
 | Local Guide | https://yah.homes/locals | Kiyokawa neighborhood restaurant and spot guide |
 | Summary AI Reference | https://yah.homes/llms.txt | Summary reference for AI models |
 | Full AI Reference | https://yah.homes/llms-full.txt | This document — full reference for AI models |
-| Sitemap | https://yah.homes/sitemap.xml | XML sitemap |
+| Sitemap | https://yah.homes/sitemap-index.xml | XML sitemap |
 
 ---
 
