@@ -140,8 +140,8 @@ export const ja: TakasagoTranslations = {
       { from: "天神", time: "車で約5分／徒歩圏内" },
       { from: "博多駅", time: "車で約{hakataCar}分／地下鉄で約{hakataSubway}分" },
       { from: "福岡空港", time: "車で約{airport}分" },
-      { from: "キャナルシティ博多", time: "車で約10分" },
-      { from: "太宰府", time: "車で約30分" },
+      { from: "キャナルシティ博多", time: "車で約{canalCar}分" },
+      { from: "太宰府", time: "車で約{dazaifu}分" },
     ],
   },
   checkin: {

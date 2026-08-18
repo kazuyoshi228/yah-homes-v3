@@ -1,4 +1,5 @@
 ---
+import { LANGS_WITH_LABEL } from "../../i18n/config";
 import { chatUrlFor, qrPaths } from "../../lib/chatLinks";
 import { OPERATOR_PHONE, OPERATOR_PHONE_TEL } from "../../lib/seo";
 import { getPropertyFacts } from "../../lib/propertyFacts";
@@ -9,7 +10,7 @@ import { getPropertyFacts } from "../../lib/propertyFacts";
      このページを開く時点ではまだ現地にいないため。
    ・5言語（ja/en/ko/zh/th）。併記ではなく1言語だけを表示する。
      到着直後に読むので、視線が2言語に割れると番号を探すのが遅くなる。
-   ・暗証番号は静的HTMLに含めず checkinInfo API から実行時に取得する
+   ・暗証番号は静的HTMLに載せない（前日メール／OTAメッセージでのみ案内。ページは pinNote の案内文だけ）
      （/admin/secrets で変えたら再デプロイなしで反映される）。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { howtoUI } from "../../i18n/pageStrings";
@@ -41,13 +42,7 @@ const {
   keyPlace, parking, entranceMark, garageSize, parkingLargeCar,
 } = Astro.props;
 
-const LANGS: { code: Lang; label: string }[] = [
-  { code: "ja", label: "日本語" },
-  { code: "en", label: "English" },
-  { code: "ko", label: "한국어" },
-  { code: "zh", label: "繁體中文" },
-  { code: "th", label: "ไทย" },
-];
+const LANGS: { code: Lang; label: string }[] = LANGS_WITH_LABEL;
 
 /* 画面の固定文言。棟によらず共通。 */
 const UI = howtoUI;

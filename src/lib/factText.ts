@@ -32,6 +32,7 @@ export function makeFill(facts: PropertyFacts, lang: Locale): (v: string) => str
     pk: String(facts.parkingSpaces), pkSize: facts.parkingSize,
     airport: String(facts.fromAirportCarMin), station: String(facts.fromStationWalkMin),
     tenjinCar: String(facts.toTenjinCarMin), hakataCar: String(facts.toHakataCarMin), hakataSubway: String(facts.toHakataSubwayMin),
+    canalCar: String(facts.spotCanalCarMin), dazaifu: String(facts.spotDazaifuCarMin), yakuin: String(facts.spotYakuinWalkMin),
     area: String(facts.floorAreaM2), floors: String(facts.floors), layout: facts.layoutLabel, bedLayout: facts.bedroomLayout,
   };
   return (v: string) => v.replace(/\{([a-zA-Z]+)\}/g, (m, k) => (k in MAP ? MAP[k] : m));

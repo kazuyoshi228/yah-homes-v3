@@ -2,7 +2,7 @@
 /* 運用ビュー共通の枠（mail-log / audit / health）
    コピー最小・タイトルとテーブルだけのミニマル構成。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 interface Props {
@@ -34,10 +34,10 @@ const OPS_ENDPOINT = ENDPOINTS.adminOps;
   </section>
 </SiteLayout>
 
-<script define:vars={{ OPS_ENDPOINT, FB_CONFIG, view }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, OPS_ENDPOINT, FB_CONFIG, view }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

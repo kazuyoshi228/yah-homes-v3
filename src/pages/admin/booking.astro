@@ -6,7 +6,7 @@ import { propDisplayName } from "../../lib/propNames";
    一覧・メッセージ・通知メールからのハブになる。データは既存API（adminBookings ?id= /
    messagesApi）と Firestore 購読の再配置で、新しい書き込み経路は作らない。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
@@ -90,10 +90,10 @@ const MAIL_LABEL: Record<string, string> = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ BOOKINGS_ENDPOINT, MESSAGES_ENDPOINT, FB_CONFIG, PROP, MAIL_LABEL }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp, getApps }) => {
-    const { getAuth, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-    const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+<script define:vars={{ FB_SDK, BOOKINGS_ENDPOINT, MESSAGES_ENDPOINT, FB_CONFIG, PROP, MAIL_LABEL }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp, getApps }) => {
+    const { getAuth, onAuthStateChanged } = await import(`${FB_SDK}/firebase-auth.js`);
+    const fsm = await import(`${FB_SDK}/firebase-firestore.js`);
     const app = getApps()[0] ?? initializeApp(FB_CONFIG);
     const auth = getAuth(app);
     const fs = fsm.getFirestore(app);

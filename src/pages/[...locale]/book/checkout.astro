@@ -9,7 +9,7 @@ import { LOCALES, localeParam, localizedPath, type Locale } from "../../../i18n/
 import { BOOK_STRINGS, FX_PER_JPY } from "../../../i18n/bookStrings";
 import { PROPERTIES } from "../../../data/properties";
 import { getPropertyFacts } from "../../../lib/propertyFacts";
-import { ENDPOINTS, FB_CONFIG } from "../../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS, FB_CONFIG } from "../../../lib/adminConfig";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -191,7 +191,8 @@ const C = {
   },
 }[lang];
 
-const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
+/* 未登録通貨で「¥52,000 → ≈$52,000」と出す事故の芽を断つ。無ければ換算表示なし */
+const fxRate = FX_PER_JPY[t.fxCode] ?? 0;
 const uiStrings = {
   approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
   total: C.total, missing: C.missing, authDone: C.authDone,
@@ -378,7 +379,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang, TERMS_VERSION }}>
+<script define:vars={{ FB_SDK, AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang, TERMS_VERSION }}>
   const $ = (id) => document.getElementById(id);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
 
@@ -492,7 +493,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         $("co-total").textContent = yen(j.total);
         renderBreakdown(j.total);
         if (uiStrings.fxCode !== "JPY") {
-          $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
+          $("co-fx").textContent = uiStrings.fxRate > 0 ? `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}` : "";
         }
         $("co-final").textContent = `${meta.name}　${fmtDate(checkin)} 〜 ${fmtDate(checkout)}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
       })
@@ -500,10 +501,10 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   }
 
   // ── 認証（Google一本・v4 §5） ──
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged,
             sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
 
@@ -714,7 +715,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         $("co-total").textContent = yen(j.total);
         renderBreakdown(j.total);
         if (uiStrings.fxCode !== "JPY") {
-          $("co-fx").textContent = `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}`;
+          $("co-fx").textContent = uiStrings.fxRate > 0 ? `${uiStrings.approx} ${uiStrings.fxSymbol}${Math.round(j.total * uiStrings.fxRate).toLocaleString("en-US")}` : "";
         }
         $("co-final").textContent = `${meta.name}　${fmtDate(checkin)} 〜 ${fmtDate(checkout)}　${uiStrings.nightsGuests.replace("{n}", nights).replace("{g}", guests)}　${uiStrings.total} ${yen(j.total)}`;
         $("co-pay-status").textContent = uiStrings.priceChanged;

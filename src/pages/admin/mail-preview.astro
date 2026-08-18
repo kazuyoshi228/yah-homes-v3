@@ -1,21 +1,16 @@
 ---
+import { LANGS_WITH_LABEL } from "../../i18n/config";
 /* /admin/mail-preview — メールテンプレート（実物プレビュー）
    お客様に届くHTMLメールそのものを、仮の予約データで描画して見せる。
    文言は /admin/templates の保存内容が反映される（同じ組み立て経路を通す）。
    noindex・sitemap除外。閲覧は管理者台帳のメンバー。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const PREVIEW_ENDPOINT = ENDPOINTS.adminMailPreview;
 const OPS_ENDPOINT = ENDPOINTS.adminOps;
-const LANGS = [
-  { code: "ja", label: "日本語" },
-  { code: "en", label: "English" },
-  { code: "ko", label: "한국어" },
-  { code: "zh", label: "繁體中文" },
-  { code: "th", label: "ไทย" },
-];
+const LANGS = LANGS_WITH_LABEL;
 const KINDS = [
   { kind: "confirm", num: "1", label: "予約確定メッセージ", when: "ご予約が入った直後" },
   { kind: "checkin", num: "2", label: "チェックイン案内", when: "チェックイン前日 10:00" },
@@ -102,10 +97,10 @@ const KINDS = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ PREVIEW_ENDPOINT, OPS_ENDPOINT, FB_CONFIG }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, PREVIEW_ENDPOINT, OPS_ENDPOINT, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

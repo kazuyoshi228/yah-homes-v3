@@ -1,10 +1,11 @@
 ---
+import { LANG_LABELS } from "../../i18n/config";
 /* /admin/templates — 定型メール／メッセージのSSoT
    運営会社が Beds24・OTA で送っている定型文を1箇所に集約する。
    ここを直せば、以後の送信文はここが正になる。閲覧・編集は管理者台帳のメンバー。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const TEMPLATES_ENDPOINT = ENDPOINTS.adminTemplates;
@@ -125,10 +126,10 @@ const VARS = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ TEMPLATES_ENDPOINT, FB_CONFIG }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, LANG_LABELS, TEMPLATES_ENDPOINT, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     let ME = "";
@@ -150,7 +151,7 @@ const VARS = [
     let DATA = null;   // API のレスポンス
     let LANG = localStorage.getItem("yh-tpl-lang") || "ja";
 
-    const LANG_LABEL = { ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย" };
+    const LANG_LABEL = LANG_LABELS;
     const KIND_NUM = { confirm: "1", checkin: "2", checkout: "3", review: "4", cancel: "5", contact: "6" };
 
     function show(key) {

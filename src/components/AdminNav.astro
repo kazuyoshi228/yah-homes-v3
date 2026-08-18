@@ -1,5 +1,5 @@
 ---
-import { ENDPOINTS } from "../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../lib/adminConfig";
 import { FB_CONFIG } from "../lib/adminConfig";
 /* 管理画面専用のナビゲーションバー（2026-08-16 発注者承認の仕様）。
    - お客様向けナビと取り違えないよう黒地に「ADMIN」表記
@@ -104,10 +104,10 @@ const currentPath = Astro.url.pathname;
   });
 </script>
 
-<script define:vars={{ FB_CONFIG, OPS_ENDPOINT }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp, getApps }) => {
+<script define:vars={{ FB_SDK, FB_CONFIG, OPS_ENDPOINT }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp, getApps }) => {
     const { getAuth, onAuthStateChanged, signOut } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const app = getApps()[0] ?? initializeApp(FB_CONFIG);
     const auth = getAuth(app);
@@ -154,7 +154,7 @@ const currentPath = Astro.url.pathname;
 
       // 未読メッセージ数（threads.unreadForHost の合計）。失敗しても静かに諦める
       try {
-        const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const fsm = await import(`${FB_SDK}/firebase-firestore.js`);
         const fs = fsm.getFirestore(app);
         const q = fsm.query(fsm.collection(fs, "threads"), fsm.where("unreadForHost", ">", 0));
         fsm.onSnapshot(q, (snap) => {

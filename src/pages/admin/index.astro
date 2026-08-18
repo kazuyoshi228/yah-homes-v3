@@ -4,7 +4,7 @@
    各画面は個別にもログイン枠を持つが、入口をここに一本化して迷いをなくす。
    noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { FB_CONFIG } from "../../lib/adminConfig";
+import { FB_SDK, FB_CONFIG } from "../../lib/adminConfig";
 
 ---
 
@@ -35,10 +35,10 @@ import { FB_CONFIG } from "../../lib/adminConfig";
   </section>
 </SiteLayout>
 
-<script define:vars={{ FB_CONFIG }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

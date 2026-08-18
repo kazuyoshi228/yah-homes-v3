@@ -4484,7 +4484,8 @@ const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "
   "spotOhoriCarMin", "spotOhoriM",
   "toTenjinCarMin", "toHakataCarMin", "toHakataSubwayMin",
   "floorAreaM2", "floors", "parkingSpaces",
-  "kitchen", "wifi", "airCon", "bathtub", "selfCheckin", "smokingAllowed", "coAlarm", "longStay"] as const;
+  "kitchen", "wifi", "airCon", "bathtub", "selfCheckin", "smokingAllowed", "coAlarm", "longStay",
+  "spotCanalCarMin", "spotDazaifuCarMin", "spotYakuinWalkMin"] as const;
 
 export const adminProperties = onRequest(
   { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
@@ -4571,7 +4572,7 @@ export const adminProperties = onRequest(
         const ns = String(v.nearestStation ?? "").trim();
         if (ns) doc.nearestStation = ns.slice(0, 40);
         // 間取り・部屋別ベッド内訳（文字列）
-        for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60]] as const) {
+        for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60], ["streetAddressEn", 60]] as const) {
           if (v[f] === undefined) continue;
           const t = String(v[f] ?? "").trim();
           if (t) doc[f] = t.slice(0, max);

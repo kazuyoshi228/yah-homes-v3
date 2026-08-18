@@ -139,7 +139,7 @@ export const ko: TakasagoTranslations = {
       { from: "하카타역", time: "차로 약 10분 / 지하철로 약 15분" },
       { from: "텐진", time: "차로 약 {tenjinCar}분 / 도보 가능" },
       { from: "캐널시티 하카타", time: "차로 약 10분" },
-      { from: "다자이후", time: "차로 약 30분" },
+      { from: "다자이후", time: "차로 약 {dazaifu}분" },
     ],
   },
   checkin: {

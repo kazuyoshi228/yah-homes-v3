@@ -144,7 +144,7 @@ export const ja: KiyokawaTranslations = {
       { from: "天神", time: "車で約{tenjinCar}分" },
       { from: "渡辺通駅（1番出口）", time: "徒歩10〜15分" },
       { from: "キャナルシティ博多", time: "車で約15分" },
-      { from: "太宰府", time: "車で約30分" },
+      { from: "太宰府", time: "車で約{dazaifu}分" },
     ],
   },
   checkin: {

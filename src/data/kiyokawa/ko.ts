@@ -235,7 +235,7 @@ export const ko: KiyokawaTranslations = {
       { from: "텐진", time: "차로 약 {tenjinCar}분 / 도보 가능" },
       { from: "와타나베도리역(1번 출구)", time: "도보 약 {station}분" },
       { from: "캐널시티 하카타", time: "차로 약 15분" },
-      { from: "다자이후", time: "차로 약 30분" },
+      { from: "다자이후", time: "차로 약 {dazaifu}분" },
     ],
   },
   checkin: {

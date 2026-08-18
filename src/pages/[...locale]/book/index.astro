@@ -155,7 +155,8 @@ const HOST_COPY = {
 const CONTACT_ENDPOINT = ENDPOINTS.contact;
 
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
-const fxRate = FX_PER_JPY[t.fxCode] ?? 1;
+/* 未登録通貨で「¥52,000 → ≈$52,000」と出す事故の芽を断つ。無ければ換算表示なし */
+const fxRate = FX_PER_JPY[t.fxCode] ?? 0;
 
 // カレンダー見出しラベル（言語別表記をビルド時に確定）
 // 表示しうる全月ぶん（今月〜12ヶ月後）を "YYYY-M" キーで持つ。
@@ -576,7 +577,7 @@ const strings = {
       return;
     }
     const fx = strings.fxCode === "JPY" ? "" :
-      `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(p.total * strings.fxRate).toLocaleString("en-US")}</p>`;
+      (strings.fxRate > 0 ? `<p class="bk-quote-fx">${strings.approx} ${strings.fxSymbol}${Math.round(p.total * strings.fxRate).toLocaleString("en-US")}</p>` : "");
     // 定価 = カレンダー日別価格(price1)の合計。実売(offer)は割引後なので、差があれば「定価→割引適用」を見せる
     let rack = 0;
     for (let d = new Date(`${state.checkin}T00:00:00Z`); ; d.setUTCDate(d.getUTCDate() + 1)) {

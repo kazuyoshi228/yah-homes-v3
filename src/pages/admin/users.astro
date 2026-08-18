@@ -3,7 +3,7 @@
    認証: Firebase Auth（Google）。閲覧=台帳メンバー・編集=rootオーナーのみ（Function側で検証）。
    通知フラグ: パートナー申請 / 定点観測 / 直販予約（該当メールの宛先に追加される） */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const USERS_ENDPOINT = ENDPOINTS.adminUsers;
@@ -64,10 +64,10 @@ const USERS_ENDPOINT = ENDPOINTS.adminUsers;
   </section>
 </SiteLayout>
 
-<script define:vars={{ USERS_ENDPOINT, FB_CONFIG }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, USERS_ENDPOINT, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

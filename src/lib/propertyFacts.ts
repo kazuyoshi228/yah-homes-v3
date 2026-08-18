@@ -74,6 +74,10 @@ export interface PropertyFacts {
   parkingSpaces: number;
   /** 駐車場のサイズ（例: 幅2,000mm×奥行5,000mm／フリースペース） */
   parkingSize: string;
+  /** schema.org 用の番地表記（例: Kiyokawa 3-3-1） */
+  streetAddressEn: string;
+  /** 観光アクセス（任意・0=未設定＝表示に使わない） */
+  spotCanalCarMin: number; spotDazaifuCarMin: number; spotYakuinWalkMin: number;
   /** 構造化データ用の設備フラグ（1=あり/0=なし） */
   kitchen: number; wifi: number; airCon: number; bathtub: number;
   selfCheckin: number; smokingAllowed: number; coAlarm: number; longStay: number;
@@ -152,6 +156,8 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
       toTenjinCarMin: n("toTenjinCarMin"), toHakataCarMin: n("toHakataCarMin"), toHakataSubwayMin: n("toHakataSubwayMin"),
       floorAreaM2: n("floorAreaM2"), floors: n("floors"), layoutLabel: t("layoutLabel"), bedroomLayout: t("bedroomLayout"),
       parkingSpaces: n("parkingSpaces"), parkingSize: t("parkingSize"),
+      streetAddressEn: t("streetAddressEn"),
+      spotCanalCarMin: num(f.spotCanalCarMin, 0), spotDazaifuCarMin: num(f.spotDazaifuCarMin, 0), spotYakuinWalkMin: num(f.spotYakuinWalkMin, 0),
       kitchen: n("kitchen"), wifi: n("wifi"), airCon: n("airCon"), bathtub: n("bathtub"),
       selfCheckin: n("selfCheckin"), smokingAllowed: n("smokingAllowed"), coAlarm: n("coAlarm"), longStay: n("longStay"),
     };

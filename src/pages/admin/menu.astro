@@ -2,7 +2,7 @@
 /* /admin/menu — 管理メニュー（実在する機能へのハブ）
    稼働中の画面と、枠だけの画面を明示的に分ける。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 /* SSoT＝唯一の正（ここを直すと全系統に反映される） ／ 運営管理＝日々の運用画面 ／
@@ -129,10 +129,10 @@ const SYSTEM = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ OPS_ENDPOINT, FB_CONFIG }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, OPS_ENDPOINT, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, signOut, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     onAuthStateChanged(auth, async (user) => {

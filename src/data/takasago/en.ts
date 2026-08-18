@@ -138,8 +138,8 @@ export const en: TakasagoTranslations = {
       { from: "Fukuoka Airport", time: "~20 min by car" },
       { from: "Hakata Station", time: "~{hakataCar} min by car / ~{hakataSubway} min by subway" },
       { from: "Tenjin", time: "~5 min by car / walkable" },
-      { from: "Canal City Hakata", time: "~10 min by car" },
-      { from: "Dazaifu", time: "~30 min by car" },
+      { from: "Canal City Hakata", time: "~{canalCar} min by car" },
+      { from: "Dazaifu", time: "~{dazaifu} min by car" },
     ],
   },
   checkin: {

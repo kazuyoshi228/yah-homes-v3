@@ -6,7 +6,7 @@ const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p)
    読み取りは Firestore を直接購読（リアルタイム）。送信は messagesApi 経由。
    権限は OPERATOR 可（日々の運用）。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
@@ -53,12 +53,12 @@ const PROP = PROP_LABEL;
   </section>
 </SiteLayout>
 
-<script define:vars={{ MESSAGES_ENDPOINT, FB_CONFIG, PROP }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, MESSAGES_ENDPOINT, FB_CONFIG, PROP }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
-    const fsm = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const fsm = await import(`${FB_SDK}/firebase-firestore.js`);
     const app = initializeApp(FB_CONFIG);
     const auth = getAuth(app);
     const fs = fsm.getFirestore(app);

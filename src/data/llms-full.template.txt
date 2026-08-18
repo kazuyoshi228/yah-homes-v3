@@ -40,8 +40,8 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Capacity:** Up to {{K_CAP}} guests
 **Bedrooms:** {{K_ROOMS}} bedrooms (BR1: 1 single bed / BR2: 2 double beds / BR3: 1 double bed)
 **Bathrooms:** {{K_BATH}} bathroom (1st floor) + {{K_TOILET}} toilets (1st & 2nd floor)
-**Floors:** 3-story building (indoor stairs; bathroom on 1st floor)
-**Parking:** Private parking for 1 car (included) — fits compact to standard-size cars; for larger vehicles, coin parking nearby from about ¥800/night
+**Floors:** {{K_FLOORS}}-story building (indoor stairs; bathroom on 1st floor)
+**Parking:** Private parking for {{K_PK}} car (included) — fits compact to standard-size cars; for larger vehicles, coin parking nearby from about ¥800/night
 **Airbnb rating:** ★ {{K_RATING}} / 5.0 ({{K_COUNT}} guest reviews as of {{AS_OF}})
 **Opened:** 2025
 
@@ -53,7 +53,7 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 - High-speed Wi-Fi (fiber optic)
 - Drum-type washer-dryer (wash & dry in one cycle)
 - 2 toilets (1st & 2nd floor)
-- Private parking (1 vehicle, compact to standard size)
+- Private parking ({{K_PK}} vehicle, compact to standard size)
 - Bedside power outlets in all bedrooms
 - Air conditioning in all rooms
 
@@ -151,7 +151,7 @@ Pricing varies by season, length of stay, and platform. For accurate current pri
 
 **Nearby landmarks:**
 - Naka River (walking distance)
-- Yakuin Station (Nishitetsu Tenjin Omuta Line): 10 min walk
+- Yakuin Station (Nishitetsu Tenjin Omuta Line): {{K_YAKUIN}} min walk
 - Watanabe-dori Station (Fukuoka City Subway, Exit 1): {{K_STATION}} min walk
 - Tenjin (Fukuoka's main shopping/entertainment district): {{K_TENJIN}} min walk or 5 min by subway
 - Hakata Station (Shinkansen hub): 15 min by subway

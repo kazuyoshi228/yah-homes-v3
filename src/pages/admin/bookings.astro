@@ -5,7 +5,7 @@ const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p)
    一覧・状態・ゲスト連絡先・対応メモ＝台帳メンバー／返金＝rootオーナーのみ。
    全金銭操作は audit_logs に記録される（Function側）。noindex・sitemap除外。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ENDPOINTS } from "../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
@@ -61,10 +61,10 @@ const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
   </section>
 </SiteLayout>
 
-<script define:vars={{ BOOKINGS_ENDPOINT, FB_CONFIG, PROP_LABEL }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, BOOKINGS_ENDPOINT, FB_CONFIG, PROP_LABEL }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

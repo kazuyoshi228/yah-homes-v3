@@ -56,7 +56,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 - High-speed Wi-Fi
 - Washing machine
 - Independent bathroom
-- Private parking (1 car)
+- Private parking ({{K_PK}} car)
 - Bedside power outlets in all rooms
 
 **Concept:** "街ごと、まるごと。" (Machi-goto, Marugoto) — experience the city as a local, not just as a tourist

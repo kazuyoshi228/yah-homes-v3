@@ -46,6 +46,10 @@ export const OPERATOR = {
   businessScope: "不動産売買・不動産開発・システム開発・貿易業",
 } as const;
 
+// 周辺スポット数（LOCALS の説明文用・localsData が正本）
+import { localsData } from "../data/localsData";
+const SPOT_COUNT = localsData.en.categories.reduce((n, c) => n + c.spots.length, 0);
+
 // Organization JSON-LD（全ページ共通・sameAs でエンティティ接続）
 export function organizationJsonLd(): Record<string, unknown> {
   return {
@@ -165,22 +169,22 @@ const LOCALS: LocaleText = {
   en: {
     title: "Local Guide — Kiyokawa, Fukuoka | yah.homes",
     description:
-      "Discover 16 hand-picked local spots near yah.homes Kiyokawa — cafes, restaurants, markets, and cultural sites in Fukuoka's vibrant Kiyokawa district. Live like a local.",
+      "Discover {SPOTS} hand-picked local spots near yah.homes Kiyokawa — cafes, restaurants, markets, and cultural sites in Fukuoka's vibrant Kiyokawa district. Live like a local.",
   },
   ja: {
     title: "ローカルガイド — 福岡・清川 | yah.homes",
     description:
-      "yah.homes清川の徒歩圏から、実際に歩いて選んだ16のスポット——カフェ、食堂、市場、文化スポット。暮らすように福岡を楽しむためのガイドです。",
+      "yah.homes清川の徒歩圏から、実際に歩いて選んだ{SPOTS}のスポット——カフェ、食堂、市場、文化スポット。暮らすように福岡を楽しむためのガイドです。",
   },
   ko: {
     title: "로컬 가이드 — 기요카와, 후쿠오카 | yah.homes",
     description:
-      "yah.homes 기요카와 근처 16곳의 로컬 스팟 — 카페, 레스토랑, 시장, 문화 명소. 현지인처럼 후쿠오카를 즐기세요.",
+      "yah.homes 기요카와 근처 {SPOTS}곳의 로컬 스팟 — 카페, 레스토랑, 시장, 문화 명소. 현지인처럼 후쿠오카를 즐기세요.",
   },
   zh: {
     title: "在地指南 — 清川，福岡 | yah.homes",
     description:
-      "探索 yah.homes 清川附近精選的16個在地景點——咖啡廳、餐廳、市場和文化景點。像當地人一樣體驗福岡。",
+      "探索 yah.homes 清川附近精選的{SPOTS}個在地景點——咖啡廳、餐廳、市場和文化景點。像當地人一樣體驗福岡。",
   },
   th: {
     title: "คู่มือท้องถิ่น — คิโยกาวะ ฟุกุโอกะ | yah.homes",
@@ -389,7 +393,7 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
         url: `${BASE_URL}/properties/kiyokawa/`,
         description:
           `Newly built whole-house villa for up to ${facts.kiyokawa.capacity} guests in Kiyokawa, Chuo-ku, Fukuoka. ${facts.kiyokawa.bedrooms} bedrooms, SIMMONS PREMIUM mattresses, full kitchen, private parking.`,
-        streetAddress: "Kiyokawa 3-3-1",
+        streetAddress: facts.kiyokawa.streetAddressEn,
         addressLocality: "Chuo-ku, Fukuoka",
         postalCode: facts.kiyokawa.zip,
         geo: PROPERTY_GEO.kiyokawa,
@@ -413,7 +417,7 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
         description:
           `Whole-house rental for up to ${facts.takasago.capacity} guests in Fukuoka. ${facts.takasago.bedrooms} bedrooms, SIMMONS mattresses, full kitchen, high-speed Wi-Fi.`,
         // 住所は Google ビジネスプロフィール登録値（2026-07-13 確認）
-        streetAddress: "Takasago 1-18-7",
+        streetAddress: facts.takasago.streetAddressEn,
         addressLocality: "Chuo-ku, Fukuoka",
         postalCode: facts.takasago.zip,
         geo: PROPERTY_GEO.takasago,
@@ -471,7 +475,8 @@ export async function getPageMeta(page: PageKey, locale: Locale): Promise<PageMe
     .replace(/\{K_RATING\}/g, K.rating).replace(/\{T_RATING\}/g, T.rating)
     .replace(/\{K_CAP\}/g, String(K.capacity)).replace(/\{T_CAP\}/g, String(T.capacity))
     .replace(/\{K_ROOMS\}/g, String(K.bedrooms)).replace(/\{T_ROOMS\}/g, String(T.bedrooms))
-    .replace(/\{T_SINK\}/g, String(T.sink)).replace(/\{T_STATION\}/g, String(T.fromStationWalkMin));
+    .replace(/\{T_SINK\}/g, String(T.sink)).replace(/\{T_STATION\}/g, String(T.fromStationWalkMin))
+    .replace(/\{SPOTS\}/g, String(SPOT_COUNT));
   const description = inject(t.description);
   return {
     title: inject(t.title),

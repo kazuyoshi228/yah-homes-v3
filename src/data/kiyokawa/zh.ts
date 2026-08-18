@@ -235,7 +235,7 @@ export const zh: KiyokawaTranslations = {
       { from: "天神", time: "開車約 {tenjinCar} 分鐘 / 步行可達" },
       { from: "渡邊通站（1號出口）", time: "步行約{station}分鐘" },
       { from: "Canal City 博多", time: "開車約 15 分鐘" },
-      { from: "太宰府", time: "開車約 30 分鐘" },
+      { from: "太宰府", time: "開車約 {dazaifu} 分鐘" },
     ],
   },
   checkin: {

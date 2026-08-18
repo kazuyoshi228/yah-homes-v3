@@ -138,7 +138,7 @@ export const zh: TakasagoTranslations = {
       { from: "博多站", time: "開車約 10 分鐘 / 地鐵約 15 分鐘" },
       { from: "天神", time: "開車約 5 分鐘 / 可步行" },
       { from: "Canal City 博多", time: "開車約 10 分鐘" },
-      { from: "太宰府", time: "開車約 30 分鐘" },
+      { from: "太宰府", time: "開車約 {dazaifu} 分鐘" },
     ],
   },
   checkin: {

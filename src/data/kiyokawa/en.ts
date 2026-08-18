@@ -144,7 +144,7 @@ export const en: KiyokawaTranslations = {
       { from: "Tenjin", time: "~{tenjinCar} min by car / walkable" },
       { from: "Watanabe-dori Station (Exit 1)", time: "~{station} min walk" },
       { from: "Canal City Hakata", time: "~15 min by car" },
-      { from: "Dazaifu", time: "~30 min by car" },
+      { from: "Dazaifu", time: "~{dazaifu} min by car" },
     ],
   },
   checkin: {

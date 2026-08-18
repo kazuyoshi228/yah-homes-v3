@@ -7,7 +7,7 @@ import { BASE_URL, OPERATOR_PHONE } from "../../../lib/seo";
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { CHAT_PROPS } from "../../../data/adminChatInfo";
-import { ENDPOINTS } from "../../../lib/adminConfig";
+import { FB_SDK, ENDPOINTS } from "../../../lib/adminConfig";
 import { FB_CONFIG } from "../../../lib/adminConfig";
 import { existsSync } from "node:fs";
 import { getPropertyFacts } from "../../../lib/propertyFacts";
@@ -58,6 +58,9 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
       { key: "toHakataCarMin", label: "博多駅まで（車・分）", type: "num", unit: "分" },
       { key: "toHakataSubwayMin", label: "博多駅まで（地下鉄・分）", type: "num", unit: "分" },
+      { key: "spotYakuinWalkMin", label: "薬院駅まで（徒歩・分）", type: "num", unit: "分", note: "0=未設定（表示に使わない）" },
+      { key: "spotCanalCarMin", label: "キャナルシティ（車・分）", type: "num", unit: "分", note: "0=未設定" },
+      { key: "spotDazaifuCarMin", label: "太宰府（車・分）", type: "num", unit: "分", note: "0=未設定" },
     ],
   },
   {
@@ -66,6 +69,7 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "floorAreaM2", label: "延床面積", type: "num", unit: "㎡" },
       { key: "floors", label: "階数", type: "num", unit: "階建て" },
       { key: "layoutLabel", label: "間取り表記", type: "text", placeholder: "3LDK" },
+      { key: "streetAddressEn", label: "番地（英語・schema用）", type: "text", placeholder: "Kiyokawa 3-3-1" },
     ],
   },
   {
@@ -421,10 +425,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   else if (!document.querySelector('[data-view="basics"]')) switchView("chat");
 </script>
 
-<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS, PROP: propKey, HAS_FACTS }}>
-  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+<script define:vars={{ FB_SDK, PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS, PROP: propKey, HAS_FACTS }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      `${FB_SDK}/firebase-auth.js`
     );
     const auth = getAuth(initializeApp(FB_CONFIG));
     const $ = (id) => document.getElementById(id);

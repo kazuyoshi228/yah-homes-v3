@@ -36,3 +36,10 @@ export function localizedPath(locale: Locale, path: string): string {
   if (!full.endsWith("/")) full += "/";
   return full === "" ? "/" : full;
 }
+
+/** 言語の表示ラベル（管理画面・言語ピッカー共通。4ファイルに散っていた辞書を集約） */
+export const LANG_LABELS: Record<Locale, string> = {
+  ja: "日本語", en: "English", ko: "한국어", zh: "繁體中文", th: "ไทย",
+};
+export const LANGS_WITH_LABEL = (Object.entries(LANG_LABELS) as [Locale, string][])
+  .map(([code, label]) => ({ code, label }));
