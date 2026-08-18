@@ -206,9 +206,9 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
               <tbody id="ap-chat-tbody"></tbody>
             </table>
           </div>
-          <div class="ap-actions ap-save-bar" id="ap-chat-savebar" hidden>
-            <button type="button" class="ap-btn-sub" id="ap-chat-addrow">行を追加</button>
-            <button class="ap-btn" id="ap-chat-save">チャット用情報を保存する</button>
+          <div class="ap-chat-actions" id="ap-chat-savebar" hidden>
+            <button type="button" class="ap-btn-sub" id="ap-chat-addrow">＋ 行を追加</button>
+            <button class="ap-btn" id="ap-chat-save">保存する</button>
             <span class="ap-saved" id="ap-chat-saved"></span>
           </div>
         </div>
@@ -292,11 +292,17 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     function chatRow(q, a) {
       const tr = document.createElement("tr");
       if (chatEditable) {
-        tr.innerHTML = `<th><textarea class="ap-chat-q" rows="2"></textarea></th>
-          <td><textarea class="ap-chat-a" rows="3"></textarea></td>
-          <td class="ap-chat-rowop"><button type="button" class="ap-btn-sub ap-chat-del">削除</button></td>`;
+        tr.innerHTML = `<th><textarea class="ap-chat-q" rows="1"></textarea></th>
+          <td><textarea class="ap-chat-a" rows="1"></textarea></td>
+          <td class="ap-chat-rowop"><button type="button" class="ap-chat-del" title="この行を削除" aria-label="この行を削除">×</button></td>`;
+        // 内容に合わせて高さを自動調整（枠の高さを揃え、表として読めるように）
+        const grow = (el) => { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; };
+        tr.querySelectorAll("textarea").forEach((el) => {
+          el.addEventListener("input", () => grow(el));
+        });
         tr.querySelector(".ap-chat-q").value = q;
         tr.querySelector(".ap-chat-a").value = a;
+        requestAnimationFrame(() => tr.querySelectorAll("textarea").forEach(grow));
         tr.querySelector(".ap-chat-del").addEventListener("click", () => tr.remove());
       } else {
         const th = document.createElement("th"); th.textContent = q;
@@ -411,12 +417,22 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-chat-prop.is-active { background: #111111; border-color: #111111; color: #ffffff; }
   .ap-chat-empty { padding: 2rem 0; }
   .ap-chat-table { width: 100%; border-collapse: collapse; }
+  /* 編集時もテーブルとして読めるフラットな見た目（枠付きの大きな入力欄は不可・発注者指摘）。
+     高さは JS が内容に合わせて自動調整し、行ごとに揃う */
   .ap-chat-table :global(textarea) {
-    width: 100%; font-family: inherit; font-size: 0.84rem; line-height: 1.7;
-    border: 1px solid #d7d7d7; border-radius: 5px; padding: 0.4rem 0.5rem;
-    resize: vertical; box-sizing: border-box;
+    display: block; width: 100%; font-family: inherit; font-size: 0.84rem; line-height: 1.8;
+    border: 0; background: transparent; padding: 0; margin: 0;
+    resize: none; overflow: hidden; box-sizing: border-box; color: inherit;
   }
-  .ap-chat-rowop { width: 60px; }
+  .ap-chat-table :global(textarea:focus) { outline: none; background: #f7f9ff; }
+  .ap-chat-table :global(tbody tr:hover) { background: #fafafa; }
+  .ap-chat-rowop { width: 36px; text-align: center; }
+  .ap-chat-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; }
+  .ap-chat-table :global(.ap-chat-del) {
+    border: 0; background: none; color: #bbbbbb; font-size: 1rem; cursor: pointer;
+    padding: 0 0.3rem; line-height: 1;
+  }
+  .ap-chat-table :global(.ap-chat-del:hover) { color: #b3261e; }
   .ap-chat-table th, .ap-chat-table td {
     text-align: left; vertical-align: top; padding: 0.6rem 0.75rem;
     border-bottom: 1px solid #f0f0f0; font-size: 0.84rem; line-height: 1.8;
