@@ -146,6 +146,10 @@ const htmlLang = HREFLANG[lang];
       function gtag() {
         dataLayer.push(arguments);
       }
+      /* define:vars はスクリプトをIIFEでラップするため、ここで公開しないと
+         window.gtag?.(...) で送る全カスタムイベント（book導線・contact）が無音で不発になる。
+         2026-08-18 実測: 本番で window.gtag が undefined → availability_requested/begin_checkout 0件。 */
+      window.gtag = gtag;
       if (TRACK) {
         gtag("js", new Date());
         gtag("config", "G-VJ5DDRML79");
