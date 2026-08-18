@@ -8,6 +8,7 @@ import { ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const PREVIEW_ENDPOINT = ENDPOINTS.adminMailPreview;
+const OPS_ENDPOINT = ENDPOINTS.adminOps;
 const LANGS = [
   { code: "ja", label: "日本語" },
   { code: "en", label: "English" },
@@ -106,7 +107,7 @@ const KINDS = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ PREVIEW_ENDPOINT, FB_CONFIG }}>
+<script define:vars={{ PREVIEW_ENDPOINT, OPS_ENDPOINT, FB_CONFIG }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -115,7 +116,6 @@ const KINDS = [
     const $ = (id) => document.getElementById(id);
 
     // 実物のテスト送信は ADMIN 限定。台帳メンバー（OPERATOR）にはボタンを出さない。
-    const OPS_ENDPOINT = ENDPOINTS.adminOps;
     let isAdmin = false;
     async function loadRole() {
       try {
