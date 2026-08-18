@@ -206,6 +206,11 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
               <tbody id="ap-chat-tbody"></tbody>
             </table>
           </div>
+          <div class="ap-chat-actions ap-chat-export" id="ap-chat-exportbar" hidden>
+            <button type="button" class="ap-btn-sub" id="ap-chat-copy">表をコピー（Excelに貼付）</button>
+            <button type="button" class="ap-btn-sub" id="ap-chat-csv">CSVをダウンロード</button>
+            <span class="ap-saved" id="ap-chat-copied"></span>
+          </div>
           <div class="ap-chat-actions" id="ap-chat-savebar" hidden>
             <button type="button" class="ap-btn-sub" id="ap-chat-addrow">＋ 行を追加</button>
             <button type="button" class="ap-btn-sub" id="ap-chat-addcat">＋ 分類を追加</button>
@@ -351,8 +356,62 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       $("ap-chat-table").hidden = rows.length === 0 && !canEdit;
       $("ap-chat-empty").hidden = rows.length > 0 || canEdit;
       $("ap-chat-savebar").hidden = !canEdit;
+      $("ap-chat-exportbar").hidden = rows.length === 0;
     }
     $("ap-chat-addrow")?.addEventListener("click", () => $("ap-chat-tbody").append(chatRow("", "")));
+    /* 画面の表をそのまま書き出す（分類・設問・回答の3列）。編集中の未保存の内容も
+       画面の値を読むのでそのまま出る。Excel は改行やタブを含むセルを "" で囲めば
+       1セルとして受け取るため、TSV/CSV とも同じ引用規則で組み立てる。 */
+    function chatTableRows() {
+      const out = [];
+      let cur = "";
+      for (const tr of $("ap-chat-tbody").querySelectorAll("tr")) {
+        if (tr.classList.contains("ap-chat-cat")) {
+          cur = (tr.querySelector(".ap-chat-catname")?.value ?? tr.textContent ?? "").trim();
+          continue;
+        }
+        const q = tr.querySelector(".ap-chat-q")?.value ?? tr.children[0]?.textContent ?? "";
+        const a = tr.querySelector(".ap-chat-a")?.value ?? tr.children[1]?.textContent ?? "";
+        out.push([cur, q.trim(), a.trim()]);
+      }
+      return out;
+    }
+    const quote = (v, sep) =>
+      new RegExp(`[${sep === "\t" ? "\t" : ","}"\r\n]`).test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    function chatTable(sep) {
+      const head = ["分類", "設問", "回答"];
+      return [head, ...chatTableRows()]
+        .map((r) => r.map((v) => quote(String(v), sep)).join(sep)).join("\r\n");
+    }
+    function flash(msg) {
+      $("ap-chat-copied").textContent = msg;
+      setTimeout(() => { $("ap-chat-copied").textContent = ""; }, 4000);
+    }
+    $("ap-chat-copy")?.addEventListener("click", async () => {
+      const tsv = chatTable("\t");
+      try {
+        await navigator.clipboard.writeText(tsv);
+        flash(`コピーしました（${chatTableRows().length}行）。Excel に貼り付けてください`);
+      } catch {
+        // クリップボードが拒否された場合（権限・非HTTPS）は選択状態にして手動コピーへ
+        const ta = document.createElement("textarea");
+        ta.value = tsv; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.append(ta); ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        flash(ok ? "コピーしました。Excel に貼り付けてください" : "コピーできませんでした（CSVをお使いください）");
+      }
+    });
+    $("ap-chat-csv")?.addEventListener("click", () => {
+      // Excel は BOM が無いと UTF-8 の日本語を文字化けさせる
+      const blob = new Blob(["\uFEFF" + chatTable(",")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `chatinfo-${urlProp()}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      flash(`CSVを書き出しました（${chatTableRows().length}行）`);
+    });
     $("ap-chat-addcat")?.addEventListener("click", () => {
       const tb = $("ap-chat-tbody");
       const head = catRow("");
@@ -488,7 +547,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     border: 0; background: transparent; cursor: pointer; font-size: 1rem; color: #666666; padding: 0.2rem 0.4rem;
   }
   .ap-chat-table :global(.ap-chat-catadd:hover) { color: #111111; }
-  .ap-chat-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; }
+  .ap-chat-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+  .ap-chat-export { margin-top: 1rem; padding-top: 1rem; }
   .ap-chat-table :global(.ap-chat-del) {
     border: 0; background: none; color: #bbbbbb; font-size: 1rem; cursor: pointer;
     padding: 0 0.3rem; line-height: 1;
