@@ -494,13 +494,16 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     padding: 0 0.3rem; line-height: 1;
   }
   .ap-chat-table :global(.ap-chat-del:hover) { color: #b3261e; }
-  .ap-chat-table th, .ap-chat-table td {
+  /* 行は JS で生成するため :global が必須。Astro のスコープ付きCSSは
+     ビルド時に属性を付けた要素にしか当たらず、createElement した行は
+     属性を持たない＝罫線も余白も効かない（2026-08-18 実機で発覚）。 */
+  .ap-chat-table :global(th), .ap-chat-table :global(td) {
     text-align: left; vertical-align: top; padding: 1.1rem 1rem 1.1rem 0;
     border-bottom: 1px solid #e5e5e5; font-size: 0.84rem; line-height: 1.9;
   }
-  .ap-chat-table thead th { font-size: 0.75rem; color: #666666; border-bottom: 1px solid #d7d7d7; }
-  .ap-chat-table tbody th { width: 34%; font-weight: 500; color: #111111; }
-  .ap-chat-table tbody td { color: #333333; white-space: pre-line; }
+  .ap-chat-table :global(thead th) { font-size: 0.75rem; color: #666666; border-bottom: 1px solid #d7d7d7; }
+  .ap-chat-table :global(tbody th) { width: 34%; font-weight: 500; color: #111111; }
+  .ap-chat-table :global(tbody td) { color: #333333; white-space: pre-line; }
   @media (max-width: 760px) {
     .ap-layout { flex-direction: column; }
     .ap-side { position: static; flex-direction: row; width: 100%; }
