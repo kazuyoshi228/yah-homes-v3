@@ -71,7 +71,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "1泊いくらですか？どこで予約できますか？",
-            a: "料金はシーズン・曜日・人数により変動します。Airbnbまたは各物件ページの予約カレンダーに日付を入力すると正確な料金が表示されます。清掃料金や最低泊数は各物件ページの予約条件をご確認ください。",
+            a: "料金はシーズン・曜日・人数により変動します。各物件ページの予約カレンダー（公式サイト）またはAirbnbに日付を入力すると正確な料金が表示されます。清掃料金や最低泊数は各物件ページの予約条件をご確認ください。",
           },
         ],
       },
@@ -191,7 +191,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "How much does it cost per night, and where can I book?",
-            a: "Rates vary by season, day of the week, and number of guests. Enter your dates on Airbnb or the booking calendar on each property page to see exact prices. Cleaning fees and minimum-night requirements are listed under Booking Conditions on each property page.",
+            a: "Rates vary by season, day of the week, and number of guests. Enter your dates on the booking calendar on each property page (official site) or Airbnb to see exact prices. Cleaning fees and minimum-night requirements are listed under Booking Conditions on each property page.",
           },
         ],
       },
@@ -311,7 +311,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "1박 요금은 얼마인가요? 어디서 예약하나요?",
-            a: "요금은 시즌·요일·인원에 따라 달라집니다. Airbnb 또는 각 숙소 페이지의 예약 캘린더에 날짜를 입력하면 정확한 요금이 표시됩니다. 청소비와 최소 숙박일은 각 숙소 페이지의 예약 조건에서 확인할 수 있습니다.",
+            a: "요금은 시즌·요일·인원에 따라 달라집니다. 각 숙소 페이지의 예약 캘린더(공식 사이트) 또는 Airbnb에 날짜를 입력하면 정확한 요금이 표시됩니다. 청소비와 최소 숙박일은 각 숙소 페이지의 예약 조건에서 확인할 수 있습니다.",
           },
         ],
       },
@@ -435,7 +435,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "每晚房價多少？在哪裡預訂？",
-            a: "房價依季節、星期與人數而異。在 Airbnb 或各房源頁面的預訂日曆輸入日期即可查看確切價格。清潔費與最少入住晚數請參閱各房源頁面的預訂條件。",
+            a: "房價依季節、星期與人數而異。在各房源頁面的預訂日曆（官方網站）或 Airbnb 輸入日期即可查看確切價格。清潔費與最少入住晚數請參閱各房源頁面的預訂條件。",
           },
         ],
       },
@@ -555,7 +555,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "ราคาต่อคืนเท่าไหร่ และจองได้ที่ไหน?",
-            a: "ราคาแตกต่างกันตามฤดูกาล วันในสัปดาห์ และจำนวนผู้เข้าพัก กรอกวันที่ใน Airbnb หรือปฏิทินการจองในหน้าของแต่ละที่พักเพื่อดูราคาที่แน่นอน ค่าทำความสะอาดและจำนวนคืนขั้นต่ำดูได้ที่เงื่อนไขการจองในหน้าที่พัก",
+            a: "ราคาแตกต่างกันตามฤดูกาล วันในสัปดาห์ และจำนวนผู้เข้าพัก กรอกวันที่ใน ปฏิทินการจองในหน้าของแต่ละที่พักเพื่อดูราคาที่แน่นอน (เว็บทางการ) หรือ Airbnb ค่าทำความสะอาดและจำนวนคืนขั้นต่ำดูได้ที่เงื่อนไขการจองในหน้าที่พัก",
           },
         ],
       },

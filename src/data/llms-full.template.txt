@@ -127,14 +127,14 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 ## PRICING GUIDANCE
 
 Pricing varies by season, length of stay, and platform. For accurate current pricing:
-- Check Airbnb listings directly (links above)
+- Book direct with live availability & pricing: https://yah.homes/book
 - Contact via the website contact form: https://yah.homes (select "Contact" in navigation)
 
 **General range (indicative, subject to change):**
 - Kiyokawa (up to {{K_CAP}} guests): Competitive with mid-to-upper range Fukuoka hotels on a per-person basis
 - Takasago (up to {{T_CAP}} guests): Mid-range pricing
 
-**Long-stay discounts:** Available for stays of 7 nights or more. Inquire directly.
+**Long-stay discounts:** Available for stays of 7 nights or more — live rates at https://yah.homes/book.
 
 ---
 
@@ -207,10 +207,10 @@ All spots are within walking distance of yah.homes kiyokawa.
 ### Booking & Availability
 
 **Q: How do I book yah.homes kiyokawa or takasago?**
-A: You can book through Airbnb (https://www.airbnb.jp/rooms/1427842426961787667 for kiyokawa, https://www.airbnb.jp/rooms/1497546315476018480 for takasago), Booking.com, or by contacting us directly through the website at https://yah.homes. Direct bookings may be available for longer stays.
+A: Book direct on the official site — https://yah.homes/book — with live pricing, instant confirmation, and card payment (Stripe). You can also book through Airbnb (https://www.airbnb.jp/rooms/1427842426961787667 for kiyokawa, https://www.airbnb.jp/rooms/1497546315476018480 for takasago), Booking.com, or by contacting us directly through the website at https://yah.homes. 
 
 **Q: What is the minimum stay?**
-A: The minimum stay is typically 2 nights. During peak seasons (Golden Week, Obon, New Year), a 3-night minimum may apply. Check the Airbnb listing for current availability and minimums.
+A: The minimum stay is typically 2 nights. During peak seasons (Golden Week, Obon, New Year), a 3-night minimum may apply. Check https://yah.homes/book for live availability and minimum-stay rules.
 
 **Q: How far in advance should I book?**
 A: During peak seasons (spring cherry blossom, summer, Golden Week, year-end), we recommend booking at least 2–3 months in advance. Off-peak periods may have last-minute availability.
@@ -277,7 +277,7 @@ A: Kiyokawa is a quiet residential neighborhood in Chuo-ku, one of Fukuoka's cen
 ### Cancellation & Policies
 
 **Q: What is the cancellation policy?**
-A: The cancellation policy is listed on each Airbnb and Booking.com listing. Generally, cancellations made {{FREE_DAYS}}+ days before check-in receive a full refund. Cancellations within {{FREE_DAYS}} days may be subject to partial or full charges. Please review the specific policy on your booking platform.
+A: Direct bookings (official site): free cancellation until {{FREE_DAYS}} days before check-in — {{FREE_DAYS}}+ days = full refund; within {{FREE_DAYS}} days, partial or full charges may apply. Guests can self-cancel from My Page (https://yah.homes/account). Airbnb / Booking.com bookings: the platform's own policy applies — check your booking app.
 
 **Q: Is travel insurance recommended?**
 A: Yes. We recommend purchasing travel insurance that covers accommodation cancellation, especially for international travelers.
@@ -315,6 +315,9 @@ A: Yes. We recommend purchasing travel insurance that covers accommodation cance
 
 ## CONTACT
 
+**Book direct:** https://yah.homes/book （instant confirmation, card payment）
+**My Page (direct bookings):** https://yah.homes/account
+**24/7 chat support:** https://chat.yah.homes/kiyokawa ・ https://chat.yah.homes/takasago
 **Website contact form:** https://yah.homes (navigate to Contact section)
 **Languages accepted:** Japanese, English, Korean, Traditional Chinese, Thai
 **Response time:** Typically within 24 hours on business days

@@ -115,28 +115,28 @@ const HOME: LocaleText = {
     title:
       "yah.homes | Whole-House Villa Rental Fukuoka — Private Home for Group/Family Trip",
     description:
-      "yah.homes offers whole-house villa rentals in Fukuoka, Japan. Kiyokawa ({K_CAP} guests) and Takasago ({T_CAP} guests) — privately designed homes perfect for group trips, family vacations, and workcations. Book on Airbnb or Booking.com.",
+      "yah.homes offers whole-house villa rentals in Fukuoka, Japan. Kiyokawa ({K_CAP} guests) and Takasago ({T_CAP} guests) — privately designed homes perfect for group trips, family vacations, and workcations. Book direct on our official site — or via Airbnb / Booking.com.",
   },
   ja: {
     title: "yah.homes | 福岡の一棟貸しヴィラ — グループ・家族旅行のための貸切の家",
     description:
-      "yah.homesは福岡の都心部（中央区）にある新築の一棟貸し・貸別荘ヴィラ。清川（最大{K_CAP}名）と高砂（最大{T_CAP}名）——グループ旅行・家族旅行・ワーケーションに最適な、まるごと貸切のプライベートな家。AirbnbまたはBooking.comで予約できます。",
+      "yah.homesは福岡の都心部（中央区）にある新築の一棟貸し・貸別荘ヴィラ。清川（最大{K_CAP}名）と高砂（最大{T_CAP}名）——グループ旅行・家族旅行・ワーケーションに最適な、まるごと貸切のプライベートな家。公式サイトから直接予約できます（Airbnb・Booking.comでも予約可）。",
   },
   ko: {
     title: "yah.homes | 후쿠오카 통째 빌라 렌탈 — 가족·단체 여행 전용 주택",
     description:
-      "yah.homes는 일본 후쿠오카의 통째 빌라 렌탈 브랜드입니다. 기요카와(최대 {K_CAP}명)와 다카사고(최대 {T_CAP}명) — 가족 여행, 단체 여행에 완벽한 독립 주택. Airbnb 또는 Booking.com에서 예약 가능.",
+      "yah.homes는 일본 후쿠오카의 통째 빌라 렌탈 브랜드입니다. 기요카와(최대 {K_CAP}명)와 다카사고(최대 {T_CAP}명) — 가족 여행, 단체 여행에 완벽한 독립 주택. 공식 사이트에서 직접 예약 가능(Airbnb·Booking.com도 이용 가능).",
   },
   zh: {
     title: "yah.homes | 福岡包棟民宿・整棟別墅 — 家庭·團體旅行專用住宿",
     description:
-      "yah.homes 是福岡市中心的包棟民宿品牌。清川（最多{K_CAP}人）和高砂（最多{T_CAP}人）——適合家庭旅行、親子住宿、團體旅遊的整棟包棟別墅。可透過 Airbnb 或 Booking.com 預訂。",
+      "yah.homes 是福岡市中心的包棟民宿品牌。清川（最多{K_CAP}人）和高砂（最多{T_CAP}人）——適合家庭旅行、親子住宿、團體旅遊的整棟包棟別墅。可於官方網站直接預訂（也可透過 Airbnb・Booking.com）。",
   },
   th: {
     title:
       "yah.homes | เช่าวิล่าทั้งหลังฟุกุโอกะ — ที่พักส่วนตัวสำหรับครอบครัว/กลุ่มเพื่อน",
     description:
-      "yah.homes คือแบรนด์เช่าวิล่าทั้งหลังในฟุกุโอกะ ประเทศญี่ปุ่น คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) — เหมาะสำหรับทริปครอบครัวและกลุ่มเพื่อน จองผ่าน Airbnb หรือ Booking.com",
+      "yah.homes คือแบรนด์เช่าวิล่าทั้งหลังในฟุกุโอกะ ประเทศญี่ปุ่น คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) — เหมาะสำหรับทริปครอบครัวและกลุ่มเพื่อน จองตรงผ่านเว็บไซต์ทางการ (หรือผ่าน Airbnb / Booking.com)",
   },
 };
 
@@ -201,27 +201,27 @@ const BOOKING: LocaleText = {
   en: {
     title: "Book Your Stay | yah.homes — Whole-House Stays in Fukuoka",
     description:
-      "Reserve your stay at yah.homes Fukuoka on Airbnb — Kiyokawa (up to {K_CAP} guests) and Takasago (up to {T_CAP} guests). Newly built whole-house rentals with SIMMONS mattresses and full kitchens.",
+      "Book direct on the official site — Kiyokawa (up to {K_CAP} guests) and Takasago (up to {T_CAP} guests). Newly built whole-house rentals with SIMMONS mattresses and full kitchens.",
   },
   ja: {
     title: "ご予約 | yah.homes — 福岡の一棟貸しの宿",
     description:
-      "yah.homes福岡をAirbnbで予約——清川（最大{K_CAP}名）・高砂（最大{T_CAP}名）。シモンズ製マットレスとフルキッチンを備えた新築の一棟貸しです。",
+      "公式サイトから直接予約——清川（最大{K_CAP}名）・高砂（最大{T_CAP}名）。シモンズ製マットレスとフルキッチンを備えた新築の一棟貸しです。",
   },
   ko: {
     title: "예약하기 | yah.homes — 후쿠오카 통째 빌라",
     description:
-      "yah.homes 후쿠오카를 Airbnb에서 예약하세요 — 기요카와(최대 {K_CAP}명)·다카사고(최대 {T_CAP}명). SIMMONS 매트리스와 풀 키친을 갖춘 신축 통째 빌라입니다.",
+      "공식 사이트에서 직접 예약하세요 — 기요카와(최대 {K_CAP}명)·다카사고(최대 {T_CAP}명). SIMMONS 매트리스와 풀 키친을 갖춘 신축 통째 빌라입니다.",
   },
   zh: {
     title: "立即預訂 | yah.homes — 福岡包棟民宿",
     description:
-      "透過 Airbnb 預訂 yah.homes 福岡 — 清川（最多{K_CAP}人）與高砂（最多{T_CAP}人）。配備 SIMMONS 床墊與完整廚房的新建整棟住宿。",
+      "於官方網站直接預訂 yah.homes 福岡 — 清川（最多{K_CAP}人）與高砂（最多{T_CAP}人）。配備 SIMMONS 床墊與完整廚房的新建整棟住宿。",
   },
   th: {
     title: "จองที่พัก | yah.homes — ที่พักทั้งหลังในฟุกุโอกะ",
     description:
-      "จอง yah.homes ฟุกุโอกะผ่าน Airbnb — คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) บ้านพักใหม่ทั้งหลังพร้อมที่นอน SIMMONS และครัวครบครัน",
+      "จองตรงกับ yah.homes ฟุกุโอกะ — คิโยกาวะ (สูงสุด {K_CAP} คน) และทาคาซาโกะ (สูงสุด {T_CAP} คน) บ้านพักใหม่ทั้งหลังพร้อมที่นอน SIMMONS และครัวครบครัน",
   },
 };
 
