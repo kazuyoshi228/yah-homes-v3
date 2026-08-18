@@ -1,4 +1,6 @@
 ---
+import { chatUrlFor, qrPaths } from "../../lib/chatLinks";
+import { OPERATOR_PHONE, OPERATOR_PHONE_TEL } from "../../lib/seo";
 import { getPropertyFacts } from "../../lib/propertyFacts";
 /* 入室案内（共通部品）— Google Sites から移設
    noindex・robots除外・sitemap除外。到着前〜到着直後にスマホで開く前提。
@@ -152,7 +154,7 @@ const garage = garageSize
       <section class="ht-block ht-help">
         <h2 class="ht-h2"><span data-t="helpTitle"></span></h2>
         <p class="ht-text" data-t="helpBody"></p>
-        <p class="ht-call"><span data-t="helpCall"></span>：<a href="tel:+815017214419">050-1721-4419</a></p>
+        <p class="ht-call"><span data-t="helpCall"></span>：<a href={`tel:${OPERATOR_PHONE_TEL}`}>{OPERATOR_PHONE}</a></p>
       </section>
 
       <!-- Support Chat（施設別・2026-08-18 発注者指示で独立セクション化）。
@@ -161,8 +163,8 @@ const garage = garageSize
         <h2 class="ht-h2">Support Chat</h2>
         <p class="ht-text" data-t="chatLead"></p>
         <div class="ht-chat">
-          <img class="ht-chat-qr" src={`/qr/chat-${prop}.png`} alt="QR" width="120" height="120" loading="lazy" />
-          <a class="ht-chat-btn" href={`https://chat.yah.homes/${prop}`} target="_blank" rel="noopener" data-t="helpChat"></a>
+          <img class="ht-chat-qr" src={qrPaths(prop).screen} alt="QR" width="120" height="120" loading="lazy" />
+          <a class="ht-chat-btn" href={chatUrlFor(prop)} target="_blank" rel="noopener" data-t="helpChat"></a>
         </div>
       </section>
 

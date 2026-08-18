@@ -2,6 +2,8 @@
    純データのみ。ロジックは index.ts 側に残し、辞書の追記でロジックを触らせない。
    編集時の正本は /admin/templates の上書き（mail_templates）で、ここはコード既定値。 */
 
+import { BRAND_FOOTER } from "./mail-template.js";
+
 export type MailKind = "confirm" | "checkin" | "checkout" | "review" | "cancel" | "contact";
 
 export const CONTACT_L10N: Record<string, Record<string, string>> = {
@@ -12,7 +14,7 @@ export const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "いただいた内容",
     cta: "空室を見る",
     note: "お急ぎの場合は、このメールにそのままご返信ください。",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   en: {
     subject: "Thank you for contacting yah.homes",
@@ -21,7 +23,7 @@ export const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "Your message",
     cta: "See availability",
     note: "If you have any urgent questions, simply reply to this email.",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   ko: {
     subject: "[yah.homes] 문의해 주셔서 감사합니다",
@@ -30,7 +32,7 @@ export const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "보내주신 내용",
     cta: "빈방 보기",
     note: "급하신 경우 이 메일에 그대로 회신해 주세요.",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   zh: {
     subject: "【yah.homes】感謝您的來信",
@@ -39,7 +41,7 @@ export const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "您的訊息",
     cta: "查詢空房",
     note: "如有急事，請直接回覆這封郵件。",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   th: {
     subject: "[yah.homes] ขอบคุณที่ติดต่อเรา",
@@ -48,7 +50,7 @@ export const CONTACT_L10N: Record<string, Record<string, string>> = {
     msgTitle: "ข้อความของคุณ",
     cta: "ดูห้องว่าง",
     note: "หากมีเรื่องเร่งด่วน กรุณาตอบกลับอีเมลฉบับนี้ได้เลย",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
 };
 
@@ -74,7 +76,7 @@ export const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "お困りのとき", remHelpBody: "鍵が取り出せない、場所が分からないなど、その場でお困りの際はお電話ください。",
     remManual: "入室の手順（写真つき）", remManualBody: "住所・玄関の場所・鍵の開け方・駐車場を写真でご案内しています。ご到着前にご覧ください。",
     remCta: "予約を確認する",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
     revTplTitle: "レビュー",
     revCatClean: "清潔度",
     revCatComm: "コミュニケーション",
@@ -112,7 +114,7 @@ export const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "Need help?", remHelpBody: "If you cannot get the key out or you cannot find the house, please call us.",
     remManual: "Step-by-step guide (with photos)", remManualBody: "The address, the entrance, how to open the key box, and parking — all with photos. Worth a look before you arrive.",
     remCta: "View your booking",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
     revTplTitle: "Your review",
     revCatClean: "Cleanliness",
     revCatComm: "Communication",
@@ -150,7 +152,7 @@ export const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "곤란하실 때는", remHelpBody: "열쇠를 꺼낼 수 없거나 위치를 찾기 어려우실 때는 전화해 주세요.",
     remManual: "입실 안내 (사진 포함)", remManualBody: "주소・현관 위치・열쇠 여는 법・주차장을 사진으로 안내해 드립니다. 도착 전에 확인해 주세요.",
     remCta: "예약 확인하기",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
     revTplTitle: "리뷰",
     revCatClean: "청결도",
     revCatComm: "커뮤니케이션",
@@ -188,7 +190,7 @@ export const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "遇到問題時", remHelpBody: "若無法取出鑰匙或找不到位置，請撥打電話與我們聯繫。",
     remManual: "入住步驟（附照片）", remManualBody: "以照片說明地址、玄關位置、開鎖方式與停車場。抵達前建議先看一下。",
     remCta: "查看預訂",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
     revTplTitle: "您的評價",
     revCatClean: "清潔度",
     revCatComm: "溝通",
@@ -226,7 +228,7 @@ export const LIFECYCLE_L10N: Record<string, Record<string, string>> = {
     remHelp: "หากพบปัญหา", remHelpBody: "หากไม่สามารถนำกุญแจออกมาได้ หรือหาที่พักไม่พบ กรุณาโทรหาเรา",
     remManual: "ขั้นตอนการเข้าพัก (มีรูปประกอบ)", remManualBody: "อธิบายที่อยู่ ตำแหน่งประตู วิธีเปิดกล่องกุญแจ และที่จอดรถพร้อมรูปภาพ ควรดูก่อนเดินทางมาถึง",
     remCta: "ดูการจอง",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
     revTplTitle: "รีวิวของคุณ",
     revCatClean: "ความสะอาด",
     revCatComm: "การสื่อสาร",
@@ -356,7 +358,7 @@ export const MAIL_L10N: Record<string, Record<string, string>> = {
     safetyTitle: "安全のために",
     safetyBody: "当社からメールやお電話で、カード情報の再入力や追加のお支払いをお願いすることはありません。そのようなご連絡を受け取られた場合は、リンクを開かずに下記までご連絡ください。",
     contactTitle: "ご不明な点", contactBody: "My Page のメッセージからご連絡ください。ご予約ごとにやり取りが残ります。",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   en: {
     registerTitle: "One thing before your stay",
@@ -383,7 +385,7 @@ export const MAIL_L10N: Record<string, Record<string, string>> = {
     safetyTitle: "Staying safe",
     safetyBody: "We will never email or call you to re-enter your card details or ask for an extra payment. If you receive such a message, do not open the link and contact us below.",
     contactTitle: "Questions?", contactBody: "Message us from My Page — each booking has its own thread.",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   ko: {
     registerTitle: "숙박 전 부탁드릴 사항",
@@ -410,7 +412,7 @@ export const MAIL_L10N: Record<string, Record<string, string>> = {
     safetyTitle: "안전 안내",
     safetyBody: "당사는 메일이나 전화로 카드 정보 재입력이나 추가 결제를 요청하지 않습니다. 그런 연락을 받으시면 링크를 열지 마시고 아래로 연락해 주세요.",
     contactTitle: "문의", contactBody: "My Page 메시지로 연락해 주세요. 예약별로 대화가 남습니다.",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   zh: {
     registerTitle: "入住前想麻煩您一件事",
@@ -437,7 +439,7 @@ export const MAIL_L10N: Record<string, Record<string, string>> = {
     safetyTitle: "安全提醒",
     safetyBody: "本公司不會以郵件或電話要求您重新輸入信用卡資訊或額外付款。若收到此類訊息，請勿開啟連結並與我們聯繫。",
     contactTitle: "有任何問題", contactBody: "請透過 My Page 訊息與我們聯繫，每筆預訂都有獨立的對話紀錄。",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
   th: {
     registerTitle: "ขอความร่วมมือก่อนการเข้าพัก",
@@ -464,7 +466,7 @@ export const MAIL_L10N: Record<string, Record<string, string>> = {
     safetyTitle: "เพื่อความปลอดภัย",
     safetyBody: "เราจะไม่ส่งอีเมลหรือโทรขอให้คุณกรอกข้อมูลบัตรใหม่หรือชำระเงินเพิ่ม หากได้รับข้อความลักษณะนี้ กรุณาอย่าเปิดลิงก์และติดต่อเราตามด้านล่าง",
     contactTitle: "หากมีข้อสงสัย", contactBody: "กรุณาติดต่อเราผ่านข้อความใน My Page แต่ละการจองจะมีห้องสนทนาแยกกัน",
-    footer: "yah.homes【Operated by AIRSTAR】",
+    footer: BRAND_FOOTER,
   },
 };
 
@@ -475,34 +477,34 @@ export const CANCEL_L10N: Record<string, Record<string, string>> = {
     refundNote: "ご利用のカードへ返金処理を行います。カード会社の処理により、反映まで数日から1か月程度かかる場合があります。",
     noRefundNote: "キャンセル期限を過ぎているため、ご返金はありません。",
     again: "またのご利用をお待ちしております。日程を改めてのご予約はこちらから承ります。",
-    cta: "空室を見る", contact: "ご不明な点は My Page のメッセージからご連絡ください。", footer: "yah.homes【Operated by AIRSTAR】" },
+    cta: "空室を見る", contact: "ご不明な点は My Page のメッセージからご連絡ください。", footer: BRAND_FOOTER },
   en: { subject: "[yah.homes] Your booking has been cancelled", greetSuffix: "", bookingNo: "Booking ID",
     lead: "We have cancelled your booking.", refundTitle: "Refund",
     paid: "Paid", fee: "Cancellation fee", refund: "Refund",
     refundNote: "We are refunding to the card you used. Depending on your card issuer, it can take from a few days to about a month to appear.",
     noRefundNote: "The free cancellation deadline had passed, so no refund applies.",
     again: "We hope to welcome you another time. You can book new dates any time.",
-    cta: "See availability", contact: "If you have any questions, message us from My Page.", footer: "yah.homes【Operated by AIRSTAR】" },
+    cta: "See availability", contact: "If you have any questions, message us from My Page.", footer: BRAND_FOOTER },
   ko: { subject: "[yah.homes] 예약이 취소되었습니다", greetSuffix: " 님", bookingNo: "예약번호",
     lead: "예약 취소를 접수했습니다.", refundTitle: "환불",
     paid: "결제 완료 금액", fee: "취소 수수료", refund: "환불 금액",
     refundNote: "사용하신 카드로 환불 처리됩니다. 카드사 처리에 따라 반영까지 며칠에서 한 달 정도 걸릴 수 있습니다.",
     noRefundNote: "무료 취소 기한이 지나 환불은 없습니다.",
     again: "다음 기회에 다시 모시겠습니다. 새로운 날짜로 언제든지 예약하실 수 있습니다.",
-    cta: "빈방 보기", contact: "궁금하신 점은 My Page 메시지로 연락해 주세요.", footer: "yah.homes【Operated by AIRSTAR】" },
+    cta: "빈방 보기", contact: "궁금하신 점은 My Page 메시지로 연락해 주세요.", footer: BRAND_FOOTER },
   zh: { subject: "【yah.homes】您的預訂已取消", greetSuffix: " 您好", bookingNo: "預訂編號",
     lead: "已受理您的預訂取消。", refundTitle: "退款",
     paid: "已付金額", fee: "取消費用", refund: "退款金額",
     refundNote: "將退款至您使用的信用卡。依發卡機構作業，反映時間可能需要數日至一個月左右。",
     noRefundNote: "已超過免費取消期限，故不予退款。",
     again: "期待再次為您服務，隨時歡迎重新選擇日期預訂。",
-    cta: "查詢空房", contact: "如有任何問題，請透過 My Page 訊息與我們聯繫。", footer: "yah.homes【Operated by AIRSTAR】" },
+    cta: "查詢空房", contact: "如有任何問題，請透過 My Page 訊息與我們聯繫。", footer: BRAND_FOOTER },
   th: { subject: "[yah.homes] ยกเลิกการจองของคุณแล้ว", greetSuffix: "", bookingNo: "หมายเลขการจอง",
     lead: "เราได้ยกเลิกการจองของคุณแล้ว", refundTitle: "การคืนเงิน",
     paid: "ชำระแล้ว", fee: "ค่าธรรมเนียมการยกเลิก", refund: "จำนวนเงินคืน",
     refundNote: "เราจะคืนเงินไปยังบัตรที่คุณใช้ ขึ้นอยู่กับผู้ออกบัตร อาจใช้เวลาไม่กี่วันถึงประมาณหนึ่งเดือน",
     noRefundNote: "เลยกำหนดยกเลิกฟรีแล้ว จึงไม่มีการคืนเงิน",
     again: "หวังว่าจะได้ต้อนรับคุณอีกครั้ง คุณสามารถจองวันใหม่ได้ตลอดเวลา",
-    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาติดต่อเราผ่านข้อความใน My Page", footer: "yah.homes【Operated by AIRSTAR】" },
+    cta: "ดูห้องว่าง", contact: "หากมีคำถาม กรุณาติดต่อเราผ่านข้อความใน My Page", footer: BRAND_FOOTER },
 };
 

@@ -60,15 +60,8 @@ export interface Translations {
     };
     values: {
       available: string;
-      car18min: string;
-      car20min: string;
-      car30min: string;
-      walk5min: string;
-      walk8min: string;
-      walk12min: string;
-      walk15min: string;
-      walk20min: string;
-      walk25min: string;
+      carMin: string;
+      walkMin: string;
       watanabeDori: string;
     };
   };
@@ -207,15 +200,8 @@ const en: Translations = {
     },
     values: {
       available: "Available",
-      car18min: "18 min by car",
-      car20min: "20 min by car",
-      car30min: "30 min by car",
-      walk5min: "5 min walk",
-      walk8min: "8 min walk",
-      walk12min: "12 min walk",
-      walk15min: "15 min walk",
-      walk20min: "20 min walk",
-      walk25min: "25 min walk",
+      carMin: "{n} min by car",
+      walkMin: "{n} min walk",
       watanabeDori: "Watanabe Dori",
     },
   },
@@ -384,15 +370,8 @@ const ko: Translations = {
     },
     values: {
       available: "이용 가능",
-      car18min: "차로 18분",
-      car20min: "차로 20분",
-      car30min: "차로 30분",
-      walk5min: "도보 5분",
-      walk8min: "도보 8분",
-      walk12min: "도보 12분",
-      walk15min: "도보 15분",
-      walk20min: "도보 20분",
-      walk25min: "도보 25분",
+      carMin: "차량 {n}분",
+      walkMin: "도보 {n}분",
       watanabeDori: "渡辺通（와타나베도리）",
     },
   },
@@ -560,15 +539,8 @@ const zh: Translations = {
     },
     values: {
       available: "有",
-      car18min: "開車18分鐘",
-      car20min: "開車20分鐘",
-      car30min: "開車30分鐘",
-      walk5min: "步行5分鐘",
-      walk8min: "步行8分鐘",
-      walk12min: "步行12分鐘",
-      walk15min: "步行15分鐘",
-      walk20min: "步行20分鐘",
-      walk25min: "步行25分鐘",
+      carMin: "開車{n}分鐘",
+      walkMin: "步行{n}分鐘",
       watanabeDori: "渡辺通",
     },
   },
@@ -736,15 +708,8 @@ const th: Translations = {
     },
     values: {
       available: "มีให้บริการ",
-      car18min: "18 นาทีโดยรถยนต์",
-      car20min: "20 นาทีโดยรถยนต์",
-      car30min: "30 นาทีโดยรถยนต์",
-      walk5min: "เดิน 5 นาที",
-      walk8min: "เดิน 8 นาที",
-      walk12min: "เดิน 12 นาที",
-      walk15min: "เดิน 15 นาที",
-      walk20min: "เดิน 20 นาที",
-      walk25min: "เดิน 25 นาที",
+      carMin: "รถยนต์ {n} นาที",
+      walkMin: "เดิน {n} นาที",
       watanabeDori: "Watanabe Dori",
     },
   },
@@ -912,15 +877,8 @@ const ja: Translations = {
     },
     values: {
       available: "あり",
-      car18min: "車で18分",
-      car20min: "車で20分",
-      car30min: "車で30分",
-      walk5min: "徒歩5分",
-      walk8min: "徒歩8分",
-      walk12min: "徒歩12分",
-      walk15min: "徒歩15分",
-      walk20min: "徒歩20分",
-      walk25min: "徒歩25分",
+      carMin: "車で{n}分",
+      walkMin: "徒歩{n}分",
       watanabeDori: "渡辺通",
     },
   },

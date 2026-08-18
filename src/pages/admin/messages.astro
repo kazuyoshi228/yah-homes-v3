@@ -1,4 +1,6 @@
 ---
+import { CHAT_PROPS } from "../../data/adminChatInfo";
+const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p) => [p.key, p.label]));
 /* /admin/messages — お客様とのメッセージ（Airbnb同等）
    仕様: docs/spec_admin_messages.md
    読み取りは Firestore を直接購読（リアルタイム）。送信は messagesApi 経由。
@@ -8,7 +10,7 @@ import { ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
 const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
-const PROP = { kiyokawa: "清川", takasago: "高砂", test: "検証用" };
+const PROP = PROP_LABEL;
 ---
 
 <SiteLayout adminNav

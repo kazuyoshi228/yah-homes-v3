@@ -16,7 +16,7 @@ export const en: KiyokawaTranslations = {
     title: "Property Overview",
     bedrooms: "3 Bedrooms",
     beds: "3 Double Beds + 1 Single Bed",
-    maxGuests: "7 guests (max)",
+    maxGuests: "{cap} guests (max)",
     area: "Kiyokawa · Chuo-ku, Fukuoka",
   },
   amenityCategories: {
@@ -155,7 +155,7 @@ export const en: KiyokawaTranslations = {
   },
   conditions: {
     title: "Booking Conditions",
-    cancellation: "Cancellation: free until 8 days before check-in. The exact deadline (JST) is shown when you book.",
+    cancellation: "Cancellation: free until {d} days before check-in. The exact deadline (JST) is shown when you book.",
     cleaningFee: "Cleaning fee: Included in the rate",
     extraGuest: "Rate covers up to 5 guests; ¥5,000 per additional guest per night",
     noiseRule: "Quiet hours apply. Please be considerate of neighbours.",
@@ -196,7 +196,7 @@ export const en: KiyokawaTranslations = {
       },
       {
         q: "What is the cancellation policy?",
-        a: "Booking on our official site: free cancellation until 8 days before check-in; after that, and for no-shows, the full amount is charged. The exact deadline (JST) is shown before you pay and in your confirmation email, and you can cancel yourself from My Page. To change dates, party size or house, cancel and rebook \u2014 within the free period there is no extra cost. Airbnb and Booking.com reservations follow that platform\u2019s policy.",
+        a: "Booking on our official site: free cancellation until {d} days before check-in; after that, and for no-shows, the full amount is charged. The exact deadline (JST) is shown before you pay and in your confirmation email, and you can cancel yourself from My Page. To change dates, party size or house, cancel and rebook \u2014 within the free period there is no extra cost. Airbnb and Booking.com reservations follow that platform\u2019s policy.",
       },
       {
         q: "Is the property accessible for guests with mobility limitations?",
@@ -218,7 +218,7 @@ export const en: KiyokawaTranslations = {
     title: "About This Space",
     showMore: "Show more",
     showLess: "Show less",
-    intro: "A brand-new hidden-gem villa (entire house) nestled along the Nakagawa River in Kiyokawa, Fukuoka. Enjoy the tranquil riverside atmosphere while staying in the heart of the city with easy access to Tenjin and Hakata.\n\n8 min by car to Tenjin. 10 min by car to Hakata Station. 18 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to 7 guests. Spacious living area and designer furniture create a truly special experience.",
+    intro: "A brand-new hidden-gem villa (entire house) nestled along the Nakagawa River in Kiyokawa, Fukuoka. Enjoy the tranquil riverside atmosphere while staying in the heart of the city with easy access to Tenjin and Hakata.\n\n8 min by car to Tenjin. 10 min by car to Hakata Station. 18 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. Spacious living area and designer furniture create a truly special experience.",
     highlights: [
       {
         title: "1. Premium Sleep Experience (SIMMONS Mattresses)",
@@ -239,7 +239,7 @@ export const en: KiyokawaTranslations = {
         "Bedroom 1: 1 single bed",
         "Bedroom 2: 2 double beds",
         "Bedroom 3: 1 double bed",
-        "(Up to 7 guests across 3 bedrooms)",
+        "(Up to {cap} guests across 3 bedrooms)",
       ],
     },
     facilityGuide: {

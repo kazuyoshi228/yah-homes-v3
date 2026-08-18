@@ -1,4 +1,5 @@
 ---
+import { propDisplayName } from "../../lib/propNames";
 /* /admin/booking/?id=<予約ID> — 予約詳細（承認済み・2026-08-16 着工）
    1つの予約に関する全部をここに集める: 予約情報／タイムライン（送信メール＋メッセージの
    時系列マージ）／操作（要対応・メモ・返金）／メッセージ（右カラム・その場で返信）。
@@ -10,7 +11,7 @@ import { FB_CONFIG } from "../../lib/adminConfig";
 
 const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
 const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
-const PROP: Record<string, string> = { kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago", test: "yah.homes test1（検証用）" };
+const PROP: Record<string, string> = { kiyokawa: propDisplayName("kiyokawa"), takasago: propDisplayName("takasago"), test: propDisplayName("test") };
 const MAIL_LABEL: Record<string, string> = {
   confirm: "予約確定メール", checkin: "チェックイン案内", checkout: "チェックアウト案内",
   review: "レビュー依頼", cancel: "キャンセル確認", message: "メッセージ通知",

@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../../../lib/adminConfig";
 /* /book/ — 予約の「選択」ページ（design_booking_p1_v4.md §3〜4・MS2）
    日付×人数 → 2棟の空室と総額を即表示 → 「この棟で進む」で /book/checkout へ。
    デザイン: ブランドガイドライン準拠のモノクローム（Black/White/LightGray/Gray）。
@@ -22,7 +23,7 @@ export function getStaticPaths() {
 const { lang } = Astro.props as { lang: Locale };
 const t = BOOK_STRINGS[lang];
 
-const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+const AVAIL_ENDPOINT = ENDPOINTS.bookingApi;
 const CHECKOUT_PATH = localizedPath(lang, "/book/checkout");
 
 // カード表示用スペック（2026-08-08 発注者提供・表示のみ。properties.ts/Beds24の正本は未変更）
@@ -151,7 +152,7 @@ const HOST_COPY = {
         sending: "กำลังส่ง…", done: "ขอบคุณค่ะ เราจะติดต่อกลับภายใน 24 ชั่วโมง", fail: "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
         ctx: "วันที่คุณกำลังดู" },
 }[lang];
-const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/contact";
+const CONTACT_ENDPOINT = ENDPOINTS.contact;
 
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 const fxRate = FX_PER_JPY[t.fxCode] ?? 1;

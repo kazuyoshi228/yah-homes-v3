@@ -20,6 +20,12 @@ const nearby = nearbyData[lang];
 const RATING_LABEL = comparisonRatingLabel;
 // 評価は property_facts が単一ソース（/admin/properties で編集）
 const { facts } = await getPropertyFacts();
+const K = facts.kiyokawa, T = facts.takasago;
+/* 0 は「—」表示（設備なし）。数値・距離はすべて property_facts（/admin/properties）が正 */
+const num = (n: number) => (n > 0 ? String(n) : "—");
+const avail = (n: number) => (n > 0 ? ct.values.available : "—");
+const carMin = (n: number) => ct.values.carMin.replace("{n}", String(n));
+const walkMin = (n: number) => ct.values.walkMin.replace("{n}", String(n));
 const kiyoRating = `★ ${facts.kiyokawa.rating} (${facts.kiyokawa.reviewCount})`;
 const takaRating = `★ ${facts.takasago.rating} (${facts.takasago.reviewCount})`;
 
@@ -33,27 +39,27 @@ type Row =
 
 const ROWS: Row[] = [
   { type: "header", label: ct.headers.capacity },
-  { type: "row", label: ct.rows.maxCapacity, kiyokawa: `7 ${peopleUnit}`, takasago: `6 ${peopleUnit}` },
+  { type: "row", label: ct.rows.maxCapacity, kiyokawa: `${K.capacity} ${peopleUnit}`, takasago: `${T.capacity} ${peopleUnit}` },
   { type: "row", label: RATING_LABEL[lang], kiyokawa: kiyoRating, takasago: takaRating },
 
   { type: "header", label: ct.headers.rooms },
-  { type: "row", label: ct.rows.bedrooms, kiyokawa: "3", takasago: "3" },
-  { type: "row", label: ct.rows.doubleBed, kiyokawa: "3", takasago: "1" },
-  { type: "row", label: ct.rows.singleBed, kiyokawa: "1", takasago: "4" },
-  { type: "row", label: ct.rows.bathroom, kiyokawa: "1", takasago: "1" },
-  { type: "row", label: ct.rows.showerBooth, kiyokawa: "—", takasago: "1" },
-  { type: "row", label: ct.rows.toilet, kiyokawa: "2", takasago: "2" },
+  { type: "row", label: ct.rows.bedrooms, kiyokawa: num(K.bedrooms), takasago: num(T.bedrooms) },
+  { type: "row", label: ct.rows.doubleBed, kiyokawa: num(K.bedDouble), takasago: num(T.bedDouble) },
+  { type: "row", label: ct.rows.singleBed, kiyokawa: num(K.bedSingle), takasago: num(T.bedSingle) },
+  { type: "row", label: ct.rows.bathroom, kiyokawa: num(K.bath), takasago: num(T.bath) },
+  { type: "row", label: ct.rows.showerBooth, kiyokawa: num(K.shower), takasago: num(T.shower) },
+  { type: "row", label: ct.rows.toilet, kiyokawa: num(K.toilet), takasago: num(T.toilet) },
 
   { type: "header", label: ct.headers.facilities },
-  { type: "row", label: ct.rows.privateParking, kiyokawa: ct.values.available, takasago: ct.values.available },
-  { type: "row", label: ct.rows.theaterRoom, kiyokawa: "—", takasago: ct.values.available },
+  { type: "row", label: ct.rows.privateParking, kiyokawa: avail(K.parking), takasago: avail(T.parking) },
+  { type: "row", label: ct.rows.theaterRoom, kiyokawa: avail(K.theater), takasago: avail(T.theater) },
 
   { type: "header", label: ct.headers.access },
-  { type: "row", label: ct.rows.fromAirport, kiyokawa: ct.values.car18min, takasago: ct.values.car20min },
-  { type: "row", label: ct.rows.fromStation, kiyokawa: ct.values.walk15min, takasago: ct.values.walk8min },
+  { type: "row", label: ct.rows.fromAirport, kiyokawa: carMin(K.fromAirportCarMin), takasago: carMin(T.fromAirportCarMin) },
+  { type: "row", label: ct.rows.fromStation, kiyokawa: walkMin(K.fromStationWalkMin), takasago: walkMin(T.fromStationWalkMin) },
   { type: "row", label: ct.rows.nearestStation, kiyokawa: ct.values.watanabeDori, takasago: ct.values.watanabeDori },
-  { type: "row", label: ct.rows.toTenjin, kiyokawa: ct.values.walk20min, takasago: ct.values.walk15min },
-  { type: "row", label: ct.rows.toHakata, kiyokawa: ct.values.walk25min, takasago: ct.values.walk25min },
+  { type: "row", label: ct.rows.toTenjin, kiyokawa: walkMin(K.toTenjinWalkMin), takasago: walkMin(T.toTenjinWalkMin) },
+  { type: "row", label: ct.rows.toHakata, kiyokawa: walkMin(K.toHakataWalkMin), takasago: walkMin(T.toHakataWalkMin) },
 
   // GEO: 周辺スポット距離（物件ページと同一ソース nearbyData — 数値のズレ防止）
   { type: "header", label: nearby.title },

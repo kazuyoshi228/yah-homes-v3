@@ -141,3 +141,12 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 - 済：Firebase接続（Hosting devチャンネル稼働・301リダイレクト検証済み）・Blaze移行・Firestore有効化・contact関数デプロイ（問い合わせフォーム稼働・Firestore保存・ルールは全deny維持）・GA4導入（G-VJ5DDRML79）・ブランドガイドライン準拠（モノクローム4色）。
 - 未了：Storage有効化（firebase.jsonから一時除外中）・独自ドメイン接続・本番デプロイ。
 - 次アクション候補：①Astro 雛形作成と UI 資産の移植設計図 → ②`firebase init`（Hosting/Functions/Firestore を `yah-homes` に紐付け）→ ③28 ページ（7×4 言語）の SSG 化。
+
+
+## SSoT・重複禁止の原則（2026-08-18 全面監査で確立・違反はビルドが落ちる）
+
+- **宿の事実（定員・時刻・住所・距離・設備・キャンセル日数）はコードに書かない。** 正本は Firestore `property_facts`（/admin/properties）。表示は `getPropertyFacts()`＋`{ci}/{co}/{cap}/{d}` 差し込み（`lib/factText.ts` の `makeFill`/`fillDeep`）、メールは `ssotProp()`。
+- **集約先が決まっている定数を直書きしない**（scripts/check-consistency.mjs §10 が機械検査）:
+  Functions URL→`adminConfig.ts` の `ENDPOINTS` / チャットURL・QRパス→`lib/chatLinks.ts` / 電話→`seo.ts` の `OPERATOR_PHONE` / サイトURL→`seo.ts` の `BASE_URL`（functions側は `mail-template.ts` の `SITE_URL`）/ 施設表示名→`lib/propNames.ts` / 施設ラベル対訳→`data/adminChatInfo.ts` の `CHAT_PROPS` / Firebase SDK版→`adminConfig.ts` の `FB_SDK` / Beds24 ID対応・SA・GA4→`functions/src/beds24Client.ts` / メール共通文言→`mail-template.ts`（`BRAND_FOOTER`・`MAIL_NOREPLY`）。
+- **fail-closed**: SSoT が読めないときは既定値に倒さず、止める・断る・警報（`notifyError`）。「読めなければ送る/受ける」を書かない。
+- **check-consistency.mjs は本文の実ファイルを検査する**（言語分割後の `src/data/{kiyokawa,takasago}/*.ts`）。データファイルを分割・移動したら検査対象も必ず追随させること（2026-08-18 に旧バレル検査で全検査が空振りしていた事故の教訓）。

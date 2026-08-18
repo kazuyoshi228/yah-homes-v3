@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../lib/adminConfig";
 /* 物件詳細ページ（Kiyokawa / Takasago 共通）— B7
    kiyokawaData / takasagoData の実コンテンツを Home のデザイン文法で表示:
    ヒーロー → 概要+評価バッジ → 説明(折りたたみ) → アメニティ → (フロアプラン)
@@ -11,7 +12,7 @@ import { uiStrings } from "../i18n/uiStrings";
 import { nearbyData } from "../data/nearbyData";
 import { PROPERTY_GEO } from "../lib/seo";
 import { getPropertyFacts } from "../lib/propertyFacts";
-import { makeFill } from "../lib/factText";
+import { makeFill, fillDeep } from "../lib/factText";
 import PressSection from "./PressSection.astro";
 import { propertyDirect } from "../i18n/pageStrings";
 
@@ -26,7 +27,7 @@ interface Props {
   heroImage: string;
   floorPlanImage?: string;
 }
-const { lang, propertyKey, data: d, heroImage, floorPlanImage } = Astro.props;
+const { lang, propertyKey, data: dRaw, heroImage, floorPlanImage } = Astro.props;
 const p = PROPERTIES[propertyKey];
 // 評価・件数の単一ソースは property_facts（/admin/properties）。
 // 以前は言語別データに直書きしており、管理画面を更新してもここだけ古い値が残っていた。
@@ -46,6 +47,8 @@ const DIRECT = propertyDirect[lang];
 
 // 言語別テキストの {ci}/{co}/{cap} に SSoT の値を差し込む（lib/factText.ts）
 const fill = makeFill(pf, lang);
+// {ci}/{co}/{cap}/{d} を全文字列に適用（フィールド単位の適用漏れを防ぐ）
+const d = fillDeep(dRaw, fill);
 
 const hero480 = thumb(heroImage);
 const hero768 = heroImage.replace(/\.webp$/, "-768.webp");
@@ -149,7 +152,7 @@ const conditionRows: string[] = [
     // 向こう13ヶ月の空室日の最安値を出す＝実売価格からの自動導出で、手動管理を作らない
     (async () => {
       try {
-        const j = await fetch(`https://bookingapi-gpjsgjko3a-an.a.run.app/?props=${propertyKey === "test" ? "test" : propertyKey}`).then((r) => r.json());
+        const j = await fetch(`${ENDPOINTS.bookingApi}/?props=${propertyKey === "test" ? "test" : propertyKey}`).then((r) => r.json());
         const p = (j.properties ?? [])[0];
         if (!p?.prices) return;
         const vals = Object.entries(p.prices).filter(([d]) => p.dates?.[d] === true).map(([, v]) => v);

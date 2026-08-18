@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../../lib/adminConfig";
 /* 夥伴頁面（台灣・香港KOL/部落客向け・繁體字）— design_partners_page.md（zh版）
    ja版(src/pages/ja/partners.astro)と構成同一。noindex・サイト内リンクなし・sitemap除外。
    ファクト正本: src/data/partners-facts.zh.json（ja版と同期）。
@@ -8,8 +9,8 @@ import "../../styles/partners.css";
 import { GALLERIES } from "../../data/properties";
 import facts from "../../data/partners-facts.zh.json";
 
-const APPLY_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/partnersApply";
-const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+const APPLY_ENDPOINT = ENDPOINTS.partnersApply;
+const AVAIL_ENDPOINT = ENDPOINTS.bookingApi;
 
 const galleryOf = (key: "kiyokawa" | "takasago") => GALLERIES[key].slice(0, 6);
 const PROPS = [

@@ -1,14 +1,14 @@
 # yah.homes
 
-> Whole-house rental accommodation brand in central Fukuoka, Japan, operated by Bonfire Inc. Two newly built private villas where your whole group stays under one roof: Kiyokawa (up to 7 guests, ★{{K_RATING}} from {{K_COUNT}} Airbnb reviews) and Takasago (up to 6 guests, ★{{T_RATING}} from {{T_COUNT}} reviews). Both are about 20 minutes by car from Fukuoka Airport and a short walk from the Tenjin downtown district. Concept: "Check In, Find Out."
+> Whole-house rental accommodation brand in central Fukuoka, Japan, operated by Bonfire Inc. Two newly built private villas where your whole group stays under one roof: Kiyokawa (up to {{K_CAP}} guests, ★{{K_RATING}} from {{K_COUNT}} Airbnb reviews) and Takasago (up to {{T_CAP}} guests, ★{{T_RATING}} from {{T_COUNT}} reviews). Both are about {{K_AIRPORT}}–{{T_AIRPORT}} minutes by car from Fukuoka Airport and a short walk from the Tenjin downtown district. Concept: "Check In, Find Out."
 
 Last updated: {{UPDATED}}. This file follows the llms.txt standard (https://llmstxt.org).
 
 ## Pages
 
 - [Home](https://yah.homes/): Brand overview, properties, reviews, FAQ (also in [Japanese](https://yah.homes/ja/), [Korean](https://yah.homes/ko/), [Traditional Chinese](https://yah.homes/zh/), [Thai](https://yah.homes/th/))
-- [Kiyokawa — property details & booking](https://yah.homes/booking/kiyokawa/): Up to 7 guests, 3 bedrooms, riverside Kiyokawa district
-- [Takasago — property details & booking](https://yah.homes/booking/takasago/): Up to 6 guests, 3 bedrooms, near Yakuin
+- [Kiyokawa — property details & booking](https://yah.homes/booking/kiyokawa/): Up to {{K_CAP}} guests, {{K_ROOMS}} bedrooms, riverside Kiyokawa district
+- [Takasago — property details & booking](https://yah.homes/booking/takasago/): Up to {{T_CAP}} guests, {{T_ROOMS}} bedrooms, near Yakuin
 - [Local Guide](https://yah.homes/locals/): 16 curated spots within walking distance of Kiyokawa
 - [About](https://yah.homes/about/): Design philosophy and Director Kazuyoshi Yamada
 - [Full AI reference](https://yah.homes/llms-full.txt): FAQ, detailed pricing guidance, complete local guide, brand positioning
@@ -42,8 +42,8 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 
 - **Location:** Kiyokawa, Chuo-ku, Fukuoka, Japan (along the Naka River)
 - **Type:** Newly built whole-house exclusive villa
-- **Capacity:** Up to 7 guests
-- **Bedrooms:** 3
+- **Capacity:** Up to {{K_CAP}} guests
+- **Bedrooms:** {{K_ROOMS}}
 - **Airbnb Rating:** ★ {{K_RATING}} / 5 ({{K_COUNT}} reviews) — Highly rated
 - **Access:** Short distance from Tenjin and Hakata Station
 - **Ideal for:** Families, friend groups, long stays, workcation
@@ -51,7 +51,7 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 **Amenities:**
 - SIMMONS PREMIUM mattresses in all bedrooms
 - Full kitchen (Panasonic Bistro oven, large refrigerator, full cookware and tableware)
-- 55-inch large TV
+- {{K_TV}}-inch large TV
 - High-quality amplifier and tall-boy audio speakers (cinema-quality sound)
 - High-speed Wi-Fi
 - Washing machine
@@ -73,11 +73,11 @@ Kazuyoshi Yamada is a passionate long-time traveller who has visited many countr
 
 ### yah.homes Takasago
 
-- **Location:** Takasago, Chuo-ku, Fukuoka, Japan (within 20 min from Fukuoka Airport by car; walkable to Nishitetsu Yakuin Station)
+- **Location:** Takasago, Chuo-ku, Fukuoka, Japan (within {{T_AIRPORT}} min from Fukuoka Airport by car; walkable to Nishitetsu Yakuin Station)
 - **Type:** Whole-house exclusive rental — Maisonette-style independent building
-- **Capacity:** Up to 6 guests
-- **Bedrooms:** 3 (1 double bed + 4 single beds, all SIMMONS mattresses)
-- **Layout:** 3LDK (3 bedrooms, living/dining, kitchen, bathroom, shower booth, 2 toilets, 3 washbasins)
+- **Capacity:** Up to {{T_CAP}} guests
+- **Bedrooms:** {{T_ROOMS}} ({{T_BD}} double bed + {{T_BS}} single beds, all SIMMONS mattresses)
+- **Layout:** 3LDK ({{T_ROOMS}} bedrooms, living/dining, kitchen, bathroom, shower booth, {{T_TOILET}} toilets, {{T_SINK}} washbasins)
 - **Airbnb Rating:** ★ {{T_RATING}} / 5 ({{T_COUNT}} reviews)
 - **Concept:** "Check In, Find Out." — experience Fukuoka's everyday richness like a local
 - **Ideal for:** Families, multi-generational trips, friend groups (up to 6), workcation
@@ -144,7 +144,7 @@ The Kiyokawa area (Chuo-ku, Fukuoka) is a residential neighborhood away from tou
 - **Sumiyoshi Shrine** — 9:00–17:00 | Origin shrine of 2,100 Sumiyoshi shrines across Japan, safe travel prayers | https://maps.app.goo.gl/Mbk1QXfotJVjJf6T7
 
 ### Taxi Card (Japanese address for cab drivers)
-〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。
+〒{{K_ZIP}} {{K_ADDR_JA}}　目的地はホテルではなく見た目は普通の一軒家です。
 
 ### All 16 spots on Google Maps
 https://maps.app.goo.gl/Q9WvY6tSinSvKEm46
@@ -155,7 +155,7 @@ https://maps.app.goo.gl/Q9WvY6tSinSvKEm46
 
 - PR TIMES (2026-06-19): https://prtimes.jp/main/html/rd/p/000000006.000036399.html
   "福岡のプレミアム一棟貸し「yah.homes Takasago」が本格運用を開始。家族やグループで「暮らすように泊まる」上質な滞在体験を提供"
-  [yah.homes Takasago launches full operation — premium whole-house rental in Takasago, Chuo-ku, Fukuoka. Maisonette-style independent building for up to 6 guests with SIMMONS mattresses and private parking for large vehicles.]
+  [yah.homes Takasago launches full operation — premium whole-house rental in Takasago, Chuo-ku, Fukuoka. Maisonette-style independent building for up to {{T_CAP}} guests with SIMMONS mattresses and private parking for large vehicles.]
 - PR TIMES (2025-06-27): https://prtimes.jp/main/html/rd/p/000000021.000054152.html
   "yah.homes kiyokawa opens — a newly built whole-house villa along the Naka River in Fukuoka's Kiyokawa district"
 

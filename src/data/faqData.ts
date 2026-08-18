@@ -129,7 +129,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "キャンセルポリシーは？",
-            a: "公式サイトからのご予約は、チェックイン日の8日前まで無料でキャンセルいただけます。期限を過ぎた場合と無連絡不泊の場合は宿泊料金の全額を申し受けます。具体的な期限（日本時間）は、ご予約時と確定メールに表示します。Airbnb・Booking.com 経由のご予約は、各サービスで表示されるポリシーが適用されます。",
+            a: "公式サイトからのご予約は、チェックイン日の{d}日前まで無料でキャンセルいただけます。期限を過ぎた場合と無連絡不泊の場合は宿泊料金の全額を申し受けます。具体的な期限（日本時間）は、ご予約時と確定メールに表示します。Airbnb・Booking.com 経由のご予約は、各サービスで表示されるポリシーが適用されます。",
           },
         ],
       },
@@ -249,7 +249,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "What is your cancellation policy?",
-            a: "Booking on this site: free cancellation until 8 days before check-in. After that, and for no-shows, the full amount applies. The exact deadline (Japan time) is shown when you book and in your confirmation email. Bookings made through Airbnb or Booking.com follow the policy shown on that platform.",
+            a: "Booking on this site: free cancellation until {d} days before check-in. After that, and for no-shows, the full amount applies. The exact deadline (Japan time) is shown when you book and in your confirmation email. Bookings made through Airbnb or Booking.com follow the policy shown on that platform.",
           },
         ],
       },
@@ -369,7 +369,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "취소 정책은 어떻게 되나요?",
-            a: "공식 사이트 예약은 체크인 8일 전까지 무료로 취소하실 수 있습니다. 기한이 지난 취소와 무단 불투숙의 경우 숙박 요금 전액이 부과됩니다. 정확한 기한(일본 시간)은 예약 시와 확정 메일에 표시됩니다. Airbnb・Booking.com 예약은 각 플랫폼에 표시되는 정책이 적용됩니다.",
+            a: "공식 사이트 예약은 체크인 {d}일 전까지 무료로 취소하실 수 있습니다. 기한이 지난 취소와 무단 불투숙의 경우 숙박 요금 전액이 부과됩니다. 정확한 기한(일본 시간)은 예약 시와 확정 메일에 표시됩니다. Airbnb・Booking.com 예약은 각 플랫폼에 표시되는 정책이 적용됩니다.",
           },
         ],
       },
@@ -493,7 +493,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "取消政策是什麼？",
-            a: "官網預訂可於入住日8天前免費取消。逾期取消及未入住者將收取全額住宿費。確切期限（日本時間）會於預訂時與確認郵件中顯示。透過 Airbnb・Booking.com 的預訂，適用各平台顯示的政策。",
+            a: "官網預訂可於入住日{d}天前免費取消。逾期取消及未入住者將收取全額住宿費。確切期限（日本時間）會於預訂時與確認郵件中顯示。透過 Airbnb・Booking.com 的預訂，適用各平台顯示的政策。",
           },
         ],
       },
@@ -613,7 +613,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "นโยบายการยกเลิกคืออะไร?",
-            a: "จองผ่านเว็บไซต์ทางการ: ยกเลิกฟรีได้ถึง 8 วันก่อนวันเช็คอิน หลังจากนั้นและกรณีไม่มาพักโดยไม่แจ้ง จะคิดค่าที่พักเต็มจำนวน กำหนดเวลาที่แน่นอน (เวลาญี่ปุ่น) จะแสดงตอนจองและในอีเมลยืนยัน ส่วนการจองผ่าน Airbnb หรือ Booking.com เป็นไปตามนโยบายของแพลตฟอร์มนั้น",
+            a: "จองผ่านเว็บไซต์ทางการ: ยกเลิกฟรีได้ถึง {d} วันก่อนวันเช็คอิน หลังจากนั้นและกรณีไม่มาพักโดยไม่แจ้ง จะคิดค่าที่พักเต็มจำนวน กำหนดเวลาที่แน่นอน (เวลาญี่ปุ่น) จะแสดงตอนจองและในอีเมลยืนยัน ส่วนการจองผ่าน Airbnb หรือ Booking.com เป็นไปตามนโยบายของแพลตฟอร์มนั้น",
           },
         ],
       },

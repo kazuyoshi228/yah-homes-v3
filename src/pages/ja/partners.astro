@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../../lib/adminConfig";
 /* パートナーページ（日本人ブロガー・インフルエンサー向け）— design_partners_page.md v0.7
    noindex・サイト内リンクなし・sitemap除外（astro.config filter）。
    構成: ヒーロー＋切り口例 → ファクトシート → 写真 → 提供条件 → 空き状況 → 申請フォーム → 掲載時のお願い → 連絡先。
@@ -9,8 +10,8 @@ import "../../styles/partners.css";
 import { GALLERIES } from "../../data/properties";
 import facts from "../../data/partners-facts.ja.json";
 
-const APPLY_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/partnersApply";
-const AVAIL_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/bookingApi";
+const APPLY_ENDPOINT = ENDPOINTS.partnersApply;
+const AVAIL_ENDPOINT = ENDPOINTS.bookingApi;
 
 // ギャラリー: 並び順から先頭6枚（§4-1確定・-768バリアントがあれば軽量表示）
 const galleryOf = (key: "kiyokawa" | "takasago") => GALLERIES[key].slice(0, 6);

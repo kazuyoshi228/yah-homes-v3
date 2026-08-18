@@ -23,6 +23,20 @@ export function makeFill(facts: PropertyFacts, lang: Locale): (v: string) => str
   const ci = fmtTime(facts.checkinTime, lang);
   const co = fmtTime(facts.checkoutTime, lang);
   const cap = String(facts.capacity);
+  const d = String(facts.freeCancelDays);
   return (v: string) =>
-    v.replace(/\{ci\}/g, ci).replace(/\{co\}/g, co).replace(/\{cap\}/g, cap);
+    v.replace(/\{ci\}/g, ci).replace(/\{co\}/g, co).replace(/\{cap\}/g, cap).replace(/\{d\}/g, d);
+}
+
+/** オブジェクト内のすべての文字列にプレースホルダ差し込みを適用する。
+    フィールド単位の fill() 適用漏れ（2026-08-18 監査で多数発覚）を構造的に無くす。 */
+export function fillDeep<T>(obj: T, fill: (s: string) => string): T {
+  if (typeof obj === "string") return fill(obj) as unknown as T;
+  if (Array.isArray(obj)) return obj.map((v) => fillDeep(v, fill)) as unknown as T;
+  if (obj && typeof obj === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) out[k] = fillDeep(v, fill);
+    return out as unknown as T;
+  }
+  return obj;
 }

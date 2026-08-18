@@ -1,4 +1,6 @@
 ---
+import { CHAT_PROPS } from "../../data/adminChatInfo";
+const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p) => [p.key, p.label]));
 /* /admin/bookings — 直販予約の管理（design_booking_p1_v4.md §8-5）
    一覧・状態・ゲスト連絡先・対応メモ＝台帳メンバー／返金＝rootオーナーのみ。
    全金銭操作は audit_logs に記録される（Function側）。noindex・sitemap除外。 */
@@ -59,7 +61,7 @@ const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
   </section>
 </SiteLayout>
 
-<script define:vars={{ BOOKINGS_ENDPOINT, FB_CONFIG }}>
+<script define:vars={{ BOOKINGS_ENDPOINT, FB_CONFIG, PROP_LABEL }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -69,7 +71,7 @@ const BOOKINGS_ENDPOINT = ENDPOINTS.adminBookings;
     const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const yen = (n) => (n == null ? "—" : `¥${Number(n).toLocaleString("en-US")}`);
     const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) : "—");
-    const PROP = { kiyokawa: "清川", takasago: "高砂" };
+    const PROP = PROP_LABEL;
     const LABEL = {
       PAYMENT_PENDING: "決済待ち", AUTHORIZED: "オーソリ済", RESERVATION_PENDING: "予約処理中",
       CONFIRMED: "確定", CANCELLED: "キャンセル", VOIDED: "解放済", PAYMENT_FAILED: "決済失敗",

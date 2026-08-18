@@ -31,6 +31,7 @@ export interface LocalsPageData {
   categories: LocalCategory[];
   taxiCardTitle: string;
   taxiCardBody: string;
+  /** {zip} {addr} は SSoT（property_facts）からページ側で差し込む。実住所を書かない */
   taxiCardJapanese: string;
   mapListTitle: string;
   mapListBody: string;
@@ -224,7 +225,7 @@ const en: LocalsPageData = {
   taxiCardBody:
     "If you want to tell a cab driver where you are going in Japanese, show this text:",
   taxiCardJapanese:
-    "「〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。」",
+    "「〒{zip} {addr}　目的地はホテルではなく見た目は普通の一軒家です。」",
   mapListTitle: "Google Map List",
   mapListBody: "All 16 spots are pinned on Google Maps. Scan the QR or tap the link.",
   mapListUrl: "https://maps.app.goo.gl/Q9WvY6tSinSvKEm46",
@@ -417,7 +418,7 @@ const ja: LocalsPageData = {
   taxiCardBody:
     "タクシーの運転手さんに行き先を伝えるときは、この文章を見せてください：",
   taxiCardJapanese:
-    "「〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。」",
+    "「〒{zip} {addr}　目的地はホテルではなく見た目は普通の一軒家です。」",
   mapListTitle: "Googleマップリスト",
   mapListBody: "全16スポットをGoogleマップにピン留めしています。QRを読み取るか、リンクをタップしてください。",
   mapListUrl: "https://maps.app.goo.gl/Q9WvY6tSinSvKEm46",
@@ -609,7 +610,7 @@ const ko: LocalsPageData = {
   taxiCardTitle: "yah.homes 기요카와 — 택시 카드",
   taxiCardBody: "택시 기사에게 목적지를 일본어로 알려주고 싶다면 이 문장을 보여주세요:",
   taxiCardJapanese:
-    "「〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。」",
+    "「〒{zip} {addr}　目的地はホテルではなく見た目は普通の一軒家です。」",
   mapListTitle: "구글 맵 리스트",
   mapListBody: "16개 스팟이 모두 구글 맵에 핀으로 표시되어 있습니다. QR을 스캔하거나 링크를 탭하세요.",
   mapListUrl: "https://maps.app.goo.gl/Q9WvY6tSinSvKEm46",
@@ -801,7 +802,7 @@ const zh: LocalsPageData = {
   taxiCardTitle: "yah.homes 清川 — 計程車卡",
   taxiCardBody: "如果想用日文告訴計程車司機目的地，請出示以下文字：",
   taxiCardJapanese:
-    "「〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。」",
+    "「〒{zip} {addr}　目的地はホテルではなく見た目は普通の一軒家です。」",
   mapListTitle: "Google 地圖清單",
   mapListBody: "所有16個景點都已標記在 Google 地圖上。掃描 QR 碼或點擊連結。",
   mapListUrl: "https://maps.app.goo.gl/Q9WvY6tSinSvKEm46",
@@ -993,7 +994,7 @@ const th: LocalsPageData = {
   taxiCardTitle: "yah.homes คิโยคาวะ — บัตรแท็กซี่",
   taxiCardBody: "หากต้องการบอกคนขับแท็กซี่เป็นภาษาญี่ปุ่น ให้แสดงข้อความนี้:",
   taxiCardJapanese:
-    "「〒810-0011 福岡県福岡市中央区清川３丁目３－１　目的地はホテルではなく見た目は普通の一軒家です。」",
+    "「〒{zip} {addr}　目的地はホテルではなく見た目は普通の一軒家です。」",
   mapListTitle: "รายการ Google Maps",
   mapListBody: "สปอต 16 แห่งทั้งหมดถูกปักหมุดบน Google Maps สแกน QR หรือแตะลิงก์",
   mapListUrl: "https://maps.app.goo.gl/Q9WvY6tSinSvKEm46",

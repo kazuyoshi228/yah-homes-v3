@@ -36,6 +36,8 @@ try {
     ssot[key] = {
       capacity: fsVal(f.capacity), rating: fsVal(f.rating), reviewCount: fsVal(f.reviewCount),
       checkinTime: fsVal(f.checkinTime), checkoutTime: fsVal(f.checkoutTime),
+      freeCancelDays: fsVal(f.freeCancelDays), zip: fsVal(f.zip),
+      bedrooms: fsVal(f.bedrooms),
     };
   }
   if (!ssot.kiyokawa || !ssot.takasago) throw new Error("property_facts が揃っていません");
@@ -45,7 +47,13 @@ try {
   process.exit(1);
 }
 
-const PROP_FILES = { kiyokawa: "src/data/kiyokawaData.ts", takasago: "src/data/takasagoData.ts" };
+/* 2026-08-18 監査で発覚: §7-2 の言語分割後も旧バレル（11行の re-export）を検査し続けており、
+   §1/§2/§4 が空振りしていた。実文言ファイル（5言語×2棟）を直接見る。 */
+const LANGS5 = ["ja", "en", "ko", "zh", "th"];
+const PROP_FILES = {
+  kiyokawa: LANGS5.map((l) => `src/data/kiyokawa/${l}.ts`),
+  takasago: LANGS5.map((l) => `src/data/takasago/${l}.ts`),
+};
 
 // ── 1. 提供していない決済手段を書いていないか ──
 // 実際は Stripe のカード決済のみ・全額前払い・現地払いなし（2026-08-16 発注者確認）
@@ -56,7 +64,7 @@ const FORBIDDEN = [
   ["계좌이체", "銀行振込は提供していない"],
   ["โอนเงิน", "銀行振込は提供していない"],
 ];
-for (const [file, path] of [...Object.entries(PROP_FILES), ["faq", "src/data/faqData.ts"]]) {
+for (const path of [...Object.values(PROP_FILES).flat(), "src/data/faqData.ts"]) {
   const src = read(path);
   for (const [term, why] of FORBIDDEN) {
     if (src.includes(term)) fail(path, `禁止語「${term}」を検出（${why}）`);
@@ -85,9 +93,10 @@ function firstHour(text) {
 }
 // 時刻を宣言している構造化フィールドだけを見る（自由文のFAQは対象外＝誤検出の元）
 const TIME_FIELDS = /(^\s*time:\s*"|^\s*checkout:\s*"|icon:\s*"checkin-time")/;
-for (const [key, path] of Object.entries(PROP_FILES)) {
+for (const [key, paths] of Object.entries(PROP_FILES)) {
   const wantIn = Number(ssot[key].checkinTime.split(":")[0]);
   const wantOut = Number(ssot[key].checkoutTime.split(":")[0]);
+  for (const path of paths)
   read(path).split("\n").forEach((line, i) => {
     if (!TIME_FIELDS.test(line)) return;
     if (line.includes("{ci}") || line.includes("{co}")) return;   // SSoT差し込み済み＝ズレようがない
@@ -108,7 +117,7 @@ for (const [key, path] of Object.entries(PROP_FILES)) {
 // 4.xx 形式の数値は評価とみなす。SSoT にない値が出たら落とす。
 const allowedRatings = new Set(Object.values(ssot).map((v) => v.rating));
 const allowedCounts = new Set(Object.values(ssot).map((v) => v.reviewCount));
-for (const path of ["src/data/properties.ts", "src/lib/seo.ts", ...Object.values(PROP_FILES)]) {
+for (const path of ["src/data/properties.ts", "src/lib/seo.ts", ...Object.values(PROP_FILES).flat()]) {
   const src = readCode(path);
   for (const m of src.matchAll(/\b4\.\d{2}\b/g)) {
     if (!allowedRatings.has(m[0])) fail(path, `SSoTに無い評価値 ${m[0]}`);
@@ -118,13 +127,127 @@ for (const path of ["src/data/properties.ts", "src/lib/seo.ts", ...Object.values
   }
 }
 
-// ── 4. 定員が SSoT と一致するか ──
-for (const [key, path] of Object.entries(PROP_FILES)) {
-  const cap = ssot[key].capacity;
+// ── 4. 定員が SSoT と一致するか（5言語の言い回しすべて） ──
+const CAP_RES = [
+  /最大\s*(\d+)\s*名/g, /最多\s*(\d+)\s*人/g, /최대\s*(\d+)\s*인/g,
+  /up to (\d+) guests/gi, /(\d+) guests \(max\)/gi, /sleeps (\d+)/gi, /สูงสุด\s*(\d+)\s*คน/g,
+];
+function checkCap(path, src, allowed) {
+  for (const line of src.split("\n")) {
+    // 「基本料金に含む人数（5名まで込み・以降追加料金）」は定員ではない
+    if (/extraGuest|additional guest|추가|加收|เพิ่ม/.test(line)) continue;
+    for (const re of CAP_RES) for (const m of line.matchAll(re)) {
+      if (!allowed.has(m[1])) fail(path, `定員表記 ${m[1]} が SSoT(${[...allowed].join("/")}) と不一致: …${m[0]}…`);
+    }
+  }
+}
+for (const [key, paths] of Object.entries(PROP_FILES)) {
+  for (const path of paths) checkCap(path, read(path), new Set([ssot[key].capacity]));
+}
+const anyCap = new Set([ssot.kiyokawa.capacity, ssot.takasago.capacity]);
+for (const path of ["src/data/faqData.ts", "src/i18n/uiStrings.ts", "src/i18n/translations.ts", "src/lib/seo.ts",
+                    "src/pages/ja/partners.astro", "src/pages/ko/partners.astro", "src/pages/zh/partners.astro",
+                    "src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
+  checkCap(path, read(path), anyCap);
+}
+
+// ── 5. 無料キャンセル日数（返金額を決める値・2026-08-18 監査で25箇所の直書きが発覚） ──
+// キャンセル文脈の行にある「N日前 / N days / N일 / N天 / N วัน」を SSoT と突き合わせる。
+// パートナー制度（7日前・別ポリシー）は対象外。
+const FCD = ssot.kiyokawa.freeCancelDays;
+if (ssot.takasago.freeCancelDays !== FCD)
+  fail("property_facts", `freeCancelDays が棟間で不一致（${FCD} vs ${ssot.takasago.freeCancelDays}）。FAQ等は共通文のため揃える運用`);
+const CANCEL_WORD = /(キャンセル|取消|cancel|취소|ยกเลิก)/i;
+const FCD_RES = [/(\d+)\s*日前/g, /(\d+)\+?\s*days?/gi, /(\d+)\s*일\s*전/g, /(\d+)\s*天前/g, /(\d+)\s*วัน/g];
+for (const path of [...Object.values(PROP_FILES).flat(), "src/data/faqData.ts",
+                    "src/pages/[...locale]/legal/terms.astro", "src/pages/[...locale]/legal/tokushoho.astro",
+                    "src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
+  read(path).split("\n").forEach((line, i) => {
+    if (!CANCEL_WORD.test(line)) return;
+    if (line.includes("{d}") || line.includes("{{FREE_DAYS}}")) return;   // 差し込み済み
+    for (const re of FCD_RES) for (const m of line.matchAll(re)) {
+      if (m[1] !== FCD) fail(path, `L${i + 1} キャンセル期限 ${m[1]} が SSoT(${FCD}日) と不一致: ${line.trim().slice(0, 70)}`);
+    }
+  });
+}
+
+// ── 6. llms テンプレに事実の直書きが復活していないか ──
+// 値は renderLlms が SSoT から注入する。裸の数値・郵便番号はビルドを落とす。
+for (const path of ["src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
   const src = read(path);
-  if (src.includes("{cap}")) { /* 定員も差し込み化済み。プレーンな数値だけ検査する */ }
-  for (const m of src.matchAll(/最大\s*(\d+)\s*名/g)) {
-    if (m[1] !== cap) fail(path, `定員表記 ${m[1]}名 が SSoT(${cap}名) と不一致`);
+  for (const [re, why] of [
+    [/up to \d+ guests/i, "定員は {{K_CAP}}/{{T_CAP}}"],
+    [/\b\d\s*bedrooms/i, "寝室数は {{K_ROOMS}}/{{T_ROOMS}}"],
+    [/810-\d{4}/, "郵便番号は {{K_ZIP}}/{{T_ZIP}}"],
+    [/check-?out is by \d/i, "時刻は {{CO}}"],
+    [/\d\+ days before check-?in/i, "日数は {{FREE_DAYS}}"],
+  ]) {
+    const m = src.match(re);
+    if (m) fail(path, `事実の直書き「${m[0]}」（${why} を使う）`);
+  }
+}
+
+// ── 7. 郵便番号の直書き制限 ──
+// 許可: 運営会社の登記住所を書く文書のみ。物件の郵便番号は SSoT（zip）から。
+const ZIP_ALLOW = new Set([
+  "src/lib/seo.ts",                              // COMPANY（登記住所 810-0011）
+  "src/pages/[...locale]/about.astro",
+  "src/pages/[...locale]/legal/terms.astro",
+  "src/pages/[...locale]/legal/tokushoho.astro",
+  "src/data/pressData.ts",                       // プレス原文
+  "src/pages/admin/properties/[prop].astro",     // 入力欄の placeholder（例示）のみ
+]);
+{
+  const { execSync } = await import("node:child_process");
+  const files = execSync("git ls-files 'src/**/*.ts' 'src/**/*.astro' 'src/**/*.txt'", { encoding: "utf8" })
+    .split("\n").filter(Boolean);
+  for (const path of files) {
+    if (ZIP_ALLOW.has(path)) continue;
+    const src = read(path);
+    const m = src.match(/810-\d{4}/);
+    if (m) fail(path, `物件の郵便番号らしき直書き ${m[0]}（SSoT の zip を使う）`);
+  }
+}
+
+// ── 8. トップFAQ の前提（2棟の時刻が同一） ──
+// FAQSection は kiyokawa の時刻で全FAQを埋める。棟間でズレたら前提が崩れるので落とす。
+if (ssot.kiyokawa.checkinTime !== ssot.takasago.checkinTime || ssot.kiyokawa.checkoutTime !== ssot.takasago.checkoutTime)
+  fail("property_facts", "2棟の時刻が不一致。FAQSection/faqData は共通文のため、棟別文への分岐が必要");
+
+// ── 9. 約款の版番号（3箇所・2表記の手動同期を機械検査に） ──
+{
+  const fns = read("functions/src/index.ts");
+  const v1 = (fns.match(/TERMS_VERSION_CURRENT = "([^"]+)"/) ?? [])[1];
+  const v2 = (read("src/pages/[...locale]/book/checkout.astro").match(/TERMS_VERSION = "([^"]+)"/) ?? [])[1];
+  const eff = (read("src/pages/[...locale]/legal/terms.astro").match(/EFFECTIVE = "(\d+)年(\d+)月(\d+)日"/) ?? []);
+  const v3 = eff.length ? `${eff[1]}-${String(eff[2]).padStart(2, "0")}-${String(eff[3]).padStart(2, "0")}` : undefined;
+  if (!v1 || !v2 || !v3) fail("約款版数", `版番号を読めません（functions:${v1} checkout:${v2} terms:${v3}）`);
+  else if (v1 !== v2 || v1 !== v3) fail("約款版数", `三重管理がズレています functions:${v1} / checkout:${v2} / terms:${v3}`);
+}
+
+
+// ── 10. 集約先以外での直書き禁止（URL・電話・SDKバージョン） ──
+{
+  const { execSync } = await import("node:child_process");
+  const files = execSync("git ls-files 'src/**/*.ts' 'src/**/*.astro' 'src/**/*.js'", { encoding: "utf8" })
+    .split("\n").filter(Boolean);
+  const adminCfg = read("src/lib/adminConfig.ts");
+  const sdkVer = (adminCfg.match(/firebasejs\/([\d.]+)/) ?? [])[1];
+  const RULES = [
+    [/asia-northeast1-yah-homes\.cloudfunctions\.net/, new Set(["src/lib/adminConfig.ts"]), "FunctionsのURLは adminConfig.ts の ENDPOINTS"],
+    [/chat\.yah\.homes/, new Set(["src/lib/chatLinks.ts"]), "チャットURLは chatLinks.ts の chatUrlFor"],
+    [/050-1721-4419|\+815017214419/, new Set(["src/lib/seo.ts"]), "電話番号は seo.ts の OPERATOR_PHONE"],
+  ];
+  for (const path of files) {
+    const src = read(path);
+    for (const [re, allow, why] of RULES) {
+      if (allow.has(path)) continue;
+      if (re.test(src)) fail(path, `直書き禁止: ${String(re).slice(1, 40)}…（${why}を使う）`);
+    }
+    // Firebase SDK のバージョンは adminConfig の FB_SDK と一致させる（41箇所の直書きが逸脱しない）
+    for (const m of src.matchAll(/gstatic\.com\/firebasejs\/([\d.]+)\//g)) {
+      if (sdkVer && m[1] !== sdkVer) fail(path, `Firebase SDK ${m[1]} が FB_SDK(${sdkVer}) と不一致`);
+    }
   }
 }
 

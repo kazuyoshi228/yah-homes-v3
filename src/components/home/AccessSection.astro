@@ -1,4 +1,5 @@
 ---
+import { PROPERTY_GEO } from "../../lib/seo";
 import { getPropertyFacts } from "../../lib/propertyFacts";
 /* yah.homes AccessSection — 旧 AccessSection.tsx の忠実移植
    2つの地図（Kiyokawa / Takasago）。旧実装は Google Maps JS API だったが、
@@ -18,15 +19,13 @@ const PROPERTIES = [
   {
     id: "kiyokawa",
     name: "Kiyokawa",
-    lat: 33.57879181728365,
-    lng: 130.4126724730762,
+    ...PROPERTY_GEO.kiyokawa,
     googleMapsUrl: FACTS.kiyokawa.mapUrl,
   },
   {
     id: "takasago",
     name: "Takasago",
-    lat: 33.57993168053716,
-    lng: 130.40632761222304,
+    ...PROPERTY_GEO.takasago,
     googleMapsUrl: FACTS.takasago.mapUrl,
   },
 ];

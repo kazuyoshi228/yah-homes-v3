@@ -7,8 +7,6 @@ export interface Property {
   bookingUrl: string;
   beds24PropId: string;
   exterior: string; // /manus-storage/...
-  capacity: number;
-  bedrooms: number;
 }
 
 const IMG = "/manus-storage";
@@ -24,8 +22,6 @@ export const PROPERTIES: Record<Property["key"], Property> = {
     bookingUrl: "https://www.booking.com/Share-Tyhode",
     beds24PropId: "278158",
     exterior: `${IMG}/kiyokawa-exterior_18a3409b.webp`,
-    capacity: 7,
-    bedrooms: 3,
   },
   takasago: {
     key: "takasago",
@@ -33,8 +29,6 @@ export const PROPERTIES: Record<Property["key"], Property> = {
     bookingUrl: "https://www.booking.com/Share-K2G3CO",
     beds24PropId: "291238",
     exterior: `${IMG}/takasago-exterior_d4f7ccff.webp`,
-    capacity: 6,
-    bedrooms: 3,
   },
 };
 

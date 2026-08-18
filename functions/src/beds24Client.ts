@@ -21,6 +21,11 @@ export const BEDS24_API = "https://beds24.com/api/v2";
 // 認証: read専用 long life token（BEDS24_TOKEN・定点観測と共用・2026-08-08に招待コード方式から差替）
 // test = 検証用物件 yah.homes test1（デモ面にのみカードを出す）
 export const BOOKING_PROP_IDS: Record<string, number> = { kiyokawa: 278158, takasago: 291238, test: 346442 };
+/** Beds24 propertyId → 棟の表示名（定点・週次レポートの集計キー。二重定義を禁止） */
+export const BEDS24_PROP_LABEL: Record<number, string> = { 278158: "清川", 291238: "高砂" };
+/** Functions 共通のサービスアカウント・GA4プロパティ（複数ファイルでの直書きを禁止） */
+export const SA = "yah-homes@appspot.gserviceaccount.com";
+export const GA4_PROPERTY = "539535968"; // www.yah.homes
 
 // 書き込みに使う roomId。清川・高砂は運営会社アカウントからリンクされた物件で、
 // linkedProperties: true の書込トークン（2026-08-10 発行）で到達できる。

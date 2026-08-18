@@ -1,4 +1,7 @@
 ---
+import { chatUrlFor, qrPaths } from "../../../lib/chatLinks";
+import { propDisplayName } from "../../../lib/propNames";
+import { BASE_URL, OPERATOR_PHONE } from "../../../lib/seo";
 /* /admin/properties — 物件ファクトの単一ソース（SSoT・design_booking_p1_v4.md §8-4）
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
@@ -114,15 +117,10 @@ const propKey = Astro.params.prop as (typeof CHAT_PROPS)[number]["key"];
 /* QRコードはこのページが唯一の入口（2026-08-18 発注者承認）。
    実体は public/qr/（scripts/gen-qr.mjs がチャット側の施設マスタから生成）。
    ここではファイルの有無だけを見る＝施設一覧を二重に持たない。 */
-const QR_FILES = {
-  screen: `/qr/chat-${propKey}.png`,
-  print: `/qr/print/chat-${propKey}-print.png`,
-  cardSvg: `/qr/print/chat-${propKey}-card-a6.svg`,
-  cardPng: `/qr/print/chat-${propKey}-card-a6.png`,
-};
+const QR_FILES = qrPaths(propKey);
 // import.meta.url はビルド後の位置を指すため使わない。ビルドはプロジェクト直下で走る。
 const HAS_QR = existsSync(resolve(process.cwd(), `public${QR_FILES.screen}`));
-const CHAT_URL = `https://chat.yah.homes/${propKey}`;
+const CHAT_URL = chatUrlFor(propKey);
 
 const propLabel = CHAT_PROPS.find((p) => p.key === propKey)!.label;
 const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
@@ -130,16 +128,16 @@ const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
    値は写しを置かない: SSoT（property_facts）から読むか、施設キーから組み立てる。 */
 const FACTS_ALL = HAS_FACTS ? (await getPropertyFacts()).facts[propKey as "kiyokawa" | "takasago"] : null;
 const BASICS: { k: string; v: string; src: string; link?: boolean; todo?: boolean }[] = FACTS_ALL ? [
-  { k: "施設名", v: `yah.homes ${propKey}`, src: "施設キーから自動" },
+  { k: "施設名", v: propDisplayName(propKey), src: "施設キーから自動" },
   { k: "チェックイン時刻", v: FACTS_ALL.checkinTime, src: "このページの「施設概要」" },
   { k: "チェックアウト時刻", v: FACTS_ALL.checkoutTime, src: "このページの「施設概要」" },
   { k: "Google マップのURL", v: FACTS_ALL.mapUrl, src: "このページの「施設概要」", link: true },
   { k: "宿泊者名簿フォームのURL", v: FACTS_ALL.registerUrl, src: "このページの「施設概要」", link: true },
-  { k: "入室マニュアルのURL", v: `https://yah.homes/how-to/${propKey}/`, src: "施設キーから自動", link: true },
+  { k: "入室マニュアルのURL", v: `${BASE_URL}/how-to/${propKey}/`, src: "施設キーから自動", link: true },
   { k: "チャットのURL", v: CHAT_URL, src: "施設キーから自動", link: true },
-  { k: "チャットQRコード", v: `https://yah.homes${QR_FILES.screen}`, src: "このページの「QRコード」", link: true },
-  { k: "問い合わせ電話番号", v: "050-1721-4419", src: "運営の共通値" },
-  { k: "My Page（直販のみ）", v: "https://yah.homes/account/", src: "固定", link: true },
+  { k: "チャットQRコード", v: `${BASE_URL}${QR_FILES.screen}`, src: "このページの「QRコード」", link: true },
+  { k: "問い合わせ電話番号", v: OPERATOR_PHONE, src: "運営の共通値" },
+  { k: "My Page（直販のみ）", v: `${BASE_URL}/account/`, src: "固定", link: true },
   { k: "キーボックスの暗証番号", v: "鍵の管理（/admin/secrets/）で管理・オーナー専用", src: "鍵の管理" },
   { k: "レビュー投稿先", v: "未決", src: "未決", todo: true },
 ] : [];

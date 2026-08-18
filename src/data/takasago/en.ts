@@ -16,7 +16,7 @@ export const en: TakasagoTranslations = {
     title: "Property Overview",
     bedrooms: "3 Bedrooms",
     beds: "1 Double Bed + 4 Single Beds",
-    maxGuests: "6 guests (max)",
+    maxGuests: "{cap} guests (max)",
     area: "Takasago · Chuo-ku, Fukuoka",
   },
   amenityCategories: {
@@ -151,7 +151,7 @@ export const en: TakasagoTranslations = {
   },
   conditions: {
     title: "Booking Conditions",
-    cancellation: "Cancellation: free until 8 days before check-in. The exact deadline (JST) is shown when you book.",
+    cancellation: "Cancellation: free until {d} days before check-in. The exact deadline (JST) is shown when you book.",
     cleaningFee: "Cleaning fee: Included in the rate",
     extraGuest: "Rate covers up to 5 guests; ¥5,000 per additional guest per night",
     noiseRule: "Quiet hours apply. Please be considerate of neighbours.",
@@ -192,7 +192,7 @@ export const en: TakasagoTranslations = {
       },
       {
         q: "What is the cancellation policy?",
-        a: "Booking on our official site: free cancellation until 8 days before check-in; after that, and for no-shows, the full amount is charged. The exact deadline (JST) is shown before you pay and in your confirmation email, and you can cancel yourself from My Page. To change dates, party size or house, cancel and rebook \u2014 within the free period there is no extra cost. Airbnb and Booking.com reservations follow that platform\u2019s policy.",
+        a: "Booking on our official site: free cancellation until {d} days before check-in; after that, and for no-shows, the full amount is charged. The exact deadline (JST) is shown before you pay and in your confirmation email, and you can cancel yourself from My Page. To change dates, party size or house, cancel and rebook \u2014 within the free period there is no extra cost. Airbnb and Booking.com reservations follow that platform\u2019s policy.",
       },
       {
         q: "Is the property accessible for guests with mobility limitations?",
@@ -214,7 +214,7 @@ export const en: TakasagoTranslations = {
     title: "About This Space",
     showMore: "Show more",
     showLess: "Show less",
-    intro: "A stylish whole-house rental in the vibrant Takasago district of Chuo-ku, Fukuoka. Located within walking distance of Tenjin, this property combines the convenience of central Fukuoka with the comfort of a private home.\n\n5 min by car to Tenjin. 10 min by car to Hakata Station. 20 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to 6 guests. The spacious living area, theater room, and designer furnishings create a memorable stay.",
+    intro: "A stylish whole-house rental in the vibrant Takasago district of Chuo-ku, Fukuoka. Located within walking distance of Tenjin, this property combines the convenience of central Fukuoka with the comfort of a private home.\n\n5 min by car to Tenjin. 10 min by car to Hakata Station. 20 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. The spacious living area, theater room, and designer furnishings create a memorable stay.",
     highlights: [
       {
         title: "1. Premium Sleep Experience",
@@ -235,7 +235,7 @@ export const en: TakasagoTranslations = {
         "Bedroom 1: 1 double bed",
         "Bedroom 2: 2 single beds",
         "Bedroom 3: 2 single beds",
-        "(Up to 6 guests across 3 bedrooms)",
+        "(Up to {cap} guests across 3 bedrooms)",
       ],
     },
     facilityGuide: {

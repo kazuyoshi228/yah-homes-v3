@@ -1,3 +1,4 @@
+import { BASE_URL } from "../lib/seo";
 // プレスリリース（PR TIMES）— 旧 KiyokawaBooking.tsx の Press セクション＋
 // 旧 index.html の NewsArticle JSON-LD から逐語移植
 export interface PressItem {
@@ -58,11 +59,11 @@ export function pressJsonLd(items: PressItem[]) {
         description: p.description,
         url: p.url,
         datePublished: p.dateISO,
-        publisher: { "@type": "Organization", name: "ボンファイア株式会社", url: "https://yah.homes" },
+        publisher: { "@type": "Organization", name: "ボンファイア株式会社", url: BASE_URL },
         about: {
           "@type": "LodgingBusiness",
           name: p.property === "kiyokawa" ? "yah.homes Kiyokawa" : "yah.homes Takasago",
-          url: `https://yah.homes/properties/${p.property}/`,
+          url: `${BASE_URL}/properties/${p.property}/`,
         },
       },
     })),

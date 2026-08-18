@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../../lib/adminConfig";
 /* yah.homes ContactSection — 旧 ContactSection.tsx の忠実移植
    B8: Cloud Function `contact` へ POST → Firestore(contacts) に保存
    （ルールは全deny・Admin SDK経由のみ。ハニーポット website フィールド付き） */
@@ -12,7 +13,7 @@ interface Props {
 const { lang } = Astro.props;
 const c = translations[lang].contact;
 
-const CONTACT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/contact";
+const CONTACT_ENDPOINT = ENDPOINTS.contact;
 ---
 
 <section id="contact" style="background:#f7f7f7;padding:5rem 1.5rem 6rem;">

@@ -1,4 +1,6 @@
 ---
+import { CHAT_PROPS } from "../../data/adminChatInfo";
+const PROP_LABEL: Record<string, string> = Object.fromEntries(CHAT_PROPS.map((p) => [p.key, p.label]));
 /* パートナー申請 管理画面 — design_partners_page.md §4.6（v0.8）
    認証: Firebase Auth（Google）・許可メール = kazuyoshi.yamada@bonfire.co.jp のみ（Function側で検証）。
    noindex・sitemap除外（/adminはastro.config filter済み）・サイト内リンクなし。
@@ -53,7 +55,7 @@ const ADMIN_ENDPOINT = ENDPOINTS.partnersAdmin;
   </section>
 </SiteLayout>
 
-<script define:vars={{ ADMIN_ENDPOINT, FB_CONFIG }}>
+<script define:vars={{ ADMIN_ENDPOINT, FB_CONFIG, PROP_LABEL }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -77,7 +79,7 @@ const ADMIN_ENDPOINT = ENDPOINTS.partnersAdmin;
       published: "記事公開済",
       declined: "見送り",
     };
-    const PROP = { kiyokawa: "清川", takasago: "高砂", either: "どちらでも", both: "両棟はしご泊" };
+    const PROP = { ...PROP_LABEL, either: "どちらでも", both: "両棟はしご泊" };
 
     const fmtDate = (ms) => (ms ? new Date(ms).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) : "-");
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

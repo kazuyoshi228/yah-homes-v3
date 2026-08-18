@@ -18,7 +18,7 @@ import { CONTACT_L10N, LIFECYCLE_L10N, MAIL_FIELDS, MAIL_L10N, CANCEL_L10N } fro
 import { BEDS24_API, BOOKING_PROP_IDS, BOOKING_ROOM_IDS, BEDS24_WRITE_ALLOWED, BEDS24_WRITE_REFRESH,
          INQUIRY_BEDS24, beds24WriteToken, beds24WriteTarget, cancelBeds24Booking, createBeds24Booking,
          createBeds24Inquiry, mirrorInquiryToBeds24, noteBeds24, noteBeds24Cancellation,
-         noteBeds24Message, noteBeds24NewBooking, postBeds24Note } from "./beds24Client.js";
+         noteBeds24Message, noteBeds24NewBooking, postBeds24Note, BEDS24_PROP_LABEL, SA, GA4_PROPERTY } from "./beds24Client.js";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
@@ -59,7 +59,7 @@ const SMTP_PASS = defineSecret("SMTP_PASS");
 
 // 許可オリジン（本番・Firebaseデフォルト・devチャンネル・ローカル）
 const ALLOWED_ORIGINS = [
-  "https://yah.homes",
+  SITE_URL,
   "https://www.yah.homes",
   "https://yah-homes.web.app",
   "https://yah-homes.firebaseapp.com",
@@ -106,7 +106,7 @@ const INQUIRY_URL = (lang: string, token: string) =>
   `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}inquiry/?t=${token}`;
 
 export const contact = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA,
     secrets: [SMTP_USER, SMTP_PASS, INQUIRY_LINK_SECRET, BEDS24_WRITE_REFRESH] },
   async (req, res) => {
   const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -246,7 +246,7 @@ export const contact = onRequest(
         ``,
         `--- メタ ---`,
         `Referer: ${req.headers.referer ?? "-"}`,
-        `確認: https://yah.homes/admin/messages/`,
+        `確認: ${SITE_URL}/admin/messages/`,
       ].join("\n"),
       html: mailHtml({
         heading: "お問い合わせが届きました",
@@ -325,7 +325,7 @@ async function isBookableProp(prop: string): Promise<boolean> {
 }
 
 /* 直販の予約ルール。正本は property_facts（/admin/properties で編集）。
-   Firestore が読めないときも予約を止めないよう、既定値へ倒す。
+   Firestore が読めなければ null を返し、呼び出し側が 503 で予約を断る（既定値には倒さない）。
    OTA経由の予約には効かない（そちらは Beds24 側の設定が効く）。 */
 /* 既定は「前日23:59まで」＝運営会社（Airstar）の OTA 側の締めと同一。
    前日10:00の定期ジョブに間に合わない予約は、確定時に入室案内を即送る
@@ -471,7 +471,7 @@ export const partnersApply = onRequest(
           `--- メッセージ ---`,
           messageStr || "(なし)",
           ``,
-          `確認: https://yah.homes/admin/partners/`,
+          `確認: ${SITE_URL}/admin/partners/`,
         ].join("\n"),
         html: mailHtml({
           heading: "パートナー宿泊の申請が届きました",
@@ -520,7 +520,7 @@ export const partnersApply = onRequest(
           `如有任何問題，直接回覆此郵件即可。`,
           ``,
           `yah.homes（營運: Bonfire Inc.）`,
-          `https://yah.homes/zh/`,
+          `${SITE_URL}/zh/`,
         ].join("\n") : applyLang === "ko" ? [
           `${nameStr} 님`,
           ``,
@@ -537,7 +537,7 @@ export const partnersApply = onRequest(
           `문의는 이 메일에 그대로 회신해 주세요.`,
           ``,
           `yah.homes (운영: Bonfire Inc.)`,
-          `https://yah.homes/ko/`,
+          `${SITE_URL}/ko/`,
         ].join("\n") : [
           `${nameStr} 様`,
           ``,
@@ -554,7 +554,7 @@ export const partnersApply = onRequest(
           `ご質問はこのメールにそのままご返信ください。`,
           ``,
           `yah.homes（運営: ボンファイア株式会社）`,
-          `https://yah.homes/ja/`,
+          `${SITE_URL}/ja/`,
         ].join("\n"),
         html: (() => {
           const L = applyLang === "ko"
@@ -820,7 +820,7 @@ const ALL_PROPS: PropSlug[] = ["kiyokawa", "takasago"];
 //   ?prop=kiyokawa[&checkin=...]                → 従来の1棟モード（代替日の照会などで使用）
 // minInstances: 1 — コールドスタート（実測で+0.77秒）が p95 の主因のため常時1台を温める。
 export const bookingApi = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com", minInstances: 1 },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN], serviceAccount: SA, minInstances: 1 },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -940,7 +940,7 @@ export const bookingApi = onRequest(
 export const beds24CancelWatcher = onSchedule(
   { schedule: "0 9 * * *", timeZone: "Asia/Tokyo", region: REGION,
     secrets: [BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
-    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+    serviceAccount: SA },
   async () => {
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
     // これから泊まる CONFIRMED だけを見る（過去分は照合しても意味がない）
@@ -991,7 +991,7 @@ export const beds24CancelWatcher = onSchedule(
           heading: "Beds24とのキャンセル不一致",
           lead: "Beds24側でキャンセルされた予約が、yah.homes側で確定のままです。返金と在庫解放が未実行です。",
           blocks: [{ title: "対象", body: mismatched.map(esc).join("<br>") }],
-          cta: { label: "直販予約 管理を開く", href: `${SITE_URL}/admin/bookings/` },
+          cta: { label: "直販予約 管理を開く", href: ADMIN_BOOKINGS_URL },
           variant: "alert",
         }),
       });
@@ -1072,8 +1072,8 @@ async function buildLifecycleMail(
   const P = { image: MAIL_PROP[b.prop]?.image ?? "", ...S };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
   const no = bookingId.slice(0, 8).toUpperCase();
-  const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
-  const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+  const myPage = myPageUrlOf(lang);
+  const bookPath = bookPageUrl(lang);
 
   const ci = S.checkinTime, co = S.checkoutTime;
 
@@ -1089,7 +1089,12 @@ async function buildLifecycleMail(
       try {
         const sec = await db.collection("property_secrets").doc(b.prop === "test" ? "kiyokawa" : String(b.prop)).get();
         keybox = String(sec.data()?.keyboxCode ?? "");
-      } catch { /* カードなしで送る */ }
+      } catch { /* 下で空として扱う */ }
+      if (!keybox) {
+        /* 番号なしの案内（「別途お送りしています」）は送るが、無人運営では
+           この便が唯一の配布経路。黙って送ると当日玄関前で発覚する。 */
+        await notifyError(`前日案内に暗証番号を載せられませんでした（property_secrets が空/不読）\n予約ID: ${bookingId}\n棟: ${b.prop}\nお客様へ手動で番号を送ってください。`);
+      }
     }
   }
 
@@ -1221,7 +1226,7 @@ async function sendLifecycleMail(
       // 例外はレビュー依頼だけ。あの通は mailto で★入りの返信を書かせる仕組みそのものなので、
       // no-reply にすると機能が死ぬ。/review ページの実装（docs/design_reviews_page.md・承認待ち）
       // と一緒に My Page へ寄せること。
-      replyTo: kind === "review" ? SMTP_USER.value() : "no-reply@mail.yah.homes",
+      replyTo: kind === "review" ? SMTP_USER.value() : MAIL_NOREPLY,
       subject, text, html,
     });
     logMail(kind === "reminder" ? "checkin" : kind, String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
@@ -1238,7 +1243,7 @@ async function sendLifecycleMail(
 export const guestLifecycleMailer = onSchedule(
   { schedule: "0 7,10 * * *", timeZone: "Asia/Tokyo", region: REGION,
     secrets: [SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
-    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+    serviceAccount: SA },
   async () => {
     const jst = (offsetDays: number) =>
       new Date(Date.now() + offsetDays * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
@@ -1258,6 +1263,10 @@ export const guestLifecycleMailer = onSchedule(
           sent++;
         } catch (err) {
           logger.error(`lifecycle ${kind} failed`, { bookingId: d.id, err: String(err).slice(0, 200) });
+          /* 組み立て段階の失敗（SSoT不読・暗証番号なし等）は mail_logs に載らず、
+             /admin/health も緑のままだった。前日案内は再送機会が無いので必ず人に知らせる。 */
+          logMail(kind, String(v.email ?? ""), false, { bookingId: d.id, error: String(err).slice(0, 280) });
+          await notifyError(`自動メール（${kind}）を送れませんでした\n予約ID: ${d.id}\n宿泊: ${v.prop} ${v.checkin}〜\n理由: ${String(err).slice(0, 300)}\n/admin/booking/?id=${d.id} から確認してください。`);
         }
       }
       logger.info(`lifecycle ${kind}: ${sent}/${snap.size} sent for ${date}`);
@@ -1305,7 +1314,7 @@ const MAIL_VARS = [
 ];
 
 export const adminTemplates = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA,
     secrets: [SMTP_USER, SMTP_PASS] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -1413,7 +1422,7 @@ export const adminTemplates = onRequest(
 );
 
 export const adminMailPreview = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -1455,7 +1464,7 @@ export const adminMailPreview = onRequest(
         });
         await transporter.sendMail({
           from: `"yah.homes" <${SMTP_USER.value()}>`,
-          to: email, replyTo: "no-reply@mail.yah.homes",
+          to: email, replyTo: MAIL_NOREPLY,
           subject: `[テスト送信] ${built.subject}`,
           text: built.text, html: built.html,
         });
@@ -1522,7 +1531,7 @@ async function buildContactReply(lang: string, name: string, message: string, in
       ],
       // リンクがあるときの主導線は「返信を見る」。無ければ従来どおり空室へ
       cta: inquiryLink ? { label: IR.cta, href: inquiryLink }
-        : { label: CL.cta, href: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/` },
+        : { label: CL.cta, href: bookPageUrl(lang) },
       note: CL.note,
       footer: CL.footer,
     }),
@@ -1577,7 +1586,7 @@ async function sendTestMail(kind: MailKind, lang: string, to: string): Promise<v
 
 // ─── 運用ビューAPI（/admin/mail-log・/admin/audit・/admin/health が読む） ───
 export const adminOps = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA,
     secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -1843,7 +1852,7 @@ async function notifyInquiry(
   if (from === "guest") {
     await transporter.sendMail({
       from: `"yah.homes メッセージ" <${SMTP_USER.value()}>`,
-      to: await notifyRecipients("notifyBookings"), replyTo: "no-reply@mail.yah.homes",
+      to: await notifyRecipients("notifyBookings"), replyTo: MAIL_NOREPLY,
       subject: `【お問い合わせ】${name}様より`,
       text: [`お問い合わせに新しいメッセージが届きました。`, "", text,
         ...(translated ? ["", `【訳】${translated}`] : []), "",
@@ -1871,7 +1880,7 @@ async function notifyInquiry(
   const shown = translated || text;
   await transporter.sendMail({
     from: `"yah.homes" <${SMTP_USER.value()}>`,
-    to: String(t.guestEmail ?? ""), replyTo: "no-reply@mail.yah.homes",
+    to: String(t.guestEmail ?? ""), replyTo: MAIL_NOREPLY,
     subject: L.subject,
     text: [L.heading, "", `--- ${L.title} ---`, shown, "", link, "", L.note].join("\n"),
     html: mailHtml({
@@ -1885,7 +1894,7 @@ async function notifyInquiry(
 }
 
 export const messagesApi = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com",
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA,
     secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH, INQUIRY_LINK_SECRET] },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
@@ -2107,7 +2116,7 @@ async function notifyMessage(
 // （Firestoreルールは既定deny。読み書きはこの関数＝Admin SDK 経由のみ）。
 // 閲覧・変更はオーナーのみ（運営会社は不可）。変更は必ず audit_logs に残す。
 export const adminSecrets = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2340,6 +2349,15 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
         auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
       });
       try {
+        /* 時刻は SSoT（property_facts）から。直書きしていた 15:00 が実際の 16:00 と
+           食い違ったまま送信されていた（2026-08-18 監査で発見）。
+           棟が either/both（未確定）の場合は時刻を書かない（推測の時刻を送らない）。 */
+        const propKey = String(v.property);
+        const SP = propKey === "kiyokawa" || propKey === "takasago"
+          ? await ssotProp(propKey)
+          : null;
+        const ciSfx = SP ? ` ${SP.checkinTime}〜` : "";
+        const coSfx = SP ? ` 〜${SP.checkoutTime}` : "";
         await transporter.sendMail({
           from: `"yah.homes" <${SMTP_USER.value()}>`,
           to: String(v.email),
@@ -2352,8 +2370,8 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
             ``,
             `--- ご予約内容 ---`,
             `棟: ${PROPERTY_LABEL[String(v.property)] ?? v.property}`,
-            `チェックイン: ${fmtJa(ciStr)} 15:00〜`,
-            `チェックアウト: ${fmtJa(coStr)} 〜10:00`,
+            `チェックイン: ${fmtJa(ciStr)}${ciSfx}`,
+            `チェックアウト: ${fmtJa(coStr)}${coSfx}`,
             `人数: ${v.guests}名`,
             `---`,
             ``,
@@ -2363,15 +2381,15 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
             `当日お会いできるのを楽しみにしています。`,
             ``,
             `yah.homes`,
-            `https://yah.homes/ja/`,
+            `${SITE_URL}/ja/`,
           ].join("\n"),
           html: mailHtml({
             heading: "ご宿泊が確定しました",
             lead: `${v.name} 様　パートナー宿泊のご予約が確定しましたのでお知らせします。`,
             rows: [
               ["棟", esc(PROPERTY_LABEL[String(v.property)] ?? String(v.property))],
-              ["チェックイン", `${esc(fmtJa(ciStr))}　15:00〜`],
-              ["チェックアウト", `${esc(fmtJa(coStr))}　〜10:00`],
+              ["チェックイン", `${esc(fmtJa(ciStr))}${esc(ciSfx ? `　${SP!.checkinTime}〜` : "")}`],
+              ["チェックアウト", `${esc(fmtJa(coStr))}${esc(coSfx ? `　〜${SP!.checkoutTime}` : "")}`],
               ["人数", `${esc(v.guests)}名`],
             ],
             blocks: [
@@ -2403,7 +2421,7 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
 // 毎朝8:00 JST: 予約取得→前回スナップショット差分→定点シート記入→サマリメール→状態保存。
 // ロジックは scripts/beds24-daily.mjs と同一（数字の連続性維持）。トークンはread専用。
 const TEITEN_SHEET_ID = "1DxniZSvdzb5s4Zjt_6MYgWkkFq7q7HlCxyIUZn6hMfk";
-const TEITEN_PROPS: Record<number, string> = { 278158: "清川", 291238: "高砂" };
+const TEITEN_PROPS = BEDS24_PROP_LABEL;
 
 type Beds24Booking = {
   id: number; propertyId: number; status: string; arrival: string; departure: string;
@@ -2433,7 +2451,6 @@ async function gcpAccessToken(scopes?: string): Promise<string> {
 }
 
 // GA4 Data API: 前日のclick_airbnbイベント数（プロパティ=www.yah.homes/539535968・SAは閲覧者共有済み）
-const GA4_PROPERTY = "539535968";
 // 前日の手渡しクリック（click_airbnb / click_booking_com / click_booking_calendar）
 async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | null> {
   try {
@@ -2479,7 +2496,7 @@ async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | nul
 
 export const beds24DailyObserver = onSchedule(
   // serviceAccount: 第2世代の既定はcompute SAだが、シート/GA4の共有先=appspot SAに合わせて明示指定（spec §3）
-  { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: SA },
   async () => {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
@@ -2508,7 +2525,7 @@ export const beds24DailyObserver = onSchedule(
           stats: opts?.stats,
           rows: opts?.rows,
           blocks: opts?.blocks ?? [{ title: "サマリー", body: esc(text) }],
-          cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+          cta: { label: "予約管理を開く", href: ADMIN_BOOKINGS_URL },
           variant: opts?.variant,
         }),
       });
@@ -2727,7 +2744,7 @@ export { beds24WeeklyReport } from "./beds24.js";
 // ─── MS1: Beds24 Webhook → Firestore ミラー（v4 §8・全チャネルの予約を自社DBへ） ───
 // 受信は即ACK。ペイロードは信用せず webhook_events に保存し、正データはAPIで取り直す。
 export const beds24Webhook = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, BEDS24_WEBHOOK_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, BEDS24_WEBHOOK_KEY], serviceAccount: SA },
   async (req, res) => {
     if (req.method !== "POST" && req.method !== "GET") {
       res.status(405).send("method_not_allowed");
@@ -2844,7 +2861,7 @@ async function transition(
 
 /** 予約開始: 検証 → pending作成 → PaymentIntent（manual capture）→ client_secret を返す */
 export const bookCreate = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_TOKEN, STRIPE_SECRET_KEY], serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -2879,8 +2896,12 @@ export const bookCreate = onRequest(
     const langStr = typeof b.lang === "string" && ["en", "ja", "ko", "zh", "th"].includes(b.lang) ? b.lang : "en";
     const rulesAccepted = b.rulesAccepted === true;
     // 同意した約款の版。改ざんを防ぐため、サーバが知っている版のみ受け付ける。
-    // 古い版を名乗る値が来たら現行版として記録せず、そのまま残して後から照合できるようにする。
-    const termsVersion = TERMS_VERSIONS.includes(String(b.termsVersion)) ? String(b.termsVersion) : TERMS_VERSION_CURRENT;
+    // 既知の版のみ受け付ける。未知の版を現行版として記録すると「見ていない約款への同意」が
+    // 証跡に残るため、古いHTMLキャッシュ等からの送信は再読込を求めて断る（2026-08-18 監査）。
+    if (!TERMS_VERSIONS.includes(String(b.termsVersion))) {
+      res.status(409).json({ ok: false, error: "terms_version_stale" }); return;
+    }
+    const termsVersion = String(b.termsVersion);
     const marketingOptIn = b.marketingOptIn === true;
     const idempotencyKey = typeof b.idempotencyKey === "string" ? b.idempotencyKey.slice(0, 100) : "";
     // GA4のclient_id・広告のgclid/UTM（購買行動の突合用・個人情報ではない）
@@ -3005,7 +3026,7 @@ export const bookCreate = onRequest(
 
 /** Stripe Webhook: オーソリ確認を受けて履行（Beds24書込→capture）。署名検証・冪等処理（v4 §8-2） */
 export const stripeWebhook = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET, META_CAPI_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [BEDS24_WRITE_REFRESH, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BEDS24_TOKEN, SMTP_USER, SMTP_PASS, GA4_API_SECRET, META_CAPI_TOKEN], serviceAccount: SA },
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) { res.status(400).send("missing_signature"); return; }
@@ -3328,7 +3349,7 @@ async function sendRefundEvent(booking: {
    Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
    メールクライアント制約: table レイアウト＋インラインCSS。外部CSS/JS/画像は使わない。 */
 
-import { esc, mailHtml, chatBlock, chatUrlFor, SITE_URL } from "./mail-template.js";
+import { esc, mailHtml, chatBlock, chatUrlFor, SITE_URL, BRAND_FOOTER, myPageUrl as myPageUrlOf, bookPageUrl, ADMIN_BOOKINGS_URL } from "./mail-template.js";
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 /** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
@@ -3340,6 +3361,7 @@ const TERMS_VERSIONS = [TERMS_VERSION_CURRENT];
 
 const OPERATOR_PHONE = "050-1721-4419";
 /** メールの返信先（mailto の宛先にも使う） */
+const MAIL_NOREPLY = "no-reply@mail.yah.homes";
 const MAIL_FROM = "contact@mail.yah.homes";
 
 /** 「地図を開く」の行き先は SSoT（property_facts/{prop}.mapUrl）が正本。
@@ -3398,7 +3420,7 @@ function buildConfirmationMail(
   const no = d.id.slice(0, 8).toUpperCase();
   const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
   const coWin = L.checkoutWindow.replace("{co}", d.checkoutTime);
-  const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
+  const myPage = myPageUrlOf(lang);
 
   // ── 行・カードの部品（メールクライアント互換のため table + インラインCSS） ──
   const row = (k: string, v: string, sub = "") =>
@@ -3570,6 +3592,10 @@ async function buildConfirmationMailFor(
     const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
       .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
     const P0 = { image: MAIL_PROP[b.prop]?.image ?? "", ...S0 };
+    if (!P0.register) {
+      // 名簿（旅館業法）の案内カードが消えたまま確定メールが出るのは法令面の事故
+      await notifyError(`確定メールに宿泊者名簿フォームを載せられませんでした（property_facts.registerUrl が空）\n予約ID: ${bookingId}\n棟: ${b.prop}`);
+    }
     const strings = expandMailVars(await mailStrings("confirm", lang), {
       guestName: String(b.name ?? ""), bookingNo: bookingId.slice(0, 8).toUpperCase(),
       propertyName: P0.name, guests: String(b.guests ?? ""),
@@ -3578,7 +3604,7 @@ async function buildConfirmationMailFor(
       checkinTime: ci, checkoutTime: co, registerDeadline,
       registerUrl: P0.register ?? "", mapUrl: P0.map ?? "", manualUrl: P0.manual ?? "",
       phone: OPERATOR_PHONE,
-      myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+      myPageUrl: myPageUrlOf(lang),
       chatUrl: chatUrlFor(String(b.prop)),
     });
     const { subject, text, html } = buildConfirmationMail(lang, strings, {
@@ -3662,7 +3688,7 @@ async function sendConfirmationMail(bookingId: string, b: BookingDoc & Record<st
     });
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email), replyTo: "no-reply@mail.yah.homes",
+      to: String(b.email), replyTo: MAIL_NOREPLY,
       subject, text, html,
     });
     logMail("confirm", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject: subj });
@@ -3689,12 +3715,12 @@ async function buildCancellationMail(
       guestName: String(b.name ?? ""), bookingNo: no, propertyName: P.name,
       checkin: String(b.checkin), checkout: String(b.checkout),
       guests: String(b.guests ?? ""), phone: OPERATOR_PHONE,
-      myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+      myPageUrl: myPageUrlOf(lang),
       chatUrl: chatUrlFor(String(b.prop)),
     });
     const total = Number(b.total);
     const fee = total - refundAmount;
-    const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+    const bookPath = bookPageUrl(lang);
     const row = (k: string, v: string, strong = false) =>
       `<tr><td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#888888;">${k}</td>
         <td style="padding:11px 0;border-bottom:1px solid #f0f0f0;font-size:${strong ? "16px" : "14px"};color:#111111;text-align:right;font-weight:${strong ? "600" : "500"};">${v}</td></tr>`;
@@ -3759,7 +3785,7 @@ async function sendCancellationMail(
     });
     await transporter.sendMail({
       from: `"yah.homes" <${SMTP_USER.value()}>`,
-      to: String(b.email), replyTo: "no-reply@mail.yah.homes",
+      to: String(b.email), replyTo: MAIL_NOREPLY,
       subject, text, html,
     });
     logMail("cancel", String(b.email), true, { bookingId, lang: String(b.lang ?? ""), subject });
@@ -3786,7 +3812,7 @@ async function notifyError(text: string): Promise<void> {
         badge: "状態|要対応",
         variant: "alert",
         blocks: [{ title: "内容", body: esc(text) }],
-        cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+        cta: { label: "予約管理を開く", href: ADMIN_BOOKINGS_URL },
       }),
     });
   } catch (err) {
@@ -3798,7 +3824,7 @@ async function notifyError(text: string): Promise<void> {
 // ─── MS3.5: My Page API（自分の予約一覧・到着予定時刻の追記・v4 §6） ───
 export const accountApi = onRequest(
   { region: REGION, maxInstances: MAX_INSTANCES, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS],
-    serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+    serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -3910,8 +3936,16 @@ export const accountApi = onRequest(
           if (Date.now() >= checkinStart) { res.status(409).json({ ok: false, error: "after_checkin" }); return; }
 
           // 返金額はサーバー時刻で決める。クライアントの時計は使わない（決定事項①②）
-          const freeUntil = v.freeCancelUntilAt ? Date.parse(String(v.freeCancelUntilAt)) : 0;
-          const withinFree = freeUntil > 0 && Date.now() < freeUntil;
+          /* freeCancelUntilAt が無い・読めない予約を「期限切れ＝返金0円」に黙って倒さない。
+             フィールド1つの欠落でお客様から全額徴収が無言に成立していた（2026-08-18 監査）。
+             判定不能は人間に回す。 */
+          const freeUntil = v.freeCancelUntilAt ? Date.parse(String(v.freeCancelUntilAt)) : NaN;
+          if (!Number.isFinite(freeUntil)) {
+            await ref.update({ needsAttention: true });
+            await notifyError(`セルフキャンセルを保留しました（無料期限を判定できません）\n予約ID: ${idStr}\nfreeCancelUntilAt: ${String(v.freeCancelUntilAt ?? "(なし)")}\n/admin/bookings/ から手動で対応してください。`);
+            res.status(409).json({ ok: false, error: "cancel_needs_review" }); return;
+          }
+          const withinFree = Date.now() < freeUntil;
           const refundAmount = withinFree ? Number(v.total) : 0;
 
           // 二重実行の防止: CANCELLING へのCASで入口を1つに絞る
@@ -4006,7 +4040,7 @@ export const accountApi = onRequest(
                   ["Beds24", v.beds24Id ? "取り消し済み" : "書込なし"],
                 ],
                 blocks: [{ title: "理由", body: esc(typeof reason === "string" && reason ? reason : "（未記入）") }],
-                cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+                cta: { label: "予約管理を開く", href: ADMIN_BOOKINGS_URL },
               }),
               text: [
                 "お客様ご自身によるキャンセルが完了しました。",
@@ -4055,7 +4089,7 @@ export const accountApi = onRequest(
                 ["チェックイン", esc(String(v.checkin))],
                 ["到着予定", esc(arrStr || "未定")],
               ],
-              cta: { label: "予約管理を開く", href: `${SITE_URL}/admin/bookings/` },
+              cta: { label: "予約管理を開く", href: ADMIN_BOOKINGS_URL },
             }),
           });
         } catch (err) {
@@ -4076,7 +4110,7 @@ export const accountApi = onRequest(
 
 // ─── 管理者台帳API（/admin/users・編集はrootオーナーのみ・v4 §8-5b） ───
 export const adminUsers = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4192,7 +4226,7 @@ export const adminUsers = onRequest(
 // ─── 直販予約の管理API（/admin/bookings・v4 §8-5） ───
 // 一覧＝台帳メンバー、返金＝rootオーナーのみ。全金銭操作を audit_logs に記録。
 export const adminBookings = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [STRIPE_SECRET_KEY, BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4450,7 +4484,7 @@ const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "
   "spotOhoriCarMin", "spotOhoriM"] as const;
 
 export const adminProperties = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4555,7 +4589,7 @@ export const adminProperties = onRequest(
           if (t) doc[f] = t.slice(0, max);
         }
         // チェックイン/アウト時刻（"16:00" 形式）
-        // 直販の予約ルール（bookCreate が読む。未設定なら既定値で動く）
+        // 直販の予約ルール（bookCreate が読む。未設定なら bookingRules が null → 503 で予約を断る）
         {
           const t = String(v.bookingCutoffTime ?? "").trim();
           if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffTime" }); return; }
@@ -4624,7 +4658,7 @@ export const adminProperties = onRequest(
 // 静的サイトのため、Firestoreの変更をページへ反映するにはビルドが必要。
 // GitHub Actions の repository_dispatch を叩き、deploy.yml が本番へデプロイする。
 export const adminRebuild = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [GITHUB_DISPATCH_TOKEN], serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, secrets: [GITHUB_DISPATCH_TOKEN], serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {
@@ -4665,7 +4699,7 @@ export const adminRebuild = onRequest(
 // 本文に個人情報を含むため Function 経由のみ。閲覧は管理者台帳のメンバーに限る
 // （運営会社が問い合わせに直接対応できるよう開放・2026-08-08 発注者判断）。
 export const adminInbox = onRequest(
-  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
   async (req, res) => {
     const origin = corsOrigin(req.headers.origin as string | undefined);
     if (origin) {

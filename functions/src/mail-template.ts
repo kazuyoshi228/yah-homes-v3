@@ -6,6 +6,11 @@
 export const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 export const SITE_URL = "https://yah.homes";
+export const BRAND_FOOTER = "yah.homes【Operated by AIRSTAR】";
+/** 言語別の My Page / 予約ページURL（en はパス無し）。組み立て式の重複を禁止 */
+export const myPageUrl = (lang: string) => `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
+export const bookPageUrl = (lang: string) => `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+export const ADMIN_BOOKINGS_URL = `${SITE_URL}/admin/bookings/`;
 
 /* ─── メールの共通テンプレート ───
    全ての送信メールを同じ枠に載せる。table＋インラインCSSのみ（外部CSS/JS/画像なし）。
@@ -36,7 +41,7 @@ export function chatBlock(chat?: { prop: string; lang: string }): string {
         <a href="${url}" style="display:inline-block;padding:10px 20px;background:#1a56db;border-radius:999px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;">Chat</a>
       </td>
       <td width="112" style="vertical-align:middle;text-align:right;">
-        <img src="https://yah.homes/qr/chat-${prop}.png" width="96" height="96" alt="QR" style="border:1px solid #e8e8e8;border-radius:6px;" />
+        <img src="${SITE_URL}/qr/chat-${prop}.png" width="96" height="96" alt="QR" style="border:1px solid #e8e8e8;border-radius:6px;" />
       </td>
     </tr></table>
   </td></tr>`;

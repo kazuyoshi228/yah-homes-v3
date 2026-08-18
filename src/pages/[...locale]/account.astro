@@ -1,4 +1,6 @@
 ---
+import { ARRIVAL_TIMES } from "../../lib/propNames";
+import { OPERATOR_PHONE, OPERATOR_PHONE_TEL } from "../../lib/seo";
 /* /account — My Page（design_booking_p1_v4.md §6・MS3.5）
    Googleログイン → 自分の予約一覧・詳細・到着予定時刻の追記・入室案内の再表示。
    キャンセル実行は Beds24 書込が有効になってから（現在はメール相談へ誘導）。
@@ -7,7 +9,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LOCALES, localeParam, localizedPath, type Locale } from "../../i18n/config";
 import { PROPERTIES } from "../../data/properties";
 import { getPropertyFacts } from "../../lib/propertyFacts";
-import { FB_CONFIG } from "../../lib/adminConfig";
+import { ENDPOINTS, FB_CONFIG } from "../../lib/adminConfig";
 
 export const BOOK_PREVIEW = process.env.BOOK_PREVIEW === "1";
 
@@ -21,8 +23,8 @@ export function getStaticPaths() {
 
 const { lang } = Astro.props as { lang: Locale };
 
-const ACCOUNT_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/accountApi";
-const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
+const ACCOUNT_ENDPOINT = ENDPOINTS.accountApi;
+const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
 const BOOK_PATH = localizedPath(lang, "/book");
 const CONTACT_HREF = `${localizedPath(lang, "/")}#contact`;
 // 決済未完了の予約から戻る先。日程と人数を持たせて入力をやり直させない。
@@ -621,7 +623,7 @@ const PHONE_CC = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ ACCOUNT_ENDPOINT, MESSAGES_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang }}>
+<script define:vars={{ ACCOUNT_ENDPOINT, MESSAGES_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang, OPERATOR_PHONE, OPERATOR_PHONE_TEL }}>
   const $ = (id) => document.getElementById(id);
   const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const yen = (n) => `¥${Number(n).toLocaleString("en-US")}`;
@@ -636,7 +638,7 @@ const PHONE_CC = [
     : s === "PAYMENT_PENDING" ? uiA.statusUnpaid
     : uiA.statusProcessing;
 
-  const ARRIVALS = ["15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
+  const ARRIVALS = ARRIVAL_TIMES;
   const LOC = { en: "en-US", ja: "ja-JP", ko: "ko-KR", zh: "zh-TW", th: "th-TH" }[lang];
   const shortDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(LOC, { month: "short", day: "numeric" });
   const nightsOf = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
@@ -817,7 +819,7 @@ const PHONE_CC = [
           <div class="ac-block">
             <p class="ac-block-title">${uiA.urgentTitle}</p>
             <p class="ac-note">${uiA.urgentNote}</p>
-            <a class="ac-tel" href="tel:+815017214419">050-1721-4419</a>
+            <a class="ac-tel" href="tel:${OPERATOR_PHONE_TEL}">${OPERATOR_PHONE}</a>
           </div>` : ""}
 
           ${cancelBlock(b)}

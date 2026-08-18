@@ -12,8 +12,9 @@
  *   public/qr/print/chat-{施設}-card-a6.svg/.png  A6印刷カード
  *
  * 実行: pnpm qr                （認証が要る。読めなければ止まる）
- *       pnpm qr --if-possible  （ビルド用。認証が無い環境では既存ファイルのまま続行し、
- *                               不足していれば止める＝古い・欠けたQRで公開しない）
+ *       pnpm qr --if-possible  （ビルド用。施設マスタを読めない環境では既存ファイルのまま
+ *                               続行する。ただし既存が1枚も無い、または生成から30日を
+ *                               超えて古い場合は止める＝欠けた/古すぎるQRで公開しない）
  */
 import QRCode from "qrcode";
 import sharp from "sharp";
@@ -108,7 +109,16 @@ try {
 } catch (err) {
   const known = existsSync(OUT) ? readdirSync(OUT).filter((f) => f.startsWith("chat-")).map((f) => f.slice(5, -4)) : [];
   if (SOFT && known.length) {
-    console.warn(`[gen-qr] 施設マスタを読めませんでした（${err.message}）。既存のQR ${known.length}件のまま続行します。`);
+    // 世代チェック: 30日以上再生成できていなければ、公開停止施設の削除も
+    // 新施設の追加も反映されていない可能性が高い。継続を打ち切って気づかせる。
+    const { statSync } = await import("node:fs");
+    const newest = Math.max(...readdirSync(OUT).filter((f) => f.startsWith("chat-")).map((f) => statSync(`${OUT}/${f}`).mtimeMs));
+    const ageDays = (Date.now() - newest) / 86400000;
+    if (ageDays > 30) {
+      console.error(`[gen-qr] 施設マスタを読めず、既存QRも生成から${Math.floor(ageDays)}日経過。中止します（gcloud auth application-default login で認証して pnpm qr を実行）`);
+      process.exit(1);
+    }
+    console.warn(`[gen-qr] 施設マスタを読めませんでした（${err.message}）。既存のQR ${known.length}件（${Math.floor(ageDays)}日前生成）のまま続行します。`);
     process.exit(0);
   }
   console.error(`[gen-qr] 施設マスタ（chat_facilities）を読めません: ${err.message}`);

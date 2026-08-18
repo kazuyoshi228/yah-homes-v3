@@ -33,13 +33,13 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 
 ### yah.homes kiyokawa
 
-**Full address:** 3-3-1 Kiyokawa, Chuo-ku, Fukuoka 810-0011, Japan
-**Taxi card (Japanese):** 〒810-0011 福岡県福岡市中央区清川３丁目３－１（目的地はホテルではなく見た目は普通の一軒家です）
+**Full address:** {{K_ADDR_EN}}, Japan
+**Taxi card (Japanese):** 〒{{K_ZIP}} {{K_ADDR_JA}}（目的地はホテルではなく見た目は普通の一軒家です）
 **Type:** Whole-house exclusive rental (newly built villa)
 **Location:** Along the Naka River, Kiyokawa district, Chuo-ku, Fukuoka
-**Capacity:** Up to 7 guests
-**Bedrooms:** 3 bedrooms (BR1: 1 single bed / BR2: 2 double beds / BR3: 1 double bed)
-**Bathrooms:** 1 bathroom (1st floor) + 2 toilets (1st & 2nd floor)
+**Capacity:** Up to {{K_CAP}} guests
+**Bedrooms:** {{K_ROOMS}} bedrooms (BR1: 1 single bed / BR2: 2 double beds / BR3: 1 double bed)
+**Bathrooms:** {{K_BATH}} bathroom (1st floor) + {{K_TOILET}} toilets (1st & 2nd floor)
 **Floors:** 3-story building (indoor stairs; bathroom on 1st floor)
 **Parking:** Private parking for 1 car (included) — fits compact to standard-size cars; for larger vehicles, coin parking nearby from about ¥800/night
 **Airbnb rating:** ★ {{K_RATING}} / 5.0 ({{K_COUNT}} guest reviews as of {{AS_OF}})
@@ -48,7 +48,7 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Key amenities:**
 - SIMMONS mattresses in all bedrooms
 - Full kitchen with cooking equipment
-- 55-inch TV
+- {{K_TV}}-inch TV
 - High-quality amplifier and tall-boy audio speakers (cinema-quality sound system)
 - High-speed Wi-Fi (fiber optic)
 - Drum-type washer-dryer (wash & dry in one cycle)
@@ -79,10 +79,10 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Full address:** Takasago, Chuo-ku, Fukuoka, Japan
 **Type:** Whole-house exclusive rental — Maisonette-style independent building
 **Concept:** "Check In, Find Out." — experience Fukuoka's everyday richness like a local
-**Location:** Takasago, Chuo-ku, Fukuoka (within 20 min from Fukuoka Airport by car; 5–10 min walk from Watanabe-dori Station Exit 1; Yakuin also walkable)
-**Capacity:** Up to 6 guests
-**Bedrooms:** 3 bedrooms (1 double bed + 4 single beds)
-**Layout:** 3LDK (3 bedrooms, living/dining, kitchen, bathroom, shower booth, 2 toilets, 3 washbasins)
+**Location:** Takasago, Chuo-ku, Fukuoka (within {{T_AIRPORT}} min from Fukuoka Airport by car; 5–10 min walk from Watanabe-dori Station Exit 1; Yakuin also walkable)
+**Capacity:** Up to {{T_CAP}} guests
+**Bedrooms:** {{T_ROOMS}} bedrooms ({{T_BD}} double bed + {{T_BS}} single beds)
+**Layout:** 3LDK ({{T_ROOMS}} bedrooms, living/dining, kitchen, bathroom, shower booth, {{T_TOILET}} toilets, {{T_SINK}} washbasins)
 **Parking:** Private parking for large vehicles (Alphard-class, included)
 **Airbnb rating:** ★ {{T_RATING}} / 5.0 ({{T_COUNT}} guest reviews as of {{AS_OF}})
 **Opened:** June 2026 (full operation)
@@ -131,8 +131,8 @@ Pricing varies by season, length of stay, and platform. For accurate current pri
 - Contact via the website contact form: https://yah.homes (select "Contact" in navigation)
 
 **General range (indicative, subject to change):**
-- Kiyokawa (up to 8 guests): Competitive with mid-to-upper range Fukuoka hotels on a per-person basis
-- Takasago (up to 6 guests): Mid-range pricing
+- Kiyokawa (up to {{K_CAP}} guests): Competitive with mid-to-upper range Fukuoka hotels on a per-person basis
+- Takasago (up to {{T_CAP}} guests): Mid-range pricing
 
 **Long-stay discounts:** Available for stays of 7 nights or more. Inquire directly.
 
@@ -145,15 +145,15 @@ Pricing varies by season, length of stay, and platform. For accurate current pri
 **Neighborhood character:** Kiyokawa (清川) is a residential neighborhood in Chuo-ku (Central Ward), Fukuoka. It sits between the Naka River and the Yakuin/Daimyo commercial areas. The neighborhood is known for its authentic everyday food culture — local ramen shops, traditional udon restaurants, specialty coffee, and neighborhood markets — rather than tourist-oriented establishments.
 
 **Access from Fukuoka Airport:**
-- By subway: Fukuoka Airport → Hakata Station (5 min) → Watanabe-dori Station (3 min) → Walk 10–15 min to property (taxi or rental car recommended)
+- By subway: Fukuoka Airport → Hakata Station (5 min) → Watanabe-dori Station (3 min) → Walk {{K_STATION}} min to property (taxi or rental car recommended)
 - By taxi: Approximately 25–35 minutes, ¥2,500–¥3,500 (show taxi card above to driver)
 - By car: Approximately 30 minutes via expressway
 
 **Nearby landmarks:**
 - Naka River (walking distance)
 - Yakuin Station (Nishitetsu Tenjin Omuta Line): 10 min walk
-- Watanabe-dori Station (Fukuoka City Subway, Exit 1): 10–15 min walk
-- Tenjin (Fukuoka's main shopping/entertainment district): 15 min walk or 5 min by subway
+- Watanabe-dori Station (Fukuoka City Subway, Exit 1): {{K_STATION}} min walk
+- Tenjin (Fukuoka's main shopping/entertainment district): {{K_TENJIN}} min walk or 5 min by subway
 - Hakata Station (Shinkansen hub): 15 min by subway
 
 ---
@@ -221,7 +221,7 @@ A: Yes. Weekly discounts are typically available for stays of 7 nights or more. 
 ### Check-in & Check-out
 
 **Q: What are the check-in and check-out times?**
-A: Standard check-in is from 16:00 (4:00 PM). Standard check-out is by 11:00 (11:00 AM). Early check-in or late check-out may be available upon request, subject to availability.
+A: Standard check-in is from {{CI}} ({{CI_EN}}). Standard check-out is by {{CO}} ({{CO_EN}}). Early check-in or late check-out may be available upon request, subject to availability.
 
 **Q: Is self check-in available?**
 A: Yes. yah.homes uses a security lock system. Check-in instructions and access codes are sent to guests before arrival. No need to meet a host in person.
@@ -232,7 +232,7 @@ A: Self check-in is available 24 hours. Your access code will remain valid throu
 ### Guests & Capacity
 
 **Q: Can children stay?**
-A: Yes, children are welcome. Kiyokawa accommodates up to 8 guests including children. Please count all guests including infants when booking.
+A: Yes, children are welcome. Kiyokawa accommodates up to {{K_CAP}} guests including children. Please count all guests including infants when booking.
 
 **Q: Are pets allowed?**
 A: Currently, pets are not permitted at yah.homes properties. We apologize for any inconvenience.
@@ -277,7 +277,7 @@ A: Kiyokawa is a quiet residential neighborhood in Chuo-ku, one of Fukuoka's cen
 ### Cancellation & Policies
 
 **Q: What is the cancellation policy?**
-A: The cancellation policy is listed on each Airbnb and Booking.com listing. Generally, cancellations made 7+ days before check-in receive a full refund. Cancellations within 7 days may be subject to partial or full charges. Please review the specific policy on your booking platform.
+A: The cancellation policy is listed on each Airbnb and Booking.com listing. Generally, cancellations made {{FREE_DAYS}}+ days before check-in receive a full refund. Cancellations within {{FREE_DAYS}} days may be subject to partial or full charges. Please review the specific policy on your booking platform.
 
 **Q: Is travel insurance recommended?**
 A: Yes. We recommend purchasing travel insurance that covers accommodation cancellation, especially for international travelers.

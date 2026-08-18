@@ -11,6 +11,8 @@ export const FB_CONFIG = {
 } as const;
 
 const FN = "https://asia-northeast1-yah-homes.cloudfunctions.net";
+/** Firebase Web SDK のCDNベース。バージョンはここだけで管理（41箇所の直書きを禁止） */
+export const FB_SDK = "https://www.gstatic.com/firebasejs/10.12.2";
 export const ENDPOINTS = {
   adminOps: `${FN}/adminOps`,
   adminUsers: `${FN}/adminUsers`,
@@ -23,4 +25,10 @@ export const ENDPOINTS = {
   adminRebuild: `${FN}/adminRebuild`,
   partnersAdmin: `${FN}/partnersAdmin`,
   messagesApi: `${FN}/messagesApi`,
+  // 公開系（予約・問い合わせ・パートナー）。ページ側での FN 直書きを禁止
+  contact: `${FN}/contact`,
+  partnersApply: `${FN}/partnersApply`,
+  bookingApi: `${FN}/bookingApi`,
+  bookCreate: `${FN}/bookCreate`,
+  accountApi: `${FN}/accountApi`,
 } as const;

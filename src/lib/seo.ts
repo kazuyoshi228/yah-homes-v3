@@ -16,6 +16,9 @@ export interface PageMeta {
 }
 
 export const BASE_URL = "https://yah.homes";
+/** 運営の問い合わせ電話（表示用とtel:リンク用）。ページ側での直書きを禁止 */
+export const OPERATOR_PHONE = "050-1721-4419";
+export const OPERATOR_PHONE_TEL = "+81" + OPERATOR_PHONE.replace(/-/g, "").slice(1);
 export const OG_IMAGE = `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`;
 /* 共有カードの画像。物件ページは自分の棟の外観を出す
    （既定のままだと、高砂のURLをLINEに貼っても清川の写真が出る）。 */
@@ -368,10 +371,10 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
         name: "yah.homes Kiyokawa",
         url: `${BASE_URL}/properties/kiyokawa/`,
         description:
-          "Newly built whole-house villa for up to 7 guests in Kiyokawa, Chuo-ku, Fukuoka. 3 bedrooms, SIMMONS PREMIUM mattresses, full kitchen, private parking.",
+          `Newly built whole-house villa for up to ${facts.kiyokawa.capacity} guests in Kiyokawa, Chuo-ku, Fukuoka. ${facts.kiyokawa.bedrooms} bedrooms, SIMMONS PREMIUM mattresses, full kitchen, private parking.`,
         streetAddress: "Kiyokawa 3-3-1",
         addressLocality: "Chuo-ku, Fukuoka",
-        postalCode: "810-0011",
+        postalCode: facts.kiyokawa.zip,
         geo: PROPERTY_GEO.kiyokawa,
         ratingAsOf,
         rating: facts.kiyokawa.rating,
@@ -402,11 +405,11 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
         name: "yah.homes Takasago",
         url: `${BASE_URL}/properties/takasago/`,
         description:
-          "Whole-house rental for up to 6 guests in Fukuoka. 3 bedrooms, SIMMONS mattresses, full kitchen, high-speed Wi-Fi.",
+          `Whole-house rental for up to ${facts.takasago.capacity} guests in Fukuoka. ${facts.takasago.bedrooms} bedrooms, SIMMONS mattresses, full kitchen, high-speed Wi-Fi.`,
         // 住所は Google ビジネスプロフィール登録値（2026-07-13 確認）
         streetAddress: "Takasago 1-18-7",
         addressLocality: "Chuo-ku, Fukuoka",
-        postalCode: "810-0011",
+        postalCode: facts.takasago.zip,
         geo: PROPERTY_GEO.takasago,
         ratingAsOf,
         rating: facts.takasago.rating,

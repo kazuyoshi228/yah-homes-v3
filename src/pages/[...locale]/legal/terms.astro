@@ -1,4 +1,5 @@
 ---
+import { OPERATOR_PHONE } from "../../../lib/seo";
 /* 宿泊約款・利用規約。ハウスルールは別表1として本文に内包する（同意は1クリックにまとめる）。
    本文は日本法準拠のため日本語、見出し・案内文のみ5言語（privacy.astro と同じ型）。
    改定時は EFFECTIVE と TERMS_VERSION の両方を更新し、checkout.astro / functions の
@@ -175,7 +176,7 @@ const SECTIONS: { h: string; body: string[] }[] = [
     body: [
       `施行日：${EFFECTIVE}`,
       "運営：ボンファイア株式会社（〒810-0011 福岡県福岡市中央区高砂1-18-7）",
-      "緊急のご連絡先：050-1721-4419（ご宿泊中のお客様専用）",
+      `緊急のご連絡先：${OPERATOR_PHONE}（ご宿泊中のお客様専用）`,
     ],
   },
 ];

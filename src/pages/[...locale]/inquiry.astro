@@ -1,4 +1,5 @@
 ---
+import { ENDPOINTS } from "../../lib/adminConfig";
 /* /inquiry/?t=<トークン> — 予約前のお客様がログインなしで問い合わせの続きを読む・返す画面。
    仕様: docs/spec_inquiry_threads.md §5。読み書きとも messagesApi（トークン検証）経由で、
    Firestore を匿名に開けない。リアルタイムではなく30秒ポーリング。noindex。 */
@@ -14,7 +15,7 @@ export function getStaticPaths() {
 }
 const { lang } = Astro.props as { lang: Locale };
 
-const MESSAGES_ENDPOINT = "https://asia-northeast1-yah-homes.cloudfunctions.net/messagesApi";
+const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
 
 const T = inquiryStrings[lang];
 const CONTACT_HREF = lang === "en" ? "/#contact" : `/${lang}/#contact`;

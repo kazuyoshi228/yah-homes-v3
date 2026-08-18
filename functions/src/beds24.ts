@@ -5,6 +5,7 @@
  * 認可: Sheets/GA4 は実行サービスアカウント（ADC）で取得。シートとGA4に閲覧/編集権限を事前共有。
  */
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { BEDS24_PROP_LABEL, SA, GA4_PROPERTY } from "./beds24Client.js";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { GoogleAuth } from "google-auth-library";
@@ -14,8 +15,7 @@ import { esc, mailHtml, SITE_URL } from "./mail-template.js";
 const REGION = "asia-northeast1";
 const TZ = "Asia/Tokyo";
 const SHEET_ID = "1DxniZSvdzb5s4Zjt_6MYgWkkFq7q7HlCxyIUZn6hMfk";
-const GA4_PROPERTY = "539535968"; // www.yah.homes
-const PROPS: Record<number, string> = { 278158: "清川", 291238: "高砂" };
+const PROPS = BEDS24_PROP_LABEL;
 const CAPACITY_NIGHTS_YEAR = 730; // 2棟×365（週次レポート用）
 
 const BEDS24_TOKEN = defineSecret("BEDS24_TOKEN");
@@ -142,7 +142,7 @@ function forwardNights(bookings: Booking[], today: string) {
 
 // ---- 週次: 毎週月曜 08:00 JST（国別スコアカード） --------------------------
 export const beds24WeeklyReport = onSchedule(
-  { region: REGION, schedule: "0 8 * * 1", timeZone: TZ, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: "yah-homes@appspot.gserviceaccount.com" },
+  { region: REGION, schedule: "0 8 * * 1", timeZone: TZ, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: SA },
   async () => {
     const today = jstToday();
     try {
