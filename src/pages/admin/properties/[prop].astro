@@ -139,6 +139,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <div class="ap-main">
 
         <div id="ap-view-overview" hidden={!HAS_FACTS}>
+        <p class="ap-warn" id={`ap-warn-${propKey}`} hidden></p>
         <div class="ap-tablewrap">
           <table class="ap-table">
             <thead>
@@ -173,6 +174,15 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                       ))}
                     </tr>
                   ))}
+                  {sec.label === "定員" && (
+                    <tr>
+                      <th class="ap-row-label">評価の取得日</th>
+                      <td>
+                        <input type="date" id="ap-asof" />
+                        <span class="ap-unit">サイトに「評価は◯◯時点」と出る日付</span>
+                      </td>
+                    </tr>
+                  )}
                 </>
               ))}
             </tbody>
@@ -184,27 +194,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <span class="ap-saved" id="ap-saved-all"></span>
         </div>
 
-        <section class="ap-card">
-          <h2 class="ap-house">評価の取得日</h2>
-          <p class="ap-note">サイト上に「評価は◯◯時点」と表示される日付です。評価を更新したら合わせて直してください。</p>
-          <p class="ap-warn" id={`ap-warn-${propKey}`} hidden></p>
-          <div class="ap-actions">
-            <input type="date" id="ap-asof" />
-            <button class="ap-btn" id="ap-save-asof">保存する</button>
-            <span class="ap-saved" id="ap-asof-saved"></span>
-          </div>
-        </section>
-
-        <section class="ap-card ap-deploy">
-          <h2 class="ap-house">サイトへの反映について</h2>
-          <p class="ap-note">
-            保存した内容は安全に記録されていますが、サイトの表示に反映するには再ビルドが必要です（静的サイトのため）。
-            編集が終わったら、開発担当へ「物件ファクトを更新したので反映してください」とご連絡ください。反映は数分で完了します。<br />
-            自動反映の仕組みは、編集者が増えた段階で追加する予定です。
-          </p>
-        </section>
-
-        <p class="ap-status" id="ap-status" role="status"></p>
+<p class="ap-status" id="ap-status" role="status"></p>
         </div>
 
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
@@ -322,16 +312,14 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         const r = await api("POST", { prop, values });
         results.push(r.ok ? null : `${prop}: ${r.error ?? "失敗"}`);
       }
+      // 評価の取得日も一緒に保存（以前は別カード・別ボタンだった）
+      const ar = await api("POST", { ratingAsOf: $("ap-asof").value });
+      results.push(ar.ok ? null : "取得日: 失敗");
       const errs = results.filter(Boolean);
       $("ap-saved-all").textContent = errs.length
         ? `保存に失敗しました（${errs.join(" / ")}）`
         : "保存しました（サイトの表示に反映するには再ビルドが必要です）";
       btn.disabled = false;
-    });
-
-    $("ap-save-asof").addEventListener("click", async () => {
-      const r = await api("POST", { ratingAsOf: $("ap-asof").value });
-      $("ap-asof-saved").textContent = r.ok ? "保存しました" : "保存に失敗しました";
     });
 
 
