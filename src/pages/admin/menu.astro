@@ -33,6 +33,12 @@ const OPERATOR: { href: string; title: string; role?: string }[] = [
   { href: "/admin/mail-preview/", title: "メールテンプレート" },
   { href: "/admin/notify-emails/", title: "送信先メールアドレス管理" },
 ];
+/* 入室案内（ゲスト向け公開ページ）への直リンク。チャット対応時に案内するURLを
+   すぐ開けるように（2026-08-18 発注者指示・Admin以上） */
+const HOWTO = [
+  { href: "/how-to/kiyokawa/", title: "入室案内（清川）", role: "admin" },
+  { href: "/how-to/takasago/", title: "入室案内（高砂）", role: "admin" },
+];
 const SYSTEM = [
   { href: "/admin/manual/", title: "操作マニュアル", role: "operator" },
   { href: "/admin/mail-log/", title: "メール送信ログ", role: "operator" },
@@ -75,6 +81,18 @@ const SYSTEM = [
       <div class="am-grid" data-secgrid="ssot">
         {SSOT.map((it) => (
           <a class="am-card" href={it.href} data-role={it.role ?? "operator"}>
+            <h3 class="am-card-title">
+              {it.title}
+              <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
+            </h3>
+          </a>
+        ))}
+      </div>
+
+      <h2 class="am-h2" data-sec="howto">How-to</h2>
+      <div class="am-grid" data-secgrid="howto">
+        {HOWTO.map((it) => (
+          <a class="am-card" href={it.href} target="_blank" rel="noopener" data-role={it.role}>
             <h3 class="am-card-title">
               {it.title}
               <span class:list={["am-badge", BADGE(it.role).cls]}>{BADGE(it.role).label}</span>
