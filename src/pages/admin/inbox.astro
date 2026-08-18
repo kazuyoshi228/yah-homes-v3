@@ -153,9 +153,12 @@ const INBOX_ENDPOINT = ENDPOINTS.adminInbox;
     });
     $("ai-reload").addEventListener("click", load);
     $("ai-only-open").addEventListener("change", render);
-
+    /* 認証の確定を待ってから判断する。待たずに弾くと、復元が間に合わない一瞬の
+       未ログイン状態でログイン画面へ飛ばされ、「ハードリロードしないと出ない」
+       ように見える（2026-08-18 発注者報告）。ハッシュも保って戻す。 */
+    await auth.authStateReady();
     onAuthStateChanged(auth, (user) => {
-      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname + location.hash)}`); return; }
       $("ai-login").hidden = !!user;
       $("ai-app").hidden = !user;
       if (user) load();

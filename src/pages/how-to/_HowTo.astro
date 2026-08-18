@@ -1,4 +1,5 @@
 ---
+import { getPropertyFacts } from "../../lib/propertyFacts";
 /* 入室案内（共通部品）— Google Sites から移設
    noindex・robots除外・sitemap除外。到着前〜到着直後にスマホで開く前提。
 
@@ -19,8 +20,6 @@ interface Props {
   name: string;
   zip: string;
   addressJa: string;
-  /** 「地図を開く」の行き先。指定がなければ住所検索にする（施設のGoogleマップに揃えるため） */
-  mapUrlOverride?: string;
   addressEn: string;
   photoEntrance: string;
   photoKeybox: string;
@@ -38,7 +37,7 @@ interface Props {
   parkingLargeCar?: boolean;
 }
 const {
-  prop, name, zip, addressJa, addressEn, mapUrlOverride,
+  prop, name, zip, addressJa, addressEn,
   photoEntrance, photoKeybox, photoParking,
   keyPlace, parking, entranceMark, garageSize, parkingLargeCar,
 } = Astro.props;
@@ -54,7 +53,8 @@ const LANGS: { code: Lang; label: string }[] = [
 /* 画面の固定文言。棟によらず共通。 */
 const UI = howtoUI;
 
-const mapUrl = mapUrlOverride ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
+/* 「地図を開く」の行き先は SSoT（/admin/properties）が正本。ページ側で持たない。 */
+const mapUrl = (await getPropertyFacts()).facts[prop].mapUrl;
 const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)}&z=17&output=embed`;
 const garage = garageSize
   ? { ja: `幅 ${garageSize.w.toLocaleString()}mm × 奥行 ${garageSize.d.toLocaleString()}mm`,

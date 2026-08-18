@@ -1,5 +1,5 @@
 ---
-import { PROPERTY_MAP_URL } from "../../lib/seo";
+import { getPropertyFacts } from "../../lib/propertyFacts";
 /* yah.homes AccessSection — 旧 AccessSection.tsx の忠実移植
    2つの地図（Kiyokawa / Takasago）。旧実装は Google Maps JS API だったが、
    静的サイトでは APIキー不要の埋め込みiframe（loading=lazy）で同等の見た目・機能を再現 */
@@ -13,20 +13,21 @@ interface Props {
 const { lang } = Astro.props;
 const t = translations[lang];
 
+const { facts: FACTS } = await getPropertyFacts();
 const PROPERTIES = [
   {
     id: "kiyokawa",
     name: "Kiyokawa",
     lat: 33.57879181728365,
     lng: 130.4126724730762,
-    googleMapsUrl: PROPERTY_MAP_URL.kiyokawa,
+    googleMapsUrl: FACTS.kiyokawa.mapUrl,
   },
   {
     id: "takasago",
     name: "Takasago",
     lat: 33.57993168053716,
     lng: 130.40632761222304,
-    googleMapsUrl: PROPERTY_MAP_URL.takasago,
+    googleMapsUrl: FACTS.takasago.mapUrl,
   },
 ];
 const SH_SUB = { en: 'About 20 minutes from Fukuoka Airport, walkable to downtown', ja: '福岡空港から車で約20分、繁華街へも徒歩圏', ko: '후쿠오카 공항에서 차로 약 20분, 번화가까지 도보권', zh: '距福岡機場車程約20分鐘，步行可達鬧區', th: 'ห่างจากสนามบินฟุกุโอกะประมาณ 20 นาที เดินถึงย่านใจกลางเมือง' }[lang];

@@ -45,7 +45,8 @@ import { FB_CONFIG } from "../../lib/adminConfig";
 
     // ?next=/admin/xxx/ が付いていれば、ログイン後にそこへ戻す（/admin配下のみ許可）
     const raw = new URLSearchParams(location.search).get("next") || "/admin/menu/";
-    const next = /^\/admin\/[a-z0-9\-\/]*$/.test(raw) ? raw : "/admin/menu/";
+    // 大文字（otemonA/B）とハッシュ（#chat）も許す。以前は落として /admin/menu/ に倒れていた
+    const next = /^\/admin\/[A-Za-z0-9\-\/]*(\?[^#]*)?(#[A-Za-z0-9\-]*)?$/.test(raw) ? raw : "/admin/menu/";
 
     $("lg-btn").addEventListener("click", async () => {
       $("lg-status").textContent = "";

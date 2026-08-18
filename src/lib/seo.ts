@@ -297,13 +297,6 @@ export const PROPERTY_GEO = {
   takasago: { lat: 33.57993168053716, lng: 130.40632761222304 },
 } as const;
 
-/* 「地図を開く」リンクの単一ソース（2026-08-18 発注者指示）。
-   埋め込み iframe は短縮リンクを受け付けないため、埋め込みだけは PROPERTY_GEO の
-   座標を使う。表に出るリンクはすべてここを通す。 */
-export const PROPERTY_MAP_URL = {
-  kiyokawa: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
-  takasago: "https://maps.app.goo.gl/Af1zTMDSM5NB11oZ6",
-} as const;
 
 // ── JSON-LD ジェネレータ（ページ単位・全言語共通の構造化データ）──
 function lodgingJsonLd(opts: {

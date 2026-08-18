@@ -10,7 +10,7 @@ import { FB_CONFIG } from "../../../lib/adminConfig";
 const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
 
 // 比較表の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
-interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean }
+interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean; note?: string }
 const SECTIONS: { label: string; rows: FactRow[] }[] = [
   {
     label: "定員",
@@ -55,6 +55,7 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "fromAirportCarMin", label: "空港から（車・分）", type: "num", unit: "分" },
       { key: "fromStationWalkMin", label: "駅から（徒歩・分）", type: "num", unit: "分" },
       { key: "nearestStation", label: "最寄り駅", type: "text", placeholder: "渡辺通" },
+      { key: "mapUrl", label: "Google マップのURL", type: "text", placeholder: "https://maps.app.goo.gl/…", note: "サイト・メール・チャットの「地図を開く」がすべてここを見ます" },
       { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
       { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
     ],
@@ -164,6 +165,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                             <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field={r.key} />
                           )}
                           {r.unit && <span class="ap-unit">{r.unit}</span>}
+                          {r.note && <span class="ap-fnote">{r.note}</span>}
                         </td>
                       ))}
                     </tr>
@@ -490,9 +492,12 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
       catch { $("ap-login-status").textContent = "ログインに失敗しました。"; }
     });
-
+    /* 認証の確定を待ってから判断する。待たずに弾くと、復元が間に合わない一瞬の
+       未ログイン状態でログイン画面へ飛ばされ、「ハードリロードしないと出ない」
+       ように見える（2026-08-18 発注者報告）。ハッシュも保って戻す。 */
+    await auth.authStateReady();
     onAuthStateChanged(auth, (user) => {
-      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname + location.hash)}`); return; }
       $("ap-login").hidden = !!user;
       $("ap-app").hidden = !user;
       if (user) load();   // チャット用情報も Firestore から読むため、新施設でも load する
@@ -578,6 +583,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-warn { font-size: 0.82rem; color: #b3261e; line-height: 1.8; margin-bottom: 0.5rem; }
   :global(.ap-missing) { border-color: #b3261e !important; background: #fdf3f2; }
   .ap-note { font-size: 0.8rem; color: #666666; line-height: 1.8; margin-bottom: 1rem; }
+  .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   .ap-table thead th { padding: 0.6rem 0.75rem; border-bottom: 2px solid #111111; font-weight: 500; color: #111111; }

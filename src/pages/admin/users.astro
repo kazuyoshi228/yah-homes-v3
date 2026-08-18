@@ -166,8 +166,12 @@ const USERS_ENDPOINT = ENDPOINTS.adminUsers;
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
       catch { $("au-login-status").textContent = "ログインに失敗しました。"; }
     });
+    /* 認証の確定を待ってから判断する。待たずに弾くと、復元が間に合わない一瞬の
+       未ログイン状態でログイン画面へ飛ばされ、「ハードリロードしないと出ない」
+       ように見える（2026-08-18 発注者報告）。ハッシュも保って戻す。 */
+    await auth.authStateReady();
     onAuthStateChanged(auth, (user) => {
-      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
+      if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname + location.hash)}`); return; }
       $("au-login").hidden = !!user;
       $("au-app").hidden = !user;
       if (user) load();

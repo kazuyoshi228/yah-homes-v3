@@ -1068,7 +1068,7 @@ async function buildLifecycleMail(
   b: BookingDoc & Record<string, unknown>,
 ): Promise<{ subject: string; text: string; html: string }> {
   const lang = String(b.lang ?? "en");
-  const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
+  const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
   const no = bookingId.slice(0, 8).toUpperCase();
   const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
@@ -3345,6 +3345,16 @@ const OPERATOR_PHONE = "050-1721-4419";
 /** メールの返信先（mailto の宛先にも使う） */
 const MAIL_FROM = "contact@mail.yah.homes";
 
+/** 「地図を開く」の行き先は SSoT（property_facts/{prop}.mapUrl）が正本。
+    MAIL_PROP には持たない。読めなければ地図ブロックを出さない（誤った場所へ送らない）。 */
+async function mapUrlOf(prop: string): Promise<string> {
+  try {
+    const key = prop === "test" ? "kiyokawa" : prop;
+    const f = (await db.collection("property_facts").doc(key).get()).data();
+    return String(f?.mapUrl ?? "");
+  } catch { return ""; }
+}
+
 const MAIL_PROP = {
   kiyokawa: {
     name: "yah.homes kiyokawa",
@@ -3358,7 +3368,7 @@ const MAIL_PROP = {
     name: "yah.homes takasago",
     image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
     address: "",
-    map: "https://maps.app.goo.gl/Af1zTMDSM5NB11oZ6",
+    map: "",   // ← SSoT（property_facts.mapUrl）から実行時に入れる
     register: "https://forms.zohopublic.jp/airstar1/form/yahhomestakasagoGuestRegistrationForm/formperma/t9QlFwTbkseWYDqB0n8-bcOH_8H36jaAPV5u8fNb-S4", // 宿泊者名簿フォーム（旅館業法・2026-08-18 Zohoフォームへ差し替え）
     manual: "https://yah.homes/how-to/takasago/", // 入室案内ページ
   },
@@ -3374,10 +3384,10 @@ const MAIL_PROP = {
 function buildConfirmationMail(
   lang: string,
   strings: Record<string, string>,
-  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string },
+  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string; mapUrl: string },
 ): { subject: string; text: string; html: string } {
   const L = strings;
-  const P = MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" };
+  const P = { ...(MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" }), map: d.mapUrl };
   const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
   const no = d.id.slice(0, 8).toUpperCase();
   const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
@@ -3556,7 +3566,7 @@ async function buildConfirmationMailFor(
     const LOC: Record<string, string> = { ja: "ja-JP", en: "en-US", ko: "ko-KR", zh: "zh-TW", th: "th-TH" };
     const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
       .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
-    const P0 = MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" };
+    const P0 = { ...(MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
     const strings = expandMailVars(await mailStrings("confirm", lang), {
       guestName: String(b.name ?? ""), bookingNo: bookingId.slice(0, 8).toUpperCase(),
       propertyName: P0.name, guests: String(b.guests ?? ""),
@@ -3569,7 +3579,7 @@ async function buildConfirmationMailFor(
       chatUrl: chatUrlFor(String(b.prop)),
     });
     const { subject, text, html } = buildConfirmationMail(lang, strings, {
-      checkinTime: ci, checkoutTime: co, registerDeadline,
+      checkinTime: ci, checkoutTime: co, registerDeadline, mapUrl: P0.map,
       id: bookingId,
       name: String(b.name ?? ""),
       prop: b.prop,
@@ -3668,7 +3678,7 @@ async function buildCancellationMail(
 ): Promise<{ subject: string; text: string; html: string }> {
   {
     const lang = String(b.lang ?? "en");
-    const P = MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" };
+    const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
     const yen = (n: number) => `¥${Number(n).toLocaleString("en-US")}`;
     const no = bookingId.slice(0, 8).toUpperCase();
     const L = expandMailVars(await mailStrings("cancel", lang), {
@@ -4519,6 +4529,15 @@ export const adminProperties = onRequest(
         // 最寄り駅名（文字列）
         const ns = String(v.nearestStation ?? "").trim();
         if (ns) doc.nearestStation = ns.slice(0, 40);
+        /* 「地図を開く」の行き先（サイト・メール・チャットが全部ここを見る）。
+           他所へ誘導されないよう https の Google マップに限る。 */
+        if (v.mapUrl !== undefined) {
+          const m = String(v.mapUrl ?? "").trim();
+          if (m && !/^https:\/\/(maps\.app\.goo\.gl|(www\.|maps\.)?google\.com)\//.test(m)) {
+            res.status(400).json({ ok: false, error: "invalid_mapUrl" }); return;
+          }
+          if (m) doc.mapUrl = m.slice(0, 300);
+        }
         // チェックイン/アウト時刻（"16:00" 形式）
         // 直販の予約ルール（bookCreate が読む。未設定なら既定値で動く）
         {

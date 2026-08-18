@@ -381,13 +381,14 @@ const HOUSE_NAMES = {
   takasago: "yah.homes takasago",
   test: "yah.homes test1（検証用）",
 };
-// 住所は発注者確認済みのもののみ記載（未確認の棟は地図リンクのみ）— メールと同一の扱い
-const HOUSE_PLACE = {
-  kiyokawa: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762" },
-  takasago: { address: "", map: "https://maps.app.goo.gl/Af1zTMDSM5NB11oZ6" },
-  test: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762" },
-};
 const { facts } = await getPropertyFacts();
+// 住所は発注者確認済みのもののみ記載（未確認の棟は地図リンクのみ）— メールと同一の扱い。
+// 地図リンクは SSoT（/admin/properties の「Google マップのURL」）が正本。
+const HOUSE_PLACE = {
+  kiyokawa: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: facts.kiyokawa.mapUrl },
+  takasago: { address: "", map: facts.takasago.mapUrl },
+  test: { address: "〒810-0005 福岡県福岡市中央区清川3-3-1", map: facts.kiyokawa.mapUrl },
+};
 const HOUSE_TIMES = {
   kiyokawa: { ci: facts.kiyokawa.checkinTime, co: facts.kiyokawa.checkoutTime },
   takasago: { ci: facts.takasago.checkinTime, co: facts.takasago.checkoutTime },

@@ -47,6 +47,9 @@ export interface PropertyFacts {
   studyDesk: number;
   parking: number;
   theater: number;
+  /** 「地図を開く」の行き先。正本は /admin/properties（SSoT）。
+   *  埋め込み iframe は短縮リンクを受け付けないため、埋め込みだけは緯度経度を使う。 */
+  mapUrl: string;
   /** アクセス（分・最寄り駅名のみ文字列） */
   fromAirportCarMin: number;
   fromStationWalkMin: number;
@@ -123,7 +126,7 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
       washer: n("washer"), dryer: n("dryer"), audio: n("audio"), tvInch: n("tvInch"),
       studyDesk: n("studyDesk"), parking: n("parking"), theater: n("theater"),
       fromAirportCarMin: n("fromAirportCarMin"), fromStationWalkMin: n("fromStationWalkMin"),
-      nearestStation: t("nearestStation"),
+      nearestStation: t("nearestStation"), mapUrl: t("mapUrl"),
       toTenjinWalkMin: n("toTenjinWalkMin"), toHakataWalkMin: n("toHakataWalkMin"),
       spotMarketMin: n("spotMarketMin"), spotMarketM: n("spotMarketM"),
       spotSumiyoshiMin: n("spotSumiyoshiMin"), spotSumiyoshiM: n("spotSumiyoshiM"),
