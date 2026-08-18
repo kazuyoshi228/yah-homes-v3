@@ -4441,14 +4441,19 @@ export const adminProperties = onRequest(
     const email = await verifyAdmin(req as { headers: Record<string, unknown> });
     if (!email) { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     // 物件ファクトは表示の正本のため、編集・閲覧ともrootオーナー限定（2026-08-08 発注者指示）
-    if (requireOwner(email, res)) return;
+    // 閲覧は台帳メンバー全員に開放（2026-08-18 発注者判断）。チャット用情報を
+    // 日々のお客様対応で参照するのは Operator のため。編集（POST）は従来どおり Owner のみ。
+    const roleP = await getRole(email);
+    if (!roleP) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+    if (req.method === "POST" && requireOwner(email, res)) return;
 
     try {
       if (req.method === "GET") {
         const snap = await db.collection("property_facts").get();
         const items: Record<string, unknown> = {};
         snap.forEach((d) => { items[d.id] = d.data(); });
-        res.status(200).json({ ok: true, items });
+        // canEdit=Owner のみ。閲覧開放後も UI 側で保存操作を出し分けるため
+        res.status(200).json({ ok: true, items, canEdit: isRootOwner(email) });
         return;
       }
 

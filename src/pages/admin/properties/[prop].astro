@@ -285,6 +285,13 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
         fill(PROP, j.items[PROP] ?? {});
+        // 閲覧は全メンバー・編集は Owner のみ（2026-08-18 発注者判断）。
+        // Owner 以外は入力を無効化し、保存バーを隠して読み取り専用にする
+        if (!j.canEdit) {
+          document.querySelectorAll("[data-prop][data-field]").forEach((el) => { el.disabled = true; });
+          const bar = document.querySelector(".ap-save-bar"); if (bar) bar.hidden = true;
+          const asof = $("ap-asof"); if (asof) asof.disabled = true;
+        }
         $("ap-asof").value = j.items.meta?.ratingAsOf ?? "";
         $("ap-status").textContent = "";
       } catch (e) {
