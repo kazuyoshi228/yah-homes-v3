@@ -10,6 +10,33 @@ export const SITE_URL = "https://yah.homes";
 /* ─── メールの共通テンプレート ───
    全ての送信メールを同じ枠に載せる。table＋インラインCSSのみ（外部CSS/JS/画像なし）。
    variant: "brand"=通常（黒ヘッダー） / "alert"=要対応（赤い帯を足す） */
+const CHAT_LABELS: Record<string, { t: string; s: string }> = {
+  ja: { t: "困ったときはチャットで", s: "ボタンで開くか、QRコードをスキャンしてください（同行者の方もどうぞ）" },
+  en: { t: "Need help? Chat with us", s: "Tap the button or scan the QR code — companions welcome too" },
+  ko: { t: "도움이 필요하시면 채팅으로", s: "버튼을 누르거나 QR코드를 스캔하세요(동행자분도 이용 가능)" },
+  zh: { t: "需要協助？線上聊天", s: "點按按鈕或掃描QR碼（同行者也可使用）" },
+  th: { t: "ต้องการความช่วยเหลือ? แชทกับเรา", s: "กดปุ่มหรือสแกน QR โค้ด (ผู้ร่วมเดินทางใช้ได้เช่นกัน)" },
+};
+export function chatBlock(chat?: { prop: string; lang: string }): string {
+  if (!chat) return "";
+  const prop = chat.prop === "test" ? "kiyokawa" : chat.prop;
+  if (prop !== "kiyokawa" && prop !== "takasago") return "";
+  const L = CHAT_LABELS[chat.lang] ?? CHAT_LABELS.en;
+  const url = `https://chat.yah.homes/${prop}`;
+  return `<tr><td style="padding:18px 24px;border-top:1px solid #f0f0f0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="vertical-align:middle;">
+        <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111111;">${esc(L.t)}</p>
+        <p style="margin:0 0 10px;font-size:12px;color:#666666;line-height:1.7;">${esc(L.s)}</p>
+        <a href="${url}" style="display:inline-block;padding:10px 20px;background:#1a56db;border-radius:999px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;">Chat</a>
+      </td>
+      <td width="112" style="vertical-align:middle;text-align:right;">
+        <img src="https://yah.homes/qr/chat-${prop}.png" width="96" height="96" alt="QR" style="border:1px solid #e8e8e8;border-radius:6px;" />
+      </td>
+    </tr></table>
+  </td></tr>`;
+}
+
 export function mailHtml(o: {
   heading: string;
   badge?: string;
@@ -26,6 +53,10 @@ export function mailHtml(o: {
   /** フッター（署名）。お客様向けの6通は /admin/templates の footer キーから渡す。
       未指定時の既定は社内向け通知など、テンプレート管理の対象外のメール用 */
   footer?: string;
+  /** チャット導線（施設別・2026-08-18）。指定するとフッター直前にQR付きブロックを出す。
+      QRを載せる理由: 予約者はグループの幹事1人で、同行者はメールを受け取れない。
+      幹事の画面から同行者がスキャンすることで、チャット導線がグループ全員に行き渡る。 */
+  chat?: { prop: string; lang: string };
   variant?: "brand" | "alert";
 }): string {
   const alert = o.variant === "alert";
@@ -82,6 +113,7 @@ export function mailHtml(o: {
     </td></tr></table>` : ""}
     ${o.note ? `<div style="font-size:12px;color:#999999;line-height:1.8;margin-top:16px;">${esc(o.note)}</div>` : ""}
   </td></tr>
+  ${chatBlock(o.chat)}
   <tr><td style="padding:16px 24px 22px;border-top:1px solid #f0f0f0;font-size:12px;color:#aaaaaa;">${esc(o.footer ?? "yah.homes【Operated by AIRSTAR】")}</td></tr>
 </table></td></tr></table></body></html>`;
 }

@@ -8,6 +8,8 @@
 
 export const howtoUI = {
   ja: {
+    helpChat: "チャットで質問する",
+    helpChatQr: "QRコードをスキャンしても開けます（同行者の方もどうぞ）",
     facTitle: "設備のご案内",
     facTrash: "ゴミ",
     facBreaker: "ブレーカー",
@@ -30,6 +32,8 @@ export const howtoUI = {
     helpCall: "電話でのご連絡",
   },
   en: {
+    helpChat: "Chat with us",
+    helpChatQr: "Or scan the QR code — companions welcome too",
     facTitle: "Facilities",
     facTrash: "Trash",
     facBreaker: "Circuit breaker",
@@ -52,6 +56,8 @@ export const howtoUI = {
     helpCall: "Call us",
   },
   ko: {
+    helpChat: "채팅으로 문의하기",
+    helpChatQr: "QR코드를 스캔해도 열 수 있습니다(동행자분도 이용 가능)",
     facTitle: "시설 안내",
     facTrash: "쓰레기",
     facBreaker: "차단기(두꺼비집)",
@@ -74,6 +80,8 @@ export const howtoUI = {
     helpCall: "전화 연락",
   },
   zh: {
+    helpChat: "線上聊天諮詢",
+    helpChatQr: "也可掃描QR碼開啟（同行者也可使用）",
     facTitle: "設備說明",
     facTrash: "垃圾",
     facBreaker: "斷路器",
@@ -96,6 +104,8 @@ export const howtoUI = {
     helpCall: "電話聯繫",
   },
   th: {
+    helpChat: "สอบถามผ่านแชท",
+    helpChatQr: "หรือสแกน QR โค้ดก็ได้ (ผู้ร่วมเดินทางใช้ได้เช่นกัน)",
     facTitle: "ข้อมูลอุปกรณ์",
     facTrash: "ขยะ",
     facBreaker: "เบรกเกอร์",

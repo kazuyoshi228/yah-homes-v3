@@ -1120,7 +1120,7 @@ async function buildLifecycleMail(
           { title: L.coTitle, body: L.coBody.replace(/\{co\}/g, esc(co)) },
           { title: L.coNoteTitle, body: esc(L.coNote) },
         ],
-        cta: { label: L.remCta, href: myPage }, footer: L.footer,
+        cta: { label: L.remCta, href: myPage }, footer: L.footer, chat: { prop: b.prop, lang },
       })
     : kind === "reminder"
     ? mailHtml({
@@ -1144,7 +1144,7 @@ async function buildLifecycleMail(
             ? [{ title: L.remPlace, body: `${P.address ? `<strong>${esc(P.address)}</strong><br>` : ""}${P.map ? `<a href="${esc(P.map)}" style="color:#111111;">${esc(P.map)}</a>` : ""}` }]
             : []),
         ],
-        cta: { label: L.remCta, href: myPage }, footer: L.footer,
+        cta: { label: L.remCta, href: myPage }, footer: L.footer, chat: { prop: b.prop, lang },
       })
     : (() => {
         // 返信で完結するレビュー。mailto で雛形入りの返信メールを開かせ、
@@ -1179,7 +1179,7 @@ async function buildLifecycleMail(
             },
             { title: "—", body: esc(L.revNote) },
           ],
-          cta: { label: L.revCta, href: mailto }, footer: L.footer,
+          cta: { label: L.revCta, href: mailto }, footer: L.footer, chat: { prop: b.prop, lang },
         });
       })();
 
@@ -3330,7 +3330,7 @@ async function sendRefundEvent(booking: {
    Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
    メールクライアント制約: table レイアウト＋インラインCSS。外部CSS/JS/画像は使わない。 */
 
-import { esc, mailHtml, SITE_URL } from "./mail-template.js";
+import { esc, mailHtml, chatBlock, SITE_URL } from "./mail-template.js";
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 /** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
@@ -3476,6 +3476,9 @@ function buildConfirmationMail(
       </td></tr>
       <tr><td align="center" style="padding-top:10px;">
         <a href="${esc(myPage)}#messages" style="display:block;padding:13px 24px;border:1px solid #d7d7d7;border-radius:6px;font-size:14px;font-weight:500;color:#111111;text-decoration:none;">${esc(L.cta2)}</a>
+      </td></tr>
+      <tr><td style="padding-top:14px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${chatBlock({ prop: d.prop, lang })}</table>
       </td></tr>
       <tr><td style="padding-top:10px;font-size:12px;color:#999999;line-height:1.7;text-align:center;">${esc(L.ctaNote)}</td></tr>
     </table>
