@@ -3,7 +3,7 @@
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { CHAT_INFO } from "../../data/adminChatInfo";
+import { CHAT_INFO, CHAT_PROPS } from "../../data/adminChatInfo";
 import { ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
@@ -205,18 +205,34 @@ const HOUSES = [
              静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
         <div id="ap-view-chat" hidden>
           <h2 class="ap-house">チャット用情報</h2>
+          <nav class="ap-chat-props" aria-label="施設の切替">
+            {CHAT_PROPS.map((p, i) => (
+              <button type="button" class:list={["ap-chat-prop", i === 0 && "is-active"]} data-chatprop={p.key}>{p.label}</button>
+            ))}
+          </nav>
           <p class="ap-note">
             ゲストからのチャット問い合わせに答えるときの参照表です。
             「チャットで絶対に案内しない情報」の行を必ず守ってください。
           </p>
-          <table class="ap-chat-table">
-            <thead><tr><th>設問</th><th>回答</th></tr></thead>
-            <tbody>
-              {CHAT_INFO.map((r) => (
-                <tr><th>{r.q}</th><td>{r.a}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          {CHAT_PROPS.map((p, i) => (
+            <div class="ap-chat-body" data-chatbody={p.key} hidden={i !== 0}>
+              {CHAT_INFO[p.key].length === 0 ? (
+                <p class="ap-note ap-chat-empty">
+                  {p.label} の情報はまだ登録されていません。内容が揃い次第、src/data/adminChatInfo.ts に追記します
+                  （清川の内容は住所・近隣情報が施設固有のため流用しないでください）。
+                </p>
+              ) : (
+                <table class="ap-chat-table">
+                  <thead><tr><th>設問</th><th>回答</th></tr></thead>
+                  <tbody>
+                    {CHAT_INFO[p.key].map((r) => (
+                      <tr><th>{r.q}</th><td>{r.a}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
         </div>
 
           </div>
@@ -239,7 +255,19 @@ const HOUSES = [
   };
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "overview")));
-  if (location.hash === "#chat") switchView("chat");
+  // 施設の切替（#chat-高砂 のようにハッシュへ保存し、リロードでも維持）
+  const switchProp = (key: string) => {
+    document.querySelectorAll<HTMLElement>("[data-chatbody]").forEach((el) =>
+      el.hidden = el.dataset.chatbody !== key);
+    document.querySelectorAll<HTMLElement>(".ap-chat-prop").forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.chatprop === key));
+    history.replaceState(null, "", `#chat-${key}`);
+  };
+  document.querySelectorAll<HTMLElement>(".ap-chat-prop").forEach((b) =>
+    b.addEventListener("click", () => switchProp(b.dataset.chatprop ?? "kiyokawa")));
+
+  const m = location.hash.match(/^#chat(?:-([a-zA-Z]+))?$/);
+  if (m) { switchView("chat"); if (m[1]) switchProp(m[1]); }
 </script>
 
 <script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS }}>
@@ -354,6 +382,14 @@ const HOUSES = [
   .ap-side-link:hover { background: #f5f5f5; color: #111111; }
   .ap-side-link.is-active { background: #111111; color: #ffffff; }
   .ap-main { flex: 1; min-width: 0; }
+  .ap-chat-props { display: flex; gap: 0.4rem; margin: 0 0 1rem; flex-wrap: wrap; }
+  .ap-chat-prop {
+    font-family: inherit; font-size: 0.82rem; color: #555555; background: #ffffff;
+    border: 1px solid #d7d7d7; border-radius: 999px; padding: 0.4rem 1rem; cursor: pointer;
+  }
+  .ap-chat-prop:hover { border-color: #111111; color: #111111; }
+  .ap-chat-prop.is-active { background: #111111; border-color: #111111; color: #ffffff; }
+  .ap-chat-empty { padding: 2rem 0; }
   .ap-chat-table { width: 100%; border-collapse: collapse; }
   .ap-chat-table th, .ap-chat-table td {
     text-align: left; vertical-align: top; padding: 0.6rem 0.75rem;

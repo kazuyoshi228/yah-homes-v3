@@ -5,7 +5,20 @@
 
 export type ChatInfoRow = { q: string; a: string };
 
-export const CHAT_INFO: ChatInfoRow[] = [
+/** 施設の切替メニュー（2026-08-18 発注者指示）。六本松・大手門Aは開業準備中の新施設 */
+export const CHAT_PROPS = [
+  { key: "kiyokawa", label: "清川" },
+  { key: "takasago", label: "高砂" },
+  { key: "ropponmatsu", label: "六本松" },
+  { key: "otemonA", label: "大手門A" },
+  { key: "otemonB", label: "大手門B" },
+] as const;
+export type ChatPropKey = (typeof CHAT_PROPS)[number]["key"];
+
+export const CHAT_INFO: Record<ChatPropKey, ChatInfoRow[]> = {
+  // 既存の76行は清川の内容（住所・ランドリー・病院・Wi-Fi等すべて清川固有のため、
+  // 他施設へコピーしないこと。各施設の実情報が揃い次第、施設ごとに追記する）
+  kiyokawa: [
   { q: "公式サイト予約のゲスト向け窓口", a: "MyPageのメッセージ機能より運営会社宛にメッセージを送信してください。" },
   { q: "Booking.com 経由", a: "アプリのメッセージ機能より運営会社宛にメッセージを送信してください。" },
   { q: "Airbnb 経由", a: "アプリのメッセージ機能より運営会社宛にメッセージを送信してください。" },
@@ -81,4 +94,9 @@ export const CHAT_INFO: ChatInfoRow[] = [
   { q: "騒音が心配／騒音で困っている", a: "発生時間・場所・内容を確認。シビアな場合は、運営会社宛にメッセージを送信してください。" },
   { q: "地震後でも滞在して問題ないか", a: "緊急案内の有無を確認。危険時は119番。運営会社宛にメッセージを送信してください。" },
   { q: "入室トラブルによる補償・返金", a: "緊急案件のため、運営会社まで電話：050-1721-4419もしくは運営会社宛にメッセージを送信してください。" },
-];
+  ],
+  takasago: [],
+  ropponmatsu: [],
+  otemonA: [],
+  otemonB: [],
+};
