@@ -113,10 +113,6 @@ const HOUSES = [
     <div class="ap-container">
       <a class="ap-eyebrow" href="/admin/menu/">Admin</a>
       <h1 class="ap-title">物件ファクト管理</h1>
-      <p class="ap-lead">
-        ここが物件情報の<strong>唯一の正</strong>です。保存した内容は、トップページ・予約ページ・物件詳細ページのすべてに反映されます。
-        サイトは静的に生成しているため、保存したあとに<strong>再ビルド</strong>が必要です（下記参照）。
-      </p>
 
       <div id="ap-login" class="ap-login" hidden>
         <button id="ap-login-btn" class="ap-btn">Googleでログイン</button>
@@ -210,10 +206,6 @@ const HOUSES = [
               <button type="button" class:list={["ap-chat-prop", i === 0 && "is-active"]} data-chatprop={p.key}>{p.label}</button>
             ))}
           </nav>
-          <p class="ap-note">
-            ゲストからのチャット問い合わせに答えるときの参照表です。
-            「チャットで絶対に案内しない情報」の行を必ず守ってください。
-          </p>
           {CHAT_PROPS.map((p, i) => (
             <div class="ap-chat-body" data-chatbody={p.key} hidden={i !== 0}>
               {CHAT_INFO[p.key].length === 0 ? (
