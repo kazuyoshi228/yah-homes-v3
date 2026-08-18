@@ -22,7 +22,7 @@
       注入: property_facts＋chatInfo＋RAG（メッセージ専用インデックスを別立て・下記）
       モデル: Vertex AI Gemini（chat側と同系・asia-northeast1）
       判定: エスカレーション条件（chat側の規則を流用）
-  → モード（正本: property_facts/meta.messagesAi ＝「メッセージAI」ビューが編集口・未設定は off に倒す安全側）
+  → モード（正本: settings/messagesAi ＝SSoTとは分離・編集口は /admin/messages-ai・未設定は off に倒す安全側）
       "draft" : AI下書きを thread に保存 → /admin/messages に下書きカード（編集して送信/破棄）
       "auto-limited": FAQ的トピックのみ自動送信＋運営へ控え通知。他は draft に落とす
       "off"  : 何もしない（現行どおり）
@@ -38,6 +38,15 @@
   トラブル一次対応など）。チャット用情報とは注入先が別（チャット=chatInfo／メッセージAI=messageInfo）
 - 実装はP1に含める（下記フェーズ表を更新）
 
+## 2-3. 設定・実績ページ /admin/messages-ai（2026-08-18 発注者判断）
+
+- **adminメニュー直下の独立項目**（物件情報のビューにはしない）。設定（モード・時間帯）＋
+  下書き採用率などの実績＋将来のログ閲覧を1画面に集約。/admin/messages の隣に置く
+- 設定の正本は Firestore **`settings/messagesAi`（SSoTとは分離）** — property_facts／meta は
+  「宿・運営の事実」の正本であり、機能スイッチを混ぜない。未設定（ドキュメント無し）は off（fail-closed）
+- 免責文言は mail_templates（既存の文言正本）を参照。実績はメッセージログからの集計＝派生値（保存正本を持たない）
+- 物件別の「事実・文面」である顧客メッセージ用情報（§2-2）は従来どおり物件情報側（#message）に残す
+
 ## 3. 安全設計（fail-closed・既存原則の踏襲）
 
 - **絶対に出さない**: キーボックス暗証番号・他ゲスト情報・決済情報（チャットと同一の禁止リスト）
@@ -52,7 +61,7 @@
 | フェーズ | 内容 | 規模 |
 |---|---|---|
 | P1 | aiDraftReply（draftモード）＋ /admin/messages の下書きカード＋**顧客メッセージ用情報（#message・messageInfo）** | 約1.5日 |
-| P2 | auto-limited モード（トピック判定・免責フッター・モード切替UI=サイドバー独立ビュー「メッセージAI」を新設（設定＋採用率実績を表示）） | +0.5日 |
+| P2 | auto-limited モード（トピック判定・免責フッター）＋設定ページ /admin/messages-ai の実績表示拡充 | +0.5日 |
 | P3 | 運用データを見て自動範囲の拡大を判断（本設計の範囲外） | — |
 
 - **RAGはメッセージ専用に別立て**（2026-08-18 発注者判断）: chat側インデックスを呼ばず、
