@@ -19,6 +19,8 @@ interface Props {
   name: string;
   zip: string;
   addressJa: string;
+  /** 「地図を開く」の行き先。指定がなければ住所検索にする（施設のGoogleマップに揃えるため） */
+  mapUrlOverride?: string;
   addressEn: string;
   photoEntrance: string;
   photoKeybox: string;
@@ -36,7 +38,7 @@ interface Props {
   parkingLargeCar?: boolean;
 }
 const {
-  prop, name, zip, addressJa, addressEn,
+  prop, name, zip, addressJa, addressEn, mapUrlOverride,
   photoEntrance, photoKeybox, photoParking,
   keyPlace, parking, entranceMark, garageSize, parkingLargeCar,
 } = Astro.props;
@@ -52,7 +54,7 @@ const LANGS: { code: Lang; label: string }[] = [
 /* 画面の固定文言。棟によらず共通。 */
 const UI = howtoUI;
 
-const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
+const mapUrl = mapUrlOverride ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressJa)}`;
 const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)}&z=17&output=embed`;
 const garage = garageSize
   ? { ja: `幅 ${garageSize.w.toLocaleString()}mm × 奥行 ${garageSize.d.toLocaleString()}mm`,
