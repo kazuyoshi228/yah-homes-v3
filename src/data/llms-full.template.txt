@@ -266,7 +266,7 @@ A: All yah.homes properties use SIMMONS mattresses — the same brand used in lu
 ### Location & Access
 
 **Q: How far is yah.homes kiyokawa from Fukuoka Airport?**
-A: Approximately 25–35 minutes by taxi (¥2,500–¥3,500) or 20–25 minutes by subway (Fukuoka Airport → Hakata → Watanabe-dori, then 10-minute walk).
+A: Approximately 25–35 minutes by taxi ({{K_TAXI}}) or 20–25 minutes by subway (Fukuoka Airport → Hakata → Watanabe-dori, then 10-minute walk).
 
 **Q: Is there a convenience store nearby?**
 A: Yes. A convenience store (Lawson or FamilyMart) is within a 5-minute walk of the property.
