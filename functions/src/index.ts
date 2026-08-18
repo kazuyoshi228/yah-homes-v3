@@ -3358,8 +3358,8 @@ const MAIL_PROP = {
     name: "yah.homes takasago",
     image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
     address: "",
-    map: "https://www.google.com/maps/search/?api=1&query=33.579953440232984,130.40629424218778",
-    register: "https://zfrmz.jp/sZQlLvoM43I0Od6UZPzF", // 宿泊者名簿フォーム（旅館業法）
+    map: "https://maps.app.goo.gl/Af1zTMDSM5NB11oZ6",
+    register: "https://forms.zohopublic.jp/airstar1/form/yahhomestakasagoGuestRegistrationForm/formperma/t9QlFwTbkseWYDqB0n8-bcOH_8H36jaAPV5u8fNb-S4", // 宿泊者名簿フォーム（旅館業法・2026-08-18 Zohoフォームへ差し替え）
     manual: "https://yah.homes/how-to/takasago/", // 入室案内ページ
   },
   test: {

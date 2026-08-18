@@ -294,7 +294,7 @@ const TEXT: Record<PageKey, LocaleText> = {
 // 物件の緯度経度（ユーザー確認済み 2026-07-16・地図/schemaの単一ソース）
 export const PROPERTY_GEO = {
   kiyokawa: { lat: 33.57879181728365, lng: 130.4126724730762 },
-  takasago: { lat: 33.579953440232984, lng: 130.40629424218778 },
+  takasago: { lat: 33.57993168053716, lng: 130.40632761222304 },
 } as const;
 
 // ── JSON-LD ジェネレータ（ページ単位・全言語共通の構造化データ）──
