@@ -281,11 +281,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           </div>
         </div>
         <div id="ap-view-qr" hidden>
-          <p class="ap-note">
-            お客様がチャットを開くためのQRコードです。ここが唯一の配布元で、
-            <strong>メール4通（予約確定・前日案内・チェックアウト・レビュー依頼）と使い方ガイドには自動で載ります</strong>。
-            貼り替えの作業は要りません。印刷して現地に置く場合だけ、下からダウンロードしてください。
-          </p>
           {HAS_QR ? (
             <div class="ap-qr">
               <img class="ap-qr-img" src={QR_FILES.screen} width="200" height="200" alt={`QR: ${CHAT_URL}`} />
@@ -297,10 +292,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                   <a class="ap-btn-sub" href={QR_FILES.print} download>QRのみ（印刷用2048px）</a>
                   <a class="ap-btn-sub" href={QR_FILES.screen} download>QRのみ（画面用360px）</a>
                 </div>
-                <p class="ap-qr-note">
-                  施設が増えたときは、チャット側で公開すれば次回の「サイトに反映」で自動的に発行されます。
-                  URLは施設ごとに固定なので、QRを作り直す必要はありません。
-                </p>
               </div>
             </div>
           ) : (
@@ -711,7 +702,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-qr-url { font-size: 0.85rem; color: #111111; margin-bottom: 1rem; word-break: break-all; }
   .ap-qr-dl { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .ap-qr-dl a { text-decoration: none; }
-  .ap-qr-note { font-size: 0.78rem; color: #888888; line-height: 1.9; margin-top: 1.25rem; }
   .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
