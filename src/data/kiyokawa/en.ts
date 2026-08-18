@@ -126,7 +126,7 @@ export const en: KiyokawaTranslations = {
       "Fully equipped kitchen (3-burner gas stove)",
       "Drum-type washer & dryer (wash-to-dry in one cycle)",
       "High-speed Wi-Fi",
-      "Private parking (1 car, free)",
+      "Private parking ({pk} car, free)",
       "Simmons premium mattresses in all bedrooms",
       "{tv}-inch Smart TV + high-quality Japanese audio system",
       "Air conditioning in all rooms",
@@ -139,8 +139,8 @@ export const en: KiyokawaTranslations = {
   access: {
     title: "Access",
     items: [
-      { from: "Fukuoka Airport", time: "~18 min by car" },
-      { from: "Hakata Station", time: "~10 min by car / ~20 min by subway" },
+      { from: "Fukuoka Airport", time: "~{airport} min by car" },
+      { from: "Hakata Station", time: "~{hakataCar} min by car / ~{hakataSubway} min by subway" },
       { from: "Tenjin", time: "~8 min by car / walkable" },
       { from: "Canal City Hakata", time: "~15 min by car" },
       { from: "Dazaifu", time: "~30 min by car" },
@@ -218,7 +218,7 @@ export const en: KiyokawaTranslations = {
     title: "About This Space",
     showMore: "Show more",
     showLess: "Show less",
-    intro: "A brand-new hidden-gem villa (entire house) nestled along the Nakagawa River in Kiyokawa, Fukuoka. Enjoy the tranquil riverside atmosphere while staying in the heart of the city with easy access to Tenjin and Hakata.\n\n8 min by car to Tenjin. 10 min by car to Hakata Station. 18 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. Spacious living area and designer furniture create a truly special experience.",
+    intro: "A brand-new hidden-gem villa (entire house) nestled along the Nakagawa River in Kiyokawa, Fukuoka. Enjoy the tranquil riverside atmosphere while staying in the heart of the city with easy access to Tenjin and Hakata.\n\n{tenjinCar} min by car to Tenjin. {hakataCar} min by car to Hakata Station. {airport} min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. Spacious living area and designer furniture create a truly special experience.",
     highlights: [
       {
         title: "1. Premium Sleep Experience (SIMMONS Mattresses)",
@@ -226,7 +226,7 @@ export const en: KiyokawaTranslations = {
       },
       {
         title: "2. Cinematic Home Entertainment",
-        body: "Enjoy a {tv}-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
+        body: "Enjoy a {tv}-inch {tv}-inch large-screen TV paired with a high-quality Japanese-made amplifier and floor-standing speakers. Experience movies and streaming content with cinema-grade audio. (Please log in with your own streaming service account.)",
       },
       {
         title: "3. Live Like a Local — Fully Equipped",

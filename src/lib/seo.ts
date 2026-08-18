@@ -361,6 +361,23 @@ function lodgingJsonLd(opts: {
   };
 }
 
+/** JSON-LD の設備一覧。値の正本は property_facts（駐車ラベルだけ棟の実情に合わせる） */
+function amenityFromFacts(f: import("./propertyFacts").PropertyFacts, parkingLabel: string) {
+  return [
+    { name: parkingLabel, value: f.parking > 0 },
+    { name: "Kitchen", value: f.kitchen > 0 },
+    { name: f.dryer > 0 ? "Washer/dryer" : "Washer", value: f.washer > 0 },
+    { name: "WiFi", value: f.wifi > 0 },
+    { name: "Air conditioning", value: f.airCon > 0 },
+    { name: "Bathtub", value: f.bathtub > 0 },
+    { name: "Dedicated workspace", value: f.studyDesk > 0 },
+    { name: "Self check-in", value: f.selfCheckin > 0 },
+    { name: "Long-term stays allowed (28+ nights)", value: f.longStay > 0 },
+    { name: "Smoking allowed", value: f.smokingAllowed > 0 },
+    { name: "Carbon monoxide alarm", value: f.coAlarm > 0 },
+  ];
+}
+
 async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undefined> {
   // 評価・件数・定員・寝室数の単一ソースは property_facts（/admin/properties で編集）。
   // 以前は data/properties.ts に重複して持っており、更新漏れでズレる構造だった。
@@ -386,19 +403,8 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
           PROPERTIES.kiyokawa.bookingUrl,
           ...PRESS.filter((p) => p.property === "kiyokawa").map((p) => p.url),
         ],
-        // 設備（kiyokawaData.ts に実在するもののみ・無しは false で正直に）
-        amenityFeature: [
-          { name: "Free parking on premises", value: true },
-          { name: "Kitchen", value: true },
-          { name: "Washer/dryer", value: true },
-          { name: "WiFi", value: true },
-          { name: "Air conditioning", value: true },
-          { name: "Bathtub", value: true },
-          { name: "Dedicated workspace", value: true },
-          { name: "Self check-in", value: true },
-          { name: "Smoking allowed", value: false },
-          { name: "Carbon monoxide alarm", value: false },
-        ],
+        // 設備フラグは SSoT（/admin/properties の「設備」）から。無しは false で正直に
+        amenityFeature: amenityFromFacts(facts.kiyokawa, "Free parking on premises"),
       });
     case "takasago":
       return lodgingJsonLd({
@@ -421,20 +427,8 @@ async function jsonLdFor(page: PageKey): Promise<Record<string, unknown> | undef
           PROPERTIES.takasago.bookingUrl,
           ...PRESS.filter((p) => p.property === "takasago").map((p) => p.url),
         ],
-        // 設備（takasagoData.ts に実在するもののみ・清川との差異を反映）
-        amenityFeature: [
-          { name: "Free on-site parking (large vehicles OK)", value: true },
-          { name: "Kitchen", value: true },
-          { name: "Washer", value: true },
-          { name: "WiFi", value: true },
-          { name: "Air conditioning", value: true },
-          { name: "Bathtub", value: true },
-          { name: "Dedicated workspace", value: true },
-          { name: "Self check-in", value: true },
-          { name: "Long-term stays allowed (28+ nights)", value: true },
-          { name: "Smoking allowed", value: false },
-          { name: "Carbon monoxide alarm", value: false },
-        ],
+        // 設備フラグは SSoT（/admin/properties の「設備」）から。無しは false で正直に
+        amenityFeature: amenityFromFacts(facts.takasago, "Free on-site parking (large vehicles OK)"),
       });
     case "about":
       return {

@@ -122,7 +122,7 @@ export const en: TakasagoTranslations = {
       "Fully equipped kitchen (IH stove)",
       "Washing machine",
       "High-speed Wi-Fi",
-      "Private parking (1 car, free)",
+      "Private parking ({pk} car, free)",
       "Premium mattresses in all bedrooms",
       "Large-screen Smart TV + sound system",
       "Air conditioning in all rooms",
@@ -136,7 +136,7 @@ export const en: TakasagoTranslations = {
     title: "Access",
     items: [
       { from: "Fukuoka Airport", time: "~20 min by car" },
-      { from: "Hakata Station", time: "~10 min by car / ~15 min by subway" },
+      { from: "Hakata Station", time: "~{hakataCar} min by car / ~{hakataSubway} min by subway" },
       { from: "Tenjin", time: "~5 min by car / walkable" },
       { from: "Canal City Hakata", time: "~10 min by car" },
       { from: "Dazaifu", time: "~30 min by car" },
@@ -214,7 +214,7 @@ export const en: TakasagoTranslations = {
     title: "About This Space",
     showMore: "Show more",
     showLess: "Show less",
-    intro: "A stylish whole-house rental in the vibrant Takasago district of Chuo-ku, Fukuoka. Located within walking distance of Tenjin, this property combines the convenience of central Fukuoka with the comfort of a private home.\n\n5 min by car to Tenjin. 10 min by car to Hakata Station. 20 min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. The spacious living area, theater room, and designer furnishings create a memorable stay.",
+    intro: "A stylish whole-house rental in the vibrant Takasago district of Chuo-ku, Fukuoka. Located within walking distance of Tenjin, this property combines the convenience of central Fukuoka with the comfort of a private home.\n\n{tenjinCar} min by car to Tenjin. {hakataCar} min by car to Hakata Station. {airport} min by car from the airport. Fully contactless self check-in for a completely private stay.\n\nPerfect for families and groups of up to {cap} guests. The spacious living area, theater room, and designer furnishings create a memorable stay.",
     highlights: [
       {
         title: "1. Premium Sleep Experience",
@@ -222,7 +222,7 @@ export const en: TakasagoTranslations = {
       },
       {
         title: "2. Theater Room Experience",
-        body: "Enjoy a dedicated theater room with a large-screen TV and high-quality sound system. Perfect for movie nights and entertainment with your group.",
+        body: "Enjoy a dedicated theater room with a {tv}-inch large-screen TV and high-quality sound system. Perfect for movie nights and entertainment with your group.",
       },
       {
         title: "3. Live Like a Local — Fully Equipped",

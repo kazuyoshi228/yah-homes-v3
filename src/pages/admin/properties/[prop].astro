@@ -45,18 +45,6 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
     ],
   },
   {
-    label: "設備",
-    rows: [
-      { key: "washer", label: "洗濯機", type: "bool" },
-      { key: "dryer", label: "乾燥機能付きドラム式洗濯機", type: "bool" },
-      { key: "audio", label: "TV用スピーカー", type: "bool" },
-      { key: "tvInch", label: "大型テレビ", type: "num", unit: "インチ" },
-      { key: "studyDesk", label: "スタディデスク", type: "bool" },
-      { key: "parking", label: "専用駐車場", type: "bool" },
-      { key: "theater", label: "シアタールーム", type: "bool" },
-    ],
-  },
-  {
     label: "アクセス",
     rows: [
       { key: "fromAirportCarMin", label: "空港から（車・分）", type: "num", unit: "分" },
@@ -68,7 +56,19 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "addressJa", label: "住所（日本語）", type: "text", placeholder: "福岡県福岡市中央区…", note: "使い方ガイド・確定メール・My Page がここを見ます" },
       { key: "addressEn", label: "住所（英語）", type: "text", placeholder: "3-3-1 Kiyokawa, Chuo-ku, …" },
       { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
+      { key: "toTenjinCarMin", label: "天神まで（車・分）", type: "num", unit: "分" },
       { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
+      { key: "toHakataCarMin", label: "博多駅まで（車・分）", type: "num", unit: "分" },
+      { key: "toHakataSubwayMin", label: "博多駅まで（地下鉄・分）", type: "num", unit: "分" },
+    ],
+  },
+  {
+    label: "建物",
+    rows: [
+      { key: "floorAreaM2", label: "延床面積", type: "num", unit: "㎡" },
+      { key: "floors", label: "階数", type: "num", unit: "階建て" },
+      { key: "layoutLabel", label: "間取り表記", type: "text", placeholder: "3LDK" },
+      { key: "bedroomLayout", label: "部屋別ベッド内訳", type: "text", placeholder: "BR1: シングル1 / BR2: ダブル2 / …", note: "物件ページの寝室ガイド・llms.txt に使用" },
     ],
   },
   {
@@ -106,7 +106,38 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
     ],
   },
 ];
-const FIELD_KEYS = SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
+/* 「設備」はサイドバー独立ビュー（2026-08-18 発注者指示）。保存は施設概要と同じ一括保存 */
+const FACILITY_SECTIONS: { label: string; rows: FactRow[] }[] = [
+  {
+    label: "設備",
+    rows: [
+      { key: "washer", label: "洗濯機", type: "bool" },
+      { key: "dryer", label: "乾燥機能付きドラム式洗濯機", type: "bool" },
+      { key: "audio", label: "TV用スピーカー", type: "bool" },
+      { key: "tvInch", label: "大型テレビ", type: "num", unit: "インチ" },
+      { key: "studyDesk", label: "スタディデスク", type: "bool" },
+      { key: "parking", label: "専用駐車場", type: "bool" },
+      { key: "parkingSpaces", label: "駐車台数", type: "num", unit: "台" },
+      { key: "parkingSize", label: "駐車場のサイズ", type: "text", placeholder: "幅 2,000mm × 奥行 5,000mm ／ フリースペース" },
+      { key: "theater", label: "シアタールーム", type: "bool" },
+    ],
+  },
+  {
+    label: "設備フラグ（構造化データ＝Google/AIが読む設備一覧）",
+    rows: [
+      { key: "kitchen", label: "フルキッチン", type: "bool" },
+      { key: "wifi", label: "高速Wi-Fi", type: "bool" },
+      { key: "airCon", label: "全室エアコン", type: "bool" },
+      { key: "bathtub", label: "浴槽", type: "bool" },
+      { key: "selfCheckin", label: "セルフチェックイン", type: "bool" },
+      { key: "longStay", label: "長期滞在（28泊以上）受入", type: "bool" },
+      { key: "smokingAllowed", label: "喫煙可", type: "bool" },
+      { key: "coAlarm", label: "CO（一酸化炭素）警報器", type: "bool" },
+    ],
+  },
+];
+const ALL_SECTIONS = [...SECTIONS, ...FACILITY_SECTIONS];
+const FIELD_KEYS = ALL_SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
 
 // 施設別ページ（/admin/properties/{prop}/・2026-08-18 発注者指示のURL構成）。
 // ファクト編集があるのは清川・高砂のみ。新施設3つはチャット用情報だけを持つ。
@@ -172,6 +203,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <nav class="ap-side" aria-label="ページ内メニュー">
             {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="basics">基本情報</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="overview">施設概要</button>}
+            {HAS_FACTS && <button type="button" class="ap-side-link" data-view="facilities">設備</button>}
             <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
             <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
           </nav>
@@ -254,6 +286,45 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
 <p class="ap-status" id="ap-status" role="status"></p>
         </div>
 
+        <div id="ap-view-facilities" hidden>
+        <div class="ap-tablewrap">
+          <table class="ap-table">
+            <tbody>
+              {FACILITY_SECTIONS.map((sec) => (
+                <>
+                  <tr class="ap-section"><th colspan={HOUSES.length + 1}>{sec.label}</th></tr>
+                  {sec.rows.map((r) => (
+                    <tr>
+                      <th class="ap-row-label">{r.label}</th>
+                      {HOUSES.map((h) => (
+                        <td>
+                          {r.type === "bool" ? (
+                            <select data-prop={h.key} data-field={r.key}>
+                              <option value="1">あり</option>
+                              <option value="0">—</option>
+                            </select>
+                          ) : r.type === "text" ? (
+                            <input type="text" class:list={["ap-input-wide"]} placeholder={r.placeholder} data-prop={h.key} data-field={r.key} />
+                          ) : (
+                            <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field={r.key} />
+                          )}
+                          {r.unit && <span class="ap-unit">{r.unit}</span>}
+                          {r.note && <span class="ap-fnote">{r.note}</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div class="ap-actions ap-save-bar">
+          <button class="ap-btn ap-save-all2" id="ap-save-all2">すべて保存する</button>
+          <span class="ap-saved" id="ap-saved-all2"></span>
+        </div>
+        </div>
+
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
              静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
         <div id="ap-view-chat" hidden={HAS_FACTS}>
@@ -316,10 +387,12 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   const switchView = (view: string) => {
     const ba = document.getElementById("ap-view-basics");
     const ov = document.getElementById("ap-view-overview");
+    const fa = document.getElementById("ap-view-facilities");
     const ch = document.getElementById("ap-view-chat");
     const qr = document.getElementById("ap-view-qr");
     if (ba) ba.hidden = view !== "basics";
     if (ov) ov.hidden = view !== "overview";
+    if (fa) fa.hidden = view !== "facilities";
     if (ch) ch.hidden = view !== "chat";
     if (qr) qr.hidden = view !== "qr";
     // 非表示のあいだは高さを測れない。表示に切り替わったここでやり直す
@@ -331,7 +404,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
   const hash = location.hash.replace("#", "");
-  if (hash === "chat" || hash === "qr" || hash === "overview") switchView(hash);
+  if (hash === "chat" || hash === "qr" || hash === "overview" || hash === "facilities") switchView(hash);
   else if (!document.querySelector('[data-view="basics"]')) switchView("chat");
 </script>
 
@@ -566,10 +639,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       }
     }
 
-    $("ap-save-all").addEventListener("click", async () => {
-      const btn = $("ap-save-all");
+    async function saveAll(btnId, savedId) {
+      const btn = $(btnId);
       btn.disabled = true;
-      $("ap-saved-all").textContent = "保存しています…";
+      $(savedId).textContent = "保存しています…";
       const results = [];
       for (const prop of [PROP]) {
         const values = {};
@@ -584,11 +657,14 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       const ar = await api("POST", { ratingAsOf: $("ap-asof").value });
       results.push(ar.ok ? null : "取得日: 失敗");
       const errs = results.filter(Boolean);
-      $("ap-saved-all").textContent = errs.length
+      $(savedId).textContent = errs.length
         ? `保存に失敗しました（${errs.join(" / ")}）`
         : "保存しました（サイトの表示に反映するには再ビルドが必要です）";
       btn.disabled = false;
-    });
+    }
+    $("ap-save-all").addEventListener("click", () => saveAll("ap-save-all", "ap-saved-all"));
+    $("ap-save-all2")?.addEventListener("click", () => saveAll("ap-save-all2", "ap-saved-all2"));
+
 
 
     $("ap-login-btn").addEventListener("click", async () => {

@@ -4481,7 +4481,10 @@ const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "
   "fromAirportCarMin", "fromStationWalkMin", "toTenjinWalkMin", "toHakataWalkMin",
   "spotMarketMin", "spotMarketM", "spotSumiyoshiMin", "spotSumiyoshiM",
   "spotCanalMin", "spotCanalM", "spotNakasuWalkMin", "spotNakasuTaxiMin",
-  "spotOhoriCarMin", "spotOhoriM"] as const;
+  "spotOhoriCarMin", "spotOhoriM",
+  "toTenjinCarMin", "toHakataCarMin", "toHakataSubwayMin",
+  "floorAreaM2", "floors", "parkingSpaces",
+  "kitchen", "wifi", "airCon", "bathtub", "selfCheckin", "smokingAllowed", "coAlarm", "longStay"] as const;
 
 export const adminProperties = onRequest(
   { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
@@ -4567,6 +4570,12 @@ export const adminProperties = onRequest(
         // 最寄り駅名（文字列）
         const ns = String(v.nearestStation ?? "").trim();
         if (ns) doc.nearestStation = ns.slice(0, 40);
+        // 間取り・部屋別ベッド内訳（文字列）
+        for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60]] as const) {
+          if (v[f] === undefined) continue;
+          const t = String(v[f] ?? "").trim();
+          if (t) doc[f] = t.slice(0, max);
+        }
         /* 「地図を開く」の行き先（サイト・メール・チャットが全部ここを見る）。
            他所へ誘導されないよう https の Google マップに限る。 */
         if (v.mapUrl !== undefined) {

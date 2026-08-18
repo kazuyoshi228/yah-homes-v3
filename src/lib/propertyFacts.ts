@@ -68,6 +68,15 @@ export interface PropertyFacts {
   spotCanalMin: number; spotCanalM: number;
   spotNakasuWalkMin: number; spotNakasuTaxiMin: number;
   spotOhoriCarMin: number; spotOhoriM: number;
+  /** 追加ファクト（2026-08-18 記入シート①） */
+  toTenjinCarMin: number; toHakataCarMin: number; toHakataSubwayMin: number;
+  floorAreaM2: number; floors: number; layoutLabel: string; bedroomLayout: string;
+  parkingSpaces: number;
+  /** 駐車場のサイズ（例: 幅2,000mm×奥行5,000mm／フリースペース） */
+  parkingSize: string;
+  /** 構造化データ用の設備フラグ（1=あり/0=なし） */
+  kitchen: number; wifi: number; airCon: number; bathtub: number;
+  selfCheckin: number; smokingAllowed: number; coAlarm: number; longStay: number;
 }
 
 export type PropKey = "kiyokawa" | "takasago";
@@ -140,6 +149,11 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
       spotCanalMin: n("spotCanalMin"), spotCanalM: n("spotCanalM"),
       spotNakasuWalkMin: n("spotNakasuWalkMin"), spotNakasuTaxiMin: n("spotNakasuTaxiMin"),
       spotOhoriCarMin: n("spotOhoriCarMin"), spotOhoriM: n("spotOhoriM"),
+      toTenjinCarMin: n("toTenjinCarMin"), toHakataCarMin: n("toHakataCarMin"), toHakataSubwayMin: n("toHakataSubwayMin"),
+      floorAreaM2: n("floorAreaM2"), floors: n("floors"), layoutLabel: t("layoutLabel"), bedroomLayout: t("bedroomLayout"),
+      parkingSpaces: n("parkingSpaces"), parkingSize: t("parkingSize"),
+      kitchen: n("kitchen"), wifi: n("wifi"), airCon: n("airCon"), bathtub: n("bathtub"),
+      selfCheckin: n("selfCheckin"), smokingAllowed: n("smokingAllowed"), coAlarm: n("coAlarm"), longStay: n("longStay"),
     };
   }
   for (const key of ["kiyokawa", "takasago"] as const) {

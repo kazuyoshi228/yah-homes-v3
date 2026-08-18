@@ -194,7 +194,7 @@ export const zh: TakasagoTranslations = {
       },
       {
         title: "2. 影音室體驗",
-        body: "享受配備大螢幕電視的專用影音室。非常適合與您的團體一起度過電影之夜。",
+        body: "享受配備{tv}吋大螢幕電視的專用影音室。非常適合與您的團體一起度過電影之夜。",
       },
       {
         title: "3. 像當地人一樣生活 — 設施完備",
@@ -216,7 +216,7 @@ export const zh: TakasagoTranslations = {
         "私人停車位（1 個）",
         "浴室（1 間，含浴缸）",
         "淋浴間（1 間，獨立）",
-        "廁所（2 間：1 樓和 2 樓）",
+        "廁所（{toilet} 間：1 樓和 2 樓）",
         "洗臉盆",
         "廚房",
         "客廳",
@@ -227,7 +227,7 @@ export const zh: TakasagoTranslations = {
     equipment: {
       title: "家電 & 設備",
       items: [
-        "大螢幕電視",
+        "{tv}吋大螢幕電視",
         "洗衣機",
         "冰箱（含冷凍庫）",
         "微波爐",
