@@ -2,10 +2,10 @@
 /* /admin/properties — 物件ファクトの単一ソース（SSoT・design_booking_p1_v4.md §8-4）
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
-import SiteLayout from "../../layouts/SiteLayout.astro";
-import { CHAT_INFO, CHAT_PROPS } from "../../data/adminChatInfo";
-import { ENDPOINTS } from "../../lib/adminConfig";
-import { FB_CONFIG } from "../../lib/adminConfig";
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { CHAT_INFO, CHAT_PROPS } from "../../../data/adminChatInfo";
+import { ENDPOINTS } from "../../../lib/adminConfig";
+import { FB_CONFIG } from "../../../lib/adminConfig";
 
 const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
 
@@ -95,10 +95,16 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
   },
 ];
 const FIELD_KEYS = SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key));
-const HOUSES = [
-  { key: "kiyokawa", name: "清川" },
-  { key: "takasago", name: "高砂" },
-];
+
+// 施設別ページ（/admin/properties/{prop}/・2026-08-18 発注者指示のURL構成）。
+// ファクト編集があるのは清川・高砂のみ。新施設3つはチャット用情報だけを持つ。
+export function getStaticPaths() {
+  return CHAT_PROPS.map((p) => ({ params: { prop: p.key } }));
+}
+const propKey = Astro.params.prop as (typeof CHAT_PROPS)[number]["key"];
+const propLabel = CHAT_PROPS.find((p) => p.key === propKey)!.label;
+const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
+const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
 ---
 
 <SiteLayout adminNav
@@ -111,8 +117,13 @@ const HOUSES = [
 >
   <section class="ap">
     <div class="ap-container">
-      <a class="ap-eyebrow" href="/admin/menu/">Admin</a>
-      <h1 class="ap-title">物件ファクト管理</h1>
+      <a class="ap-eyebrow" href="/admin/properties/">Admin ／ 物件情報</a>
+      <h1 class="ap-title">{propLabel}</h1>
+      <nav class="ap-chat-props" aria-label="施設の切替">
+        {CHAT_PROPS.map((p) => (
+          <a class:list={["ap-chat-prop", p.key === propKey && "is-active"]} href={`/admin/properties/${p.key}/`}>{p.label}</a>
+        ))}
+      </nav>
 
       <div id="ap-login" class="ap-login" hidden>
         <button id="ap-login-btn" class="ap-btn">Googleでログイン</button>
@@ -122,12 +133,12 @@ const HOUSES = [
       <div id="ap-app" hidden>
         <div class="ap-layout">
           <nav class="ap-side" aria-label="ページ内メニュー">
-            <button type="button" class="ap-side-link is-active" data-view="overview">概要</button>
-            <button type="button" class="ap-side-link" data-view="chat">チャット用情報</button>
+            {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="overview">概要</button>}
+            <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
           </nav>
           <div class="ap-main">
 
-        <div id="ap-view-overview">
+        <div id="ap-view-overview" hidden={!HAS_FACTS}>
         <div class="ap-tablewrap">
           <table class="ap-table">
             <thead>
@@ -176,8 +187,7 @@ const HOUSES = [
         <section class="ap-card">
           <h2 class="ap-house">評価の取得日</h2>
           <p class="ap-note">サイト上に「評価は◯◯時点」と表示される日付です。評価を更新したら合わせて直してください。</p>
-          <p class="ap-warn" id="ap-warn-kiyokawa" hidden></p>
-          <p class="ap-warn" id="ap-warn-takasago" hidden></p>
+          <p class="ap-warn" id={`ap-warn-${propKey}`} hidden></p>
           <div class="ap-actions">
             <input type="date" id="ap-asof" />
             <button class="ap-btn" id="ap-save-asof">保存する</button>
@@ -199,31 +209,22 @@ const HOUSES = [
 
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
              静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
-        <div id="ap-view-chat" hidden>
-          <nav class="ap-chat-props" aria-label="施設の切替">
-            {CHAT_PROPS.map((p, i) => (
-              <button type="button" class:list={["ap-chat-prop", i === 0 && "is-active"]} data-chatprop={p.key}>{p.label}</button>
-            ))}
-          </nav>
-          {CHAT_PROPS.map((p, i) => (
-            <div class="ap-chat-body" data-chatbody={p.key} hidden={i !== 0}>
-              {CHAT_INFO[p.key].length === 0 ? (
-                <p class="ap-note ap-chat-empty">
-                  {p.label} の情報はまだ登録されていません。内容が揃い次第、src/data/adminChatInfo.ts に追記します
-                  （清川の内容は住所・近隣情報が施設固有のため流用しないでください）。
-                </p>
-              ) : (
-                <table class="ap-chat-table">
-                  <thead><tr><th>設問</th><th>回答</th></tr></thead>
-                  <tbody>
-                    {CHAT_INFO[p.key].map((r) => (
-                      <tr><th>{r.q}</th><td>{r.a}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          ))}
+        <div id="ap-view-chat" hidden={HAS_FACTS}>
+          {CHAT_INFO[propKey].length === 0 ? (
+            <p class="ap-note ap-chat-empty">
+              {propLabel} の情報はまだ登録されていません。内容が揃い次第、src/data/adminChatInfo.ts に追記します
+              （清川の内容は住所・近隣情報が施設固有のため流用しないでください）。
+            </p>
+          ) : (
+            <table class="ap-chat-table">
+              <thead><tr><th>設問</th><th>回答</th></tr></thead>
+              <tbody>
+                {CHAT_INFO[propKey].map((r) => (
+                  <tr><th>{r.q}</th><td>{r.a}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
           </div>
@@ -234,7 +235,10 @@ const HOUSES = [
 </SiteLayout>
 
 <script>
-  // サイドバーのビュー切替。URLハッシュ（#chat）にも対応し、リロードしても維持する
+  // サイドバーのビュー切替。#chat ハッシュに対応し、リロードしても維持する
+  const HAS = document.getElementById("ap-view-overview") !== null &&
+              !document.getElementById("ap-view-overview")!.hasAttribute("hidden") ||
+              document.querySelector('[data-view="overview"]') !== null;
   const switchView = (view: string) => {
     const ov = document.getElementById("ap-view-overview");
     const ch = document.getElementById("ap-view-chat");
@@ -245,23 +249,11 @@ const HOUSES = [
     history.replaceState(null, "", view === "chat" ? "#chat" : location.pathname);
   };
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
-    b.addEventListener("click", () => switchView(b.dataset.view ?? "overview")));
-  // 施設の切替（#chat-高砂 のようにハッシュへ保存し、リロードでも維持）
-  const switchProp = (key: string) => {
-    document.querySelectorAll<HTMLElement>("[data-chatbody]").forEach((el) =>
-      el.hidden = el.dataset.chatbody !== key);
-    document.querySelectorAll<HTMLElement>(".ap-chat-prop").forEach((b) =>
-      b.classList.toggle("is-active", b.dataset.chatprop === key));
-    history.replaceState(null, "", `#chat-${key}`);
-  };
-  document.querySelectorAll<HTMLElement>(".ap-chat-prop").forEach((b) =>
-    b.addEventListener("click", () => switchProp(b.dataset.chatprop ?? "kiyokawa")));
-
-  const m = location.hash.match(/^#chat(?:-([a-zA-Z]+))?$/);
-  if (m) { switchView("chat"); if (m[1]) switchProp(m[1]); }
+    b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
+  if (location.hash === "#chat" || !document.querySelector('[data-view="overview"]')) switchView("chat");
 </script>
 
-<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS }}>
+<script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS, PROP: propKey, HAS_FACTS }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
     const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
@@ -308,8 +300,7 @@ const HOUSES = [
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
-        fill("kiyokawa", j.items.kiyokawa ?? {});
-        fill("takasago", j.items.takasago ?? {});
+        fill(PROP, j.items[PROP] ?? {});
         $("ap-asof").value = j.items.meta?.ratingAsOf ?? "";
         $("ap-status").textContent = "";
       } catch (e) {
@@ -322,7 +313,7 @@ const HOUSES = [
       btn.disabled = true;
       $("ap-saved-all").textContent = "保存しています…";
       const results = [];
-      for (const prop of ["kiyokawa", "takasago"]) {
+      for (const prop of [PROP]) {
         const values = {};
         FIELD_KEYS.forEach((f) => {
           const el = document.querySelector(`[data-prop="${prop}"][data-field="${f}"]`);
@@ -352,6 +343,7 @@ const HOUSES = [
     onAuthStateChanged(auth, (user) => {
       if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("ap-login").hidden = !!user;
+      if (!HAS_FACTS) { $("ap-app").hidden = !user; return; }   // 新施設はチャット表のみ（静的表示）
       $("ap-app").hidden = !user;
       if (user) load();
     });

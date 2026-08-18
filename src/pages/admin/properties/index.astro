@@ -1,0 +1,51 @@
+---
+/* /admin/properties — 施設一覧（入口・2026-08-18 発注者指示のURL構成）
+   施設ごとの編集は /admin/properties/{prop}/ へ。旧URLのハッシュ
+   （#chat-kiyokawa 形式）はここで新URLへ転送する。 */
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { CHAT_PROPS, CHAT_INFO } from "../../../data/adminChatInfo";
+const HAS_FACTS = new Set(["kiyokawa", "takasago"]);
+---
+
+<SiteLayout adminNav lang="ja" path="/admin/properties" title="物件情報 | yah.homes" description="物件情報" noindex={true} solidNav>
+  <section class="ap">
+    <div class="ap-container">
+      <a class="ap-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="ap-title">物件情報</h1>
+
+      <div class="ap-props">
+        {CHAT_PROPS.map((p) => (
+          <a class="ap-prop-card" href={`/admin/properties/${p.key}/`}>
+            <span class="ap-prop-name">{p.label}</span>
+            <span class="ap-prop-meta">
+              {HAS_FACTS.has(p.key) ? "概要・チャット用情報" : "チャット用情報"}
+              {!HAS_FACTS.has(p.key) && CHAT_INFO[p.key].length === 0 && "（未登録）"}
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  // 旧URL（/admin/properties/#chat-kiyokawa）からの転送
+  const m = location.hash.match(/^#chat(?:-([a-zA-Z]+))?$/);
+  if (m) location.replace(`/admin/properties/${m[1] ?? "kiyokawa"}/#chat`);
+</script>
+
+<style>
+  .ap { background: #ffffff; padding: 4.5rem 1.5rem 5rem; min-height: 70vh; }
+  .ap-container { max-width: 1080px; margin: 0 auto; }
+  .ap-eyebrow { display: inline-block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; text-decoration: none; }
+  .ap-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 1.5rem; }
+  .ap-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+  .ap-prop-card {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.1rem 1.2rem;
+    text-decoration: none; transition: border-color 0.15s;
+  }
+  .ap-prop-card:hover { border-color: #111111; }
+  .ap-prop-name { font-size: 1rem; font-weight: 600; color: #111111; }
+  .ap-prop-meta { font-size: 0.75rem; color: #777777; }
+</style>
