@@ -249,7 +249,7 @@ export const ko: KiyokawaTranslations = {
     title: "예약 조건",
     cancellation: "취소 정책: 체크인 {d}일 전까지 무료. 정확한 기한(일본 시간)은 예약 시 표시됩니다.",
     cleaningFee: "청소비: 요금에 포함",
-    extraGuest: "추가 인원 요금: 5명까지 동일 요금・6명째부터 1인당 ¥5,000/박",
+    extraGuest: "추가 인원 요금: {bg}명까지 동일 요금・{bgx}명째부터 1인당 ¥{xfee}/박",
     noiseRule: "심야 소음에 주의해 주세요.",
     petRule: "반려동물 동반 불가 (사전 연락 시 안내견 가능).",
     smokingRule: "실내 흡연 금지. 지정 야외 흡연 구역 있음.",

@@ -28,6 +28,13 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
     ],
   },
   {
+    label: "料金（表示用）",
+    rows: [
+      { key: "baseGuests", label: "基本料金人数", type: "num", unit: "名まで", note: "実際の請求は Beds24 の料金設定が正。ここはサイト・FAQ・llms の案内文が使う数字" },
+      { key: "extraGuestFee", label: "追加1名単価", type: "num", unit: "円/泊" },
+    ],
+  },
+  {
     label: "客室",
     rows: [
       { key: "bedrooms", label: "寝室数", type: "num", note: "変えるとBRの行数が連動します" },
@@ -43,48 +50,12 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
     ],
   },
   {
-    label: "アクセス",
-    rows: [
-      { key: "fromAirportCarMin", label: "空港から（車・分）", type: "num", unit: "分" },
-      { key: "fromStationWalkMin", label: "駅から（徒歩・分）", type: "num", unit: "分" },
-      { key: "nearestStation", label: "最寄り駅", type: "text", placeholder: "渡辺通" },
-      { key: "mapUrl", label: "Google マップのURL", type: "text", placeholder: "https://maps.app.goo.gl/…", note: "サイト・メール・チャットの「地図を開く」がすべてここを見ます" },
-      { key: "registerUrl", label: "宿泊者名簿フォームのURL", type: "text", placeholder: "https://…", note: "予約確定メールが案内する先" },
-      { key: "zip", label: "郵便番号", type: "text", placeholder: "810-0005" },
-      { key: "addressJa", label: "住所（日本語）", type: "text", placeholder: "福岡県福岡市中央区…", note: "使い方ガイド・確定メール・My Page がここを見ます" },
-      { key: "addressEn", label: "住所（英語）", type: "text", placeholder: "3-3-1 Kiyokawa, Chuo-ku, …" },
-      { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
-      { key: "toTenjinCarMin", label: "天神まで（車・分）", type: "num", unit: "分" },
-      { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
-      { key: "toHakataCarMin", label: "博多駅まで（車・分）", type: "num", unit: "分" },
-      { key: "toHakataSubwayMin", label: "博多駅まで（地下鉄・分）", type: "num", unit: "分" },
-      { key: "spotYakuinWalkMin", label: "薬院駅まで（徒歩・分）", type: "num", unit: "分", note: "0=未設定（表示に使わない）" },
-      { key: "spotCanalCarMin", label: "キャナルシティ（車・分）", type: "num", unit: "分", note: "0=未設定" },
-      { key: "spotDazaifuCarMin", label: "太宰府（車・分）", type: "num", unit: "分", note: "0=未設定" },
-    ],
-  },
-  {
     label: "建物",
     rows: [
       { key: "floorAreaM2", label: "延床面積", type: "num", unit: "㎡" },
       { key: "floors", label: "階数", type: "num", unit: "階建て" },
       { key: "layoutLabel", label: "間取り表記", type: "text", placeholder: "3LDK" },
       { key: "streetAddressEn", label: "番地（英語・schema用）", type: "text", placeholder: "Kiyokawa 3-3-1" },
-    ],
-  },
-  {
-    label: "人気スポットまでの距離",
-    rows: [
-      { key: "spotMarketMin", label: "柳橋連合市場（徒歩・分）", type: "num", unit: "分" },
-      { key: "spotMarketM", label: "　同・距離", type: "num", unit: "m", indent: true },
-      { key: "spotSumiyoshiMin", label: "住吉神社（徒歩・分）", type: "num", unit: "分" },
-      { key: "spotSumiyoshiM", label: "　同・距離", type: "num", unit: "m", indent: true },
-      { key: "spotCanalMin", label: "キャナルシティ博多（徒歩・分）", type: "num", unit: "分" },
-      { key: "spotCanalM", label: "　同・距離", type: "num", unit: "m", indent: true },
-      { key: "spotNakasuWalkMin", label: "中洲・屋台街（徒歩・分）", type: "num", unit: "分" },
-      { key: "spotNakasuTaxiMin", label: "　同・タクシー", type: "num", unit: "分", indent: true },
-      { key: "spotOhoriCarMin", label: "大濠公園（車・分）", type: "num", unit: "分" },
-      { key: "spotOhoriM", label: "　同・距離", type: "num", unit: "m", indent: true },
     ],
   },
   {
@@ -137,7 +108,54 @@ const FACILITY_SECTIONS: { label: string; rows: FactRow[] }[] = [
     ],
   },
 ];
-const ALL_SECTIONS = [...SECTIONS, ...FACILITY_SECTIONS];
+/* 「移動・距離」はサイドバー独立ビュー（2026-08-18 発注者指示）。
+   アクセス・人気スポット距離・タクシー相場をここに集約 */
+const TRANSPORT_SECTIONS: { label: string; rows: FactRow[] }[] = [
+  {
+    label: "アクセス",
+    rows: [
+      { key: "fromAirportCarMin", label: "空港から（車・分）", type: "num", unit: "分" },
+      { key: "fromStationWalkMin", label: "駅から（徒歩・分）", type: "num", unit: "分" },
+      { key: "nearestStation", label: "最寄り駅", type: "text", placeholder: "渡辺通" },
+      { key: "mapUrl", label: "Google マップのURL", type: "text", placeholder: "https://maps.app.goo.gl/…", note: "サイト・メール・チャットの「地図を開く」がすべてここを見ます" },
+      { key: "registerUrl", label: "宿泊者名簿フォームのURL", type: "text", placeholder: "https://…", note: "予約確定メールが案内する先" },
+      { key: "zip", label: "郵便番号", type: "text", placeholder: "810-0005" },
+      { key: "addressJa", label: "住所（日本語）", type: "text", placeholder: "福岡県福岡市中央区…", note: "使い方ガイド・確定メール・My Page がここを見ます" },
+      { key: "addressEn", label: "住所（英語）", type: "text", placeholder: "3-3-1 Kiyokawa, Chuo-ku, …" },
+      { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
+      { key: "toTenjinCarMin", label: "天神まで（車・分）", type: "num", unit: "分" },
+      { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
+      { key: "toHakataCarMin", label: "博多駅まで（車・分）", type: "num", unit: "分" },
+      { key: "toHakataSubwayMin", label: "博多駅まで（地下鉄・分）", type: "num", unit: "分" },
+      { key: "spotYakuinWalkMin", label: "薬院駅まで（徒歩・分）", type: "num", unit: "分", note: "0=未設定（表示に使わない）" },
+      { key: "spotCanalCarMin", label: "キャナルシティ（車・分）", type: "num", unit: "分", note: "0=未設定" },
+      { key: "spotDazaifuCarMin", label: "太宰府（車・分）", type: "num", unit: "分", note: "0=未設定" },
+    ],
+  },
+  {
+    label: "タクシー",
+    rows: [
+      { key: "airportTaxiFare", label: "空港からのタクシー相場", type: "text", placeholder: "¥2,000〜¥2,500", note: "FAQ・llms の案内文が使う表示用の目安" },
+    ],
+  },
+  {
+    label: "人気スポットまでの距離",
+    rows: [
+      { key: "spotMarketMin", label: "柳橋連合市場（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotMarketM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotSumiyoshiMin", label: "住吉神社（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotSumiyoshiM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotCanalMin", label: "キャナルシティ博多（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotCanalM", label: "　同・距離", type: "num", unit: "m", indent: true },
+      { key: "spotNakasuWalkMin", label: "中洲・屋台街（徒歩・分）", type: "num", unit: "分" },
+      { key: "spotNakasuTaxiMin", label: "　同・タクシー", type: "num", unit: "分", indent: true },
+      { key: "spotOhoriCarMin", label: "大濠公園（車・分）", type: "num", unit: "分" },
+      { key: "spotOhoriM", label: "　同・距離", type: "num", unit: "m", indent: true },
+    ],
+  },
+];
+
+const ALL_SECTIONS = [...SECTIONS, ...FACILITY_SECTIONS, ...TRANSPORT_SECTIONS];
 /* BR別内訳のUIから自動生成される値（画面上は隠しフィールド・保存/読込は従来どおり） */
 const HIDDEN_KEYS = ["bedDouble", "bedSingle", "bedroomLayout"];
 const FIELD_KEYS = [...ALL_SECTIONS.flatMap((sec) => sec.rows.map((r) => r.key)), ...HIDDEN_KEYS];
@@ -207,8 +225,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="basics">基本情報</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="overview">施設概要</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="facilities">設備</button>}
+            {HAS_FACTS && <button type="button" class="ap-side-link" data-view="transport">移動・距離</button>}
             <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
             <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
+            {HAS_FACTS && <button type="button" class="ap-side-link" data-view="common">共通情報</button>}
           </nav>
           <div class="ap-main">
 
@@ -340,6 +360,40 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <button class="ap-btn ap-save-all2" id="ap-save-all2">すべて保存する</button>
           <span class="ap-saved" id="ap-saved-all2"></span>
         </div>
+
+        <div id="ap-view-transport" hidden>
+        <div class="ap-tablewrap">
+          <table class="ap-table">
+            <tbody>
+              {TRANSPORT_SECTIONS.map((sec) => (
+                <>
+                  <tr class="ap-section"><th colspan={HOUSES.length + 1}>{sec.label}</th></tr>
+                  {sec.rows.map((r) => (
+                    <tr>
+                      <th class="ap-row-label">{r.label}</th>
+                      {HOUSES.map((h) => (
+                        <td>
+                          {r.type === "text" ? (
+                            <input type="text" class:list={["ap-input-wide"]} placeholder={r.placeholder} data-prop={h.key} data-field={r.key} />
+                          ) : (
+                            <input type="number" min="0" max="99999" step="1" data-prop={h.key} data-field={r.key} />
+                          )}
+                          {r.unit && <span class="ap-unit">{r.unit}</span>}
+                          {r.note && <span class="ap-fnote">{r.note}</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div class="ap-actions ap-save-bar">
+          <button class="ap-btn" id="ap-save-all3">すべて保存する</button>
+          <span class="ap-saved" id="ap-saved-all3"></span>
+        </div>
+        </div>
         </div>
 
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
@@ -388,6 +442,46 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           )}
         </div>
 
+        <div id="ap-view-common" hidden>
+          <p class="ap-note">
+            棟をまたぐ共通の値（正本: property_facts/meta）。サイトの会社表記・構造化データ・
+            メール・チャットの電話、決済画面の宿泊税がここを見ます。
+          </p>
+          <div class="ap-tablewrap">
+            <table class="ap-table">
+              <tbody>
+                <tr class="ap-section"><th colspan="2">運営・連絡先</th></tr>
+                <tr><th class="ap-row-label">問い合わせ電話番号</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-operatorPhone" placeholder="050-xxxx-xxxx" /></td></tr>
+                <tr class="ap-section"><th colspan="2">運営会社（登記住所）</th></tr>
+                <tr><th class="ap-row-label">郵便番号</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyZip" placeholder="810-0011" /></td></tr>
+                <tr><th class="ap-row-label">住所（日本語）</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyAddressJa" /></td></tr>
+                <tr><th class="ap-row-label">住所（英語・全文）</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyAddressEn" /></td></tr>
+                <tr><th class="ap-row-label">番地（英語・schema用）</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyStreetEn" /></td></tr>
+                <tr><th class="ap-row-label">市区（英語）</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyLocalityEn" /></td></tr>
+                <tr><th class="ap-row-label">県（英語）</th>
+                  <td><input type="text" class="ap-input-wide" id="ap-meta-companyRegionEn" /></td></tr>
+                <tr class="ap-section"><th colspan="2">宿泊税（福岡市の条例値）</th></tr>
+                <tr><th class="ap-row-label">通常（1人1泊・円）</th>
+                  <td><input type="number" min="0" max="99999" id="ap-meta-taxLow" /></td></tr>
+                <tr><th class="ap-row-label">高額時（1人1泊・円）</th>
+                  <td><input type="number" min="0" max="99999" id="ap-meta-taxHigh" /></td></tr>
+                <tr><th class="ap-row-label">高額の閾値（税抜宿泊料/人泊・円）</th>
+                  <td><input type="number" min="0" max="99999" id="ap-meta-taxHighThreshold" /></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ap-actions ap-save-bar">
+            <button class="ap-btn" id="ap-save-meta">共通情報を保存する</button>
+            <span class="ap-saved" id="ap-saved-meta"></span>
+          </div>
+        </div>
+
 
           </div>
         </div>
@@ -405,11 +499,15 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     const ba = document.getElementById("ap-view-basics");
     const ov = document.getElementById("ap-view-overview");
     const fa = document.getElementById("ap-view-facilities");
+    const tp = document.getElementById("ap-view-transport");
+    const cm = document.getElementById("ap-view-common");
     const ch = document.getElementById("ap-view-chat");
     const qr = document.getElementById("ap-view-qr");
     if (ba) ba.hidden = view !== "basics";
     if (ov) ov.hidden = view !== "overview";
     if (fa) fa.hidden = view !== "facilities";
+    if (tp) tp.hidden = view !== "transport";
+    if (cm) cm.hidden = view !== "common";
     if (ch) ch.hidden = view !== "chat";
     if (qr) qr.hidden = view !== "qr";
     // 非表示のあいだは高さを測れない。表示に切り替わったここでやり直す
@@ -421,7 +519,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
   const hash = location.hash.replace("#", "");
-  if (hash === "chat" || hash === "qr" || hash === "overview" || hash === "facilities") switchView(hash);
+  if (hash === "chat" || hash === "qr" || hash === "overview" || hash === "facilities" || hash === "transport" || hash === "common") switchView(hash);
   else if (!document.querySelector('[data-view="basics"]')) switchView("chat");
 </script>
 
@@ -706,6 +804,11 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         if (!j.ok) throw new Error("load");
         if (HAS_FACTS) fill(PROP, j.items[PROP] ?? {});
         if (HAS_FACTS) renderBedRooms();
+        if (HAS_FACTS) {
+          const m = j.items.meta ?? {};
+          ["operatorPhone","companyZip","companyAddressJa","companyAddressEn","companyStreetEn","companyLocalityEn","companyRegionEn","taxLow","taxHigh","taxHighThreshold"]
+            .forEach((k) => { const el = $("ap-meta-" + k); if (el && m[k] !== undefined) el.value = m[k]; });
+        }
         renderChat(j.items[urlProp()]?.chatInfo ?? [], j.canEdit === true);
         // 閲覧は全メンバー・編集は Owner のみ（2026-08-18 発注者判断）。
         // Owner 以外は入力を無効化し、保存バーを隠して読み取り専用にする
@@ -746,6 +849,17 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     }
     $("ap-save-all").addEventListener("click", () => saveAll("ap-save-all", "ap-saved-all"));
     $("ap-save-all2")?.addEventListener("click", () => saveAll("ap-save-all2", "ap-saved-all2"));
+    $("ap-save-all3")?.addEventListener("click", () => saveAll("ap-save-all3", "ap-saved-all3"));
+    $("ap-save-meta")?.addEventListener("click", async () => {
+      const btn = $("ap-save-meta"); btn.disabled = true;
+      $("ap-saved-meta").textContent = "保存しています…";
+      const meta = {};
+      ["operatorPhone","companyZip","companyAddressJa","companyAddressEn","companyStreetEn","companyLocalityEn","companyRegionEn","taxLow","taxHigh","taxHighThreshold"]
+        .forEach((k) => { meta[k] = $("ap-meta-" + k)?.value ?? ""; });
+      const r = await api("POST", { meta });
+      $("ap-saved-meta").textContent = r.ok ? "保存しました（サイト反映には再ビルドが必要です）" : `保存に失敗しました（${r.error ?? "error"}）`;
+      btn.disabled = false;
+    });
 
 
 
@@ -864,8 +978,24 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   /* URL・住所などの文字入力は全文が見える幅に（2026-08-18 発注者指摘） */
   .ap-input-wide { width: min(100%, 560px) !important; }
   .ap-bed-totals { font-size: 0.85rem; color: #333333; line-height: 2; white-space: pre-line; }
-  .ap-bed-cells :global(input) { width: 72px; margin-right: 0.75rem; }
-  .ap-bed-collabel { display: inline-block; width: 72px; margin-right: 0.75rem; font-size: 0.75rem; color: #666666; }
+  /* BR行はJS生成のため :global 必須（スコープ付きCSSは動的ノードに当たらない） */
+  .ap-table :global(.ap-bed-row th), .ap-table :global(.ap-bed-head th) {
+    text-align: left; font-weight: 400; color: #555555; font-size: 0.85rem;
+    padding: 0.55rem 0.75rem 0.55rem 1.6rem; border-bottom: 1px solid #f0f0f0; width: 40%;
+  }
+  .ap-table :global(.ap-bed-row td), .ap-table :global(.ap-bed-head td) {
+    padding: 0.45rem 0.75rem; border-bottom: 1px solid #f0f0f0;
+  }
+  .ap-table :global(.ap-bed-head th), .ap-table :global(.ap-bed-head td) { border-bottom: 0; padding-bottom: 0.15rem; }
+  .ap-table :global(.ap-bed-cells input) {
+    width: 96px; padding: 0.45rem 0.5rem; font-family: inherit; font-size: 0.9rem;
+    color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px;
+    text-align: center; margin-right: 1.1rem;
+  }
+  .ap-table :global(.ap-bed-collabel) {
+    display: inline-block; width: 96px; margin-right: 1.1rem;
+    font-size: 0.74rem; color: #666666; text-align: center; letter-spacing: 0.05em;
+  }
   .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }

@@ -152,7 +152,7 @@ export const zh: TakasagoTranslations = {
     title: "預訂條件",
     cancellation: "取消政策：入住日 {d} 天前可免費取消。確切期限（日本時間）將於預訂時顯示。",
     cleaningFee: "清潔費：已含在費率中",
-    extraGuest: "額外房客費：5人以內同一價格・第6人起每人每晚 ¥5,000",
+    extraGuest: "額外房客費：{bg}人以內同一價格・第{bgx}人起每人每晚 ¥{xfee}",
     noiseRule: "有安靜時段規定。請體諒鄰居。",
     petRule: "不允許攜帶寵物（事先通知可攜帶導盲犬）。",
     smokingRule: "室內禁止吸菸。有指定戶外吸菸區。",

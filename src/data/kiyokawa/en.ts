@@ -158,7 +158,7 @@ export const en: KiyokawaTranslations = {
     title: "Booking Conditions",
     cancellation: "Cancellation: free until {d} days before check-in. The exact deadline (JST) is shown when you book.",
     cleaningFee: "Cleaning fee: Included in the rate",
-    extraGuest: "Rate covers up to 5 guests; ¥5,000 per additional guest per night",
+    extraGuest: "Rate covers up to {bg} guests; ¥{xfee} per additional guest per night",
     noiseRule: "Quiet hours apply. Please be considerate of neighbours.",
     petRule: "No pets allowed (service animals with prior notice excepted).",
     smokingRule: "No smoking indoors. Designated outdoor area available.",

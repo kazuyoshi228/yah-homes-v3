@@ -25,6 +25,7 @@ export async function renderLlms(template: string): Promise<string> {
     K_AREA: String(K.floorAreaM2), T_AREA: String(T.floorAreaM2),
     K_LAYOUT: K.layoutLabel, T_LAYOUT: T.layoutLabel,
     K_YAKUIN: String(K.spotYakuinWalkMin),
+    K_TAXI: K.airportTaxiFare,
     CI: K.checkinTime, CO: K.checkoutTime,
     CI_EN: fmtTime(K.checkinTime, "en"), CO_EN: fmtTime(K.checkoutTime, "en"),
     FREE_DAYS: String(K.freeCancelDays),

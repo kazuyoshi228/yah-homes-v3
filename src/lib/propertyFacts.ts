@@ -76,6 +76,10 @@ export interface PropertyFacts {
   parkingSize: string;
   /** schema.org 用の番地表記（例: Kiyokawa 3-3-1） */
   streetAddressEn: string;
+  /** 表示用の料金ルール（実請求は Beds24 が正・ここは案内文の数字の正本） */
+  baseGuests: number; extraGuestFee: number;
+  /** 空港からのタクシー相場（表示用・例: ¥2,000〜¥2,500） */
+  airportTaxiFare: string;
   /** 観光アクセス（任意・0=未設定＝表示に使わない） */
   spotCanalCarMin: number; spotDazaifuCarMin: number; spotYakuinWalkMin: number;
   /** 構造化データ用の設備フラグ（1=あり/0=なし） */
@@ -108,7 +112,12 @@ export interface LodgingTax {
   /** 福岡市宿泊税（1人1泊・円）。税抜宿泊料が threshold 以上なら high */
   low: number; high: number; threshold: number;
 }
-let cache: { facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax } | null = null;
+export interface CompanyInfo {
+  zip: string; addressJa: string; addressEn: string;
+  streetEn: string; localityEn: string; regionEn: string;
+}
+export interface SiteMeta { operatorPhone: string; company: CompanyInfo }
+let cache: { facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax; meta: SiteMeta } | null = null;
 
 /** Firestore のフィールドを型に写す。未設定・型違いはビルドを落とす（黙って既定値に倒さない）。 */
 function reqNum(f: Record<string, FsValue | undefined>, k: string, key: string): number {
@@ -123,7 +132,7 @@ function reqStr(f: Record<string, FsValue | undefined>, k: string, key: string):
 }
 
 /** ビルド時に一度だけ Firestore を読む。読めなければ例外を投げてビルドを落とす。 */
-export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax }> {
+export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax; meta: SiteMeta }> {
   if (cache) return cache;
 
   const res = await fetch(REST, { signal: AbortSignal.timeout(8000) });
@@ -133,12 +142,20 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
   const facts = {} as Record<PropKey, PropertyFacts>;
   let ratingAsOf = "";
   let tax: LodgingTax | null = null;
+  let meta: SiteMeta | null = null;
   for (const doc of json.documents ?? []) {
     const key = doc.name.split("/").pop() as PropKey | "meta";
     const f = doc.fields ?? {};
     if (key === "meta") {
       ratingAsOf = str(f.ratingAsOf, "");
       tax = { low: num(f.taxLow, NaN), high: num(f.taxHigh, NaN), threshold: num(f.taxHighThreshold, NaN) };
+      meta = {
+        operatorPhone: str(f.operatorPhone, ""),
+        company: {
+          zip: str(f.companyZip, ""), addressJa: str(f.companyAddressJa, ""), addressEn: str(f.companyAddressEn, ""),
+          streetEn: str(f.companyStreetEn, ""), localityEn: str(f.companyLocalityEn, ""), regionEn: str(f.companyRegionEn, ""),
+        },
+      };
       continue;
     }
     if (key !== "kiyokawa" && key !== "takasago") continue;
@@ -166,6 +183,7 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
       floorAreaM2: n("floorAreaM2"), floors: n("floors"), layoutLabel: t("layoutLabel"), bedroomLayout: t("bedroomLayout"),
       parkingSpaces: n("parkingSpaces"), parkingSize: t("parkingSize"),
       streetAddressEn: t("streetAddressEn"),
+      baseGuests: n("baseGuests"), extraGuestFee: n("extraGuestFee"), airportTaxiFare: t("airportTaxiFare"),
       spotCanalCarMin: num(f.spotCanalCarMin, 0), spotDazaifuCarMin: num(f.spotDazaifuCarMin, 0), spotYakuinWalkMin: num(f.spotYakuinWalkMin, 0),
       kitchen: n("kitchen"), wifi: n("wifi"), airCon: n("airCon"), bathtub: n("bathtub"),
       selfCheckin: n("selfCheckin"), smokingAllowed: n("smokingAllowed"), coAlarm: n("coAlarm"), longStay: n("longStay"),
@@ -177,8 +195,10 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
   if (!ratingAsOf) throw new Error("[propertyFacts] property_facts/meta.ratingAsOf が未設定です。ビルドを中止します。");
   if (!tax || !Number.isFinite(tax.low) || !Number.isFinite(tax.high) || !Number.isFinite(tax.threshold))
     throw new Error("[propertyFacts] property_facts/meta の宿泊税（taxLow/taxHigh/taxHighThreshold）が未設定です。");
+  if (!meta || !meta.operatorPhone || !meta.company.zip || !meta.company.addressJa || !meta.company.addressEn)
+    throw new Error("[propertyFacts] property_facts/meta の共通情報（operatorPhone/company*）が未設定です。");
 
   console.log("[propertyFacts] Firestore から取得しました（SSoT）");
-  cache = { facts, ratingAsOf, tax };
+  cache = { facts, ratingAsOf, tax, meta };
   return cache;
 }

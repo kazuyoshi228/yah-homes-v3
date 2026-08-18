@@ -146,7 +146,7 @@ Pricing varies by season, length of stay, and platform. For accurate current pri
 
 **Access from Fukuoka Airport:**
 - By subway: Fukuoka Airport → Hakata Station (5 min) → Watanabe-dori Station (3 min) → Walk {{K_STATION}} min to property (taxi or rental car recommended)
-- By taxi: Approximately 25–35 minutes, ¥2,500–¥3,500 (show taxi card above to driver)
+- By taxi: Approximately 25–35 minutes, {{K_TAXI}} (show taxi card above to driver)
 - By car: Approximately 30 minutes via expressway
 
 **Nearby landmarks:**

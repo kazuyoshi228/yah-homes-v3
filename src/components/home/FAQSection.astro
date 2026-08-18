@@ -24,7 +24,9 @@ const fill = (v: string) => baseFill(v)
   .replace(/\{kbd\}/g, String(K.bedDouble)).replace(/\{kbs\}/g, String(K.bedSingle))
   .replace(/\{tbd\}/g, String(T.bedDouble)).replace(/\{tbs\}/g, String(T.bedSingle))
   .replace(/\{ttoilet\}/g, String(T.toilet)).replace(/\{tsink\}/g, String(T.sink))
-  .replace(/\{kstation\}/g, String(K.fromStationWalkMin)).replace(/\{tstation\}/g, String(T.fromStationWalkMin));
+  .replace(/\{kstation\}/g, String(K.fromStationWalkMin)).replace(/\{tstation\}/g, String(T.fromStationWalkMin))
+  .replace(/\{kairport\}/g, String(K.fromAirportCarMin)).replace(/\{tairport\}/g, String(T.fromAirportCarMin))
+  .replace(/\{ktaxifare\}/g, K.airportTaxiFare);
 const data = {
   ...rawData,
   categories: rawData.categories.map((c) => ({

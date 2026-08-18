@@ -17,7 +17,10 @@ export interface PageMeta {
 
 export const BASE_URL = "https://yah.homes";
 /** 運営の問い合わせ電話（表示用とtel:リンク用）。ページ側での直書きを禁止 */
-export const OPERATOR_PHONE = "050-1721-4419";
+/* 電話・会社住所の正本は property_facts/meta（/admin/properties の「共通情報」）。
+   ここはビルド時に SSoT から読むだけで、値は持たない。 */
+const SSOT = await getPropertyFacts();
+export const OPERATOR_PHONE = SSOT.meta.operatorPhone;
 export const OPERATOR_PHONE_TEL = "+81" + OPERATOR_PHONE.replace(/-/g, "").slice(1);
 export const OG_IMAGE = `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`;
 /* 共有カードの画像。物件ページは自分の棟の外観を出す
@@ -36,13 +39,13 @@ export const OPERATOR = {
   ceoJa: "山田一慶",
   corporateNumber: "4010901041393", // 法人番号
   // 日本語表記（会社概要・特商法の日本語面）
-  addressJa: "〒810-0011 福岡県福岡市中央区高砂1-18-7",
+  addressJa: `〒${SSOT.meta.company.zip} ${SSOT.meta.company.addressJa}`,
   // 英語表記（schema・国際面。ユーザー確認済み 2026-07-16）
-  streetAddress: "1-18-7 Takasago",
-  addressLocality: "Chuo-ku, Fukuoka-shi",
-  addressRegion: "Fukuoka",
-  postalCode: "810-0011",
-  addressEn: "1-18-7 Takasago, Chuo-ku, Fukuoka-shi, Fukuoka 810-0011, Japan",
+  streetAddress: SSOT.meta.company.streetEn,
+  addressLocality: SSOT.meta.company.localityEn,
+  addressRegion: SSOT.meta.company.regionEn,
+  postalCode: SSOT.meta.company.zip,
+  addressEn: SSOT.meta.company.addressEn,
   businessScope: "不動産売買・不動産開発・システム開発・貿易業",
 } as const;
 

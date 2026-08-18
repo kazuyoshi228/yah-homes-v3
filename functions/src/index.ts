@@ -4487,7 +4487,8 @@ const FACT_FIELDS = ["capacity", "bedrooms", "bedDouble", "bedSingle", "bath", "
   "toTenjinCarMin", "toHakataCarMin", "toHakataSubwayMin",
   "floorAreaM2", "floors", "parkingSpaces",
   "kitchen", "wifi", "airCon", "bathtub", "selfCheckin", "smokingAllowed", "coAlarm", "longStay",
-  "spotCanalCarMin", "spotDazaifuCarMin", "spotYakuinWalkMin"] as const;
+  "spotCanalCarMin", "spotDazaifuCarMin", "spotYakuinWalkMin",
+  "baseGuests", "extraGuestFee"] as const;
 
 export const adminProperties = onRequest(
   { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
@@ -4550,6 +4551,27 @@ export const adminProperties = onRequest(
           return;
         }
 
+        /* 共通情報（meta）の更新。電話・会社住所・宿泊税は空にすると
+           ビルド（getPropertyFacts）が止まる必須値のため、空を拒否する */
+        const metaIn = (req.body as Record<string, unknown>)?.meta as Record<string, unknown> | undefined;
+        if (metaIn && !prop) {
+          const doc: Record<string, unknown> = {};
+          for (const k of ["operatorPhone","companyZip","companyAddressJa","companyAddressEn","companyStreetEn","companyLocalityEn","companyRegionEn"] as const) {
+            const t = String(metaIn[k] ?? "").trim();
+            if (!t) { res.status(400).json({ ok: false, error: `${k}_required` }); return; }
+            doc[k] = t.slice(0, 160);
+          }
+          for (const k of ["taxLow","taxHigh","taxHighThreshold"] as const) {
+            const n = Number(metaIn[k]);
+            if (!Number.isInteger(n) || n < 0 || n > 99999) { res.status(400).json({ ok: false, error: `invalid_${k}` }); return; }
+            doc[k] = n;
+          }
+          await db.collection("property_facts").doc("meta").set({ ...doc, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+          await db.collection("audit_logs").add({ actor: email, action: "facts_meta", value: "共通情報を更新", at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true });
+          return;
+        }
+
         // 取得日のみの更新
         if (typeof ratingAsOf === "string" && !prop) {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(ratingAsOf)) { res.status(400).json({ ok: false, error: "invalid_date" }); return; }
@@ -4575,7 +4597,7 @@ export const adminProperties = onRequest(
         // 最寄り駅名（文字列）
         if (v.nearestStation !== undefined) doc.nearestStation = String(v.nearestStation ?? "").trim().slice(0, 40);   // 空=クリア
         // 間取り・部屋別ベッド内訳（文字列）
-        for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60], ["streetAddressEn", 60]] as const) {
+        for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60], ["streetAddressEn", 60], ["airportTaxiFare", 40]] as const) {
           if (v[f] === undefined) continue;
           doc[f] = String(v[f] ?? "").trim().slice(0, max);   // 空=クリア
         }

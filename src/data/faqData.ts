@@ -208,7 +208,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "How do I get from Fukuoka Airport to the properties?",
-            a: "From Fukuoka Airport (International Terminal), Kiyokawa is approximately 18 minutes by car (taxi approx. ¥2,000–¥2,500) or 25 minutes by subway + walk. Takasago is approximately 20 minutes by car. Both properties are also accessible from Hakata Station in about 25 minutes on foot.",
+            a: "From Fukuoka Airport (International Terminal), Kiyokawa is approximately {kairport} minutes by car (taxi approx. {ktaxifare}) or 25 minutes by subway + walk. Takasago is approximately {tairport} minutes by car. Both properties are also accessible from Hakata Station in about 25 minutes on foot.",
           },
         ],
       },
