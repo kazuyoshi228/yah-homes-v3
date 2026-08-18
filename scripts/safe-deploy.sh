@@ -52,6 +52,17 @@ for p in "${REQUIRED_PAGES[@]}"; do
   if [[ -f "$p" ]]; then printf "  ✅ %s\n" "$p"
   else printf "  ❌ %s が無い\n" "$p"; missing=1; fi
 done
+# 計測ブロックの必須要素。1つでも欠けると計測が静かに全損する（docs/GUARD_tracking_baselayout.md）
+echo
+echo "── 3-2. 計測タグの健全性 ──"
+assert_in()  { if grep -q "$2" "$1"; then printf "  ✅ %s\n" "$3"; else printf "  ❌ %s が無い（%s）\n" "$3" "$1"; missing=1; fi; }
+assert_out() { if grep -q "$2" "$1"; then printf "  ❌ %s（%s にあってはいけない）\n" "$3" "$1"; missing=1; else printf "  ✅ %s\n" "$3"; fi; }
+assert_in  dist/zh/index.html "window.gtag = gtag"                  "window.gtag を公開している（IIFE事故の再発防止）"
+assert_in  dist/zh/index.html 'location.hostname === "yah.homes"'    "本番ホストガード TRACK がある"
+assert_in  dist/zh/index.html "window.fbq && fbq"                    "fbq を安全呼び出ししている"
+assert_in  dist/zh/index.html "connect.facebook.net"                 "Metaピクセルが入っている"
+assert_out dist/admin/menu/index.html "gtag/js?id=G-VJ5DDRML79"          "管理画面に計測タグが無い"
+
 count=$(find dist -name index.html | wc -l | tr -d ' ')
 printf "  ページ総数: %s（下限 %s）\n" "$count" "$MIN_PAGES"
 [[ "$count" -lt "$MIN_PAGES" ]] && { echo "  ❌ ページ数が少なすぎます"; missing=1; }
