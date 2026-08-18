@@ -17,12 +17,17 @@ const CHAT_LABELS: Record<string, { t: string; s: string }> = {
   zh: { t: "需要協助？線上聊天", s: "點按按鈕或掃描QR碼（同行者也可使用）" },
   th: { t: "ต้องการความช่วยเหลือ? แชทกับเรา", s: "กดปุ่มหรือสแกน QR โค้ด (ผู้ร่วมเดินทางใช้ได้เช่นกัน)" },
 };
+/** 施設別チャットURL。チャット未対応の棟は空（差し込み記号 {{chatUrl}} と chatBlock で共用） */
+export function chatUrlFor(propRaw: string): string {
+  const prop = propRaw === "test" ? "kiyokawa" : propRaw;
+  return prop === "kiyokawa" || prop === "takasago" ? `https://chat.yah.homes/${prop}` : "";
+}
 export function chatBlock(chat?: { prop: string; lang: string }): string {
   if (!chat) return "";
+  const url = chatUrlFor(chat.prop);
+  if (!url) return "";
   const prop = chat.prop === "test" ? "kiyokawa" : chat.prop;
-  if (prop !== "kiyokawa" && prop !== "takasago") return "";
   const L = CHAT_LABELS[chat.lang] ?? CHAT_LABELS.en;
-  const url = `https://chat.yah.homes/${prop}`;
   return `<tr><td style="padding:18px 24px;border-top:1px solid #f0f0f0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
       <td style="vertical-align:middle;">

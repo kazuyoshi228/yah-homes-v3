@@ -416,7 +416,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-chat-prop:hover { border-color: #111111; color: #111111; }
   .ap-chat-prop.is-active { background: #111111; border-color: #111111; color: #ffffff; }
   .ap-chat-empty { padding: 2rem 0; }
-  .ap-chat-table { width: 100%; border-collapse: collapse; border: 1px solid #e0e0e0; }
+  .ap-chat-table { width: 100%; border-collapse: collapse; }
   /* 編集時もテーブルとして読めるフラットな見た目（枠付きの大きな入力欄は不可・発注者指摘）。
      高さは JS が内容に合わせて自動調整し、行ごとに揃う */
   .ap-chat-table :global(textarea) {
@@ -434,8 +434,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   }
   .ap-chat-table :global(.ap-chat-del:hover) { color: #b3261e; }
   .ap-chat-table th, .ap-chat-table td {
-    text-align: left; vertical-align: top; padding: 0.85rem 1rem;
-    border: 1px solid #e0e0e0; font-size: 0.84rem; line-height: 1.9;
+    text-align: left; vertical-align: top; padding: 1.1rem 1rem 1.1rem 0;
+    border-bottom: 1px solid #e5e5e5; font-size: 0.84rem; line-height: 1.9;
   }
   .ap-chat-table thead th { font-size: 0.75rem; color: #666666; border-bottom: 1px solid #d7d7d7; }
   .ap-chat-table tbody th { width: 34%; font-weight: 500; color: #111111; }

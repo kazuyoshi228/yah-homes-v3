@@ -1104,7 +1104,7 @@ async function buildLifecycleMail(
     checkin: String(b.checkin), checkout: String(b.checkout),
     checkinTime: ci, checkoutTime: co,
     mapUrl: P.map ?? "", manualUrl: P.manual ?? "", phone: OPERATOR_PHONE,
-    myPageUrl: myPage, bookUrl: bookPath,
+    myPageUrl: myPage, bookUrl: bookPath, chatUrl: chatUrlFor(String(b.prop)),
   });
 
   const html = kind === "checkout"
@@ -1304,6 +1304,7 @@ const MAIL_VARS = [
   "guestName", "bookingNo", "propertyName", "guests", "nights",
   "checkin", "checkout", "checkinTime", "checkoutTime",
   "registerUrl", "registerDeadline", "manualUrl", "mapUrl", "phone", "myPageUrl", "bookUrl",
+  "chatUrl",
 ];
 
 export const adminTemplates = onRequest(
@@ -3330,7 +3331,7 @@ async function sendRefundEvent(booking: {
    Booking.com の確定メールを参考に、カード単位で情報を切って読める構成にする。
    メールクライアント制約: table レイアウト＋インラインCSS。外部CSS/JS/画像は使わない。 */
 
-import { esc, mailHtml, chatBlock, SITE_URL } from "./mail-template.js";
+import { esc, mailHtml, chatBlock, chatUrlFor, SITE_URL } from "./mail-template.js";
 
 // 住所は発注者確認済みのもののみ記載する（未確認の棟は地図リンクのみ）。
 /** 運営会社の問い合わせ先（差し込み記号 {{phone}}） */
@@ -3565,6 +3566,7 @@ async function buildConfirmationMailFor(
       registerUrl: P0.register ?? "", mapUrl: P0.map ?? "", manualUrl: P0.manual ?? "",
       phone: OPERATOR_PHONE,
       myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+      chatUrl: chatUrlFor(String(b.prop)),
     });
     const { subject, text, html } = buildConfirmationMail(lang, strings, {
       checkinTime: ci, checkoutTime: co, registerDeadline,
@@ -3674,6 +3676,7 @@ async function buildCancellationMail(
       checkin: String(b.checkin), checkout: String(b.checkout),
       guests: String(b.guests ?? ""), phone: OPERATOR_PHONE,
       myPageUrl: `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`,
+      chatUrl: chatUrlFor(String(b.prop)),
     });
     const total = Number(b.total);
     const fee = total - refundAmount;
