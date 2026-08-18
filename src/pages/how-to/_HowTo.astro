@@ -18,9 +18,6 @@ type T = Record<Lang, string>;
 interface Props {
   prop: "kiyokawa" | "takasago";
   name: string;
-  zip: string;
-  addressJa: string;
-  addressEn: string;
   photoEntrance: string;
   photoKeybox: string;
   photoParking?: string;
@@ -37,7 +34,7 @@ interface Props {
   parkingLargeCar?: boolean;
 }
 const {
-  prop, name, zip, addressJa, addressEn,
+  prop, name,
   photoEntrance, photoKeybox, photoParking,
   keyPlace, parking, entranceMark, garageSize, parkingLargeCar,
 } = Astro.props;
@@ -54,7 +51,10 @@ const LANGS: { code: Lang; label: string }[] = [
 const UI = howtoUI;
 
 /* 「地図を開く」の行き先は SSoT（/admin/properties）が正本。ページ側で持たない。 */
-const mapUrl = (await getPropertyFacts()).facts[prop].mapUrl;
+/* 住所・地図の正本は SSoT（/admin/properties）。ページ側に書き写さない。 */
+const F = (await getPropertyFacts()).facts[prop];
+const { zip, addressJa, addressEn } = F;
+const mapUrl = F.mapUrl;
 const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(addressJa)}&z=17&output=embed`;
 const garage = garageSize
   ? { ja: `幅 ${garageSize.w.toLocaleString()}mm × 奥行 ${garageSize.d.toLocaleString()}mm`,

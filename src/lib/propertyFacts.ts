@@ -52,6 +52,10 @@ export interface PropertyFacts {
   mapUrl: string;
   /** 宿泊者名簿フォームのURL（旅館業法）。確定メールが案内する先。 */
   registerUrl: string;
+  /** 住所。表示は「〒{zip} {addressJa}」で組み立てる（英語面は addressEn） */
+  zip: string;
+  addressJa: string;
+  addressEn: string;
   /** アクセス（分・最寄り駅名のみ文字列） */
   fromAirportCarMin: number;
   fromStationWalkMin: number;
@@ -129,6 +133,7 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
       studyDesk: n("studyDesk"), parking: n("parking"), theater: n("theater"),
       fromAirportCarMin: n("fromAirportCarMin"), fromStationWalkMin: n("fromStationWalkMin"),
       nearestStation: t("nearestStation"), mapUrl: t("mapUrl"), registerUrl: t("registerUrl"),
+      zip: t("zip"), addressJa: t("addressJa"), addressEn: t("addressEn"),
       toTenjinWalkMin: n("toTenjinWalkMin"), toHakataWalkMin: n("toHakataWalkMin"),
       spotMarketMin: n("spotMarketMin"), spotMarketM: n("spotMarketM"),
       spotSumiyoshiMin: n("spotSumiyoshiMin"), spotSumiyoshiM: n("spotSumiyoshiM"),

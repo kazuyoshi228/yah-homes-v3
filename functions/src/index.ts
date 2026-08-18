@@ -1068,17 +1068,14 @@ async function buildLifecycleMail(
   b: BookingDoc & Record<string, unknown>,
 ): Promise<{ subject: string; text: string; html: string }> {
   const lang = String(b.lang ?? "en");
-  const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: (await ssotLinks(String(b.prop))).map };
+  const S = await ssotProp(String(b.prop));
+  const P = { image: MAIL_PROP[b.prop]?.image ?? "", ...S };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
   const no = bookingId.slice(0, 8).toUpperCase();
   const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
   const bookPath = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
 
-  let ci = "16:00", co = "10:00";
-  try {
-    const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
-    ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
-  } catch { /* 既定値 */ }
+  const ci = S.checkinTime, co = S.checkoutTime;
 
   // 前日案内には暗証番号を直接載せる（/admin/secrets が正）。読めない場合はカードを出さず、
   // 「別途お送りしています／ご返信ください」の予備文面に切り替える。
@@ -2042,7 +2039,7 @@ async function notifyMessage(
   await tref.set({ [key]: FieldValue.serverTimestamp() }, { merge: true });
 
   const no = bookingId.slice(0, 8).toUpperCase();
-  const P = MAIL_PROP[String(b.prop)] ?? { name: String(b.prop), image: "", address: "", map: "" };
+  const P = { name: propName(String(b.prop)) };
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com", port: 465, secure: true,
     auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
@@ -3347,47 +3344,56 @@ const MAIL_FROM = "contact@mail.yah.homes";
 
 /** 「地図を開く」の行き先は SSoT（property_facts/{prop}.mapUrl）が正本。
     MAIL_PROP には持たない。読めなければ地図ブロックを出さない（誤った場所へ送らない）。 */
-async function ssotLinks(prop: string): Promise<{ map: string; register: string }> {
-  try {
-    const key = prop === "test" ? "kiyokawa" : prop;
-    const f = (await db.collection("property_facts").doc(key).get()).data();
-    return { map: String(f?.mapUrl ?? ""), register: String(f?.registerUrl ?? "") };
-  } catch { return { map: "", register: "" }; }
+/** 施設名は施設キーから決まる（SSoTにも写しを置かない） */
+function propName(prop: string): string {
+  return prop === "test" ? "yah.homes test1（検証用）" : `yah.homes ${prop}`;
 }
 
+/* メールに載せる棟の値は SSoT（property_facts）が正本。コードに写しを置かない。
+   時刻は既定値に倒さない: 読めないまま「16:00/10:00」で送ると実際と違う時刻を
+   お客様に案内してしまう。読めなければ例外にして送信を止め、mail_logs に理由が残る
+   （2026-08-18 発注者判断・「読めなければ受けない」と同じ思想）。 */
+async function ssotProp(prop: string): Promise<{
+  name: string; map: string; register: string; address: string; manual: string;
+  checkinTime: string; checkoutTime: string;
+}> {
+  const key = prop === "test" ? "kiyokawa" : prop;
+  const f = (await db.collection("property_facts").doc(key).get()).data();
+  const ci = String(f?.checkinTime ?? ""), co = String(f?.checkoutTime ?? "");
+  if (!ci || !co) throw new Error(`property_facts/${key} を読めません（メール送信を中止）`);
+  const zip = String(f?.zip ?? ""), addr = String(f?.addressJa ?? "");
+  return {
+    name: propName(prop),
+    manual: `${SITE_URL}/how-to/${key}/`,
+    map: String(f?.mapUrl ?? ""),
+    register: String(f?.registerUrl ?? ""),
+    address: zip && addr ? `〒${zip} ${addr}` : addr,
+    checkinTime: ci, checkoutTime: co,
+  };
+}
+
+/* メールに載せる棟の写真だけを持つ。名前・住所・地図・名簿フォーム・マニュアルURLは
+   SSoT（property_facts）か施設キーから決まるため、ここには置かない。 */
 const MAIL_PROP = {
-  kiyokawa: {
-    name: "yah.homes kiyokawa",
-    image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
-    address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
-    map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
-    register: "",   // ← SSoT（property_facts.registerUrl）から実行時に入れる
-    manual: "https://yah.homes/how-to/kiyokawa/", // 入室案内ページ
-  },
-  takasago: {
-    name: "yah.homes takasago",
-    image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
-    address: "",
-    map: "",   // ← SSoT（property_facts.mapUrl）から実行時に入れる
-    register: "",   // ← SSoT（property_facts.registerUrl）から実行時に入れる
-    manual: "https://yah.homes/how-to/takasago/", // 入室案内ページ
-  },
-  test: {
-    name: "yah.homes test1（検証用）",
-    image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
-    address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
-    map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
-  },
-} as Record<string, { name: string; image: string; address: string; map: string; register?: string; manual?: string }>;
+  kiyokawa: { image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp` },
+  takasago: { image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp` },
+  test: { image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp` },
+} as Record<string, { image: string }>;
 
 
 function buildConfirmationMail(
   lang: string,
   strings: Record<string, string>,
-  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string; mapUrl: string },
+  d: { id: string; name: string; prop: string; checkin: string; checkout: string; nights: number; guests: number; total: number; arrival: string; freeCancel: string; checkinTime: string; checkoutTime: string; registerDeadline: string; mapUrl: string;
+    /** 棟の値は SSoT から呼び出し側が渡す（この関数は読みに行かない） */
+    propertyName: string; address: string; registerUrl: string; manualUrl: string },
 ): { subject: string; text: string; html: string } {
   const L = strings;
-  const P = { ...(MAIL_PROP[d.prop] ?? { name: d.prop, image: "", address: "", map: "" }), map: d.mapUrl };
+  const P = {
+    image: MAIL_PROP[d.prop]?.image ?? "",
+    name: d.propertyName, address: d.address, map: d.mapUrl,
+    register: d.registerUrl, manual: d.manualUrl,
+  };
   const yen = (n: number) => `¥${n.toLocaleString("en-US")}`;
   const no = d.id.slice(0, 8).toUpperCase();
   const ciWin = L.checkinWindow.replace("{ci}", d.checkinTime);
@@ -3557,18 +3563,13 @@ async function buildConfirmationMailFor(
       ? new Date(String(b.freeCancelUntilAt)).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "long", timeStyle: "short" })
       : "-";
     // チェックイン/アウト時刻は物件ファクト（Firestore）を正とする
-    let ci = "16:00", co = "10:00";
-    try {
-      const f = (await db.collection("property_facts").doc(b.prop === "test" ? "kiyokawa" : b.prop).get()).data();
-      ci = String(f?.checkinTime ?? ci); co = String(f?.checkoutTime ?? co);
-    } catch { /* 既定値のまま送る */ }
+    const S0 = await ssotProp(String(b.prop));
+    const ci = S0.checkinTime, co = S0.checkoutTime;
     // 宿泊者名簿の期限＝チェックイン2日前（JST）。前日10:00の入室案内より前に締める。
     const LOC: Record<string, string> = { ja: "ja-JP", en: "en-US", ko: "ko-KR", zh: "zh-TW", th: "th-TH" };
     const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
       .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
-    const links = await ssotLinks(String(b.prop));
-    const P0 = { ...(MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" }),
-      map: links.map, register: links.register };
+    const P0 = { image: MAIL_PROP[b.prop]?.image ?? "", ...S0 };
     const strings = expandMailVars(await mailStrings("confirm", lang), {
       guestName: String(b.name ?? ""), bookingNo: bookingId.slice(0, 8).toUpperCase(),
       propertyName: P0.name, guests: String(b.guests ?? ""),
@@ -3582,6 +3583,7 @@ async function buildConfirmationMailFor(
     });
     const { subject, text, html } = buildConfirmationMail(lang, strings, {
       checkinTime: ci, checkoutTime: co, registerDeadline, mapUrl: P0.map,
+      propertyName: P0.name, address: P0.address, registerUrl: P0.register, manualUrl: P0.manual,
       id: bookingId,
       name: String(b.name ?? ""),
       prop: b.prop,
@@ -3680,7 +3682,7 @@ async function buildCancellationMail(
 ): Promise<{ subject: string; text: string; html: string }> {
   {
     const lang = String(b.lang ?? "en");
-    const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: (await ssotLinks(String(b.prop))).map };
+    const P = { image: MAIL_PROP[b.prop]?.image ?? "", ...(await ssotProp(String(b.prop))) };
     const yen = (n: number) => `¥${Number(n).toLocaleString("en-US")}`;
     const no = bookingId.slice(0, 8).toUpperCase();
     const L = expandMailVars(await mailStrings("cancel", lang), {
@@ -4545,6 +4547,12 @@ export const adminProperties = onRequest(
           const r = String(v.registerUrl ?? "").trim();
           if (r && !/^https:\/\//.test(r)) { res.status(400).json({ ok: false, error: "invalid_registerUrl" }); return; }
           if (r) doc.registerUrl = r.slice(0, 400);
+        }
+        /* 住所（使い方ガイド・確定メール・My Page が読む） */
+        for (const [f, max] of [["zip", 8], ["addressJa", 120], ["addressEn", 160]] as const) {
+          if (v[f] === undefined) continue;
+          const t = String(v[f] ?? "").trim();
+          if (t) doc[f] = t.slice(0, max);
         }
         // チェックイン/アウト時刻（"16:00" 形式）
         // 直販の予約ルール（bookCreate が読む。未設定なら既定値で動く）
