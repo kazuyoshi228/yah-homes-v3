@@ -1,0 +1,31 @@
+---
+/* GEO: 直接回答ブロック（定義文＋数値＝AI引用の一次ソース）。
+   数値は SSoT から差し込み、文言は uiStrings.directAnswer（5言語）。 */
+import { uiStrings } from "../../i18n/uiStrings";
+import { getPropertyFacts } from "../../lib/propertyFacts";
+import type { Locale } from "../../i18n/config";
+
+const { lang } = Astro.props as { lang: Locale };
+const { facts, ratingAsOf } = await getPropertyFacts();
+const K = facts.kiyokawa, T = facts.takasago;
+const text = uiStrings[lang].directAnswer
+  .replace(/\{kr\}/g, K.rating).replace(/\{kc\}/g, K.reviewCount)
+  .replace(/\{tr\}/g, T.rating).replace(/\{tc\}/g, T.reviewCount)
+  .replace(/\{kcap\}/g, String(K.capacity)).replace(/\{tcap\}/g, String(T.capacity))
+  .replace(/\{maxAirport\}/g, String(Math.max(K.fromAirportCarMin, T.fromAirportCarMin)));
+const asOf = uiStrings[lang].ratingAsOf.replace("{date}", ratingAsOf);
+---
+
+<section class="da" id="direct-answer">
+  <div class="da-container">
+    <p class="da-text">{text}</p>
+    <p class="da-asof">{asOf}</p>
+  </div>
+</section>
+
+<style>
+  .da { background: #ffffff; padding: 3rem 1.5rem 0; }
+  .da-container { max-width: 880px; margin: 0 auto; }
+  .da-text { font-size: 0.95rem; line-height: 2.1; color: #333333; }
+  .da-asof { font-size: 0.72rem; color: #999999; margin-top: 0.6rem; }
+</style>

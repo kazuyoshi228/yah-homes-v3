@@ -13,6 +13,7 @@ import OurReviewSection from "../../components/home/OurReviewSection.astro";
 import ComparisonTable from "../../components/home/ComparisonTable.astro";
 import StorySection from "../../components/home/StorySection.astro";
 import LocalsCTASection from "../../components/home/LocalsCTASection.astro";
+import DirectAnswer from "../../components/home/DirectAnswer.astro";
 import FAQSection from "../../components/home/FAQSection.astro";
 import PressSection from "../../components/PressSection.astro";
 import ContactSection from "../../components/home/ContactSection.astro";
@@ -31,6 +32,7 @@ const meta = await getPageMeta("home", lang);
 
 <SiteLayout lang={lang} path="/" title={meta.title} description={meta.description} jsonLd={meta.jsonLd} preloadImage={HOME_HERO_PRELOAD}>
   <HeroSection lang={lang} />
+  <DirectAnswer lang={lang} />
   <PropertiesSection lang={lang} />
   <FeaturesSection lang={lang} />
   <AccessSection lang={lang} />

@@ -59,15 +59,15 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "福岡で6人で泊まれるヴィラはありますか？",
-            a: "はい。yah.homes高砂は最大{tcap}名の一棟貸しヴィラです。寝室{trooms}室（ダブル{tbd}台+シングル{tbs}台）・トイレ{ttoilet}つ・洗面台{tsink}つで、6人グループでも朝の支度が渋滞しません。渡辺通駅から徒歩5〜10分の都心立地。{kcap}名なら清川（最大{kcap}名）をご利用ください。",
+            a: "はい。yah.homes高砂は最大{tcap}名の一棟貸しヴィラです。寝室{trooms}室（ダブル{tbd}台+シングル{tbs}台）・トイレ{ttoilet}つ・洗面台{tsink}つで、6人グループでも朝の支度が渋滞しません。渡辺通駅から徒歩{tstation}分の都心立地。{kcap}名なら清川（最大{kcap}名）をご利用ください。",
           },
           {
             q: "天神や博多駅の近くに一棟貸しの宿はありますか？最寄り駅はどこですか？",
-            a: "はい。どちらも福岡市中心部にあります。高砂は渡辺通駅1番出口から徒歩5〜10分で、薬院も徒歩圏です。清川は渡辺通駅1番出口から徒歩10〜15分——タクシーまたはレンタカーがおすすめです（天神まで車で約8分）。",
+            a: "はい。どちらも福岡市中心部にあります。高砂は渡辺通駅1番出口から徒歩{tstation}分で、薬院も徒歩圏です。清川は渡辺通駅1番出口から徒歩{kstation}分——タクシーまたはレンタカーがおすすめです（天神まで車で約8分）。",
           },
           {
             q: "福岡の街中・都心部に一棟貸しの宿はありますか？",
-            a: "はい。yah.homesは福岡の都心部（中央区）にある一棟貸し・貸別荘タイプのヴィラです。清川（中央区清川・最大{kcap}名・寝室{krooms}室・天神まで車で約8分）と高砂（中央区高砂・最大{tcap}名・渡辺通駅徒歩5〜10分）の2棟で、どちらもセキュリティロックによる非対面のセルフチェックイン。中洲・キャナルシティ博多・柳橋連合市場へも徒歩圏です。",
+            a: "はい。yah.homesは福岡の都心部（中央区）にある一棟貸し・貸別荘タイプのヴィラです。清川（中央区清川・最大{kcap}名・寝室{krooms}室・天神まで車で約8分）と高砂（中央区高砂・最大{tcap}名・渡辺通駅徒歩{tstation}分）の2棟で、どちらもセキュリティロックによる非対面のセルフチェックイン。中洲・キャナルシティ博多・柳橋連合市場へも徒歩圏です。",
           },
           {
             q: "1泊いくらですか？どこで予約できますか？",
@@ -179,15 +179,15 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "Is there a villa for 6 people in Fukuoka?",
-            a: "Yes. yah.homes Takasago is a whole-house villa for up to {tcap} guests — {trooms} bedrooms ({tbd} double + {tbs} single beds), {ttoilet} toilets, and {tsink} washbasins, so even a group of 6 won't queue in the morning. It's a 5–10 minute walk from Watanabe-dori Station in central Fukuoka. For {kcap} guests, choose Kiyokawa (up to {kcap}).",
+            a: "Yes. yah.homes Takasago is a whole-house villa for up to {tcap} guests — {trooms} bedrooms ({tbd} double + {tbs} single beds), {ttoilet} toilets, and {tsink} washbasins, so even a group of 6 won't queue in the morning. It's a {tstation} minute walk from Watanabe-dori Station in central Fukuoka. For {kcap} guests, choose Kiyokawa (up to {kcap}).",
           },
           {
             q: "Is there a whole-house rental near Tenjin or Hakata Station? What is the nearest station?",
-            a: "Yes. Both yah.homes properties are in central Fukuoka. Takasago is a 5–10 minute walk from Watanabe-dori Station (Exit 1), with Yakuin also within walking distance. Kiyokawa is a 10–15 minute walk from Watanabe-dori Station (Exit 1) — a taxi or rental car is recommended (about 8 minutes by car to Tenjin).",
+            a: "Yes. Both yah.homes properties are in central Fukuoka. Takasago is a {tstation} minute walk from Watanabe-dori Station (Exit 1), with Yakuin also within walking distance. Kiyokawa is a {kstation} minute walk from Watanabe-dori Station (Exit 1) — a taxi or rental car is recommended (about 8 minutes by car to Tenjin).",
           },
           {
             q: "Is there a whole-house rental in downtown Fukuoka?",
-            a: "Yes. yah.homes offers two whole-house villa rentals in downtown Fukuoka (Chuo-ku): Kiyokawa (Kiyokawa, Chuo-ku — up to {kcap} guests, {krooms} bedrooms, about 8 minutes by car to Tenjin) and Takasago (Takasago, Chuo-ku — up to {tcap} guests, 5–10 minutes on foot from Watanabe-dori Station). Both offer contactless self check-in with a security lock, and Nakasu, Canal City Hakata, and Yanagibashi Market are within walking distance.",
+            a: "Yes. yah.homes offers two whole-house villa rentals in downtown Fukuoka (Chuo-ku): Kiyokawa (Kiyokawa, Chuo-ku — up to {kcap} guests, {krooms} bedrooms, about 8 minutes by car to Tenjin) and Takasago (Takasago, Chuo-ku — up to {tcap} guests, {tstation} minutes on foot from Watanabe-dori Station). Both offer contactless self check-in with a security lock, and Nakasu, Canal City Hakata, and Yanagibashi Market are within walking distance.",
           },
           {
             q: "How much does it cost per night, and where can I book?",
@@ -299,15 +299,15 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "후쿠오카에 6인이 묵을 수 있는 숙소가 있나요?",
-            a: "네. yah.homes 다카사고는 최대 {tcap}명의 독채 빌라입니다. 침실 {trooms}개(더블 {tbd}+싱글 {tbs})·화장실 {ttoilet}개·세면대 {tsink}개로, 6인 그룹도 아침 준비가 밀리지 않습니다. 와타나베도리역에서 도보 5~10분의 도심 입지입니다. {kcap}명이라면 기요카와(최대 {kcap}명)를 이용해 주세요.",
+            a: "네. yah.homes 다카사고는 최대 {tcap}명의 독채 빌라입니다. 침실 {trooms}개(더블 {tbd}+싱글 {tbs})·화장실 {ttoilet}개·세면대 {tsink}개로, 6인 그룹도 아침 준비가 밀리지 않습니다. 와타나베도리역에서 도보 {tstation}분의 도심 입지입니다. {kcap}명이라면 기요카와(최대 {kcap}명)를 이용해 주세요.",
           },
           {
             q: "텐진이나 하카타역 근처에 독채 숙소가 있나요? 가장 가까운 역은 어디인가요?",
-            a: "네. 두 숙소 모두 후쿠오카 중심부에 있습니다. 다카사고는 와타나베도리역 1번 출구에서 도보 5~10분이며 야쿠인도 도보권입니다. 기요카와는 와타나베도리역 1번 출구에서 도보 10~15분으로, 택시나 렌터카를 추천합니다(텐진까지 차로 약 8분).",
+            a: "네. 두 숙소 모두 후쿠오카 중심부에 있습니다. 다카사고는 와타나베도리역 1번 출구에서 도보 {tstation}분이며 야쿠인도 도보권입니다. 기요카와는 와타나베도리역 1번 출구에서 도보 {kstation}분으로, 택시나 렌터카를 추천합니다(텐진까지 차로 약 8분).",
           },
           {
             q: "후쿠오카 시내 중심가에 독채 숙소가 있나요?",
-            a: "네. yah.homes는 후쿠오카 도심(주오구)에 있는 독채 빌라 2채를 운영합니다: 기요카와(주오구 기요카와·최대 7명·침실 3개·텐진까지 차로 약 8분), 다카사고(주오구 다카사고·최대 6명·와타나베도리역 도보 5~10분). 두 곳 모두 보안 잠금장치를 통한 비대면 셀프 체크인이며, 나카스·캐널시티 하카타·야나기바시 시장까지 도보권입니다.",
+            a: "네. yah.homes는 후쿠오카 도심(주오구)에 있는 독채 빌라 2채를 운영합니다: 기요카와(주오구 기요카와·최대 7명·침실 3개·텐진까지 차로 약 8분), 다카사고(주오구 다카사고·최대 6명·와타나베도리역 도보 {tstation}분). 두 곳 모두 보안 잠금장치를 통한 비대면 셀프 체크인이며, 나카스·캐널시티 하카타·야나기바시 시장까지 도보권입니다.",
           },
           {
             q: "1박 요금은 얼마인가요? 어디서 예약하나요?",
@@ -423,15 +423,15 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "福岡有適合6人入住的包棟別墅嗎？",
-            a: "有。yah.homes 高砂是最多{tcap}人的包棟別墅——{trooms}間臥室（雙人床{tbd}張+單人床{tbs}張）、{ttoilet}間廁所、{tsink}個洗手台，6人團體早上梳洗也不用排隊。距渡邊通站步行5～10分鐘的市中心位置。{kcap}人的話請選擇清川（最多{kcap}人）。",
+            a: "有。yah.homes 高砂是最多{tcap}人的包棟別墅——{trooms}間臥室（雙人床{tbd}張+單人床{tbs}張）、{ttoilet}間廁所、{tsink}個洗手台，6人團體早上梳洗也不用排隊。距渡邊通站步行{tstation}分鐘的市中心位置。{kcap}人的話請選擇清川（最多{kcap}人）。",
           },
           {
             q: "天神或博多站附近有包棟住宿嗎？最近的車站是哪一站？",
-            a: "有。兩棟包棟民宿都位於福岡市中心：高砂距渡邊通站1號出口步行5～10分鐘，藥院也在步行範圍內；清川距渡邊通站1號出口步行10～15分鐘，建議搭計程車或自駕（開車到天神約8分鐘）。",
+            a: "有。兩棟包棟民宿都位於福岡市中心：高砂距渡邊通站1號出口步行{tstation}分鐘，藥院也在步行範圍內；清川距渡邊通站1號出口步行{kstation}分鐘，建議搭計程車或自駕（開車到天神約8分鐘）。",
           },
           {
             q: "福岡市中心（市區）有包棟民宿嗎？",
-            a: "有。yah.homes 是位於福岡市中心（中央區）的包棟別墅：清川（中央區清川・最多7人・3間臥室・開車到天神約8分鐘）與高砂（中央區高砂・最多6人・渡邊通站步行5～10分鐘）。兩棟皆採密碼鎖無接觸自助入住，步行可達中洲、博多運河城、柳橋連合市場。",
+            a: "有。yah.homes 是位於福岡市中心（中央區）的包棟別墅：清川（中央區清川・最多7人・3間臥室・開車到天神約8分鐘）與高砂（中央區高砂・最多6人・渡邊通站步行{tstation}分鐘）。兩棟皆採密碼鎖無接觸自助入住，步行可達中洲、博多運河城、柳橋連合市場。",
           },
           {
             q: "每晚房價多少？在哪裡預訂？",
@@ -543,7 +543,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "มีวิลล่าสำหรับ 6 คนในฟุกุโอกะไหม?",
-            a: "มี yah.homes ทาคาซาโกะ คือวิลล่าเช่าทั้งหลังสำหรับสูงสุด {tcap} คน — {trooms} ห้องนอน (เตียงดับเบิล {tbd} + เตียงเดี่ยว {tbs}), ห้องส้วม {ttoilet} ห้อง และอ่างล้างหน้า {tsink} จุด กลุ่ม 6 คนก็ไม่ต้องต่อคิวตอนเช้า อยู่ใจกลางเมือง เดินจากสถานีวาตานาเบะโดริ 5–10 นาที หากมากัน {kcap} คน เลือกคิโยกาวะ (สูงสุด {kcap} คน)",
+            a: "มี yah.homes ทาคาซาโกะ คือวิลล่าเช่าทั้งหลังสำหรับสูงสุด {tcap} คน — {trooms} ห้องนอน (เตียงดับเบิล {tbd} + เตียงเดี่ยว {tbs}), ห้องส้วม {ttoilet} ห้อง และอ่างล้างหน้า {tsink} จุด กลุ่ม 6 คนก็ไม่ต้องต่อคิวตอนเช้า อยู่ใจกลางเมือง เดินจากสถานีวาตานาเบะโดริ {tstation} นาที หากมากัน {kcap} คน เลือกคิโยกาวะ (สูงสุด {kcap} คน)",
           },
           {
             q: "มีบ้านเช่าทั้งหลังใกล้เทนจินหรือสถานีฮากาตะไหม? สถานีที่ใกล้ที่สุดคือสถานีไหน?",
@@ -551,7 +551,7 @@ export const faqData: Record<string, FaqData> = {
           },
           {
             q: "มีวิลล่าเช่าทั้งหลังในตัวเมืองฟุกุโอกะไหม?",
-            a: "มี yah.homes คือวิลล่าเช่าทั้งหลัง 2 หลังในตัวเมืองฟุกุโอกะ (เขตชูโอ): คิโยกาวะ (สูงสุด {kcap} คน, {krooms} ห้องนอน, ขับรถถึงเทนจินประมาณ 8 นาที) และทาคาซาโกะ (สูงสุด {tcap} คน, เดินจากสถานีวาตานาเบะโดริ 5–10 นาที) ทั้งสองหลังเช็คอินด้วยตนเองแบบไร้สัมผัสผ่านล็อคนิรภัย และเดินถึงนากาสุ คาแนลซิตี้ และตลาดยานางิบาชิได้",
+            a: "มี yah.homes คือวิลล่าเช่าทั้งหลัง 2 หลังในตัวเมืองฟุกุโอกะ (เขตชูโอ): คิโยกาวะ (สูงสุด {kcap} คน, {krooms} ห้องนอน, ขับรถถึงเทนจินประมาณ 8 นาที) และทาคาซาโกะ (สูงสุด {tcap} คน, เดินจากสถานีวาตานาเบะโดริ {tstation} นาที) ทั้งสองหลังเช็คอินด้วยตนเองแบบไร้สัมผัสผ่านล็อคนิรภัย และเดินถึงนากาสุ คาแนลซิตี้ และตลาดยานางิบาชิได้",
           },
           {
             q: "ราคาต่อคืนเท่าไหร่ และจองได้ที่ไหน?",

@@ -104,7 +104,11 @@ function str(v: FsValue | undefined, fallback: string): string {
   return v?.stringValue ?? (v?.integerValue != null ? String(v.integerValue) : fallback);
 }
 
-let cache: { facts: Record<PropKey, PropertyFacts>; ratingAsOf: string } | null = null;
+export interface LodgingTax {
+  /** 福岡市宿泊税（1人1泊・円）。税抜宿泊料が threshold 以上なら high */
+  low: number; high: number; threshold: number;
+}
+let cache: { facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax } | null = null;
 
 /** Firestore のフィールドを型に写す。未設定・型違いはビルドを落とす（黙って既定値に倒さない）。 */
 function reqNum(f: Record<string, FsValue | undefined>, k: string, key: string): number {
@@ -119,7 +123,7 @@ function reqStr(f: Record<string, FsValue | undefined>, k: string, key: string):
 }
 
 /** ビルド時に一度だけ Firestore を読む。読めなければ例外を投げてビルドを落とす。 */
-export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, PropertyFacts>; ratingAsOf: string }> {
+export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, PropertyFacts>; ratingAsOf: string; tax: LodgingTax }> {
   if (cache) return cache;
 
   const res = await fetch(REST, { signal: AbortSignal.timeout(8000) });
@@ -128,10 +132,15 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
 
   const facts = {} as Record<PropKey, PropertyFacts>;
   let ratingAsOf = "";
+  let tax: LodgingTax | null = null;
   for (const doc of json.documents ?? []) {
     const key = doc.name.split("/").pop() as PropKey | "meta";
     const f = doc.fields ?? {};
-    if (key === "meta") { ratingAsOf = str(f.ratingAsOf, ""); continue; }
+    if (key === "meta") {
+      ratingAsOf = str(f.ratingAsOf, "");
+      tax = { low: num(f.taxLow, NaN), high: num(f.taxHigh, NaN), threshold: num(f.taxHighThreshold, NaN) };
+      continue;
+    }
     if (key !== "kiyokawa" && key !== "takasago") continue;
     const n = (k: string) => reqNum(f, k, key);
     const t = (k: string) => reqStr(f, k, key);
@@ -166,8 +175,10 @@ export async function getPropertyFacts(): Promise<{ facts: Record<PropKey, Prope
     if (!facts[key]) throw new Error(`[propertyFacts] property_facts/${key} が見つかりません。ビルドを中止します。`);
   }
   if (!ratingAsOf) throw new Error("[propertyFacts] property_facts/meta.ratingAsOf が未設定です。ビルドを中止します。");
+  if (!tax || !Number.isFinite(tax.low) || !Number.isFinite(tax.high) || !Number.isFinite(tax.threshold))
+    throw new Error("[propertyFacts] property_facts/meta の宿泊税（taxLow/taxHigh/taxHighThreshold）が未設定です。");
 
   console.log("[propertyFacts] Firestore から取得しました（SSoT）");
-  cache = { facts, ratingAsOf };
+  cache = { facts, ratingAsOf, tax };
   return cache;
 }

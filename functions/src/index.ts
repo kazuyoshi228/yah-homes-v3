@@ -307,9 +307,9 @@ const PARTNERS_NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp";
 /* パートナー申請フォームの選択肢。物件そのものではなく「フォームの仕様」なので
    property_facts からは導出しない（either=どちらでも可 / both=両方は宿ではない）。 */
 const PARTNER_PROPERTY_CHOICES = ["kiyokawa", "takasago", "either", "both"] as const;
-/* パートナー申請フォームの人数上限。予約の定員判定とは別物（申請は仮の希望人数で、
-   実際の定員判定は予約時に property_facts で行う）。安全側に振った固定値。 */
-const PARTNER_MAX_GUESTS = 7;
+/* パートナー申請フォームの人数上限。両棟のうち小さい方の定員（高砂6）に固定し、
+   どちらの棟でも受けられる人数だけ申請可能にする（2026-08-18 発注者判断）。 */
+const PARTNER_MAX_GUESTS = 6;
 
 /* 予約を受け付ける物件かどうかは property_facts の実在で判定する（2026-08-17 発注者判断）。
    コードに一覧を持つと SSoT が2箇所になるため置かない。
@@ -2358,6 +2358,7 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
           : null;
         const ciSfx = SP ? ` ${SP.checkinTime}〜` : "";
         const coSfx = SP ? ` 〜${SP.checkoutTime}` : "";
+        const FC = SP?.freeCancelDays || (await ssotProp("kiyokawa")).freeCancelDays;
         await transporter.sendMail({
           from: `"yah.homes" <${SMTP_USER.value()}>`,
           to: String(v.email),
@@ -2376,7 +2377,7 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
             `---`,
             ``,
             `ご宿泊の1週間前を目安に、住所・入室方法などのご案内をお送りします。`,
-            `日程の変更・キャンセルは7日前までにこのメールへご返信ください。`,
+            `日程の変更・キャンセルは${FC}日前までにこのメールへご返信ください。`,
             ``,
             `当日お会いできるのを楽しみにしています。`,
             ``,
@@ -2394,7 +2395,7 @@ export const partnersAdmin = onRequest({ region: REGION, maxInstances: MAX_INSTA
             ],
             blocks: [
               { title: "入室のご案内", body: "ご宿泊の1週間前を目安に、住所・入室方法などのご案内をお送りします。" },
-              { title: "変更・キャンセル", body: "日程の変更・キャンセルは7日前までに、このメールへご返信ください。" },
+              { title: "変更・キャンセル", body: `日程の変更・キャンセルは${FC}日前までに、このメールへご返信ください。` },
             ],
             note: "当日お会いできるのを楽しみにしています。",
           }),
@@ -3377,7 +3378,7 @@ function propName(prop: string): string {
    （2026-08-18 発注者判断・「読めなければ受けない」と同じ思想）。 */
 async function ssotProp(prop: string): Promise<{
   name: string; map: string; register: string; address: string; manual: string;
-  checkinTime: string; checkoutTime: string;
+  checkinTime: string; checkoutTime: string; freeCancelDays: number;
 }> {
   const key = prop === "test" ? "kiyokawa" : prop;
   const f = (await db.collection("property_facts").doc(key).get()).data();
@@ -3391,6 +3392,7 @@ async function ssotProp(prop: string): Promise<{
     register: String(f?.registerUrl ?? ""),
     address: zip && addr ? `〒${zip} ${addr}` : addr,
     checkinTime: ci, checkoutTime: co,
+    freeCancelDays: Number(f?.freeCancelDays ?? 0),
   };
 }
 
@@ -4568,14 +4570,14 @@ export const adminProperties = onRequest(
           if (!Number.isInteger(n) || n < 0 || n > 99999) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
           doc[f] = n;
         }
+        // 定員0は「予約を受けない」と同義になるため、うっかりの空欄では通さない
+        if (Number(doc.capacity) < 1) { res.status(400).json({ ok: false, error: "capacity_required" }); return; }
         // 最寄り駅名（文字列）
-        const ns = String(v.nearestStation ?? "").trim();
-        if (ns) doc.nearestStation = ns.slice(0, 40);
+        if (v.nearestStation !== undefined) doc.nearestStation = String(v.nearestStation ?? "").trim().slice(0, 40);   // 空=クリア
         // 間取り・部屋別ベッド内訳（文字列）
         for (const [f, max] of [["layoutLabel", 20], ["bedroomLayout", 200], ["parkingSize", 60], ["streetAddressEn", 60]] as const) {
           if (v[f] === undefined) continue;
-          const t = String(v[f] ?? "").trim();
-          if (t) doc[f] = t.slice(0, max);
+          doc[f] = String(v[f] ?? "").trim().slice(0, max);   // 空=クリア
         }
         /* 「地図を開く」の行き先（サイト・メール・チャットが全部ここを見る）。
            他所へ誘導されないよう https の Google マップに限る。 */
@@ -4584,41 +4586,44 @@ export const adminProperties = onRequest(
           if (m && !/^https:\/\/(maps\.app\.goo\.gl|(www\.|maps\.)?google\.com)\//.test(m)) {
             res.status(400).json({ ok: false, error: "invalid_mapUrl" }); return;
           }
-          if (m) doc.mapUrl = m.slice(0, 300);
+          doc.mapUrl = m.slice(0, 300);   // 空=クリア（2026-08-18 発注者判断）
         }
         /* 宿泊者名簿フォーム（確定メールが案内する先）。https のみ。 */
         if (v.registerUrl !== undefined) {
           const r = String(v.registerUrl ?? "").trim();
           if (r && !/^https:\/\//.test(r)) { res.status(400).json({ ok: false, error: "invalid_registerUrl" }); return; }
-          if (r) doc.registerUrl = r.slice(0, 400);
+          doc.registerUrl = r.slice(0, 400);   // 空=クリア
         }
         /* 住所（使い方ガイド・確定メール・My Page が読む） */
         for (const [f, max] of [["zip", 8], ["addressJa", 120], ["addressEn", 160]] as const) {
           if (v[f] === undefined) continue;
-          const t = String(v[f] ?? "").trim();
-          if (t) doc[f] = t.slice(0, max);
+          doc[f] = String(v[f] ?? "").trim().slice(0, max);   // 空=クリア
         }
         // チェックイン/アウト時刻（"16:00" 形式）
         // 直販の予約ルール（bookCreate が読む。未設定なら bookingRules が null → 503 で予約を断る）
         {
           const t = String(v.bookingCutoffTime ?? "").trim();
           if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffTime" }); return; }
-          if (t) doc.bookingCutoffTime = t;
+          if (!t) { res.status(400).json({ ok: false, error: "bookingCutoffTime_required" }); return; }
+          doc.bookingCutoffTime = t;
           const dRaw = String(v.bookingCutoffDays ?? "").trim();
-          if (dRaw) {
+          if (!dRaw) { res.status(400).json({ ok: false, error: "bookingCutoffDays_required" }); return; }
+          {
             const dNum = Number(dRaw);
             // 0＝当日まで受ける。前日10:00の案内メールに乗らないので、当日は別途の即時送信が要る。
             if (!Number.isInteger(dNum) || dNum < 0 || dNum > 90) { res.status(400).json({ ok: false, error: "invalid_bookingCutoffDays" }); return; }
             doc.bookingCutoffDays = dNum;
           }
           const mRaw = String(v.bookingMaxMonths ?? "").trim();
-          if (mRaw) {
+          if (!mRaw) { res.status(400).json({ ok: false, error: "bookingMaxMonths_required" }); return; }
+          {
             const m = Number(mRaw);
             if (!Number.isInteger(m) || m < 1 || m > 36) { res.status(400).json({ ok: false, error: "invalid_bookingMaxMonths" }); return; }
             doc.bookingMaxMonths = m;
           }
           const fcRaw = String(v.freeCancelDays ?? "").trim();
-          if (fcRaw !== "") {
+          if (fcRaw === "") { res.status(400).json({ ok: false, error: "freeCancelDays_required" }); return; }
+          {
             const fc = Number(fcRaw);
             if (!Number.isInteger(fc) || fc < 0 || fc > 90) { res.status(400).json({ ok: false, error: "invalid_freeCancelDays" }); return; }
             doc.freeCancelDays = fc;
@@ -4626,8 +4631,10 @@ export const adminProperties = onRequest(
         }
         for (const f of ["checkinTime", "checkoutTime"] as const) {
           const t = String(v[f] ?? "").trim();
-          if (t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
-          if (t) doc[f] = t;
+          // 空にすると予約・メールが止まるため、クリアは許さず明示的に拒否する
+          if (!t) { res.status(400).json({ ok: false, error: `${f}_required` }); return; }
+          if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { res.status(400).json({ ok: false, error: `invalid_${f}` }); return; }
+          doc[f] = t;
         }
         // 受付終了は空文字を許す（＝受付終了なし）。空でも書き込み、クリアできるようにする
         if (v.checkinEndTime !== undefined) {

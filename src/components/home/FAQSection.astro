@@ -23,7 +23,8 @@ const fill = (v: string) => baseFill(v)
   .replace(/\{krooms\}/g, String(K.bedrooms)).replace(/\{trooms\}/g, String(T.bedrooms))
   .replace(/\{kbd\}/g, String(K.bedDouble)).replace(/\{kbs\}/g, String(K.bedSingle))
   .replace(/\{tbd\}/g, String(T.bedDouble)).replace(/\{tbs\}/g, String(T.bedSingle))
-  .replace(/\{ttoilet\}/g, String(T.toilet)).replace(/\{tsink\}/g, String(T.sink));
+  .replace(/\{ttoilet\}/g, String(T.toilet)).replace(/\{tsink\}/g, String(T.sink))
+  .replace(/\{kstation\}/g, String(K.fromStationWalkMin)).replace(/\{tstation\}/g, String(T.fromStationWalkMin));
 const data = {
   ...rawData,
   categories: rawData.categories.map((c) => ({

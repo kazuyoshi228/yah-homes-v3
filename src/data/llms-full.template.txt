@@ -79,7 +79,7 @@ yah.homes is a curated collection of whole-house exclusive rental properties in 
 **Full address:** Takasago, Chuo-ku, Fukuoka, Japan
 **Type:** Whole-house exclusive rental — Maisonette-style independent building
 **Concept:** "Check In, Find Out." — experience Fukuoka's everyday richness like a local
-**Location:** Takasago, Chuo-ku, Fukuoka (within {{T_AIRPORT}} min from Fukuoka Airport by car; 5–10 min walk from Watanabe-dori Station Exit 1; Yakuin also walkable)
+**Location:** Takasago, Chuo-ku, Fukuoka (within {{T_AIRPORT}} min from Fukuoka Airport by car; {{T_STATION}} min walk from Watanabe-dori Station Exit 1; Yakuin also walkable)
 **Capacity:** Up to {{T_CAP}} guests
 **Bedrooms:** {{T_ROOMS}} bedrooms ({{T_BD}} double bed + {{T_BS}} single beds)
 **Layout:** 3LDK ({{T_ROOMS}} bedrooms, living/dining, kitchen, bathroom, shower booth, {{T_TOILET}} toilets, {{T_SINK}} washbasins)

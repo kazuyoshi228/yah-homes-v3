@@ -34,7 +34,7 @@ const BOOK_CREATE_ENDPOINT = ENDPOINTS.bookCreate;
 // Stripe 公開可能キー（公開値・本番 2026-08-16切替）。
 const STRIPE_PK = "pk_live_51U1ewCCG370fB3RJeWxRnblGwL4h4ng0aVfvBThLFy4EtbYiBaagBekwMISeTIyGa7MKeG1ixBtkLRXVT7FOkQcI00BosqsbUy";
 
-const { facts } = await getPropertyFacts();
+const { facts , tax: TAX_SSOT } = await getPropertyFacts();
 const HOUSE_META = {
   kiyokawa: { name: "yah.homes kiyokawa", image: PROPERTIES.kiyokawa.exterior, capacity: facts.kiyokawa.capacity,
               checkinTime: facts.kiyokawa.checkinTime, checkoutTime: facts.kiyokawa.checkoutTime,
@@ -193,6 +193,7 @@ const C = {
 
 /* 未登録通貨で「¥52,000 → ≈$52,000」と出す事故の芽を断つ。無ければ換算表示なし */
 const fxRate = FX_PER_JPY[t.fxCode] ?? 0;
+const TAX = TAX_SSOT;
 const uiStrings = {
   approx: t.approx, fxCode: t.fxCode, fxSymbol: t.fxSymbol, fxRate,
   total: C.total, missing: C.missing, authDone: C.authDone,
@@ -379,7 +380,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   </section>
 </SiteLayout>
 
-<script define:vars={{ FB_SDK, AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang, TERMS_VERSION }}>
+<script define:vars={{ TAX, FB_SDK, AVAIL_ENDPOINT, BOOK_CREATE_ENDPOINT, STRIPE_PK, BOOK_PATH, FB_CONFIG, HOUSE_META, uiStrings, lang, TERMS_VERSION }}>
   const $ = (id) => document.getElementById(id);
   const yen = (n) => `¥${n.toLocaleString("en-US")}`;
 
@@ -438,15 +439,15 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
     if (meta.checkinTime) $("co-in-time").textContent = uiStrings.checkinTime.replace("{t}", meta.checkinTime);
     if (meta.checkoutTime) $("co-out-time").textContent = uiStrings.checkoutTime.replace("{t}", meta.checkoutTime);
     $("co-house").textContent = meta.name;
-  // 料金内訳。Beds24 の見積は合計1本のため、宿泊税（福岡市: 1人1泊¥200・
-  // 税抜宿泊料が1人1泊¥20,000以上は¥500）を法定ルールで分離して表示する。
+  // 料金内訳。Beds24 の見積は合計1本のため、宿泊税（福岡市・条例値は
+  // SSoT property_facts/meta の taxLow/taxHigh/taxHighThreshold）を分離して表示する。
   // 定価(rack)は /book のカレンダー(price1)合計から表示専用で受け取る（正はサーバー見積）。
   const rackParam = Number(p.get("rack")) || 0;
   function renderBreakdown(total) {
     const el = $("co-breakdown");
     if (!el || !guests || !nights) return;
-    let taxRate = 200;
-    if ((total - taxRate * guests * nights) / (guests * nights) >= 20000) taxRate = 500;
+    let taxRate = TAX.low;
+    if ((total - taxRate * guests * nights) / (guests * nights) >= TAX.threshold) taxRate = TAX.high;
     const tax = taxRate * guests * nights;
     const room = total - tax;
     if (room <= 0) return;
