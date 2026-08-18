@@ -143,6 +143,15 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 - 次アクション候補：①Astro 雛形作成と UI 資産の移植設計図 → ②`firebase init`（Hosting/Functions/Firestore を `yah-homes` に紐付け）→ ③28 ページ（7×4 言語）の SSG 化。
 
 
+## 仕様書・設計書の書式（2026-08-18 発注者指示）
+
+- **仕様書・設計書・計画書はチャット出力で終わらせず、必ず `docs/*.md` として保存しコミットする**
+  （GitHub 上でそのまま閲覧・レビューできる形に統一）。
+- 命名は既存踏襲: `design_<題材>_v<版>.md` / `plan_<題材>_<YYYYMM>.md` / `analysis_…` 等。
+- 冒頭に必ず「起票日・状態（ドラフト＝未承認・未着工 ／ 承認済み）」を明記し、
+  承認・着工・完了のタイミングで状態行を更新する。
+- 表・コード枠・図を活かした GitHub レンダリング前提の Markdown で書く。
+
 ## SSoT・重複禁止の原則（2026-08-18 全面監査で確立・違反はビルドが落ちる）
 
 - **宿の事実（定員・時刻・住所・距離・設備・キャンセル日数）はコードに書かない。** 正本は Firestore `property_facts`（/admin/properties）。表示は `getPropertyFacts()`＋`{ci}/{co}/{cap}/{d}` 差し込み（`lib/factText.ts` の `makeFill`/`fillDeep`）、メールは `ssotProp()`。
