@@ -20,23 +20,6 @@ const TIMING = [
   { t: "キャンセル確認", w: "キャンセル成立の直後", trig: "My Pageのセルフキャンセル / 管理画面の返金", who: "公式サイトのみ" },
 ];
 
-/* 差し込み記号に入る実際の値。棟で違うものはここが正。 */
-const VALUES = [
-  { k: "施設名", kiyokawa: "yah.homes kiyokawa", takasago: "yah.homes takasago" },
-  { k: "チェックイン時刻", kiyokawa: "16:00", takasago: "16:00" },
-  { k: "チェックアウト時刻", kiyokawa: "10:00", takasago: "10:00" },
-  { k: "キーボックスの暗証番号", kiyokawa: "/admin/secrets/ で管理（オーナー専用）", takasago: "同左", secret: true },
-  { k: "入室マニュアルのURL", kiyokawa: "https://yah.homes/how-to/kiyokawa/", takasago: "https://yah.homes/how-to/takasago/" },
-  { k: "Google マップのURL（正本は物件情報）", kiyokawa: "https://maps.app.goo.gl/DP6xuPWf132uRrv76", takasago: "https://maps.app.goo.gl/Af1zTMDSM5NB11oZ6" },
-  { k: "宿泊者名簿フォームのURL", kiyokawa: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", takasago: "https://forms.zohopublic.jp/airstar1/form/yahhomestakasagoGuestRegistrationForm/formperma/t9QlFwTbkseWYDqB0n8-bcOH_8H36jaAPV5u8fNb-S4" },
-  { k: "問い合わせ電話番号", kiyokawa: "050-1721-4419", takasago: "050-1721-4419" },
-  { k: "チャットのURL", kiyokawa: "https://chat.yah.homes/kiyokawa", takasago: "https://chat.yah.homes/takasago" },
-  { k: "チャットQRコード（メール・how-toに自動挿入）", kiyokawa: "https://yah.homes/qr/chat-kiyokawa.png", takasago: "https://yah.homes/qr/chat-takasago.png" },
-  { k: "チャットQRコード（印刷用・高解像度）", kiyokawa: "https://yah.homes/qr/print/chat-kiyokawa-print.png", takasago: "https://yah.homes/qr/print/chat-takasago-print.png" },
-  { k: "My Page（直販のみ）", kiyokawa: "https://yah.homes/account/", takasago: "https://yah.homes/account/" },
-  { k: "レビュー投稿先", kiyokawa: "未決", takasago: "未決", todo: true },
-];
-
 /** 差し込み記号の一覧（本文に {{...}} で書く）。
     サーバーの許可リスト（functions MAIL_VARS）と1対1で一致させる。
     ここに無い記号は保存時に弾かれ、逆にここに載せた記号は必ず保存が通る。 */
@@ -86,7 +69,6 @@ const VARS = [
               <p class="tp-side-group">ガイド</p>
               <button type="button" class="tp-navlink" data-nav="timing">定型メール一覧</button>
               <button type="button" class="tp-navlink" data-nav="vars">差し込み記号</button>
-              <button type="button" class="tp-navlink" data-nav="values">情報テーブル</button>
               <p class="tp-side-group">メール文面</p>
               <div id="tp-side-mails"><p class="tp-side-empty">読み込み中...</p></div>
               <p class="tp-side-group">その他定型文</p>
@@ -116,7 +98,11 @@ const VARS = [
 
             <section class="tp-panel" data-panel="vars" hidden>
               <h2 class="tp-h2">差し込み記号</h2>
-              <p class="tp-note">メールの種類によって値が入らない記号は空文字になります（エラーにはなりません）。キーボックスの暗証番号は差し込み記号にはせず、チェックイン案内が自動で載せます（/admin/secrets が正）。</p>
+              <p class="tp-note">
+                記号に入る実際の値は<a href="/admin/properties/">物件情報</a>が正本です（施設ごとに開いて確認・変更できます）。
+                この画面には値の写しを置きません。メールの種類によって値が入らない記号は空文字になります（エラーにはなりません）。
+                キーボックスの暗証番号は差し込み記号にはせず、チェックイン案内が自動で載せます（<a href="/admin/secrets/">鍵の管理</a>が正）。
+              </p>
               <div class="tp-scroll">
                 <table class="tp-grid">
                   <thead><tr><th>記号</th><th>入る内容</th></tr></thead>
@@ -129,28 +115,6 @@ const VARS = [
               </div>
             </section>
 
-            <section class="tp-panel" data-panel="values" hidden>
-              <h2 class="tp-h2">情報テーブル</h2>
-              <div class="tp-scroll">
-                <table class="tp-grid">
-                  <thead><tr><th>入る内容</th><th>yah.homes kiyokawa</th><th>yah.homes takasago</th></tr></thead>
-                  <tbody>
-                    {VALUES.map((r) => (
-                      <tr>
-                        <td class="tp-strong">{r.k}</td>
-                        {[r.kiyokawa, r.takasago].map((val) => (
-                          <td class:list={[r.todo && "tp-todo", r.secret && "tp-dim", val.startsWith("http") && "tp-url"]}>
-                            {val.startsWith("http")
-                              ? <a href={val} target="_blank" rel="noopener">{val}</a>
-                              : val}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
 
             <div id="tp-list"></div>
             <p class="tp-status" id="tp-status" role="status"></p>

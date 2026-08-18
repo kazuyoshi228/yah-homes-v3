@@ -85,8 +85,13 @@ async function cardSvg(key, url) {
       rects += `<rect x="${(QR_X + c * m).toFixed(2)}" y="${(QR_Y + r * m).toFixed(2)}" width="${m.toFixed(2)}" height="${m.toFixed(2)}"/>\n`;
     }
   }
-  const F = "Helvetica, Arial, sans-serif";
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 1480">
+  /* 多言語の1行があるため、日本語・韓国語・中国語・タイ語の字体まで指定する。
+     XML宣言が無いと、閲覧・印刷ソフトが UTF-8 と判断できず文字化けする
+     （2026-08-18 発注者報告・清川の旧カードも同じ状態だった）。 */
+  const F = "Helvetica, Arial, 'Hiragino Sans', 'Noto Sans JP', 'Noto Sans KR', " +
+    "'Noto Sans SC', 'Noto Sans Thai', 'Apple SD Gothic Neo', sans-serif";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 1480">
 <rect width="1050" height="1480" fill="#FFFFFF"/>
 ${LOGO}
 <text x="525" y="298" text-anchor="middle" font-family="${F}" font-weight="600" font-size="44" fill="#1A1A1A">yah.${key}</text>

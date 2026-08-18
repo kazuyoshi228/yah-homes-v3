@@ -7,6 +7,7 @@ import { CHAT_PROPS } from "../../../data/adminChatInfo";
 import { ENDPOINTS } from "../../../lib/adminConfig";
 import { FB_CONFIG } from "../../../lib/adminConfig";
 import { existsSync } from "node:fs";
+import { getPropertyFacts } from "../../../lib/propertyFacts";
 import { resolve } from "node:path";
 
 const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
@@ -59,6 +60,7 @@ const SECTIONS: { label: string; rows: FactRow[] }[] = [
       { key: "fromStationWalkMin", label: "駅から（徒歩・分）", type: "num", unit: "分" },
       { key: "nearestStation", label: "最寄り駅", type: "text", placeholder: "渡辺通" },
       { key: "mapUrl", label: "Google マップのURL", type: "text", placeholder: "https://maps.app.goo.gl/…", note: "サイト・メール・チャットの「地図を開く」がすべてここを見ます" },
+      { key: "registerUrl", label: "宿泊者名簿フォームのURL", type: "text", placeholder: "https://…", note: "予約確定メールが案内する先" },
       { key: "toTenjinWalkMin", label: "天神まで（徒歩・分）", type: "num", unit: "分" },
       { key: "toHakataWalkMin", label: "博多駅まで（徒歩・分）", type: "num", unit: "分" },
     ],
@@ -118,8 +120,26 @@ const QR_FILES = {
 // import.meta.url はビルド後の位置を指すため使わない。ビルドはプロジェクト直下で走る。
 const HAS_QR = existsSync(resolve(process.cwd(), `public${QR_FILES.screen}`));
 const CHAT_URL = `https://chat.yah.homes/${propKey}`;
+
 const propLabel = CHAT_PROPS.find((p) => p.key === propKey)!.label;
 const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
+/* 基本情報（旧・定型メール管理の「情報テーブル」をここへ集約・2026-08-18 発注者指示）。
+   値は写しを置かない: SSoT（property_facts）から読むか、施設キーから組み立てる。 */
+const FACTS_ALL = HAS_FACTS ? (await getPropertyFacts()).facts[propKey as "kiyokawa" | "takasago"] : null;
+const BASICS: { k: string; v: string; src: string; link?: boolean; todo?: boolean }[] = FACTS_ALL ? [
+  { k: "施設名", v: `yah.homes ${propKey}`, src: "施設キーから自動" },
+  { k: "チェックイン時刻", v: FACTS_ALL.checkinTime, src: "このページの「施設概要」" },
+  { k: "チェックアウト時刻", v: FACTS_ALL.checkoutTime, src: "このページの「施設概要」" },
+  { k: "Google マップのURL", v: FACTS_ALL.mapUrl, src: "このページの「施設概要」", link: true },
+  { k: "宿泊者名簿フォームのURL", v: FACTS_ALL.registerUrl, src: "このページの「施設概要」", link: true },
+  { k: "入室マニュアルのURL", v: `https://yah.homes/how-to/${propKey}/`, src: "施設キーから自動", link: true },
+  { k: "チャットのURL", v: CHAT_URL, src: "施設キーから自動", link: true },
+  { k: "チャットQRコード", v: `https://yah.homes${QR_FILES.screen}`, src: "このページの「QRコード」", link: true },
+  { k: "問い合わせ電話番号", v: "050-1721-4419", src: "運営の共通値" },
+  { k: "My Page（直販のみ）", v: "https://yah.homes/account/", src: "固定", link: true },
+  { k: "キーボックスの暗証番号", v: "鍵の管理（/admin/secrets/）で管理・オーナー専用", src: "鍵の管理" },
+  { k: "レビュー投稿先", v: "未決", src: "未決", todo: true },
+] : [];
 const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
 ---
 
@@ -149,13 +169,37 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       <div id="ap-app" hidden>
         <div class="ap-layout">
           <nav class="ap-side" aria-label="ページ内メニュー">
-            {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="overview">概要</button>}
+            {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="basics">基本情報</button>}
+            {HAS_FACTS && <button type="button" class="ap-side-link" data-view="overview">施設概要</button>}
             <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
             <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
           </nav>
           <div class="ap-main">
 
-        <div id="ap-view-overview" hidden={!HAS_FACTS}>
+        <div id="ap-view-basics" hidden={!HAS_FACTS}>
+          <p class="ap-note">
+            メールやチャットが使う「この施設の基本の値」です。値の正本はここか、施設キーから自動で決まるものだけで、
+            写しは他の画面に置いていません。時刻・地図・名簿フォームは「施設概要」で変更できます。
+          </p>
+          <div class="ap-tablewrap">
+            <table class="ap-basics">
+              <thead><tr><th>項目</th><th>値</th><th>変更する場所</th></tr></thead>
+              <tbody>
+                {BASICS.map((b) => (
+                  <tr>
+                    <th>{b.k}</th>
+                    <td class:list={[b.todo && "ap-todo"]}>
+                      {b.link ? <a href={b.v} target="_blank" rel="noopener">{b.v}</a> : b.v}
+                    </td>
+                    <td class="ap-basics-src">{b.src}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="ap-view-overview" hidden>
         <p class="ap-warn" id={`ap-warn-${propKey}`} hidden></p>
         <div class="ap-tablewrap">
           <table class="ap-table">
@@ -278,21 +322,25 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
               !document.getElementById("ap-view-overview")!.hasAttribute("hidden") ||
               document.querySelector('[data-view="overview"]') !== null;
   const switchView = (view: string) => {
+    const ba = document.getElementById("ap-view-basics");
     const ov = document.getElementById("ap-view-overview");
     const ch = document.getElementById("ap-view-chat");
     const qr = document.getElementById("ap-view-qr");
+    if (ba) ba.hidden = view !== "basics";
     if (ov) ov.hidden = view !== "overview";
     if (ch) ch.hidden = view !== "chat";
     if (qr) qr.hidden = view !== "qr";
+    // 非表示のあいだは高さを測れない。表示に切り替わったここでやり直す
+    if (view === "chat") requestAnimationFrame(() => (window as unknown as { __yahGrowChat?: () => void }).__yahGrowChat?.());
     document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
       b.classList.toggle("is-active", b.dataset.view === view));
-    history.replaceState(null, "", view === "overview" ? location.pathname : `#${view}`);
+    history.replaceState(null, "", view === "basics" ? location.pathname : `#${view}`);
   };
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
   const hash = location.hash.replace("#", "");
-  if (hash === "chat" || hash === "qr") switchView(hash);
-  else if (!document.querySelector('[data-view="overview"]')) switchView("chat");
+  if (hash === "chat" || hash === "qr" || hash === "overview") switchView(hash);
+  else if (!document.querySelector('[data-view="basics"]')) switchView("chat");
 </script>
 
 <script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS, PROP: propKey, HAS_FACTS }}>
@@ -345,6 +393,21 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       return m ? m[1] : PROP;
     }
     let chatEditable = false;
+    /* 入力欄の高さは中身に合わせて広げる。ただし表示されていない間は scrollHeight が 0 に
+       なるため、そのまま確定させると「行はあるのに中身が見えない」状態になる
+       （#chat で開いた直後に起きていた・2026-08-18 発注者報告）。測れないときは触らず、
+       表示に切り替わったタイミングで growAll() をやり直す。 */
+    const grow = (el) => {
+      const prev = el.style.height;
+      el.style.height = "auto";
+      const h = el.scrollHeight;
+      el.style.height = h > 0 ? `${h}px` : prev;
+    };
+    function growAll() {
+      document.querySelectorAll("#ap-chat-tbody textarea").forEach(grow);
+    }
+    // ビュー切替スクリプト（別ブロック）から呼べるようにする
+    window.__yahGrowChat = growAll;
     /* 分類の見出し行。編集時は名前を書き換え可・「＋」でその分類の末尾に行を足す。
        分類はデータ上は各行の cat フィールド（保存時に見出しから割り当て直す）。 */
     function catRow(name) {
@@ -376,7 +439,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <td><textarea class="ap-chat-a" rows="1"></textarea></td>
           <td class="ap-chat-rowop"><button type="button" class="ap-chat-del" title="この行を削除" aria-label="この行を削除">×</button></td>`;
         // 内容に合わせて高さを自動調整（枠の高さを揃え、表として読めるように）
-        const grow = (el) => { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; };
         tr.querySelectorAll("textarea").forEach((el) => {
           el.addEventListener("input", () => grow(el));
         });
@@ -407,6 +469,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       $("ap-chat-empty").hidden = rows.length > 0 || canEdit;
       $("ap-chat-savebar").hidden = !canEdit;
       $("ap-chat-exportbar").hidden = rows.length === 0;
+      requestAnimationFrame(growAll);
     }
     $("ap-chat-addrow")?.addEventListener("click", () => $("ap-chat-tbody").append(chatRow("", "")));
     /* 画面の表をそのまま書き出す（分類・設問・回答の3列）。編集中の未保存の内容も
@@ -631,6 +694,17 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-warn { font-size: 0.82rem; color: #b3261e; line-height: 1.8; margin-bottom: 0.5rem; }
   :global(.ap-missing) { border-color: #b3261e !important; background: #fdf3f2; }
   .ap-note { font-size: 0.8rem; color: #666666; line-height: 1.8; margin-bottom: 1rem; }
+  .ap-basics { width: 100%; border-collapse: collapse; }
+  .ap-basics th, .ap-basics td {
+    text-align: left; vertical-align: top; padding: 0.9rem 1rem 0.9rem 0;
+    border-bottom: 1px solid #e5e5e5; font-size: 0.84rem; line-height: 1.9;
+  }
+  .ap-basics thead th { font-size: 0.75rem; color: #666666; border-bottom: 1px solid #d7d7d7; }
+  .ap-basics tbody th { width: 26%; font-weight: 500; color: #111111; }
+  .ap-basics td { color: #333333; word-break: break-all; }
+  .ap-basics td a { color: #111111; }
+  .ap-basics-src { width: 22%; color: #888888; font-size: 0.78rem; word-break: normal; }
+  .ap-todo { color: #b3261e; }
   .ap-qr { display: flex; gap: 1.75rem; align-items: flex-start; flex-wrap: wrap; margin-top: 1.5rem; }
   .ap-qr-img { border: 1px solid #e8e8e8; border-radius: 6px; }
   .ap-qr-body { flex: 1; min-width: 260px; }

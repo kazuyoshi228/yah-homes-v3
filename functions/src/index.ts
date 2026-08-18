@@ -1068,7 +1068,7 @@ async function buildLifecycleMail(
   b: BookingDoc & Record<string, unknown>,
 ): Promise<{ subject: string; text: string; html: string }> {
   const lang = String(b.lang ?? "en");
-  const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
+  const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: (await ssotLinks(String(b.prop))).map };
   const nights = Math.round((Date.parse(b.checkout) - Date.parse(b.checkin)) / 86400000);
   const no = bookingId.slice(0, 8).toUpperCase();
   const myPage = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}account/`;
@@ -3347,12 +3347,12 @@ const MAIL_FROM = "contact@mail.yah.homes";
 
 /** 「地図を開く」の行き先は SSoT（property_facts/{prop}.mapUrl）が正本。
     MAIL_PROP には持たない。読めなければ地図ブロックを出さない（誤った場所へ送らない）。 */
-async function mapUrlOf(prop: string): Promise<string> {
+async function ssotLinks(prop: string): Promise<{ map: string; register: string }> {
   try {
     const key = prop === "test" ? "kiyokawa" : prop;
     const f = (await db.collection("property_facts").doc(key).get()).data();
-    return String(f?.mapUrl ?? "");
-  } catch { return ""; }
+    return { map: String(f?.mapUrl ?? ""), register: String(f?.registerUrl ?? "") };
+  } catch { return { map: "", register: "" }; }
 }
 
 const MAIL_PROP = {
@@ -3361,7 +3361,7 @@ const MAIL_PROP = {
     image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
     address: "〒810-0005 福岡県福岡市中央区清川3-3-1",
     map: "https://www.google.com/maps/search/?api=1&query=33.57879181728365,130.4126724730762",
-    register: "https://zfrmz.jp/TcYXUliEZ84JkJSVzSLi", // 宿泊者名簿フォーム（旅館業法）
+    register: "",   // ← SSoT（property_facts.registerUrl）から実行時に入れる
     manual: "https://yah.homes/how-to/kiyokawa/", // 入室案内ページ
   },
   takasago: {
@@ -3369,7 +3369,7 @@ const MAIL_PROP = {
     image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
     address: "",
     map: "",   // ← SSoT（property_facts.mapUrl）から実行時に入れる
-    register: "https://forms.zohopublic.jp/airstar1/form/yahhomestakasagoGuestRegistrationForm/formperma/t9QlFwTbkseWYDqB0n8-bcOH_8H36jaAPV5u8fNb-S4", // 宿泊者名簿フォーム（旅館業法・2026-08-18 Zohoフォームへ差し替え）
+    register: "",   // ← SSoT（property_facts.registerUrl）から実行時に入れる
     manual: "https://yah.homes/how-to/takasago/", // 入室案内ページ
   },
   test: {
@@ -3566,7 +3566,9 @@ async function buildConfirmationMailFor(
     const LOC: Record<string, string> = { ja: "ja-JP", en: "en-US", ko: "ko-KR", zh: "zh-TW", th: "th-TH" };
     const registerDeadline = new Date(Date.parse(`${b.checkin}T00:00:00+09:00`) - 2 * 86400000)
       .toLocaleDateString(LOC[lang] ?? "en-US", { timeZone: "Asia/Tokyo", dateStyle: "long" });
-    const P0 = { ...(MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
+    const links = await ssotLinks(String(b.prop));
+    const P0 = { ...(MAIL_PROP[b.prop] ?? { name: String(b.prop), image: "", address: "", map: "" }),
+      map: links.map, register: links.register };
     const strings = expandMailVars(await mailStrings("confirm", lang), {
       guestName: String(b.name ?? ""), bookingNo: bookingId.slice(0, 8).toUpperCase(),
       propertyName: P0.name, guests: String(b.guests ?? ""),
@@ -3678,7 +3680,7 @@ async function buildCancellationMail(
 ): Promise<{ subject: string; text: string; html: string }> {
   {
     const lang = String(b.lang ?? "en");
-    const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: await mapUrlOf(String(b.prop)) };
+    const P = { ...(MAIL_PROP[b.prop] ?? { name: b.prop, image: "", address: "", map: "" }), map: (await ssotLinks(String(b.prop))).map };
     const yen = (n: number) => `¥${Number(n).toLocaleString("en-US")}`;
     const no = bookingId.slice(0, 8).toUpperCase();
     const L = expandMailVars(await mailStrings("cancel", lang), {
@@ -4537,6 +4539,12 @@ export const adminProperties = onRequest(
             res.status(400).json({ ok: false, error: "invalid_mapUrl" }); return;
           }
           if (m) doc.mapUrl = m.slice(0, 300);
+        }
+        /* 宿泊者名簿フォーム（確定メールが案内する先）。https のみ。 */
+        if (v.registerUrl !== undefined) {
+          const r = String(v.registerUrl ?? "").trim();
+          if (r && !/^https:\/\//.test(r)) { res.status(400).json({ ok: false, error: "invalid_registerUrl" }); return; }
+          if (r) doc.registerUrl = r.slice(0, 400);
         }
         // チェックイン/アウト時刻（"16:00" 形式）
         // 直販の予約ルール（bookCreate が読む。未設定なら既定値で動く）
