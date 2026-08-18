@@ -19,7 +19,7 @@
 ゲスト送信（My Page /account → messagesApi・既存 threads）
   → functions: aiDraftReply（新設）
       入力: スレッド履歴＋予約コンテキスト（bookings: 棟/日程/人数/registeredAt/言語）
-      注入: property_facts＋chatInfo＋RAG（chat側 facilityContext / propertyFacts utils を共通化）
+      注入: property_facts＋chatInfo＋RAG（メッセージ専用インデックスを別立て・下記）
       モデル: Vertex AI Gemini（chat側と同系・asia-northeast1）
       判定: エスカレーション条件（chat側の規則を流用）
   → モード（Firestore settings/messagesAi.mode で切替）
@@ -45,8 +45,12 @@
 | P2 | auto-limited モード（トピック判定・免責フッター・モード切替UI=共通情報ビューに追加） | +0.5日 |
 | P3 | 運用データを見て自動範囲の拡大を判断（本設計の範囲外） | — |
 
-- chat側資産の共通化はコード移植（コピー）で開始し、将来 shared 化を検討
-  （リポジトリ分離のため。プロンプトの二重管理にならないよう、事実は全てSSoT注入で持つ）
+- **RAGはメッセージ専用に別立て**（2026-08-18 発注者判断）: chat側インデックスを呼ばず、
+  独自インデックスを持つ。リポジトリ間依存を作らず、予約後ゲスト向けに収録を
+  チューニング（名簿手順・変更/返金手続き・入室トラブルを厚く）
+- ズレ防止の条件: **ソース定義（同期対象URLリスト）は共有**し、両インデックスは同じ定義から
+  日次生成する。インデックスは派生物であり正本はページ（SSoT駆動）＝二重の正本にはならない
+- プロンプトに事実の数字を書かない原則は共通（全てSSoT注入）
 
 ## 5. コスト・計測
 
