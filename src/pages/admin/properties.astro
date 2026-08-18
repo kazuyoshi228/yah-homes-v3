@@ -200,7 +200,6 @@ const HOUSES = [
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
              静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
         <div id="ap-view-chat" hidden>
-          <h2 class="ap-house">チャット用情報</h2>
           <nav class="ap-chat-props" aria-label="施設の切替">
             {CHAT_PROPS.map((p, i) => (
               <button type="button" class:list={["ap-chat-prop", i === 0 && "is-active"]} data-chatprop={p.key}>{p.label}</button>
