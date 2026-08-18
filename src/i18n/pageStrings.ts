@@ -8,6 +8,7 @@
 
 export const howtoUI = {
   ja: {
+    chatLead: "不明点については、まずはお気軽にchatにお聞きください。",
     helpChat: "チャットで質問する",
     eyebrow: "チェックイン案内", sub: "ご到着までの流れ",
     s1: "住所と地図", s1sub: "まずはこの場所へ",
@@ -27,6 +28,7 @@ export const howtoUI = {
     helpCall: "電話でのご連絡",
   },
   en: {
+    chatLead: "If anything is unclear, feel free to ask us in the chat first.",
     helpChat: "Chat with us",
     eyebrow: "Check-in guide", sub: "Getting to the house",
     s1: "Address & map", s1sub: "Head here first",
@@ -46,6 +48,7 @@ export const howtoUI = {
     helpCall: "Call us",
   },
   ko: {
+    chatLead: "궁금한 점은 먼저 부담 없이 채팅으로 문의해 주세요.",
     helpChat: "채팅으로 문의하기",
     eyebrow: "체크인 안내", sub: "도착까지의 흐름",
     s1: "주소와 지도", s1sub: "먼저 이곳으로",
@@ -65,6 +68,7 @@ export const howtoUI = {
     helpCall: "전화 연락",
   },
   zh: {
+    chatLead: "如有任何疑問，請先透過聊天輕鬆詢問我們。",
     helpChat: "線上聊天諮詢",
     eyebrow: "入住指南", sub: "抵達前的流程",
     s1: "地址與地圖", s1sub: "請先前往這裡",
@@ -84,6 +88,7 @@ export const howtoUI = {
     helpCall: "電話聯繫",
   },
   th: {
+    chatLead: "หากมีข้อสงสัย สามารถสอบถามผ่านแชทได้เลย",
     helpChat: "สอบถามผ่านแชท",
     eyebrow: "คู่มือเช็คอิน", sub: "ขั้นตอนก่อนถึงที่พัก",
     s1: "ที่อยู่และแผนที่", s1sub: "เดินทางมาที่นี่ก่อน",

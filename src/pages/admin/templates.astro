@@ -234,6 +234,17 @@ const VARS = [
             </div>`;
           }).join("")}
 
+          ${["confirm", "checkin", "checkout", "review"].includes(kind) ? `
+          <div class="tp-field2 tp-chatinfo">
+            <label class="tp-flabel">Support Chat（チャット導線）<span class="tp-badge">自動挿入</span></label>
+            <p class="tp-chatnote">
+              フッターの直前に、予約の棟に応じた施設別のチャットボタン＋QRコード
+              （https://chat.yah.homes/清川|高砂）が自動で入ります。5言語対応・文言は固定で、
+              このページからの編集対象外です。実際の見た目は
+              <a href="/admin/mail-preview/#${esc(kind)}">メールプレビュー</a>で確認できます。
+            </p>
+          </div>` : ""}
+
           <div class="tp-actions">
             <button type="button" class="tp-btn" data-save="${esc(kind)}">保存する</button>
             <button type="button" class="tp-btn-sub" data-test="${esc(kind)}">自分宛にテスト送信</button>
@@ -482,4 +493,7 @@ const VARS = [
   #tp-list :global(.tp-actions) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
   #tp-list :global(.tp-saved) { font-size: 0.78rem; color: #555555; }
   a.tp-eyebrow { display: block; text-decoration: none; }
+  :global(.tp-chatinfo) { background: #fafafa; border-radius: 6px; padding: 0.8rem 1rem; }
+  :global(.tp-chatnote) { font-size: 0.8rem; color: #555555; line-height: 1.9; margin: 0.3rem 0 0; }
+  :global(.tp-chatnote a) { color: #111111; }
 </style>
