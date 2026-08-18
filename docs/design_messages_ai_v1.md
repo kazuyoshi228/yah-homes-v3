@@ -22,7 +22,7 @@
       注入: property_facts＋chatInfo＋RAG（メッセージ専用インデックスを別立て・下記）
       モデル: Vertex AI Gemini（chat側と同系・asia-northeast1）
       判定: エスカレーション条件（chat側の規則を流用）
-  → モード（Firestore settings/messagesAi.mode で切替）
+  → モード（正本: property_facts/meta.messagesAi ＝共通情報ビューが編集口・未設定は off に倒す安全側）
       "draft" : AI下書きを thread に保存 → /admin/messages に下書きカード（編集して送信/破棄）
       "auto-limited": FAQ的トピックのみ自動送信＋運営へ控え通知。他は draft に落とす
       "off"  : 何もしない（現行どおり）
