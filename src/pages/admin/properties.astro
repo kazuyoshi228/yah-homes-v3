@@ -3,6 +3,7 @@
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { CHAT_INFO } from "../../data/adminChatInfo";
 import { ENDPOINTS } from "../../lib/adminConfig";
 import { FB_CONFIG } from "../../lib/adminConfig";
 
@@ -123,6 +124,14 @@ const HOUSES = [
       </div>
 
       <div id="ap-app" hidden>
+        <div class="ap-layout">
+          <nav class="ap-side" aria-label="ページ内メニュー">
+            <button type="button" class="ap-side-link is-active" data-view="overview">概要</button>
+            <button type="button" class="ap-side-link" data-view="chat">チャット用情報</button>
+          </nav>
+          <div class="ap-main">
+
+        <div id="ap-view-overview">
         <div class="ap-tablewrap">
           <table class="ap-table">
             <thead>
@@ -190,10 +199,48 @@ const HOUSES = [
         </section>
 
         <p class="ap-status" id="ap-status" role="status"></p>
+        </div>
+
+        <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
+             静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
+        <div id="ap-view-chat" hidden>
+          <h2 class="ap-house">チャット用情報</h2>
+          <p class="ap-note">
+            ゲストからのチャット問い合わせに答えるときの参照表です。
+            「チャットで絶対に案内しない情報」の行を必ず守ってください。
+          </p>
+          <table class="ap-chat-table">
+            <thead><tr><th>設問</th><th>回答</th></tr></thead>
+            <tbody>
+              {CHAT_INFO.map((r) => (
+                <tr><th>{r.q}</th><td>{r.a}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </SiteLayout>
+
+<script>
+  // サイドバーのビュー切替。URLハッシュ（#chat）にも対応し、リロードしても維持する
+  const switchView = (view: string) => {
+    const ov = document.getElementById("ap-view-overview");
+    const ch = document.getElementById("ap-view-chat");
+    if (ov) ov.hidden = view !== "overview";
+    if (ch) ch.hidden = view !== "chat";
+    document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.view === view));
+    history.replaceState(null, "", view === "chat" ? "#chat" : location.pathname);
+  };
+  document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
+    b.addEventListener("click", () => switchView(b.dataset.view ?? "overview")));
+  if (location.hash === "#chat") switchView("chat");
+</script>
 
 <script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS }}>
   import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
@@ -294,7 +341,31 @@ const HOUSES = [
 
 <style>
   .ap { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
-  .ap-container { max-width: 880px; margin: 0 auto; }
+  .ap-container { max-width: 1080px; margin: 0 auto; }
+  .ap-layout { display: flex; gap: 2rem; align-items: flex-start; }
+  .ap-side {
+    flex: 0 0 168px; position: sticky; top: 76px;
+    display: flex; flex-direction: column; gap: 0.25rem;
+  }
+  .ap-side-link {
+    text-align: left; font-family: inherit; font-size: 0.85rem; color: #555555;
+    background: none; border: 0; border-radius: 5px; padding: 0.55rem 0.8rem; cursor: pointer;
+  }
+  .ap-side-link:hover { background: #f5f5f5; color: #111111; }
+  .ap-side-link.is-active { background: #111111; color: #ffffff; }
+  .ap-main { flex: 1; min-width: 0; }
+  .ap-chat-table { width: 100%; border-collapse: collapse; }
+  .ap-chat-table th, .ap-chat-table td {
+    text-align: left; vertical-align: top; padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #f0f0f0; font-size: 0.84rem; line-height: 1.8;
+  }
+  .ap-chat-table thead th { font-size: 0.75rem; color: #666666; border-bottom: 1px solid #d7d7d7; }
+  .ap-chat-table tbody th { width: 34%; font-weight: 500; color: #111111; }
+  .ap-chat-table tbody td { color: #333333; white-space: pre-line; }
+  @media (max-width: 760px) {
+    .ap-layout { flex-direction: column; }
+    .ap-side { position: static; flex-direction: row; width: 100%; }
+  }
   .ap-eyebrow { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; }
   .ap-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.75rem; }
   .ap-lead { font-size: 0.85rem; color: #555555; line-height: 1.9; margin-bottom: 2.5rem; }
