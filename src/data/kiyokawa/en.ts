@@ -290,7 +290,7 @@ export const en: KiyokawaTranslations = {
       items: [
         "Please keep the property clean. Additional cleaning fees may apply for excessive mess or left rubbish.",
         "Lost or damaged items will be charged at replacement cost.",
-        "Exceeding the declared number of guests will incur a surcharge of ¥5,000 per extra person.",
+        "Exceeding the declared number of guests will incur a surcharge of ¥{xfee} per extra person.",
         "Please sort rubbish according to the bin guide provided.",
         "Pets are not allowed (guide dogs permitted with prior notice).",
         "A city accommodation tax (set by Fukuoka City) applies in addition to the room rate.",
