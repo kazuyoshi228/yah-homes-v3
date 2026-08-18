@@ -6,8 +6,11 @@ import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { CHAT_PROPS } from "../../../data/adminChatInfo";
 import { ENDPOINTS } from "../../../lib/adminConfig";
 import { FB_CONFIG } from "../../../lib/adminConfig";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 const PROPS_ENDPOINT = ENDPOINTS.adminProperties;
+
 
 // 比較表の行定義（セクション見出し + 行）。数値＝そのまま入力／有無＝1か0
 interface FactRow { key: string; label: string; type: "num" | "text" | "bool" | "time"; unit?: string; placeholder?: string; indent?: boolean; note?: string }
@@ -103,6 +106,18 @@ export function getStaticPaths() {
   return CHAT_PROPS.map((p) => ({ params: { prop: p.key } }));
 }
 const propKey = Astro.params.prop as (typeof CHAT_PROPS)[number]["key"];
+/* QRコードはこのページが唯一の入口（2026-08-18 発注者承認）。
+   実体は public/qr/（scripts/gen-qr.mjs がチャット側の施設マスタから生成）。
+   ここではファイルの有無だけを見る＝施設一覧を二重に持たない。 */
+const QR_FILES = {
+  screen: `/qr/chat-${propKey}.png`,
+  print: `/qr/print/chat-${propKey}-print.png`,
+  cardSvg: `/qr/print/chat-${propKey}-card-a6.svg`,
+  cardPng: `/qr/print/chat-${propKey}-card-a6.png`,
+};
+// import.meta.url はビルド後の位置を指すため使わない。ビルドはプロジェクト直下で走る。
+const HAS_QR = existsSync(resolve(process.cwd(), `public${QR_FILES.screen}`));
+const CHAT_URL = `https://chat.yah.homes/${propKey}`;
 const propLabel = CHAT_PROPS.find((p) => p.key === propKey)!.label;
 const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
 const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
@@ -136,6 +151,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           <nav class="ap-side" aria-label="ページ内メニュー">
             {HAS_FACTS && <button type="button" class="ap-side-link is-active" data-view="overview">概要</button>}
             <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
+            <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
           </nav>
           <div class="ap-main">
 
@@ -220,6 +236,34 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             <span class="ap-saved" id="ap-chat-saved"></span>
           </div>
         </div>
+        <div id="ap-view-qr" hidden>
+          <p class="ap-note">
+            お客様がチャットを開くためのQRコードです。ここが唯一の配布元で、
+            <strong>メール4通（予約確定・前日案内・チェックアウト・レビュー依頼）と使い方ガイドには自動で載ります</strong>。
+            貼り替えの作業は要りません。印刷して現地に置く場合だけ、下からダウンロードしてください。
+          </p>
+          {HAS_QR ? (
+            <div class="ap-qr">
+              <img class="ap-qr-img" src={QR_FILES.screen} width="200" height="200" alt={`QR: ${CHAT_URL}`} />
+              <div class="ap-qr-body">
+                <p class="ap-qr-url">{CHAT_URL}</p>
+                <div class="ap-qr-dl">
+                  <a class="ap-btn-sub" href={QR_FILES.cardSvg} download>A6カード SVG（印刷推奨）</a>
+                  <a class="ap-btn-sub" href={QR_FILES.cardPng} download>A6カード PNG</a>
+                  <a class="ap-btn-sub" href={QR_FILES.print} download>QRのみ（印刷用2048px）</a>
+                  <a class="ap-btn-sub" href={QR_FILES.screen} download>QRのみ（画面用360px）</a>
+                </div>
+                <p class="ap-qr-note">
+                  施設が増えたときは、チャット側で公開すれば次回の「サイトに反映」で自動的に発行されます。
+                  URLは施設ごとに固定なので、QRを作り直す必要はありません。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p class="ap-note">この施設はまだチャットを公開していないため、QRコードはありません。チャット側で公開すると自動的に発行されます。</p>
+          )}
+        </div>
+
 
           </div>
         </div>
@@ -236,15 +280,19 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   const switchView = (view: string) => {
     const ov = document.getElementById("ap-view-overview");
     const ch = document.getElementById("ap-view-chat");
+    const qr = document.getElementById("ap-view-qr");
     if (ov) ov.hidden = view !== "overview";
     if (ch) ch.hidden = view !== "chat";
+    if (qr) qr.hidden = view !== "qr";
     document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
       b.classList.toggle("is-active", b.dataset.view === view));
-    history.replaceState(null, "", view === "chat" ? "#chat" : location.pathname);
+    history.replaceState(null, "", view === "overview" ? location.pathname : `#${view}`);
   };
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
-  if (location.hash === "#chat" || !document.querySelector('[data-view="overview"]')) switchView("chat");
+  const hash = location.hash.replace("#", "");
+  if (hash === "chat" || hash === "qr") switchView(hash);
+  else if (!document.querySelector('[data-view="overview"]')) switchView("chat");
 </script>
 
 <script define:vars={{ PROPS_ENDPOINT, FB_CONFIG, FIELD_KEYS, PROP: propKey, HAS_FACTS }}>
@@ -583,6 +631,13 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-warn { font-size: 0.82rem; color: #b3261e; line-height: 1.8; margin-bottom: 0.5rem; }
   :global(.ap-missing) { border-color: #b3261e !important; background: #fdf3f2; }
   .ap-note { font-size: 0.8rem; color: #666666; line-height: 1.8; margin-bottom: 1rem; }
+  .ap-qr { display: flex; gap: 1.75rem; align-items: flex-start; flex-wrap: wrap; margin-top: 1.5rem; }
+  .ap-qr-img { border: 1px solid #e8e8e8; border-radius: 6px; }
+  .ap-qr-body { flex: 1; min-width: 260px; }
+  .ap-qr-url { font-size: 0.85rem; color: #111111; margin-bottom: 1rem; word-break: break-all; }
+  .ap-qr-dl { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .ap-qr-dl a { text-decoration: none; }
+  .ap-qr-note { font-size: 0.78rem; color: #888888; line-height: 1.9; margin-top: 1.25rem; }
   .ap-fnote { display: block; font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.3rem; }
   .ap-tablewrap { overflow-x: auto; margin-bottom: 1.5rem; }
   .ap-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -609,6 +664,13 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     font-size: 0.85rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;
   }
   .ap-btn:disabled { opacity: 0.5; }
+  /* 副ボタン（行の追加・QRのダウンロード等）。定義が無く素のテキストで出ていた */
+  .ap-btn-sub {
+    display: inline-block; padding: 0.55rem 1.1rem; background: #ffffff; color: #111111;
+    font-family: inherit; font-size: 0.82rem; font-weight: 500; line-height: 1.4;
+    border: 1px solid #d7d7d7; border-radius: 4px; cursor: pointer; text-decoration: none;
+  }
+  .ap-btn-sub:hover { border-color: #111111; }
   .ap-saved { font-size: 0.78rem; color: #555555; }
   .ap-status { font-size: 0.82rem; color: #333333; min-height: 1.4em; }
   a.ap-eyebrow { display: block; text-decoration: none; }

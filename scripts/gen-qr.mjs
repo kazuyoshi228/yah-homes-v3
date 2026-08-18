@@ -1,21 +1,132 @@
 #!/usr/bin/env node
-/* チャット導線のQRコード生成（2026-08-18 発注者指示）。
-   URL が変わったらここを直して再実行 → public/qr/ が更新される。
-   - 通常版（メール・how-to 用）: 360px PNG
-   - 印刷用（現地掲示・MANUAL本用）: 2048px PNG（余白広め）
-   実行: node scripts/gen-qr.mjs */
+/**
+ * チャット導線QRの生成 — 実体はここだけ（2026-08-18 発注者承認の仕様）
+ *
+ * 施設の一覧はコードに持たない。チャット側の施設マスタ（Firestore データベース "chat" の
+ * chat_facilities・isActive）を正本として読む。chat 側で施設を公開すれば、次のデプロイで
+ * 自動的にQRが増える。公開をやめた施設のファイルは消す（古いQRを配り続けない）。
+ *
+ * 出力（すべて https://yah.homes/qr/… で配信・メールの <img> が参照できる唯一の場所）:
+ *   public/qr/chat-{施設}.png             360px   メール4通・使い方ガイド
+ *   public/qr/print/chat-{施設}-print.png 2048px  現地掲示・MANUAL本
+ *   public/qr/print/chat-{施設}-card-a6.svg/.png  A6印刷カード
+ *
+ * 実行: pnpm qr                （認証が要る。読めなければ止まる）
+ *       pnpm qr --if-possible  （ビルド用。認証が無い環境では既存ファイルのまま続行し、
+ *                               不足していれば止める＝古い・欠けたQRで公開しない）
+ */
 import QRCode from "qrcode";
-import { mkdirSync } from "node:fs";
+import sharp from "sharp";
+import { mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 
-const TARGETS = [
-  { key: "kiyokawa", url: "https://chat.yah.homes/kiyokawa" },
-  { key: "takasago", url: "https://chat.yah.homes/takasago" },
-];
-mkdirSync("public/qr/print", { recursive: true });
-for (const t of TARGETS) {
-  await QRCode.toFile(`public/qr/chat-${t.key}.png`, t.url,
-    { width: 360, margin: 2, errorCorrectionLevel: "M" });
-  await QRCode.toFile(`public/qr/print/chat-${t.key}-print.png`, t.url,
-    { width: 2048, margin: 4, errorCorrectionLevel: "H" });   // 印刷は誤り訂正を強めに
-  console.log(`${t.key}: ${t.url} → 通常360px / 印刷2048px`);
+const SOFT = process.argv.includes("--if-possible");
+const BASE = "https://chat.yah.homes";
+const OUT = "public/qr";
+const PRINT = `${OUT}/print`;
+
+/* 施設マスタは Firestore REST で読む（サイト側に firebase-admin を足さないため）。
+   認証は ADC（gcloud auth application-default login）またはサービスアカウント鍵。 */
+async function accessToken() {
+  const { readFileSync } = await import("node:fs");
+  const { homedir } = await import("node:os");
+  const path = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    `${homedir()}/.config/gcloud/application_default_credentials.json`;
+  const c = JSON.parse(readFileSync(path, "utf8"));
+  const SCOPE = "https://www.googleapis.com/auth/datastore";
+
+  if (c.type === "service_account") {
+    const { createSign } = await import("node:crypto");
+    const now = Math.floor(Date.now() / 1000);
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const claim = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({
+      iss: c.client_email, scope: SCOPE, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 })}`;
+    const sig = createSign("RSA-SHA256").update(claim).end().sign(c.private_key).toString("base64url");
+    const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${claim}.${sig}` }) });
+    const j = await r.json();
+    if (!j.access_token) throw new Error(`トークンを取得できません: ${JSON.stringify(j).slice(0, 120)}`);
+    return j.access_token;
+  }
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "refresh_token",
+      client_id: c.client_id, client_secret: c.client_secret, refresh_token: c.refresh_token }) });
+  const j = await r.json();
+  if (!j.access_token) throw new Error(`トークンを取得できません: ${JSON.stringify(j).slice(0, 120)}`);
+  return j.access_token;
+}
+
+/** チャット側の施設マスタ（正本）。公開中の施設キーを返す。 */
+async function activeFacilities() {
+  const token = await accessToken();
+  // チャットは既定DBではなくデータベース "chat" を使う
+  const url = "https://firestore.googleapis.com/v1/projects/yah-homes/databases/chat/documents/chat_facilities";
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`Firestore ${res.status}`);
+  const { documents = [] } = await res.json();
+  return documents
+    .filter((d) => d.fields?.isActive?.booleanValue !== false)
+    .map((d) => d.name.split("/").pop());
+}
+
+/* A6カード（105×148mm＝1050×1480）。清川の既存カードと同じ体裁。 */
+const LOGO = `<g transform="translate(385,60) scale(0.28)"><path fill="#1A1A1A" d="M458.73,338.34c-1.92,7.08-8.7,10.92-15.64,9-7.08-1.92-10.92-8.56-9-15.49,1.92-7.08,8.56-11.07,15.49-9.15,7.08,1.92,11.07,8.7,9.15,15.64Z"/><path fill="#1A1A1A" d="M388.75,256.62c-9.68-2.3-18.46-.21-26.01,7.3l9.18-39.58-11.09-2.56-4.53-1.03-23.05,100.65,15.49,3.57,7.77-33.95c3.83-16.53,11.98-23.62,24.34-20.82,9.53,2.16,13.49,9.69,10.95,21.01l-9.56,41.39,15.93,3.55,9.94-43.33c4.46-19.36-2.51-32.39-19.33-36.21Z"/><path fill="#1A1A1A" d="M285.52,266.22c20.46,2.49,29.43,13.3,27.05,32.4l-5.7,46.39-15.77-1.96,1.11-10.14c-5.88,6.94-14.5,10.23-24.66,8.98-14.85-1.79-23.65-12.47-21.97-25.97,1.65-12.6,11.61-20.26,26.27-19.78l20.61.38c3.15.15,4.36-.76,4.66-2.89l.23-1.52c.62-6.2-4.15-10.44-13.41-11.67-9.99-1.13-17.26,2.28-20.01,9.22l-11.64-9.69c5.18-10.86,16.71-15.76,33.23-13.76ZM273.84,309.28c-6.86-.08-11.07,2.9-11.81,8.21-.66,5.9,3.36,10.11,10.93,10.98,11.08,1.42,20.56-5.27,21.73-14.98l.45-4.23-21.3.02Z"/><path fill="#1A1A1A" d="M131.33,274.68l-12.28-9.35c26.11-34.28,66.79-62.74,114.54-80.12,47.76-17.38,97.21-21.74,139.25-12.25l-3.39,15.05c-39.19-8.84-85.56-4.69-130.58,11.7-45.01,16.38-83.21,43.01-107.54,74.97Z"/><polygon fill="#1A1A1A" points="206.16 289.84 197.84 338.78 165.77 300.96 152.24 311.03 194.63 358.87 187.86 398.87 203.42 398.87 221.81 289.84 206.16 289.84"/></g>`;
+const QR_BOX = 700, QR_X = 175, QR_Y = 420;   // カード中央に配置（1050幅の中央）
+
+async function cardSvg(key, url) {
+  const qr = QRCode.create(url, { errorCorrectionLevel: "H" });
+  const size = qr.modules.size, data = qr.modules.data;
+  const m = QR_BOX / size;
+  let rects = "";
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (!data[r * size + c]) continue;
+      rects += `<rect x="${(QR_X + c * m).toFixed(2)}" y="${(QR_Y + r * m).toFixed(2)}" width="${m.toFixed(2)}" height="${m.toFixed(2)}"/>\n`;
+    }
+  }
+  const F = "Helvetica, Arial, sans-serif";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 1480">
+<rect width="1050" height="1480" fill="#FFFFFF"/>
+${LOGO}
+<text x="525" y="298" text-anchor="middle" font-family="${F}" font-weight="600" font-size="44" fill="#1A1A1A">yah.${key}</text>
+<text x="525" y="352" text-anchor="middle" font-family="${F}" font-size="30" fill="#777777">24/7 AI chat support</text>
+<g fill="#000000">${rects}</g>
+<text x="525" y="1225" text-anchor="middle" font-family="${F}" font-size="34" fill="#1A1A1A">${url.replace("https://", "")}</text>
+<text x="525" y="1290" text-anchor="middle" font-family="${F}" font-size="26" fill="#777777">Scan to chat — English / 日本語 / 한국어 / 中文 / ไทย / Tiếng Việt</text>
+</svg>`;
+}
+
+let keys;
+try {
+  keys = await activeFacilities();
+} catch (err) {
+  const known = existsSync(OUT) ? readdirSync(OUT).filter((f) => f.startsWith("chat-")).map((f) => f.slice(5, -4)) : [];
+  if (SOFT && known.length) {
+    console.warn(`[gen-qr] 施設マスタを読めませんでした（${err.message}）。既存のQR ${known.length}件のまま続行します。`);
+    process.exit(0);
+  }
+  console.error(`[gen-qr] 施設マスタ（chat_facilities）を読めません: ${err.message}`);
+  process.exit(1);
+}
+if (!keys.length) { console.error("[gen-qr] 公開中の施設が0件です。中止します。"); process.exit(1); }
+
+mkdirSync(PRINT, { recursive: true });
+for (const key of keys) {
+  const url = `${BASE}/${key}`;
+  await QRCode.toFile(`${OUT}/chat-${key}.png`, url, { width: 360, margin: 2, errorCorrectionLevel: "M" });
+  await QRCode.toFile(`${PRINT}/chat-${key}-print.png`, url, { width: 2048, margin: 4, errorCorrectionLevel: "H" });
+  const svg = await cardSvg(key, url);
+  writeFileSync(`${PRINT}/chat-${key}-card-a6.svg`, svg);
+  await sharp(Buffer.from(svg), { density: 300 }).png().toFile(`${PRINT}/chat-${key}-card-a6.png`);
+  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード(SVG・PNG)`);
+}
+
+/* 公開をやめた施設のファイルを消す（古いQRを配り続けない） */
+const keep = new Set(keys);
+for (const [dir, re] of [[OUT, /^chat-(.+)\.png$/], [PRINT, /^chat-(.+?)-(print\.png|card-a6\.(svg|png))$/]]) {
+  for (const f of readdirSync(dir)) {
+    const m = re.exec(f);
+    if (m && !keep.has(m[1])) { rmSync(`${dir}/${f}`); console.log(`[gen-qr] 公開停止のため削除: ${dir}/${f}`); }
+  }
 }

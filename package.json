@@ -5,11 +5,12 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/check-consistency.mjs && astro build",
+    "build": "node scripts/gen-qr.mjs --if-possible && node scripts/check-consistency.mjs && astro build",
     "check:consistency": "node scripts/check-consistency.mjs",
     "preview": "astro preview",
     "check": "astro check",
-    "astro": "astro"
+    "astro": "astro",
+    "qr": "node scripts/gen-qr.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
