@@ -179,19 +179,19 @@ const HAS_FACTS = propKey === "kiyokawa" || propKey === "takasago";
 /* 基本情報（旧・定型メール管理の「情報テーブル」をここへ集約・2026-08-18 発注者指示）。
    値は写しを置かない: SSoT（property_facts）から読むか、施設キーから組み立てる。 */
 const FACTS_ALL = HAS_FACTS ? (await getPropertyFacts()).facts[propKey as "kiyokawa" | "takasago"] : null;
-const BASICS: { k: string; v: string; src: string; link?: boolean; todo?: boolean }[] = FACTS_ALL ? [
-  { k: "施設名", v: propDisplayName(propKey), src: "施設キーから自動" },
-  { k: "チェックイン時刻", v: FACTS_ALL.checkinTime, src: "このページの「施設概要」" },
-  { k: "チェックアウト時刻", v: FACTS_ALL.checkoutTime, src: "このページの「施設概要」" },
-  { k: "Google マップのURL", v: FACTS_ALL.mapUrl, src: "このページの「施設概要」", link: true },
-  { k: "宿泊者名簿フォームのURL", v: FACTS_ALL.registerUrl, src: "このページの「施設概要」", link: true },
-  { k: "入室マニュアルのURL", v: `${BASE_URL}/how-to/${propKey}/`, src: "施設キーから自動", link: true },
-  { k: "チャットのURL", v: CHAT_URL, src: "施設キーから自動", link: true },
-  { k: "チャットQRコード", v: `${BASE_URL}${QR_FILES.screen}`, src: "このページの「QRコード」", link: true },
-  { k: "問い合わせ電話番号", v: OPERATOR_PHONE, src: "運営の共通値" },
-  { k: "My Page（直販のみ）", v: `${BASE_URL}/account/`, src: "固定", link: true },
-  { k: "キーボックスの暗証番号", v: "鍵の管理（/admin/secrets/）で管理・オーナー専用", src: "鍵の管理" },
-  { k: "レビュー投稿先", v: "未決", src: "未決", todo: true },
+const BASICS: { k: string; v: string; link?: boolean; todo?: boolean }[] = FACTS_ALL ? [
+  { k: "施設名", v: propDisplayName(propKey) },
+  { k: "チェックイン時刻", v: FACTS_ALL.checkinTime },
+  { k: "チェックアウト時刻", v: FACTS_ALL.checkoutTime },
+  { k: "Google マップのURL", v: FACTS_ALL.mapUrl, link: true },
+  { k: "宿泊者名簿フォームのURL", v: FACTS_ALL.registerUrl, link: true },
+  { k: "入室マニュアルのURL", v: `${BASE_URL}/how-to/${propKey}/`, link: true },
+  { k: "チャットのURL", v: CHAT_URL, link: true },
+  { k: "チャットQRコード", v: `${BASE_URL}${QR_FILES.screen}`, link: true },
+  { k: "問い合わせ電話番号", v: OPERATOR_PHONE },
+  { k: "My Page（直販のみ）", v: `${BASE_URL}/account/`, link: true },
+  { k: "キーボックスの暗証番号", v: "鍵の管理（/admin/secrets/）で管理・オーナー専用" },
+  { k: "レビュー投稿先", v: "未決", todo: true },
 ] : [];
 const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
 ---
@@ -234,12 +234,12 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
 
         <div id="ap-view-basics" hidden={!HAS_FACTS}>
           <p class="ap-note">
-            メールやチャットが使う「この施設の基本の値」です。値の正本はここか、施設キーから自動で決まるものだけで、
-            写しは他の画面に置いていません。時刻・地図・名簿フォームは「施設概要」で変更できます。
+            メールやチャットが使う「この施設の基本の値」の一覧（閲覧用）です。
+            編集はサイドバーの各ビュー（施設概要・設備・移動・距離・共通情報）から。
           </p>
           <div class="ap-tablewrap">
             <table class="ap-basics">
-              <thead><tr><th>項目</th><th>値</th><th>変更する場所</th></tr></thead>
+              <thead><tr><th>項目</th><th>値</th></tr></thead>
               <tbody>
                 {BASICS.map((b) => (
                   <tr>
@@ -247,7 +247,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
                     <td class:list={[b.todo && "ap-todo"]}>
                       {b.link ? <a href={b.v} target="_blank" rel="noopener">{b.v}</a> : b.v}
                     </td>
-                    <td class="ap-basics-src">{b.src}</td>
                   </tr>
                 ))}
               </tbody>
@@ -967,7 +966,6 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-basics tbody th { width: 26%; font-weight: 500; color: #111111; }
   .ap-basics td { color: #333333; word-break: break-all; }
   .ap-basics td a { color: #111111; }
-  .ap-basics-src { width: 22%; color: #888888; font-size: 0.78rem; word-break: normal; }
   .ap-todo { color: #b3261e; }
   .ap-qr { display: flex; gap: 1.75rem; align-items: flex-start; flex-wrap: wrap; margin-top: 1.5rem; }
   .ap-qr-img { border: 1px solid #e8e8e8; border-radius: 6px; }
