@@ -3,7 +3,7 @@
    ここで保存した値が、トップ・予約ページ・物件ページの表示に使われる。
    ※ 静的サイトのため、保存後に「サイトに反映（再ビルド）」が必要。 */
 import SiteLayout from "../../../layouts/SiteLayout.astro";
-import { CHAT_INFO, CHAT_PROPS } from "../../../data/adminChatInfo";
+import { CHAT_PROPS } from "../../../data/adminChatInfo";
 import { ENDPOINTS } from "../../../lib/adminConfig";
 import { FB_CONFIG } from "../../../lib/adminConfig";
 
@@ -194,21 +194,23 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
         <!-- チャット用情報（2026-08-17 発注者提供）。ゲスト対応チャットの正引き表。
              静的HTMLに焼き込まれるため、キーボックス暗証番号等は絶対に載せない。 -->
         <div id="ap-view-chat" hidden={HAS_FACTS}>
-          {CHAT_INFO[propKey].length === 0 ? (
-            <p class="ap-note ap-chat-empty">
-              {propLabel} の情報はまだ登録されていません。内容が揃い次第、src/data/adminChatInfo.ts に追記します
-              （清川の内容は住所・近隣情報が施設固有のため流用しないでください）。
-            </p>
-          ) : (
-            <table class="ap-chat-table">
-              <thead><tr><th>設問</th><th>回答</th></tr></thead>
-              <tbody>
-                {CHAT_INFO[propKey].map((r) => (
-                  <tr><th>{r.q}</th><td>{r.a}</td></tr>
-                ))}
-              </tbody>
+          <!-- 内容は Firestore property_facts/{prop}.chatInfo（2026-08-18 発注者指示で移行）。
+               保存先の prop は URL パスから導出する（フォーム状態から取ると、ページ遷移時に
+               前の施設のIDが残って別施設へ保存される事故が起き得るため）。 -->
+          <p class="ap-note ap-chat-empty" id="ap-chat-empty" hidden>
+            この施設のチャット用情報はまだ登録されていません。
+          </p>
+          <div class="ap-tablewrap">
+            <table class="ap-chat-table" id="ap-chat-table" hidden>
+              <thead><tr><th>設問</th><th>回答</th><th class="ap-chat-rowop"></th></tr></thead>
+              <tbody id="ap-chat-tbody"></tbody>
             </table>
-          )}
+          </div>
+          <div class="ap-actions ap-save-bar" id="ap-chat-savebar" hidden>
+            <button type="button" class="ap-btn-sub" id="ap-chat-addrow">行を追加</button>
+            <button class="ap-btn" id="ap-chat-save">チャット用情報を保存する</button>
+            <span class="ap-saved" id="ap-chat-saved"></span>
+          </div>
         </div>
 
           </div>
@@ -279,12 +281,59 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       }
     }
 
+    /* チャット用情報。保存先の施設IDは必ず URL パスから導出する（2026-08-18 発注者指示）。
+       フォームや変数の内部状態から取ると、前の施設のIDが残って別施設へ保存される
+       事故が起き得る。URL＝施設が一致している限り、混在は構造的に起きない。 */
+    function urlProp() {
+      const m = location.pathname.match(/\/admin\/properties\/([A-Za-z0-9_-]+)\//);
+      return m ? m[1] : PROP;
+    }
+    let chatEditable = false;
+    function chatRow(q, a) {
+      const tr = document.createElement("tr");
+      if (chatEditable) {
+        tr.innerHTML = `<th><textarea class="ap-chat-q" rows="2"></textarea></th>
+          <td><textarea class="ap-chat-a" rows="3"></textarea></td>
+          <td class="ap-chat-rowop"><button type="button" class="ap-btn-sub ap-chat-del">削除</button></td>`;
+        tr.querySelector(".ap-chat-q").value = q;
+        tr.querySelector(".ap-chat-a").value = a;
+        tr.querySelector(".ap-chat-del").addEventListener("click", () => tr.remove());
+      } else {
+        const th = document.createElement("th"); th.textContent = q;
+        const td = document.createElement("td"); td.textContent = a;
+        tr.append(th, td);
+      }
+      return tr;
+    }
+    function renderChat(rows, canEdit) {
+      chatEditable = canEdit;
+      const tbody = $("ap-chat-tbody");
+      tbody.textContent = "";
+      rows.forEach((r) => tbody.append(chatRow(r.q ?? "", r.a ?? "")));
+      $("ap-chat-table").hidden = rows.length === 0 && !canEdit;
+      $("ap-chat-empty").hidden = rows.length > 0 || canEdit;
+      $("ap-chat-savebar").hidden = !canEdit;
+    }
+    $("ap-chat-addrow")?.addEventListener("click", () => $("ap-chat-tbody").append(chatRow("", "")));
+    $("ap-chat-save")?.addEventListener("click", async () => {
+      const rows = [...$("ap-chat-tbody").querySelectorAll("tr")].map((tr) => ({
+        q: tr.querySelector(".ap-chat-q")?.value ?? "",
+        a: tr.querySelector(".ap-chat-a")?.value ?? "",
+      }));
+      $("ap-chat-saved").textContent = "保存しています…";
+      const r = await api("POST", { prop: urlProp(), chatInfo: rows });
+      $("ap-chat-saved").textContent = r.ok
+        ? `保存しました（${r.saved}行）`
+        : `保存に失敗しました（${r.error ?? "error"}）`;
+    });
+
     async function load() {
       $("ap-status").textContent = "読み込み中...";
       try {
         const j = await api("GET");
         if (!j.ok) throw new Error("load");
-        fill(PROP, j.items[PROP] ?? {});
+        if (HAS_FACTS) fill(PROP, j.items[PROP] ?? {});
+        renderChat(j.items[urlProp()]?.chatInfo ?? [], j.canEdit === true);
         // 閲覧は全メンバー・編集は Owner のみ（2026-08-18 発注者判断）。
         // Owner 以外は入力を無効化し、保存バーを隠して読み取り専用にする
         if (!j.canEdit) {
@@ -332,9 +381,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     onAuthStateChanged(auth, (user) => {
       if (!user) { location.replace(`/admin/?next=${encodeURIComponent(location.pathname)}`); return; }
       $("ap-login").hidden = !!user;
-      if (!HAS_FACTS) { $("ap-app").hidden = !user; return; }   // 新施設はチャット表のみ（静的表示）
       $("ap-app").hidden = !user;
-      if (user) load();
+      if (user) load();   // チャット用情報も Firestore から読むため、新施設でも load する
     });
   });
 </script>
@@ -363,6 +411,12 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   .ap-chat-prop.is-active { background: #111111; border-color: #111111; color: #ffffff; }
   .ap-chat-empty { padding: 2rem 0; }
   .ap-chat-table { width: 100%; border-collapse: collapse; }
+  .ap-chat-table :global(textarea) {
+    width: 100%; font-family: inherit; font-size: 0.84rem; line-height: 1.7;
+    border: 1px solid #d7d7d7; border-radius: 5px; padding: 0.4rem 0.5rem;
+    resize: vertical; box-sizing: border-box;
+  }
+  .ap-chat-rowop { width: 60px; }
   .ap-chat-table th, .ap-chat-table td {
     text-align: left; vertical-align: top; padding: 0.6rem 0.75rem;
     border-bottom: 1px solid #f0f0f0; font-size: 0.84rem; line-height: 1.8;

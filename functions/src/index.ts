@@ -317,7 +317,10 @@ const PARTNER_MAX_GUESTS = 7;
 async function isBookableProp(prop: string): Promise<boolean> {
   if (!/^[a-z0-9_-]{1,32}$/.test(prop)) return false;   // ドキュメントIDに使う前の形式検査
   try {
-    return (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).exists;
+    const f = (await db.collection("property_facts").doc(prop === "test" ? "kiyokawa" : prop).get()).data();
+    // ドキュメントの存在だけでは不十分。チャット用情報のみを持つ新施設
+    // （六本松等・2026-08-18〜）のドキュメントを予約可能と誤認しないよう、定員の実在で判定する
+    return !!f && Number.isInteger(Number(f.capacity)) && Number(f.capacity) > 0;
   } catch { return false; }
 }
 
@@ -4458,7 +4461,33 @@ export const adminProperties = onRequest(
       }
 
       if (req.method === "POST") {
-        const { prop, values, ratingAsOf } = (req.body ?? {}) as Record<string, unknown>;
+        const { prop, values, ratingAsOf, chatInfo } = (req.body ?? {}) as Record<string, unknown>;
+
+        /* チャット用情報の保存（2026-08-18 発注者指示で Firestore 管理に移行）。
+           prop はクライアントが URL パスから導出した値。フォームの内部状態から
+           取らせないのは「前の施設のIDが残って別施設に保存される」事故を防ぐため。
+           サーバー側でも既知の施設キーに限定する。 */
+        if (Array.isArray(chatInfo)) {
+          const CHAT_KEYS = ["kiyokawa", "takasago", "ropponmatsu", "otemonA", "otemonB"];
+          const propStr = String(prop ?? "");
+          if (!CHAT_KEYS.includes(propStr)) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+          if (chatInfo.length > 300) { res.status(400).json({ ok: false, error: "too_many_rows" }); return; }
+          const rows: { q: string; a: string }[] = [];
+          for (const r of chatInfo) {
+            const q = String((r as Record<string, unknown>)?.q ?? "").trim();
+            const a = String((r as Record<string, unknown>)?.a ?? "").trim();
+            if (!q && !a) continue;                       // 空行は黙って捨てる
+            if (q.length > 200 || a.length > 4000) { res.status(400).json({ ok: false, error: "row_too_long" }); return; }
+            rows.push({ q, a });
+          }
+          await db.collection("property_facts").doc(propStr).set(
+            { chatInfo: rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+          await db.collection("audit_logs").add({
+            actor: email, action: "facts_chat_info", target: propStr,
+            value: `${rows.length}行`, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true, saved: rows.length });
+          return;
+        }
 
         // 取得日のみの更新
         if (typeof ratingAsOf === "string" && !prop) {

@@ -3,7 +3,7 @@
    施設ごとの編集は /admin/properties/{prop}/ へ。旧URLのハッシュ
    （#chat-kiyokawa 形式）はここで新URLへ転送する。 */
 import SiteLayout from "../../../layouts/SiteLayout.astro";
-import { CHAT_PROPS, CHAT_INFO } from "../../../data/adminChatInfo";
+import { CHAT_PROPS } from "../../../data/adminChatInfo";
 const HAS_FACTS = new Set(["kiyokawa", "takasago"]);
 ---
 
@@ -17,10 +17,7 @@ const HAS_FACTS = new Set(["kiyokawa", "takasago"]);
         {CHAT_PROPS.map((p) => (
           <a class="ap-prop-card" href={`/admin/properties/${p.key}/`}>
             <span class="ap-prop-name">{p.label}</span>
-            <span class="ap-prop-meta">
-              {HAS_FACTS.has(p.key) ? "概要・チャット用情報" : "チャット用情報"}
-              {!HAS_FACTS.has(p.key) && CHAT_INFO[p.key].length === 0 && "（未登録）"}
-            </span>
+            <span class="ap-prop-meta">{HAS_FACTS.has(p.key) ? "概要・チャット用情報" : "チャット用情報"}</span>
           </a>
         ))}
       </div>
