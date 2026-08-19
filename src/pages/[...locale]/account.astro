@@ -623,7 +623,9 @@ const PHONE_CC = [
   </section>
 </SiteLayout>
 
-<script define:vars={{ FB_SDK, ACCOUNT_ENDPOINT, MESSAGES_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang, OPERATOR_PHONE, OPERATOR_PHONE_TEL }}>
+<!-- define:vars のスクリプトは front-matter の import が見えない。ARRIVAL_TIMES は
+     必ずここで渡す（渡し忘れで My Page 全体が死んだ 2026-08-19 の障害の再発防止） -->
+<script define:vars={{ FB_SDK, ACCOUNT_ENDPOINT, MESSAGES_ENDPOINT, BOOK_PATH, FB_CONFIG, uiA, lang, OPERATOR_PHONE, OPERATOR_PHONE_TEL, ARRIVAL_TIMES }}>
   const $ = (id) => document.getElementById(id);
   const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const yen = (n) => `¥${Number(n).toLocaleString("en-US")}`;
