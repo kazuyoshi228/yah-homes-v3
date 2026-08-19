@@ -83,3 +83,24 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   });
   return { sent: true, items: total };
 }
+
+/**
+ * 警報のテスト（原則2-5）— 月1回、わざと異常を作ってアラートが鳴るか確かめる。
+ *
+ * 鳴らない警報は無いのと同じで、しかも「静かだから正常」と誤解させる分だけ有害。
+ * 内部ジョブとして期日切れの状態を1件作り、アラートに載ることを確認して片付ける。
+ */
+export async function testAlarm(): Promise<{ ok: boolean; detail: string }> {
+  const db = agencyDb();
+  const ref = await db.collection("jobs").add({
+    type: "internal", title: "【警報テスト】これは訓練です", prop: "takasago",
+    dueMonth: "2020-01", status: "sent", createdAt: new Date().toISOString(),
+    requestMailAt: new Date().toISOString(),
+    timeline: [{ at: new Date().toISOString(), status: "sent", by: "system", note: "警報が鳴るかの訓練" }],
+  });
+  const overdue = await findOverdue();
+  const caught = overdue.some((o) => (o.job as { id?: string }).id === ref.id || o.job.title.includes("警報テスト"));
+  await ref.delete();
+  await db.collection("alarmTests").add({ at: new Date().toISOString(), caught });
+  return { ok: caught, detail: caught ? "期日超過として検知された" : "検知されなかった（見張りが壊れている）" };
+}

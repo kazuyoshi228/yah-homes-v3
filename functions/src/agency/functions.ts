@@ -14,7 +14,7 @@ import { logger } from "firebase-functions/v2";
 import { agencyDb, createDueJobs, beat } from "./engine.js";
 import { startWatch, fetchNew, matchJob, record, detectHumanTakeover } from "./inbox.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
-import { sendDailyAlert } from "./alerts.js";
+import { sendDailyAlert, testAlarm } from "./alerts.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
@@ -36,6 +36,14 @@ export const agencyDaily = onSchedule(
     await step("sendRequests", () => sendRequests());
     await step("gmailWatch", () => startWatch());   // 有効期限7日。毎日貼り直して切れないようにする
     await step("dailyAlert", () => sendDailyAlert());
+    /* 月初だけ、警報そのものが生きているかを試す（原則2-5・鳴らない警報は有害） */
+    if (new Date().getDate() === 1) {
+      await step("alarmTest", async () => {
+        const r = await testAlarm();
+        if (!r.ok) throw new Error(`警報が鳴らない: ${r.detail}`);   // 失敗させてハートビートを止める
+        return r;
+      });
+    }
   },
 );
 
