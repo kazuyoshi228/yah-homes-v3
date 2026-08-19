@@ -172,6 +172,8 @@ export async function loanSummary(asOf = new Date()) {
       interestPerYear: Math.round((bal * weightedRate) / 100),
       /* 過去12ヶ月に実際に払った返済額（元金＋利息） */
       past12Months: rows.reduce((a, r) => a + past12Months(r.loan, asOf), 0),
+      /* 集計の対象がいつまでかを数字と一緒に持たせる（あとから見て期間を取り違えないため） */
+      past12EndMonth: addMonths(`${asOf.getFullYear()}-${String(asOf.getMonth() + 1).padStart(2, "0")}`, -1),
       finalMonth: rows.map((r) => r.loan.finalPaymentMonth ?? "").sort().at(-1) ?? "",
       /* 満期に一括で返す必要がある額。ここが資金繰りの崖になる */
       /* 据置中＝いまは利息だけ払っている額。返済が始まると月々が跳ねる */
