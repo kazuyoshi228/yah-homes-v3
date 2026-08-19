@@ -11,7 +11,7 @@
  */
 import { google } from "googleapis";
 import { JWT } from "google-auth-library";
-import { agencyDb } from "./engine.js";
+import { dispatchSettings, notifySettings } from "./settings.js";
 
 export const AI_ADDRESS = "ai.yamada@bonfire.co.jp";
 export const AI_DISPLAY = "yah. 自動手配（AI）";
@@ -39,20 +39,19 @@ async function gmailClient() {
   return cachedGmail;
 }
 
-/** 自動送信が解禁されているか（既定は false = ドライラン） */
+/** 自動送信が解禁されているか（既定は false = ドライラン・読めない時も false） */
 export async function autoSendEnabled(): Promise<boolean> {
-  const d = await agencyDb().collection("settings").doc("dispatch").get();
-  return d.data()?.autoSend === true;
+  return (await dispatchSettings()).autoSend;
 }
 
 const b64 = (s: string) => Buffer.from(s).toString("base64");
 const subjectEnc = (s: string) => `=?UTF-8?B?${b64(s)}?=`;
 
-function buildRaw(to: string, subject: string, body: string, threadRef?: string): string {
+function buildRaw(to: string, subject: string, body: string, threadRef?: string, cc = ALWAYS_CC): string {
   const headers = [
     `From: ${subjectEnc(AI_DISPLAY)} <${AI_ADDRESS}>`,
     `To: ${to}`,
-    `Cc: ${ALWAYS_CC}`,   // 必須・省略不可（AIの送信は必ず人にも届く）
+    `Cc: ${cc}`,   // 必須・省略不可（AIの送信は必ず人にも届く）
     `Subject: ${subjectEnc(subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
@@ -69,15 +68,16 @@ export async function sendOrDraft(opts: {
   to: string; subject: string; body: string; threadId?: string; threadRef?: string;
 }): Promise<{ mode: "sent" | "draft"; id: string; threadId?: string; cc: string }> {
   const gmail = await gmailClient();
-  const raw = buildRaw(opts.to, opts.subject, opts.body, opts.threadRef);
+  const cc = (await notifySettings()).alwaysCc || ALWAYS_CC;
+  const raw = buildRaw(opts.to, opts.subject, opts.body, opts.threadRef, cc);
   const message = { raw, ...(opts.threadId ? { threadId: opts.threadId } : {}) };
 
   if (await autoSendEnabled()) {
     const r = await gmail.users.messages.send({ userId: "me", requestBody: message });
-    return { mode: "sent", id: r.data.id!, threadId: r.data.threadId ?? undefined, cc: ALWAYS_CC };
+    return { mode: "sent", id: r.data.id!, threadId: r.data.threadId ?? undefined, cc };
   }
   const r = await gmail.users.drafts.create({ userId: "me", requestBody: { message } });
-  return { mode: "draft", id: r.data.id!, threadId: r.data.message?.threadId ?? undefined, cc: ALWAYS_CC };
+  return { mode: "draft", id: r.data.id!, threadId: r.data.message?.threadId ?? undefined, cc };
 }
 
 /** 依頼メールの文面（作業依頼・日程の相談）。AIらしさを隠さず、緊急時は人へ引き継ぐと明記する */
