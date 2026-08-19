@@ -2101,7 +2101,7 @@ function aiFactsBlock(prop: string, f: Record<string, unknown>, meta: Record<str
   if (has(f.registerUrl)) L.push(`宿泊者名簿の提出フォーム: ${f.registerUrl}`);
   if (f.freeCancelDays !== undefined) L.push(`無料キャンセル: チェックイン${f.freeCancelDays}日前まで（以降は全額）`);
   if (has(meta.taxLow)) L.push(`宿泊税（福岡市）: 1人1泊 ${meta.taxLow}円（税抜宿泊料が1人1泊 ${meta.taxHighThreshold}円以上のときは ${meta.taxHigh}円）`);
-  if (has(meta.operatorPhone)) L.push(`運営の電話（緊急時）: ${meta.operatorPhone}`);
+  if (has(meta.operatorPhone)) L.push(`運営会社の電話（お問い合わせ・緊急時）: ${meta.operatorPhone}`);
   return L.join("\n");
 }
 
@@ -2287,7 +2287,7 @@ export const aiDraftReply = onDocumentCreated(
         `1. 事実は下の【${contextLabel}】【施設情報】【Q&A】と（与えられた場合の）【空室・料金】にあるものだけを使う。無い事実は創作せず「確認してご案内します」と書く。`,
         "2. キーボックス・ドアの暗証番号は絶対に本文に書かない。聞かれたらQ&Aの方針（案内の経路・時期）だけを伝える。",
         "3. 他のゲストの情報・決済カード情報を書かない。",
-        "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束せず「担当者より改めてご案内します」と書き、escalationRequired を true にする。ただし【空室・料金】の範囲の空き状況・料金案内はエスカレーション不要。",
+        "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束しない。さらに【重要】「担当者からご連絡します」のような折り返しの約束も絶対にしない（折り返す仕組みが無い）。Q&Aに明確な方針があればそれを伝え、無ければ「お手数ですが運営会社へ直接ご連絡ください」と、運営会社の電話（施設情報にある）を添えて“ゲストから連絡する”形で必ず案内し、escalationRequired を true にする。ただし【空室・料金】の範囲の空き状況・料金案内はエスカレーション不要。",
         `5. 返信は「ゲストの最新メッセージの言語」で書く（判別できないときだけ【${contextLabel}】の「言語」に従う）。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。`,
         `6. 空き状況・料金を聞かれたら: 【空室・料金】が与えられていればそれだけを事実として使い、ご予約は ${bookUrl} からと案内する。与えられていなければ availabilityNeeded=true にして availabilityQuery へ条件を入れる（日付は現在日時を基準に YYYY-MM-DD へ正規化・年の指定が無ければ直近の未来・人数不明は2名・棟の指定が無ければ "both"）。その場合 body は「空き状況を確認します」程度の短文でよい。`,
         ...(isInquiry ? [
