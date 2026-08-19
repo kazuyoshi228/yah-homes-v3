@@ -2291,7 +2291,7 @@ export const aiDraftReply = onDocumentCreated(
         "2. キーボックス・ドアの暗証番号は絶対に本文に書かない。聞かれたらQ&Aの方針（案内の経路・時期）だけを伝える。",
         "3. 他のゲストの情報・決済カード情報を書かない。",
         "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束せず「担当者より改めてご案内します」と書き、escalationRequired を true にする。ただし【空室・料金】の範囲の空き状況・料金案内はエスカレーション不要。",
-        `5. ゲストの言語（【${contextLabel}】の「言語」）で書く。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。`,
+        `5. 返信は「ゲストの最新メッセージの言語」で書く（判別できないときだけ【${contextLabel}】の「言語」に従う）。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。`,
         `6. 空き状況・料金を聞かれたら: 【空室・料金】が与えられていればそれだけを事実として使い、ご予約は ${bookUrl} からと案内する。与えられていなければ availabilityNeeded=true にして availabilityQuery へ条件を入れる（日付は現在日時を基準に YYYY-MM-DD へ正規化・年の指定が無ければ直近の未来・人数不明は2名・棟の指定が無ければ "both"）。その場合 body は「空き状況を確認します」程度の短文でよい。`,
         ...(isInquiry ? [
           "7. 相手はまだ予約していません。名簿・暗証番号・入室方法は「ご予約後にご案内する流れ」として触れる程度に留める。",
@@ -2400,7 +2400,7 @@ export const aiDraftReply = onDocumentCreated(
       const wantAuto = mode === "auto-limited" && out.escalationRequired !== true &&
         withinAutoHours(String(st.autoFrom ?? ""), String(st.autoTo ?? ""));
       if (wantAuto) {
-        await aiAutoSend(threadId, isInquiry, b, String(m.body ?? ""), bodyText, translatedJa, lang);
+        await aiAutoSend(threadId, isInquiry, b, String(m.body ?? ""), bodyText, translatedJa, String(out.language ?? lang));   // 免責の言語も返信言語に追従
       }
 
       await db.collection("ai_drafts").add({
