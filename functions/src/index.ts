@@ -2123,9 +2123,10 @@ function aiQaBlock(rows: unknown, cap: number): string {
 }
 
 /** 限定自動（auto-limited・P2）の送信実体。messagesApi の host 送信と同じ書き込みに
-    免責フッターを足すだけ＝AI専用の別経路を作らない。通知・Beds24複製も同経路を踏襲。 */
+    免責フッターを足すだけ＝AI専用の別経路を作らない。通知・Beds24複製も同経路を踏襲
+    （予約スレッド=notifyMessage/noteBeds24Message・inquiry=notifyInquiry/mirrorInquiryToBeds24）。 */
 async function aiAutoSend(
-  threadId: string, b: BookingDoc & Record<string, unknown>,
+  threadId: string, isInquiry: boolean, b: (BookingDoc & Record<string, unknown>) | undefined,
   guestText: string, bodyText: string, translatedJa: string, lang: string,
 ): Promise<void> {
   const disclaimer = AI_DISCLAIMER_L10N[lang] ?? AI_DISCLAIMER_L10N.en;
@@ -2144,19 +2145,26 @@ async function aiAutoSend(
     lastBody: finalBody.slice(0, 120), lastSystem: false,
     unreadForGuest: FieldValue.increment(1),
   });
-  // ゲストへの新着通知（本文がゲスト言語のため訳は渡さない）
-  try { await notifyMessage(threadId, b, "host", finalBody, ""); }
-  catch (e) { logger.warn("ai auto notify failed", { e: String(e).slice(0, 120) }); }
+  const tFresh = (await tref.get()).data() ?? {};
+  // ゲストへの新着通知（本文がゲスト言語のため訳は渡さない）。
+  // inquiry はマジックリンク再発行つきの既存経路（notifyInquiry）を使う
+  try {
+    if (isInquiry) await notifyInquiry(threadId, tFresh, "host", finalBody, "");
+    else if (b) await notifyMessage(threadId, b, "host", finalBody, "");
+  } catch (e) { logger.warn("ai auto notify failed", { e: String(e).slice(0, 120) }); }
   // 運営への控え通知（spec §2: 自動送信＋運営へ控え）
   try {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 465, secure: true,
       auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
     });
+    const who = isInquiry
+      ? `${String(tFresh.guestName ?? "")}様（お問い合わせ）`
+      : `${String(b?.name ?? "")}様（${propName(String(b?.prop))} ${String(b?.checkin)}〜）`;
     await transporter.sendMail({
       from: `"yah.homes メッセージ" <${SMTP_USER.value()}>`,
       to: await notifyRecipients("notifyBookings"), replyTo: MAIL_NOREPLY,
-      subject: `【AI自動応答・控え】${String(b.name ?? "")}様（${propName(String(b.prop))} ${String(b.checkin)}〜）`,
+      subject: `【AI自動応答・控え】${who}`,
       text: [`AIが自動応答しました（免責フッター付き）。`, "",
         `--- ゲストの質問 ---`, guestText, "",
         `--- AIの返信 ---`, finalBody,
@@ -2165,7 +2173,10 @@ async function aiAutoSend(
     });
   } catch (e) { logger.warn("ai auto cc failed", { e: String(e).slice(0, 120) }); }
   // Beds24 への会話複製（messagesApi と同じ・失敗は無視）
-  if (b.beds24Id) {
+  if (isInquiry) {
+    await mirrorInquiryToBeds24(tFresh, "host", `【yah.homes AI自動応答】${finalBody}`)
+      .catch(() => { /* 複製失敗は無視 */ });
+  } else if (b?.beds24Id) {
     await noteBeds24Message(Number(b.beds24Id), "host", `【yah.homes AI自動応答】${finalBody}`)
       .catch(() => { /* 複製失敗は無視 */ });
   }
@@ -2174,7 +2185,7 @@ async function aiAutoSend(
 export const aiDraftReply = onDocumentCreated(
   { document: "threads/{threadId}/messages/{msgId}", region: REGION,
     serviceAccount: SA, maxInstances: MAX_INSTANCES, memory: "512MiB", timeoutSeconds: 120,
-    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH] },   // 自動送信時の通知・Beds24複製用
+    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH, BEDS24_TOKEN] },   // 通知・Beds24複製・空室照会用
   async (event) => {
     const m = event.data?.data() as Record<string, unknown> | undefined;
     const threadId = event.params.threadId;
@@ -2185,11 +2196,14 @@ export const aiDraftReply = onDocumentCreated(
     const mode = String(st.mode ?? "off");
     if (mode !== "draft" && mode !== "auto-limited") return;
 
-    // 予約スレッドのみ。inquiry（予約前の問い合わせ）は予約文脈が無いため P1 対象外
+    // スレッド種別で文脈を分ける。予約=予約コンテキスト注入／inquiry=予約前・両棟の
+    // 施設情報のみ（2026-08-19 発注者指示で inquiry にも対応。それまでは P1 対象外）
     const t = (await db.collection("threads").doc(threadId).get()).data();
-    if (!t || t.kind === "inquiry") return;
-    const b = (await db.collection("bookings").doc(threadId).get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
-    if (!b) return;
+    if (!t) return;
+    const isInquiry = t.kind === "inquiry";
+    const b = isInquiry ? undefined
+      : (await db.collection("bookings").doc(threadId).get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
+    if (!isInquiry && !b) return;
 
     try {
       // コスト保護（要 firestore.indexes.json の ai_drafts 複合インデックス）
@@ -2198,26 +2212,60 @@ export const aiDraftReply = onDocumentCreated(
         .where("bookingId", "==", threadId).where("createdAt", ">", since).get();
       if (today.size >= AI_DRAFT_DAILY_PER_THREAD) { logger.warn("aiDraftReply capped", { threadId }); return; }
 
-      const prop = String(b.prop ?? "");
-      const [fsnap, msnap] = await Promise.all([
-        db.collection("property_facts").doc(prop).get(),
-        db.collection("property_facts").doc("meta").get(),
-      ]);
-      const f = fsnap.data() ?? {};
-      const meta = msnap.data() ?? {};
-      if (!fsnap.exists) { logger.warn("aiDraftReply no facts", { prop }); return; }   // SSoT不読は生成しない
+      const meta = (await db.collection("property_facts").doc("meta").get()).data() ?? {};
+      const lang = String((isInquiry ? t.lang : b?.lang) ?? "en");
+      const bookUrl = `${SITE_URL}/${lang === "en" ? "" : `${lang}/`}book/`;
+      const rowsOf = (d: Record<string, unknown> | undefined, k: string) => {
+        const v = d?.[k]; return Array.isArray(v) ? v.length : 0;
+      };
 
-      const lang = String(b.lang ?? "en");
-      const booking = [
-        `予約番号: ${threadId.slice(0, 8).toUpperCase()}`,
-        `棟: ${propName(prop)}`,
-        `チェックイン: ${b.checkin} / チェックアウト: ${b.checkout}`,
-        `人数: ${b.guests}名`,
-        `代表者: ${String(b.name ?? "")}`,
-        `言語: ${lang}`,
-        `宿泊者名簿: ${b.registeredAt ? "提出済み" : "未提出"}`,
-        `予約状態: ${b.status}`,
-      ].join("\n");
+      /* 文脈ブロック: 予約スレッド=予約コンテキスト＋当該棟のSSoT／
+         inquiry=予約前のため両棟のSSoT・Q&A（2026-08-19 発注者指示で対応） */
+      let contextLabel = "予約情報";
+      let contextBlock = "";
+      let factsBlock = "", chatQa = "", msgQa = "";
+      let qaRows = { chat: 0, message: 0 };
+      let propLabel = "";
+      if (isInquiry) {
+        const snaps = await Promise.all(ALL_PROPS.map((p) => db.collection("property_facts").doc(p).get()));
+        if (!snaps.some((sn) => sn.exists)) { logger.warn("aiDraftReply no facts", { threadId }); return; }   // SSoT不読は生成しない
+        const docs = snaps.map((sn) => (sn.data() ?? {}) as Record<string, unknown>);
+        factsBlock = ALL_PROPS.map((p, i) => `◆ ${propName(p)}\n${aiFactsBlock(p, docs[i], meta)}`).join("\n\n");
+        const per = (k: "chatInfo" | "messageInfo", cap: number) =>
+          ALL_PROPS.map((p, i) => { const qb = aiQaBlock(docs[i][k], cap); return qb ? `◆ ${propName(p)}\n${qb}` : ""; })
+            .filter(Boolean).join("\n\n");
+        chatQa = per("chatInfo", 3500);
+        msgQa = per("messageInfo", 3000);
+        qaRows = { chat: docs.reduce((n, d2) => n + rowsOf(d2, "chatInfo"), 0),
+                   message: docs.reduce((n, d2) => n + rowsOf(d2, "messageInfo"), 0) };
+        propLabel = "inquiry";
+        contextLabel = "問い合わせ情報";
+        contextBlock = [
+          `お名前: ${String(t.guestName ?? "")}`,
+          `言語: ${lang}`,
+          "状態: まだ予約はありません（予約前のお問い合わせ）",
+        ].join("\n");
+      } else {
+        const prop = String(b!.prop ?? "");
+        const fsnap = await db.collection("property_facts").doc(prop).get();
+        const f = (fsnap.data() ?? {}) as Record<string, unknown>;
+        if (!fsnap.exists) { logger.warn("aiDraftReply no facts", { prop }); return; }   // SSoT不読は生成しない
+        factsBlock = aiFactsBlock(prop, f, meta);
+        chatQa = aiQaBlock(f.chatInfo, 6000);
+        msgQa = aiQaBlock(f.messageInfo, 6000);
+        qaRows = { chat: rowsOf(f, "chatInfo"), message: rowsOf(f, "messageInfo") };
+        propLabel = prop;
+        contextBlock = [
+          `予約番号: ${threadId.slice(0, 8).toUpperCase()}`,
+          `棟: ${propName(prop)}`,
+          `チェックイン: ${b!.checkin} / チェックアウト: ${b!.checkout}`,
+          `人数: ${b!.guests}名`,
+          `代表者: ${String(b!.name ?? "")}`,
+          `言語: ${lang}`,
+          `宿泊者名簿: ${b!.registeredAt ? "提出済み" : "未提出"}`,
+          `予約状態: ${b!.status}`,
+        ].join("\n");
+      }
 
       // 会話履歴（直近12通・古い順）。自動送信メールは題名だけ渡す
       const hist = await db.collection("threads").doc(threadId).collection("messages")
@@ -2229,22 +2277,29 @@ export const aiDraftReply = onDocumentCreated(
         }))
         .filter((c) => c.parts[0].text);
 
-      const chatQa = aiQaBlock(f.chatInfo, 6000);
-      const msgQa = aiQaBlock(f.messageInfo, 6000);
-      const system = [
+      /* 日付の正規化（「9/10」等）に現在日時が必須。空室・料金は Beds24 実勢＝予約フローと
+         同一ソース（単一ソース原則）。AIは条件の正規化だけを行い、照会と可否判定は
+         サーバのコード（bookingRules / checkBookingWindow / quoteFor）が決定的に行う。 */
+      const nowJst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " ");
+      const baseSystem = [
         "あなたは yah.homes（福岡の一棟貸し宿泊施設）の運営スタッフを補助するAIです。",
         "宿泊ゲストからの最新メッセージへの「返信の下書き」を書いてください。送信するかは人間のスタッフが判断します。",
+        `現在日時: ${nowJst}（JST）`,
         "",
         "【厳守】",
-        "1. 事実は下の【予約情報】【施設情報】【Q&A】にあるものだけを使う。無い事実は創作せず「確認してご案内します」と書く。",
+        `1. 事実は下の【${contextLabel}】【施設情報】【Q&A】と（与えられた場合の）【空室・料金】にあるものだけを使う。無い事実は創作せず「確認してご案内します」と書く。`,
         "2. キーボックス・ドアの暗証番号は絶対に本文に書かない。聞かれたらQ&Aの方針（案内の経路・時期）だけを伝える。",
         "3. 他のゲストの情報・決済カード情報を書かない。",
-        "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束せず「担当者より改めてご案内します」と書き、escalationRequired を true にする。",
-        "5. ゲストの言語（【予約情報】の「言語」）で書く。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。",
+        "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束せず「担当者より改めてご案内します」と書き、escalationRequired を true にする。ただし【空室・料金】の範囲の空き状況・料金案内はエスカレーション不要。",
+        `5. ゲストの言語（【${contextLabel}】の「言語」）で書く。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。`,
+        `6. 空き状況・料金を聞かれたら: 【空室・料金】が与えられていればそれだけを事実として使い、ご予約は ${bookUrl} からと案内する。与えられていなければ availabilityNeeded=true にして availabilityQuery へ条件を入れる（日付は現在日時を基準に YYYY-MM-DD へ正規化・年の指定が無ければ直近の未来・人数不明は2名・棟の指定が無ければ "both"）。その場合 body は「空き状況を確認します」程度の短文でよい。`,
+        ...(isInquiry ? [
+          "7. 相手はまだ予約していません。名簿・暗証番号・入室方法は「ご予約後にご案内する流れ」として触れる程度に留める。",
+        ] : []),
         "",
-        `【予約情報】\n${booking}`,
+        `【${contextLabel}】\n${contextBlock}`,
         "",
-        `【施設情報】\n${aiFactsBlock(prop, f, meta)}`,
+        `【施設情報】\n${factsBlock}`,
         chatQa ? `\n【Q&A（チャット用情報）】\n${chatQa}` : "",
         msgQa ? `\n【Q&A（顧客メッセージ用・運用方針はこちらを優先）】\n${msgQa}` : "",
       ].join("\n");
@@ -2252,29 +2307,83 @@ export const aiDraftReply = onDocumentCreated(
       const t0 = Date.now();
       const { GoogleGenAI, Type } = await import("@google/genai");
       const ai = new GoogleGenAI({ vertexai: true, project: GCP_PROJECT, location: REGION });
-      const r = await ai.models.generateContent({
-        model: AI_DRAFT_MODEL,
-        contents: history.length ? history : [{ role: "user", parts: [{ text: String(m.body ?? "").slice(0, 1500) }] }],
-        config: {
-          systemInstruction: system,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
+      const schema = {
+        type: Type.OBJECT,
+        properties: {
+          body: { type: Type.STRING, description: "返信下書きの本文（ゲストの言語）" },
+          language: { type: Type.STRING, description: "本文の言語コード（ja/en/ko/zh/th）" },
+          escalationRequired: { type: Type.BOOLEAN, description: "人間の判断が必要な話題（返金・変更・クレーム等）を含むか" },
+          escalationTopics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "該当した話題の短い日本語表記。無ければ空配列" },
+          sources: { type: Type.ARRAY, items: { type: Type.STRING }, description: "根拠に使った情報源の短い日本語表記（例: 予約情報 / 施設情報:チェックイン / Q&A:名簿 / 空室・料金）" },
+          availabilityNeeded: { type: Type.BOOLEAN, description: "空き状況・料金の照会が必要か。【空室・料金】が既に与えられている場合は必ず false" },
+          availabilityQuery: {
+            type: Type.OBJECT, description: "availabilityNeeded=true のときの照会条件",
             properties: {
-              body: { type: Type.STRING, description: "返信下書きの本文（ゲストの言語）" },
-              language: { type: Type.STRING, description: "本文の言語コード（ja/en/ko/zh/th）" },
-              escalationRequired: { type: Type.BOOLEAN, description: "人間の判断が必要な話題（返金・変更・クレーム等）を含むか" },
-              escalationTopics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "該当した話題の短い日本語表記。無ければ空配列" },
-              sources: { type: Type.ARRAY, items: { type: Type.STRING }, description: "根拠に使った情報源の短い日本語表記（例: 予約情報 / 施設情報:チェックイン / Q&A:名簿）" },
+              prop: { type: Type.STRING, description: "kiyokawa / takasago / both" },
+              checkin: { type: Type.STRING, description: "YYYY-MM-DD" },
+              checkout: { type: Type.STRING, description: "YYYY-MM-DD（1泊なら checkin の翌日）" },
+              guests: { type: Type.INTEGER, description: "不明なら 2" },
             },
-            required: ["body", "language", "escalationRequired", "escalationTopics", "sources"],
           },
         },
-      });
-      const out = JSON.parse(r.text ?? "{}") as {
+        required: ["body", "language", "escalationRequired", "escalationTopics", "sources", "availabilityNeeded"],
+      };
+      type AiOut = {
         body?: string; language?: string; escalationRequired?: boolean;
         escalationTopics?: string[]; sources?: string[];
+        availabilityNeeded?: boolean;
+        availabilityQuery?: { prop?: string; checkin?: string; checkout?: string; guests?: number };
       };
+      const gen = async (extra: string): Promise<AiOut> => {
+        const r = await ai.models.generateContent({
+          model: AI_DRAFT_MODEL,
+          contents: history.length ? history : [{ role: "user", parts: [{ text: String(m.body ?? "").slice(0, 1500) }] }],
+          config: { systemInstruction: baseSystem + extra, responseMimeType: "application/json", responseSchema: schema },
+        });
+        return JSON.parse(r.text ?? "{}") as AiOut;
+      };
+
+      let quoteNote = "";   // ai_drafts 記録用（どんな照会をしたか）
+      let out = await gen("");
+      const q = out.availabilityQuery;
+      const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+      if (out.availabilityNeeded === true && q && isDate(String(q.checkin ?? "")) &&
+          isDate(String(q.checkout ?? "")) && String(q.checkout) > String(q.checkin)) {
+        // 照会は1メッセージ1回だけ（コストとBeds24枠の保護）。判定は全てコード側
+        const targets: PropSlug[] = q.prop === "kiyokawa" || q.prop === "takasago" ? [q.prop] : [...ALL_PROPS];
+        const guests = Number.isInteger(q.guests) && Number(q.guests) >= 1 ? Number(q.guests) : 2;
+        const lines: string[] = [];
+        for (const p of targets) {
+          try {
+            const rules = await bookingRules(p);
+            if (!rules) { lines.push(`◆ ${propName(p)}: 照会できませんでした`); continue; }
+            if (guests > rules.capacity) { lines.push(`◆ ${propName(p)}: 定員${rules.capacity}名のため${guests}名は不可`); continue; }
+            const w = checkBookingWindow(String(q.checkin), guests, rules);
+            if (!w.ok) {
+              lines.push(`◆ ${propName(p)}: この日程はオンライン予約の受付対象外（${w.error === "too_far" ? `受付は約${rules.maxMonths}ヶ月先まで` : "直前予約の締切を過ぎています"}）`);
+              continue;
+            }
+            const { data } = await quoteFor(p, String(q.checkin), String(q.checkout), guests);
+            if (data.available === true) {
+              lines.push(`◆ ${propName(p)}: 空きあり — ${q.checkin}〜${q.checkout}（${data.nights}泊・${guests}名）合計 ${Number(data.total).toLocaleString("ja-JP")}円`);
+            } else if (data.reason === "min_stay") {
+              lines.push(`◆ ${propName(p)}: この日程は最低${data.minStay}泊から`);
+            } else if (data.reason === "upstream_failed") {
+              lines.push(`◆ ${propName(p)}: 照会システムに接続できませんでした（満室という意味ではない）`);
+            } else {
+              lines.push(`◆ ${propName(p)}: この日程は空きがありません`);
+            }
+          } catch { lines.push(`◆ ${propName(p)}: 照会できませんでした`); }
+        }
+        quoteNote = `${q.checkin}〜${q.checkout} ${guests}名 → ${lines.join(" ／ ")}`;
+        out = await gen([
+          "", "",
+          `【空室・料金】（Beds24 実勢・${nowJst} 時点・予約ページと同一ソース）`,
+          ...lines,
+          `注意: 料金は現時点の照会値で、確定額は予約ページ ${bookUrl} の表示。この結果だけを使って回答を確定し、availabilityNeeded は false にする。`,
+        ].join("\n"));
+      }
+
       const bodyText = String(out.body ?? "").trim();
       if (!bodyText) { logger.warn("aiDraftReply empty", { threadId }); return; }   // 誤答より無応答
 
@@ -2291,11 +2400,11 @@ export const aiDraftReply = onDocumentCreated(
       const wantAuto = mode === "auto-limited" && out.escalationRequired !== true &&
         withinAutoHours(String(st.autoFrom ?? ""), String(st.autoTo ?? ""));
       if (wantAuto) {
-        await aiAutoSend(threadId, b, String(m.body ?? ""), bodyText, translatedJa, lang);
+        await aiAutoSend(threadId, isInquiry, b, String(m.body ?? ""), bodyText, translatedJa, lang);
       }
 
       await db.collection("ai_drafts").add({
-        bookingId: threadId, prop,
+        bookingId: threadId, prop: propLabel, kind: isInquiry ? "inquiry" : "booking",
         guestMessageId: event.params.msgId,
         guestMessageExcerpt: String(m.body ?? "").slice(0, 200),
         body: bodyText.slice(0, MSG_MAX),
@@ -2304,8 +2413,8 @@ export const aiDraftReply = onDocumentCreated(
         escalationRequired: out.escalationRequired === true,
         escalationTopics: (out.escalationTopics ?? []).slice(0, 8).map((x) => String(x).slice(0, 40)),
         sources: (out.sources ?? []).slice(0, 10).map((x) => String(x).slice(0, 60)),
-        qaRows: { chat: Array.isArray(f.chatInfo) ? f.chatInfo.length : 0,
-                  message: Array.isArray(f.messageInfo) ? f.messageInfo.length : 0 },
+        qaRows,
+        quote: quoteNote ? quoteNote.slice(0, 400) : null,
         status: wantAuto ? "auto-sent" : "pending", mode, model: AI_DRAFT_MODEL, ms: Date.now() - t0,
         createdAt: FieldValue.serverTimestamp(),
       });
