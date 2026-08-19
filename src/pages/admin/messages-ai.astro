@@ -50,8 +50,9 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
               <tr>
                 <th>自動送信の時間帯</th>
                 <td>
+                  <label class="mai-24h"><input type="checkbox" id="mai-24h" checked> 24時間（常時）</label>
                   <input type="time" id="mai-from" disabled> 〜 <input type="time" id="mai-to" disabled>
-                  <p class="mai-hint">限定自動のときのみ（JST・日跨ぎ可・例 22:00〜07:00）。両方空欄=常時。</p>
+                  <p class="mai-hint">限定自動のときのみ。「24時間」を外すと時間帯を指定できます（JST・日跨ぎ可・例 22:00〜07:00）。</p>
                 </td>
               </tr>
               <tr>
@@ -92,13 +93,17 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
     const fs = fsm.getFirestore(app);
     const $ = (id) => document.getElementById(id);
 
-    // 時間帯入力は限定自動のときだけ意味を持つ（それ以外は無効化して迷わせない）
+    // 時間帯入力は限定自動のときだけ意味を持つ（それ以外は無効化して迷わせない）。
+    // 「24時間（常時）」チェックが既定＝保存時は from/to を空にする（サーバ仕様: 空=常時）
     function syncHours() {
       const auto = $("mai-mode").value === "auto-limited";
-      $("mai-from").disabled = !auto;
-      $("mai-to").disabled = !auto;
+      const all24 = $("mai-24h").checked;
+      $("mai-24h").disabled = !auto;
+      $("mai-from").disabled = !auto || all24;
+      $("mai-to").disabled = !auto || all24;
     }
     $("mai-mode").addEventListener("change", syncHours);
+    $("mai-24h").addEventListener("change", syncHours);
 
     async function loadMode() {
       try {
@@ -107,6 +112,7 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
         $("mai-mode").value = v.mode === "draft" || v.mode === "auto-limited" ? v.mode : "off";
         $("mai-from").value = v.autoFrom ?? "";
         $("mai-to").value = v.autoTo ?? "";
+        $("mai-24h").checked = !(v.autoFrom && v.autoTo);
       } catch { $("mai-mode").value = "off"; }   // ルール未反映・権限なしは「停止」を表示
       syncHours();
     }
@@ -151,7 +157,8 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
         const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({ action: "aiMode", mode: $("mai-mode").value,
-            autoFrom: $("mai-from").value, autoTo: $("mai-to").value }) });
+            autoFrom: $("mai-24h").checked ? "" : $("mai-from").value,
+            autoTo: $("mai-24h").checked ? "" : $("mai-to").value }) });
         const j = await r.json();
         $("mai-status").textContent = j.ok ? "保存しました"
           : j.error === "admin_only" ? "Admin 以上の権限が必要です"
@@ -192,6 +199,8 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
     border: none; border-radius: 4px; padding: 0.5rem 1.2rem; cursor: pointer; margin-left: 0.5rem;
   }
   .mai-btn:disabled { opacity: 0.5; }
+  .mai-24h { font-size: 0.82rem; color: #111111; margin-right: 0.9rem; white-space: nowrap; }
+  .mai-24h input { accent-color: #111111; vertical-align: -1px; }
   .mai-saved { margin-left: 0.6rem; font-size: 0.76rem; color: #1a7f37; }
   .mai-hint { font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.45rem; }
 

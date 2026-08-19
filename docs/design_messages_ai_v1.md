@@ -147,5 +147,7 @@
 - メッセージdocは `aiGenerated:true / author:"messages-ai" / aiJa（運営用日本語訳）`。
   My Page は AIバッジ＋本文（免責は本文末尾に焼き込み済み）、/admin/messages は「🤖 AI自動応答」ラベル＋日本語訳
 - 記録: ai_drafts の status="auto-sent"（実績ページに自動送信件数として出る）
+- 設定UIの時間帯は「**24時間（常時）**」チェック既定ON（2026-08-19 発注者指示）。外すと from/to 指定。
+  保存はチェックON=空文字（サーバ仕様「空=常時」は不変）
 - 免責文言（AI_DISCLAIMER_L10N）: ja「AIによる自動応答です。内容はスタッフも確認します。」／
   en / ko / zh(繁体) / th を同旨で用意（変更はコード修正＝デプロイで反映）
