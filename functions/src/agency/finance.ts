@@ -10,7 +10,10 @@ import { agencyDb } from "./engine.js";
 export interface Loan {
   id: string;
   lender: string; branch?: string; program?: string;
-  repayment?: "principal-equal" | "annuity" | "bullet";   // 元金均等 ／ 元利均等 ／ 期日に一括
+  /** 元金均等 ／ 元利均等 ／ 据置（利息のみ・のちに返済開始） */
+  repayment?: "principal-equal" | "annuity" | "grace";
+  /** 据置の場合、この月から元金の返済が始まる（yyyy-mm） */
+  repaymentStartMonth?: string;
   principal: number;              // 借入額
   rate: number;                   // 年利（%）
   firstPayment: number;           // 初回の元金（一括返済では使わない）
@@ -40,6 +43,7 @@ export interface LoanState {
   remainingCount: number;
   progress: number;               // 返済の進み具合（%）
   notStarted?: boolean;           // 返済開始前
+  graceUntil?: string;            // 据置中（この月から元金の返済が始まる）
 }
 
 /**
@@ -59,17 +63,18 @@ export function loanState(loan: Loan, asOf = new Date()): LoanState {
     };
   }
 
-  /* 期日に一括返済する借入は、満期まで元金が1円も減らない。
+  /* 据置中の借入は、元金が1円も減らない（払っているのは利息だけ）。
      元金均等と同じ数え方をすると「返済が進んでいる」ように見えてしまうので分ける。 */
-  if (loan.repayment === "bullet") {
-    const due = loan.finalPaymentMonth ?? loan.firstPaymentMonth;
-    const repaid = ym > due;
-    const balance = repaid ? 0 : loan.principal;
+  if (loan.repayment === "grace") {
+    const start = loan.repaymentStartMonth ?? loan.finalPaymentMonth ?? "9999-12";
+    const balance = loan.principal;          // 返済開始前なので元金は満額のまま
     const interestThisMonth = Math.round((balance * (loan.rate / 100)) / 12);
     return {
-      loan, paidCount: repaid ? 1 : 0, paidPrincipal: repaid ? loan.principal : 0,
-      balance, interestThisMonth, monthlyTotal: interestThisMonth,
-      remainingCount: repaid ? 0 : 1, progress: repaid ? 100 : 0,
+      loan, paidCount: 0, paidPrincipal: 0, balance, interestThisMonth,
+      monthlyTotal: interestThisMonth,       // いま出ていくのは利息だけ
+      remainingCount: loan.totalPayments,
+      progress: 0,
+      graceUntil: start,
     };
   }
 
@@ -132,8 +137,7 @@ export async function loanSummary(asOf = new Date()) {
       count: rows.length,
       notStarted: rows.filter((r) => r.notStarted).length,
       /* 全部が返済期に入ったときの月々。資金繰りを見るときはこちらが効く */
-      monthlyWhenAllRunning: rows.reduce((a, r) =>
-        a + (r.loan.repayment === "bullet" ? 0 : r.loan.monthlyPayment), 0),
+      monthlyWhenAllRunning: rows.reduce((a, r) => a + r.loan.monthlyPayment, 0),
       repaid: sum((r) => r.paidPrincipal),
       /* 返済率は「元金をどれだけ返したか」。利息は資産にならないので分子に入れない */
       repaidRate: Math.round((sum((r) => r.paidPrincipal) / sum((r) => r.loan.principal)) * 1000) / 10,
@@ -143,9 +147,10 @@ export async function loanSummary(asOf = new Date()) {
       interestPerYear: Math.round((bal * weightedRate) / 100),
       finalMonth: rows.map((r) => r.loan.finalPaymentMonth ?? "").sort().at(-1) ?? "",
       /* 満期に一括で返す必要がある額。ここが資金繰りの崖になる */
-      bulletBalance: sum((r) => (r.loan.repayment === "bullet" ? r.balance : 0)),
-      bulletDue: rows.filter((r) => r.loan.repayment === "bullet" && r.balance > 0)
-        .map((r) => r.loan.finalPaymentMonth ?? "").sort()[0] ?? "",
+      /* 据置中＝いまは利息だけ払っている額。返済が始まると月々が跳ねる */
+      graceBalance: sum((r) => (r.loan.repayment === "grace" ? r.balance : 0)),
+      graceStart: rows.filter((r) => r.loan.repayment === "grace")
+        .map((r) => r.graceUntil ?? "").sort()[0] ?? "",
     },
     asOf: asOf.toISOString().slice(0, 10),
   };
