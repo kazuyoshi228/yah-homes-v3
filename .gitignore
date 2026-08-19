@@ -25,3 +25,7 @@ _reference_original/
 # os / editor
 .DS_Store
 *.log
+
+# サービスアカウント鍵（絶対にコミットしない。実体は ~/.config/yah-homes/ と Secret Manager）
+*-key.json
+agency-mailer.json
