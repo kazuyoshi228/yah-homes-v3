@@ -98,17 +98,22 @@ export const agencyApi = onRequest(
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
           return;
         }
-        case "fixedCosts": {                                  // 税金・保険（毎年決まって出ていくもの）
-          const [tax, ins] = await Promise.all([all("taxes"), all("insurance")]);
+        case "fixedCosts": {                                  // 税金・保険・積立（毎年決まって出ていくもの）
+          const [tax, ins, res_] = await Promise.all([all("taxes"), all("insurance"), all("reserves")]);
           const sumY = (rows: Array<Record<string, unknown>>, key: string) =>
             rows.reduce((a, r) => a + Number(r[key] ?? 0), 0);
           const taxes = sumY(tax as never, "amountPerYear");
           const premiums = sumY(ins as never, "premiumPerYear");
+          const reserves = sumY(res_ as never, "amountPerYear");
+          /* 棟数で割れるようにしておく。将来の棟数で引き直すときに使う */
+          const props = new Set([...tax, ...ins, ...res_].map((r) => (r as { prop?: string }).prop).filter(Boolean)).size || 1;
+          const perYear = taxes + premiums + reserves;
           res.json({
-            ok: true, taxes: tax, insurance: ins,
+            ok: true, taxes: tax, insurance: ins, reserves: res_,
             total: {
-              taxesPerYear: taxes, insurancePerYear: premiums,
-              perYear: taxes + premiums, perMonth: Math.round((taxes + premiums) / 12),
+              taxesPerYear: taxes, insurancePerYear: premiums, reservesPerYear: reserves,
+              perYear, perMonth: Math.round(perYear / 12),
+              props, perMonthPerProp: Math.round(perYear / 12 / props),
             },
           });
           return;
