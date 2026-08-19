@@ -1,0 +1,17 @@
+rules_version = '2';
+/**
+ * agency DB（OS SSoT・運営コンソールのデータ）のルール
+ *
+ * 全面拒否。読み書きは Functions（Admin SDK）経由のみとする。
+ * 理由: 業者・ジョブ・周期・承認キューは内部運営データであり、
+ * 公開読み取り前提の既定DB（Web SSoT）や、訪問者が触る chat DB とは
+ * 守秘水準が違う。クライアントに口を開けない＝事故の芽を構造的に断つ。
+ * （2026-08-19 発注者決定・業者ディスパッチ仕様書 §2）
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

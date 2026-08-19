@@ -11,7 +11,7 @@ WIPは最大3つ（D8）。当面の仕掛かり = **A. 週次レポート / B. 
 |---|---|---|---|
 | 0-1 | **「週次定点は当面手動」の解除**（2026-07決定の上書き。Aの前提） | 発注者 | 未 |
 | 0-2 | 週次メールの掲載項目の確定（案: 予約・稼働・GSC・広告・チャット件数＋前週比） | 発注者 | 未 |
-| 0-3 | **Google Workspace に `ai@bonfire.co.jp` を1席作成**（表示名「yah. 自動手配（AI）」） | 発注者 | 未 |
+| 0-3 | **Google Workspace に `ai.yamada@bonfire.co.jp` を1席作成**（表示名「yah. 自動手配（AI）」） | 発注者 | 未 |
 | 0-4 | Google Ads の開発者トークン申請（審査に日〜週。早めが吉） | 発注者 | 未 |
 | 0-5 | Meta Marketing API のアクセス設定（既存CAPIトークンの延長で可） | 発注者 | 未 |
 | 0-6 | MF クラウド会計 API の可否確認（アプリポータルに「アプリ開発」が出るか） | 発注者 | 未 |
@@ -42,7 +42,7 @@ WIPは最大3つ（D8）。当面の仕掛かり = **A. 週次レポート / B. 
 
 | # | タスク | 担当 | 依存 |
 |---|---|---|---|
-| B-1 | **Firestore 名前付きDB `os` の作成**＋ルール（クライアント直アクセス全面拒否） | Claude | — |
+| B-1 | **Firestore 名前付きDB `agency` の作成**＋ルール（クライアント直アクセス全面拒否） | Claude | — |
 | B-2 | Storage バケット作成（`yah-homes-os-archive` 非公開 / `yah-homes-backups`） | Claude | — |
 | B-3 | データモデル実装（vendors / schedules / jobs / jobs.messages / equipment） | Claude | B-1 |
 | B-4 | 初期データ投入（業者3社・周期4件・当ての予算） | Claude | 0-7・0-8 |
