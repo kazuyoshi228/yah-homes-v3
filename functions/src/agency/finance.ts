@@ -65,19 +65,22 @@ export function loanState(loan: Loan, asOf = new Date()): LoanState {
     };
   }
 
-  /* 据置中の借入は、元金が1円も減らない（払っているのは利息だけ）。
-     元金均等と同じ数え方をすると「返済が進んでいる」ように見えてしまうので分ける。 */
+  /* 据置の借入。開始月までは元金が1円も減らず、払っているのは利息だけ。
+     元金均等と同じ数え方をすると「返済が進んでいる」ように見えてしまうので分ける。
+     開始月を過ぎたら、そこを初回とする元金均等として数える（据置のまま止めない）。 */
   if (loan.repayment === "grace") {
     const start = loan.repaymentStartMonth ?? loan.finalPaymentMonth ?? "9999-12";
-    const balance = loan.principal;          // 返済開始前なので元金は満額のまま
-    const interestThisMonth = Math.round((balance * (loan.rate / 100)) / 12);
-    return {
-      loan, paidCount: 0, paidPrincipal: 0, balance, interestThisMonth,
-      monthlyTotal: interestThisMonth,       // いま出ていくのは利息だけ
-      remainingCount: loan.repaymentMonths ?? loan.totalPayments,
-      progress: 0,
-      graceUntil: start,
-    };
+    if (ym < start) {
+      const interestThisMonth = Math.round((loan.principal * (loan.rate / 100)) / 12);
+      return {
+        loan, paidCount: 0, paidPrincipal: 0, balance: loan.principal, interestThisMonth,
+        monthlyTotal: interestThisMonth,       // いま出ていくのは利息だけ
+        remainingCount: loan.repaymentMonths ?? loan.totalPayments,
+        progress: 0,
+        graceUntil: start,
+      };
+    }
+    return loanState({ ...loan, repayment: "principal-equal", firstPaymentMonth: start }, asOf);
   }
 
   /* 元利均等は毎回の支払額が一定で、そのうち元金に回る分が少しずつ増えていく。
