@@ -1049,8 +1049,10 @@ const PHONE_CC = [
             </div>
           </div>`;
         }
+        // AI自動応答（auto-limited）は小さな AI バッジを付ける。免責文は本文末尾に
+        // サーバが5言語で焼き込み済み（functions aiAutoSend・design_messages_ai_v1 §3）
         return `<div class="ac-bub ${mine ? "ac-bub-guest" : "ac-bub-host"}">
-          <p class="ac-bub-meta">${mine ? esc(uiA.msgYou) : esc(uiA.msgHost)} ${fmtTime(m.at)}</p>
+          <p class="ac-bub-meta">${mine ? esc(uiA.msgYou) : `${m.aiGenerated ? '<span class="ac-aibadge">AI</span>' : ""}${esc(uiA.msgHost)}`} ${fmtTime(m.at)}</p>
           <div class="ac-bub-body">${esc(m.body)}${m.translated ? `<div class="ac-bub-tr">${esc(m.translated)}</div>` : ""}</div>
         </div>`;
       }).join("");
@@ -1350,6 +1352,7 @@ const PHONE_CC = [
   :global(.ac-bub) { max-width: 82%; margin-bottom: 0.9rem; }
   :global(.ac-bub-guest) { margin-left: auto; }
   :global(.ac-bub-meta) { font-size: 0.68rem; color: #666666; margin-bottom: 0.25rem; }
+  :global(.ac-aibadge) { display: inline-block; font-size: 0.58rem; border: 1px solid #bbbbbb; color: #666666; border-radius: 3px; padding: 0 0.3rem; margin-right: 0.35rem; vertical-align: 1px; }
   :global(.ac-bub-guest .ac-bub-meta) { text-align: right; }
   :global(.ac-bub-body) {
     font-size: 0.86rem; line-height: 1.85; color: #111111; white-space: pre-wrap;

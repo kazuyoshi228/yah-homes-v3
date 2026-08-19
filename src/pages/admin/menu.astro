@@ -24,9 +24,8 @@ const SSOT = [
 ];
 const OPS_ENDPOINT = ENDPOINTS.adminOps;
 
-const SUPPORT: { href: string; title: string; role?: string }[] = [
+const SUPPORT = [
   { href: "/admin/messages/", title: "メッセージ" },
-  { href: "/admin/messages-ai/", title: "メッセージAI（設定・実績）", role: "admin" },
   { href: "/admin/bookings/", title: "直販予約 管理" },
 ];
 const OPERATOR: { href: string; title: string; role?: string }[] = [
@@ -43,6 +42,7 @@ const HOWTO = [
 const SYSTEM = [
   { href: "/admin/manual/", title: "操作マニュアル", role: "operator" },
   { href: "/admin/mail-log/", title: "メール送信ログ", role: "operator" },
+  { href: "/admin/messages-ai/", title: "メッセージAI", role: "admin" },   // design_messages_ai_v1 §2-3（システム管理・表記は「メッセージAI」のみ・2026-08-19 発注者指示）
   { href: "/admin/health/", title: "システムヘルス", role: "owner" },
   { href: "/admin/audit/", title: "変更履歴", role: "owner" },
   { href: "/admin/specs/", title: "システム仕様書", role: "owner" },
@@ -72,8 +72,8 @@ const SYSTEM = [
       <h2 class="am-h2" data-sec="cs">Customer Support</h2>
       <div class="am-grid" data-secgrid="cs">
         {SUPPORT.map((it) => (
-          <a class="am-card am-card-dark" href={it.href} data-role={it.role ?? "operator"}>
-            <h3 class="am-card-title">{it.title}<span class:list={["am-badge", BADGE(it.role ?? "operator").cls]}>{BADGE(it.role ?? "operator").label}</span></h3>
+          <a class="am-card am-card-dark" href={it.href} data-role="operator">
+            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
           </a>
         ))}
       </div>

@@ -36,12 +36,22 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
                 <td>
                   <select id="mai-mode">
                     <option value="off">停止</option>
-                    <option value="draft">下書きのみ（推奨）</option>
-                    <option value="auto-limited" disabled>限定自動（FAQのみ）— P2 準備中</option>
+                    <option value="draft">下書きのみ（推奨で開始）</option>
+                    <option value="auto-limited">限定自動（FAQのみ自動送信・他は下書き）</option>
                   </select>
                   <button type="button" class="mai-btn" id="mai-save">保存する</button>
                   <span class="mai-saved" id="mai-status" role="status"></span>
-                  <p class="mai-hint">正本: settings/messagesAi（未設定は「停止」に倒れます）。切替は Admin 以上。</p>
+                  <p class="mai-hint">
+                    正本: settings/messagesAi（未設定は「停止」に倒れます）。切替は Admin 以上。
+                    限定自動でも返金・変更・クレーム等は自動送信せず下書きに落ちます。
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <th>自動送信の時間帯</th>
+                <td>
+                  <input type="time" id="mai-from" disabled> 〜 <input type="time" id="mai-to" disabled>
+                  <p class="mai-hint">限定自動のときのみ（JST・日跨ぎ可・例 22:00〜07:00）。両方空欄=常時。</p>
                 </td>
               </tr>
               <tr>
@@ -56,8 +66,9 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
                 <th>免責フッター</th>
                 <td>
                   <p class="mai-hint">
-                    自動送信（P2）を始めるときに、/admin/templates の文言承認とあわせて有効化します。
-                    下書き運用では不要です（送るのは人間のため）。
+                    限定自動の自動送信には「AIによる自動応答です。内容はスタッフも確認します。」（5言語）が
+                    必ず付きます（文言は設計書 §9・変更したい場合はご指示ください）。
+                    下書き運用では付きません（送るのは人間のため）。
                   </p>
                 </td>
               </tr>
@@ -81,11 +92,23 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
     const fs = fsm.getFirestore(app);
     const $ = (id) => document.getElementById(id);
 
+    // 時間帯入力は限定自動のときだけ意味を持つ（それ以外は無効化して迷わせない）
+    function syncHours() {
+      const auto = $("mai-mode").value === "auto-limited";
+      $("mai-from").disabled = !auto;
+      $("mai-to").disabled = !auto;
+    }
+    $("mai-mode").addEventListener("change", syncHours);
+
     async function loadMode() {
       try {
         const snap = await fsm.getDoc(fsm.doc(fs, "settings", "messagesAi"));
-        $("mai-mode").value = snap.exists() && snap.data().mode === "draft" ? "draft" : "off";
+        const v = snap.exists() ? snap.data() : {};
+        $("mai-mode").value = v.mode === "draft" || v.mode === "auto-limited" ? v.mode : "off";
+        $("mai-from").value = v.autoFrom ?? "";
+        $("mai-to").value = v.autoTo ?? "";
       } catch { $("mai-mode").value = "off"; }   // ルール未反映・権限なしは「停止」を表示
+      syncHours();
     }
 
     async function loadStats() {
@@ -94,7 +117,7 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
         const since = new Date(Date.now() - 30 * 86400000);
         const q = fsm.query(fsm.collection(fs, "ai_drafts"), fsm.where("createdAt", ">", since));
         const snap = await fsm.getDocs(q);
-        const c = { total: 0, sent: 0, edited: 0, discarded: 0, pending: 0, superseded: 0, esc: 0 };
+        const c = { total: 0, sent: 0, edited: 0, discarded: 0, pending: 0, superseded: 0, auto: 0, esc: 0 };
         snap.forEach((d) => {
           const v = d.data();
           c.total++;
@@ -102,6 +125,7 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
           else if (v.status === "sent-edited") c.edited++;
           else if (v.status === "discarded") c.discarded++;
           else if (v.status === "superseded") c.superseded++;
+          else if (v.status === "auto-sent") c.auto++;
           else c.pending++;
           if (v.escalationRequired) c.esc++;
         });
@@ -112,8 +136,8 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
         const done = c.sent + c.edited + c.discarded;
         const pct = (n) => (done ? Math.round((n / done) * 100) : 0);
         box.innerHTML = `
-          <p>下書き <b>${c.total}件</b>（未対応 ${c.pending}・入れ替わり ${c.superseded}）／ エスカレーション付き <b>${c.esc}件</b></p>
-          <p>処理済み ${done}件の内訳 — 無編集送信 <b>${pct(c.sent)}%</b>（${c.sent}件）・編集して送信 <b>${pct(c.edited)}%</b>（${c.edited}件）・破棄 <b>${pct(c.discarded)}%</b>（${c.discarded}件）</p>`;
+          <p>生成 <b>${c.total}件</b>（未対応 ${c.pending}・入れ替わり ${c.superseded}）／ 自動送信 <b>${c.auto}件</b>／ エスカレーション付き <b>${c.esc}件</b></p>
+          <p>下書きの処理済み ${done}件の内訳 — 無編集送信 <b>${pct(c.sent)}%</b>（${c.sent}件）・編集して送信 <b>${pct(c.edited)}%</b>（${c.edited}件）・破棄 <b>${pct(c.discarded)}%</b>（${c.discarded}件）</p>`;
       } catch {
         box.textContent = "実績を読み込めませんでした（Firestore ルールの反映前は表示できません）。";
       }
@@ -126,10 +150,12 @@ const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
         const token = await auth.currentUser.getIdToken();
         const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "aiMode", mode: $("mai-mode").value }) });
+          body: JSON.stringify({ action: "aiMode", mode: $("mai-mode").value,
+            autoFrom: $("mai-from").value, autoTo: $("mai-to").value }) });
         const j = await r.json();
         $("mai-status").textContent = j.ok ? "保存しました"
           : j.error === "admin_only" ? "Admin 以上の権限が必要です"
+          : j.error === "invalid_autoHours" ? "時間帯は両方入力するか、両方空欄にしてください"
           : `保存に失敗しました（${j.error ?? "error"}）`;
       } catch { $("mai-status").textContent = "保存に失敗しました"; }
       btn.disabled = false;

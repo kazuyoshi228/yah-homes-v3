@@ -1938,12 +1938,21 @@ export const messagesApi = onRequest(
       const role = await getRole(email);
       if (!role || ROLE_RANK[role] < ROLE_RANK.admin) { res.status(403).json({ ok: false, error: "admin_only" }); return; }
       const modeStr = String((req.body as Record<string, unknown>)?.mode ?? "");
-      // auto-limited は P2（免責文言・時間条件の承認後）。それまで API ごと受け付けない
-      if (modeStr !== "off" && modeStr !== "draft") { res.status(400).json({ ok: false, error: "invalid_mode" }); return; }
+      if (modeStr !== "off" && modeStr !== "draft" && modeStr !== "auto-limited") {
+        res.status(400).json({ ok: false, error: "invalid_mode" }); return;
+      }
+      /* 自動送信の時間帯（JST・auto-limited のみ意味を持つ）。空=常時。"HH:MM" 以外は拒否 */
+      const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+      const autoFrom = String((req.body as Record<string, unknown>)?.autoFrom ?? "").trim();
+      const autoTo = String((req.body as Record<string, unknown>)?.autoTo ?? "").trim();
+      if ((autoFrom && !timeRe.test(autoFrom)) || (autoTo && !timeRe.test(autoTo)) || (!!autoFrom !== !!autoTo)) {
+        res.status(400).json({ ok: false, error: "invalid_autoHours" }); return;
+      }
       await db.collection("settings").doc("messagesAi").set(
-        { mode: modeStr, updatedAt: FieldValue.serverTimestamp(), updatedBy: email }, { merge: true });
+        { mode: modeStr, autoFrom, autoTo, updatedAt: FieldValue.serverTimestamp(), updatedBy: email }, { merge: true });
       await db.collection("audit_logs").add({
-        actor: email, action: "messages_ai_mode", value: modeStr, at: FieldValue.serverTimestamp() });
+        actor: email, action: "messages_ai_mode",
+        value: `${modeStr}${autoFrom ? `（自動 ${autoFrom}〜${autoTo}）` : ""}`, at: FieldValue.serverTimestamp() });
       res.status(200).json({ ok: true });
       return;
     }
@@ -2055,6 +2064,28 @@ export const messagesApi = onRequest(
 const AI_DRAFT_MODEL = "gemini-2.5-flash";   // chat側と同系（chat-yah-homes-v1/functions/src/config.ts）
 const AI_DRAFT_DAILY_PER_THREAD = 20;        // コスト保護: 同一スレッド1日あたりの生成上限
 
+/* 自動送信（auto-limited）の免責フッター（design_messages_ai_v1 §3・5言語）。
+   文言の編集可能化（mail_templates化）は必要になったときに行う（P3・§9） */
+const AI_DISCLAIMER_L10N: Record<string, string> = {
+  ja: "AIによる自動応答です。内容はスタッフも確認します。",
+  en: "This is an automated AI reply. Our staff also reviews these messages.",
+  ko: "AI 자동 응답입니다. 스태프도 내용을 확인합니다.",
+  zh: "這是 AI 自動回覆，工作人員也會確認內容。",
+  th: "ข้อความนี้เป็นการตอบกลับอัตโนมัติโดย AI ทีมงานจะตรวจสอบเนื้อหาด้วยเช่นกัน",
+};
+
+/** 自動送信の時間帯判定（JST・"HH:MM"）。未設定・不正値は常時OK。日跨ぎ（22:00→07:00）に対応 */
+function withinAutoHours(from?: string, to?: string): boolean {
+  const re = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (!from || !to || !re.test(from) || !re.test(to)) return true;
+  const now = new Date(Date.now() + 9 * 3600000);   // JST（Functions は UTC で走る）
+  const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const p = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+  const a = p(from), b = p(to);
+  if (a === b) return true;
+  return a < b ? cur >= a && cur < b : cur >= a || cur < b;
+}
+
 /** SSoT（property_facts/{prop}＋meta）→ プロンプトの【施設情報】ブロック */
 function aiFactsBlock(prop: string, f: Record<string, unknown>, meta: Record<string, unknown>): string {
   const has = (v: unknown) => v !== undefined && v !== null && String(v).trim() !== "" && String(v) !== "0";
@@ -2091,17 +2122,68 @@ function aiQaBlock(rows: unknown, cap: number): string {
   return out.join("\n");
 }
 
+/** 限定自動（auto-limited・P2）の送信実体。messagesApi の host 送信と同じ書き込みに
+    免責フッターを足すだけ＝AI専用の別経路を作らない。通知・Beds24複製も同経路を踏襲。 */
+async function aiAutoSend(
+  threadId: string, b: BookingDoc & Record<string, unknown>,
+  guestText: string, bodyText: string, translatedJa: string, lang: string,
+): Promise<void> {
+  const disclaimer = AI_DISCLAIMER_L10N[lang] ?? AI_DISCLAIMER_L10N.en;
+  const finalBody = `${bodyText}\n\n${disclaimer}`.slice(0, MSG_MAX);
+  const tref = db.collection("threads").doc(threadId);
+  await tref.collection("messages").add({
+    from: "host", body: finalBody,
+    // translated はゲスト画面にも出るため使わない（本文が既にゲスト言語）。
+    // 運営向けの日本語訳は aiJa に持ち、/admin/messages だけが表示する
+    translated: null, aiJa: translatedJa || null,
+    aiGenerated: true, author: "messages-ai",
+    at: FieldValue.serverTimestamp(),
+  });
+  await tref.update({
+    lastMessageAt: FieldValue.serverTimestamp(), lastFrom: "host",
+    lastBody: finalBody.slice(0, 120), lastSystem: false,
+    unreadForGuest: FieldValue.increment(1),
+  });
+  // ゲストへの新着通知（本文がゲスト言語のため訳は渡さない）
+  try { await notifyMessage(threadId, b, "host", finalBody, ""); }
+  catch (e) { logger.warn("ai auto notify failed", { e: String(e).slice(0, 120) }); }
+  // 運営への控え通知（spec §2: 自動送信＋運営へ控え）
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+    });
+    await transporter.sendMail({
+      from: `"yah.homes メッセージ" <${SMTP_USER.value()}>`,
+      to: await notifyRecipients("notifyBookings"), replyTo: MAIL_NOREPLY,
+      subject: `【AI自動応答・控え】${String(b.name ?? "")}様（${propName(String(b.prop))} ${String(b.checkin)}〜）`,
+      text: [`AIが自動応答しました（免責フッター付き）。`, "",
+        `--- ゲストの質問 ---`, guestText, "",
+        `--- AIの返信 ---`, finalBody,
+        ...(translatedJa ? ["", `【訳】${translatedJa}`] : []), "",
+        `スレッド: ${SITE_URL}/admin/messages/#${threadId}`].join("\n"),
+    });
+  } catch (e) { logger.warn("ai auto cc failed", { e: String(e).slice(0, 120) }); }
+  // Beds24 への会話複製（messagesApi と同じ・失敗は無視）
+  if (b.beds24Id) {
+    await noteBeds24Message(Number(b.beds24Id), "host", `【yah.homes AI自動応答】${finalBody}`)
+      .catch(() => { /* 複製失敗は無視 */ });
+  }
+}
+
 export const aiDraftReply = onDocumentCreated(
   { document: "threads/{threadId}/messages/{msgId}", region: REGION,
-    serviceAccount: SA, maxInstances: MAX_INSTANCES, memory: "512MiB", timeoutSeconds: 120 },
+    serviceAccount: SA, maxInstances: MAX_INSTANCES, memory: "512MiB", timeoutSeconds: 120,
+    secrets: [SMTP_USER, SMTP_PASS, BEDS24_WRITE_REFRESH] },   // 自動送信時の通知・Beds24複製用
   async (event) => {
     const m = event.data?.data() as Record<string, unknown> | undefined;
     const threadId = event.params.threadId;
     if (!m || m.from !== "guest" || m.system === true) return;
 
     // モード（正本: settings/messagesAi）。未設定・off・不明値は何もしない（fail-closed）
-    const mode = String((await db.collection("settings").doc("messagesAi").get()).data()?.mode ?? "off");
-    if (mode !== "draft") return;   // P1 は draft のみ（auto-limited は P2）
+    const st = (await db.collection("settings").doc("messagesAi").get()).data() ?? {};
+    const mode = String(st.mode ?? "off");
+    if (mode !== "draft" && mode !== "auto-limited") return;
 
     // 予約スレッドのみ。inquiry（予約前の問い合わせ）は予約文脈が無いため P1 対象外
     const t = (await db.collection("threads").doc(threadId).get()).data();
@@ -2204,6 +2286,14 @@ export const aiDraftReply = onDocumentCreated(
         .where("bookingId", "==", threadId).where("status", "==", "pending").get();
       await Promise.all(pend.docs.map((d) => d.ref.update({ status: "superseded" })));
 
+      /* 限定自動の判定: エスカレーション話題を含まず、時間帯条件（空=常時）を満たすときだけ。
+         それ以外は draft と同じ下書きカードに落とす（spec §2 auto-limited） */
+      const wantAuto = mode === "auto-limited" && out.escalationRequired !== true &&
+        withinAutoHours(String(st.autoFrom ?? ""), String(st.autoTo ?? ""));
+      if (wantAuto) {
+        await aiAutoSend(threadId, b, String(m.body ?? ""), bodyText, translatedJa, lang);
+      }
+
       await db.collection("ai_drafts").add({
         bookingId: threadId, prop,
         guestMessageId: event.params.msgId,
@@ -2216,7 +2306,7 @@ export const aiDraftReply = onDocumentCreated(
         sources: (out.sources ?? []).slice(0, 10).map((x) => String(x).slice(0, 60)),
         qaRows: { chat: Array.isArray(f.chatInfo) ? f.chatInfo.length : 0,
                   message: Array.isArray(f.messageInfo) ? f.messageInfo.length : 0 },
-        status: "pending", mode, model: AI_DRAFT_MODEL, ms: Date.now() - t0,
+        status: wantAuto ? "auto-sent" : "pending", mode, model: AI_DRAFT_MODEL, ms: Date.now() - t0,
         createdAt: FieldValue.serverTimestamp(),
       });
     } catch (err) {

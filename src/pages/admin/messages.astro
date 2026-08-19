@@ -261,9 +261,15 @@ const PROP = PROP_LABEL;
             </div>
           </div>`;
         }
+          // AI自動応答（auto-limited）はラベルで区別。運営向けの日本語訳は aiJa
+          //（translated はゲスト画面にも出るため自動応答では使っていない・aiAutoSend参照）
+          const who = host
+            ? (m.aiGenerated ? "🤖 AI自動応答" : `運営${m.author ? `（${esc(m.author)}）` : ""}`)
+            : `お客様${t.guestName ? `（${esc(t.guestName)}）` : ""}`;
+          const aid = m.translated ?? m.aiJa;
           return `<div class="ms-bub ${host ? "ms-bub-host" : "ms-bub-guest"}">
-            <p class="ms-bub-meta">${host ? `運営${m.author ? `（${esc(m.author)}）` : ""}` : `お客様${t.guestName ? `（${esc(t.guestName)}）` : ""}`} ${fmt(m.at)}</p>
-            <div class="ms-bub-body">${esc(m.body)}${m.translated ? `<div class="ms-bub-tr">${esc(m.translated)}</div>` : ""}</div>
+            <p class="ms-bub-meta">${who} ${fmt(m.at)}</p>
+            <div class="ms-bub-body">${esc(m.body)}${aid ? `<div class="ms-bub-tr">${esc(aid)}</div>` : ""}</div>
           </div>`;
         }).join("");
         const tEl = $("ms-thread");
