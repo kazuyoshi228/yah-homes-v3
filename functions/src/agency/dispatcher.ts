@@ -67,8 +67,11 @@ export async function sendRequests(): Promise<Array<{ jobId: string; mode: strin
   const snap = await db.collection("jobs").where("status", "==", "draft").get();
   const out: Array<{ jobId: string; mode: string }> = [];
   for (const doc of snap.docs) {
-    const job = doc.data() as Job & { aiPaused?: boolean; requestMailAt?: string };
+    const job = doc.data() as Job & { aiPaused?: boolean; requestMailAt?: string; manualOnly?: boolean };
     if (job.aiPaused) continue;   // 人が対応中のジョブは触らない
+    /* 保険の更改のように、相手が業者ではなく代理店の作業。
+       期日の見張りはするが、AIは依頼メールを出さない（例外にも落とさない）。 */
+    if (job.manualOnly) continue;
     /* ドライラン中は下書きを作っても status が draft のまま残る。
        ここで弾かないと毎朝おなじ依頼の下書きが増え続ける（2026-08-19 本番の初回実行で判明）。 */
     if (job.requestMailAt) continue;

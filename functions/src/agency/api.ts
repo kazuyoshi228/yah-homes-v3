@@ -98,6 +98,32 @@ export const agencyApi = onRequest(
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
           return;
         }
+        case "fixedCosts": {                                  // 税金・保険（毎年決まって出ていくもの）
+          const [tax, ins] = await Promise.all([all("taxes"), all("insurance")]);
+          const sumY = (rows: Array<Record<string, unknown>>, key: string) =>
+            rows.reduce((a, r) => a + Number(r[key] ?? 0), 0);
+          const taxes = sumY(tax as never, "amountPerYear");
+          const premiums = sumY(ins as never, "premiumPerYear");
+          res.json({
+            ok: true, taxes: tax, insurance: ins,
+            total: {
+              taxesPerYear: taxes, insurancePerYear: premiums,
+              perYear: taxes + premiums, perMonth: Math.round((taxes + premiums) / 12),
+            },
+          });
+          return;
+        }
+        case "insurancePdf": {
+          const id = String(req.query.id ?? "");
+          const d = (await db.collection("insurance").doc(id).get()).data();
+          const gs = String(d?.pdf ?? "");
+          if (!gs.startsWith("gs://")) { res.status(404).json({ ok: false, error: "原本が未登録です" }); return; }
+          const [bucket, ...rest] = gs.slice(5).split("/");
+          const [url] = await getStorage().bucket(bucket).file(rest.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url });
+          return;
+        }
         case "utilities": {                                   // 光熱費（会計の仕訳から）
           res.json({ ok: true, ...(await utilitySummary()) });
           return;

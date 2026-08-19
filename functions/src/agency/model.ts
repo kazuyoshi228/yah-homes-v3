@@ -33,6 +33,8 @@ export interface Schedule {
   vendorId: string;
   /** 実行月（1-12）。毎年その月に実施。例: [3,6,9,12] / [7] */
   months: number[];
+  /** 人が動く前提の作業（保険の更改など）。AIは起票だけして依頼メールは出さない。 */
+  manualOnly?: boolean;
   /** 数年に一度の作業（外壁クリーニング=5 など）。既定は毎年。 */
   everyYears?: number;
   /** everyYears の起点になる年。ここから everyYears ごとに実施する。 */
@@ -62,6 +64,8 @@ export type JobType = "periodic" | "spot" | "internal";
 
 /** 作業ジョブ: agency/jobs/{jobId}（append-only・削除しない） */
 export interface Job {
+  /** 人が動く前提の作業（保険の更改など）。期日は見張るが、AIは依頼メールを出さない。 */
+  manualOnly?: boolean;
   type: JobType;
   title: string;
   prop: PropKey;

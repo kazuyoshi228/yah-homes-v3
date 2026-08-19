@@ -90,7 +90,9 @@ export async function createDueJobs(now = new Date()): Promise<{ created: string
         dueMonth: ym(y, m),
         statutory: s.statutory,
         budget: s.budget,
-        timeline: [{ at: nowIso, status: "draft", by: "system", note: `周期マスタから自動起票（実施予定 ${ym(y, m)}）` }],
+        manualOnly: s.manualOnly ?? false,
+        timeline: [{ at: nowIso, status: "draft", by: "system",
+          note: `周期マスタから自動起票（実施予定 ${ym(y, m)}）${s.manualOnly ? "・人が対応する作業" : ""}` }],
         createdAt: nowIso,
         updatedAt: nowIso,
       };
