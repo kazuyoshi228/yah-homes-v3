@@ -24,8 +24,9 @@ const SSOT = [
 ];
 const OPS_ENDPOINT = ENDPOINTS.adminOps;
 
-const SUPPORT = [
+const SUPPORT: { href: string; title: string; role?: string }[] = [
   { href: "/admin/messages/", title: "メッセージ" },
+  { href: "/admin/messages-ai/", title: "メッセージAI（設定・実績）", role: "admin" },
   { href: "/admin/bookings/", title: "直販予約 管理" },
 ];
 const OPERATOR: { href: string; title: string; role?: string }[] = [
@@ -71,8 +72,8 @@ const SYSTEM = [
       <h2 class="am-h2" data-sec="cs">Customer Support</h2>
       <div class="am-grid" data-secgrid="cs">
         {SUPPORT.map((it) => (
-          <a class="am-card am-card-dark" href={it.href} data-role="operator">
-            <h3 class="am-card-title">{it.title}<span class="am-badge am-badge-operator">Operator</span></h3>
+          <a class="am-card am-card-dark" href={it.href} data-role={it.role ?? "operator"}>
+            <h3 class="am-card-title">{it.title}<span class:list={["am-badge", BADGE(it.role ?? "operator").cls]}>{BADGE(it.role ?? "operator").label}</span></h3>
           </a>
         ))}
       </div>

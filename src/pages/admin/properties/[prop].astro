@@ -227,6 +227,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="facilities">設備</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="transport">移動・距離</button>}
             <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">チャット用情報</button>
+            {HAS_FACTS && <button type="button" class="ap-side-link" data-view="message">顧客メッセージ用情報</button>}
             <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="common">共通情報</button>}
           </nav>
@@ -422,6 +423,39 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             <span class="ap-saved" id="ap-chat-saved"></span>
           </div>
         </div>
+        <!-- 顧客メッセージ用情報（design_messages_ai_v1 §2-2・2026-08-18 発注者指示）。
+             メッセージAIの返信下書きが参照する運用Q&A（正本: property_facts/{prop}.messageInfo）。
+             エディタはチャット用情報と共通（下の setupInfoEditor）。
+             暗証番号そのものは絶対に書かない（「どの経路でいつ案内するか」の方針だけを書く）。 -->
+        {HAS_FACTS && (
+          <div id="ap-view-message" hidden>
+            <p class="ap-note">
+              メッセージAI（/admin/messages の返信下書き）だけが参照します。チャットには使われません。
+              例:「暗証番号を聞かれたら → 前日のご案内メールでのみお送りする」
+              「返金を聞かれたら → 担当者が確認してご案内（AIは金額を約束しない）」
+            </p>
+            <p class="ap-note ap-chat-empty" id="ap-msg-empty" hidden>
+              この施設の顧客メッセージ用情報はまだ登録されていません。
+            </p>
+            <div class="ap-tablewrap">
+              <table class="ap-chat-table" id="ap-msg-table" hidden>
+                <thead><tr><th>設問</th><th>回答</th><th class="ap-chat-rowop"></th></tr></thead>
+                <tbody id="ap-msg-tbody"></tbody>
+              </table>
+            </div>
+            <div class="ap-chat-actions ap-chat-export" id="ap-msg-exportbar" hidden>
+              <button type="button" class="ap-btn-sub" id="ap-msg-copy">表をコピー（Excelに貼付）</button>
+              <button type="button" class="ap-btn-sub" id="ap-msg-csv">CSVをダウンロード</button>
+              <span class="ap-saved" id="ap-msg-copied"></span>
+            </div>
+            <div class="ap-chat-actions" id="ap-msg-savebar" hidden>
+              <button type="button" class="ap-btn-sub" id="ap-msg-addrow">＋ 行を追加</button>
+              <button type="button" class="ap-btn-sub" id="ap-msg-addcat">＋ 分類を追加</button>
+              <button class="ap-btn" id="ap-msg-save">保存する</button>
+              <span class="ap-saved" id="ap-msg-saved"></span>
+            </div>
+          </div>
+        )}
         <div id="ap-view-qr" hidden>
           {HAS_QR ? (
             <div class="ap-qr">
@@ -501,6 +535,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     const tp = document.getElementById("ap-view-transport");
     const cm = document.getElementById("ap-view-common");
     const ch = document.getElementById("ap-view-chat");
+    const mg = document.getElementById("ap-view-message");
     const qr = document.getElementById("ap-view-qr");
     if (ba) ba.hidden = view !== "basics";
     if (ov) ov.hidden = view !== "overview";
@@ -508,9 +543,10 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
     if (tp) tp.hidden = view !== "transport";
     if (cm) cm.hidden = view !== "common";
     if (ch) ch.hidden = view !== "chat";
+    if (mg) mg.hidden = view !== "message";
     if (qr) qr.hidden = view !== "qr";
     // 非表示のあいだは高さを測れない。表示に切り替わったここでやり直す
-    if (view === "chat") requestAnimationFrame(() => (window as unknown as { __yahGrowChat?: () => void }).__yahGrowChat?.());
+    if (view === "chat" || view === "message") requestAnimationFrame(() => (window as unknown as { __yahGrowChat?: () => void }).__yahGrowChat?.());
     document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
       b.classList.toggle("is-active", b.dataset.view === view));
     history.replaceState(null, "", view === "basics" ? location.pathname : `#${view}`);
@@ -518,7 +554,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
   document.querySelectorAll<HTMLElement>(".ap-side-link").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view ?? "chat")));
   const hash = location.hash.replace("#", "");
-  if (hash === "chat" || hash === "qr" || hash === "overview" || hash === "facilities" || hash === "transport" || hash === "common") switchView(hash);
+  const VIEWS = ["chat", "qr", "overview", "facilities", "transport", "common", "message"];
+  if (VIEWS.includes(hash) && document.querySelector(`[data-view="${hash}"]`)) switchView(hash);
   else if (!document.querySelector('[data-view="basics"]')) switchView("chat");
 </script>
 
@@ -571,166 +608,175 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
       const m = location.pathname.match(/\/admin\/properties\/([A-Za-z0-9_-]+)\//);
       return m ? m[1] : PROP;
     }
-    let chatEditable = false;
-    /* 入力欄の高さは中身に合わせて広げる。ただし表示されていない間は scrollHeight が 0 に
-       なるため、そのまま確定させると「行はあるのに中身が見えない」状態になる
-       （#chat で開いた直後に起きていた・2026-08-18 発注者報告）。測れないときは触らず、
-       表示に切り替わったタイミングで growAll() をやり直す。 */
-    const grow = (el) => {
-      const prev = el.style.height;
-      el.style.height = "auto";
-      const h = el.scrollHeight;
-      el.style.height = h > 0 ? `${h}px` : prev;
-    };
-    function growAll() {
-      document.querySelectorAll("#ap-chat-tbody textarea").forEach(grow);
-    }
-    // ビュー切替スクリプト（別ブロック）から呼べるようにする
-    window.__yahGrowChat = growAll;
-    /* 分類の見出し行。編集時は名前を書き換え可・「＋」でその分類の末尾に行を足す。
-       分類はデータ上は各行の cat フィールド（保存時に見出しから割り当て直す）。 */
-    function catRow(name) {
-      const tr = document.createElement("tr");
-      tr.className = "ap-chat-cat";
-      if (chatEditable) {
-        tr.innerHTML = `<th colspan="2"><input class="ap-chat-catname" placeholder="分類名"></th>
-          <td class="ap-chat-rowop"><button type="button" class="ap-chat-catadd" title="この分類に行を追加" aria-label="この分類に行を追加">＋</button></td>`;
-        tr.querySelector(".ap-chat-catname").value = name;
-        tr.querySelector(".ap-chat-catadd").addEventListener("click", () => {
-          let next = tr.nextElementSibling;
-          while (next && !next.classList.contains("ap-chat-cat")) next = next.nextElementSibling;
-          const row = chatRow("", "");
-          if (next) next.before(row); else tr.parentElement.append(row);
-          row.querySelector(".ap-chat-q")?.focus();
-        });
-      } else {
-        const th = document.createElement("th");
-        th.colSpan = 3;
-        th.textContent = name || "未分類";
-        tr.append(th);
+    /* ── チャット用情報／顧客メッセージ用情報の共通エディタ ──
+       ID接頭辞（ap-chat-／ap-msg-）と保存フィールド名（chatInfo／messageInfo）だけが違う
+       2インスタンス（design_messages_ai_v1 §2-2）。行・分類・Excelコピー/CSV・自動高さは
+       完全に同一のため、実装を1つに共用する（重複を作らない・SSoT原則と同じ規律）。 */
+    function setupInfoEditor(cfg) {   // cfg: { p: ID接頭辞, field: 保存フィールド, csv: CSVファイル名 }
+      const el = (s) => $(`${cfg.p}-${s}`);
+      let editable = false;
+      /* 入力欄の高さは中身に合わせて広げる。ただし表示されていない間は scrollHeight が 0 に
+         なるため、そのまま確定させると「行はあるのに中身が見えない」状態になる
+         （#chat で開いた直後に起きていた・2026-08-18 発注者報告）。測れないときは触らず、
+         表示に切り替わったタイミングで growAll() をやり直す。 */
+      const grow = (t) => {
+        const prev = t.style.height;
+        t.style.height = "auto";
+        const h = t.scrollHeight;
+        t.style.height = h > 0 ? `${h}px` : prev;
+      };
+      const growAll = () => el("tbody").querySelectorAll("textarea").forEach(grow);
+      /* 分類の見出し行。編集時は名前を書き換え可・「＋」でその分類の末尾に行を足す。
+         分類はデータ上は各行の cat フィールド（保存時に見出しから割り当て直す）。 */
+      function catRow(name) {
+        const tr = document.createElement("tr");
+        tr.className = "ap-chat-cat";
+        if (editable) {
+          tr.innerHTML = `<th colspan="2"><input class="ap-chat-catname" placeholder="分類名"></th>
+            <td class="ap-chat-rowop"><button type="button" class="ap-chat-catadd" title="この分類に行を追加" aria-label="この分類に行を追加">＋</button></td>`;
+          tr.querySelector(".ap-chat-catname").value = name;
+          tr.querySelector(".ap-chat-catadd").addEventListener("click", () => {
+            let next = tr.nextElementSibling;
+            while (next && !next.classList.contains("ap-chat-cat")) next = next.nextElementSibling;
+            const row = qaRow("", "");
+            if (next) next.before(row); else tr.parentElement.append(row);
+            row.querySelector(".ap-chat-q")?.focus();
+          });
+        } else {
+          const th = document.createElement("th");
+          th.colSpan = 3;
+          th.textContent = name || "未分類";
+          tr.append(th);
+        }
+        return tr;
       }
-      return tr;
-    }
-    function chatRow(q, a) {
-      const tr = document.createElement("tr");
-      if (chatEditable) {
-        tr.innerHTML = `<th><textarea class="ap-chat-q" rows="1"></textarea></th>
-          <td><textarea class="ap-chat-a" rows="1"></textarea></td>
-          <td class="ap-chat-rowop"><button type="button" class="ap-chat-del" title="この行を削除" aria-label="この行を削除">×</button></td>`;
-        // 内容に合わせて高さを自動調整（枠の高さを揃え、表として読めるように）
-        tr.querySelectorAll("textarea").forEach((el) => {
-          el.addEventListener("input", () => grow(el));
-        });
-        tr.querySelector(".ap-chat-q").value = q;
-        tr.querySelector(".ap-chat-a").value = a;
-        requestAnimationFrame(() => tr.querySelectorAll("textarea").forEach(grow));
-        tr.querySelector(".ap-chat-del").addEventListener("click", () => tr.remove());
-      } else {
-        const th = document.createElement("th"); th.textContent = q;
-        const td = document.createElement("td"); td.textContent = a;
-        tr.append(th, td);
+      function qaRow(q, a) {
+        const tr = document.createElement("tr");
+        if (editable) {
+          tr.innerHTML = `<th><textarea class="ap-chat-q" rows="1"></textarea></th>
+            <td><textarea class="ap-chat-a" rows="1"></textarea></td>
+            <td class="ap-chat-rowop"><button type="button" class="ap-chat-del" title="この行を削除" aria-label="この行を削除">×</button></td>`;
+          // 内容に合わせて高さを自動調整（枠の高さを揃え、表として読めるように）
+          tr.querySelectorAll("textarea").forEach((t) => {
+            t.addEventListener("input", () => grow(t));
+          });
+          tr.querySelector(".ap-chat-q").value = q;
+          tr.querySelector(".ap-chat-a").value = a;
+          requestAnimationFrame(() => tr.querySelectorAll("textarea").forEach(grow));
+          tr.querySelector(".ap-chat-del").addEventListener("click", () => tr.remove());
+        } else {
+          const th = document.createElement("th"); th.textContent = q;
+          const td = document.createElement("td"); td.textContent = a;
+          tr.append(th, td);
+        }
+        return tr;
       }
-      return tr;
-    }
-    function renderChat(rows, canEdit) {
-      chatEditable = canEdit;
-      const tbody = $("ap-chat-tbody");
-      tbody.textContent = "";
-      // cat を1つでも持つデータは分類見出しで区切る（値が変わるたびに新しい見出し）
-      const hasCat = rows.some((r) => String(r.cat ?? "") !== "");
-      let cur = null;
-      rows.forEach((r) => {
-        const cat = String(r.cat ?? "");
-        if (hasCat && cat !== cur) { tbody.append(catRow(cat)); cur = cat; }
-        tbody.append(chatRow(r.q ?? "", r.a ?? ""));
+      function render(rows, canEdit) {
+        editable = canEdit;
+        const tbody = el("tbody");
+        tbody.textContent = "";
+        // cat を1つでも持つデータは分類見出しで区切る（値が変わるたびに新しい見出し）
+        const hasCat = rows.some((r) => String(r.cat ?? "") !== "");
+        let cur = null;
+        rows.forEach((r) => {
+          const cat = String(r.cat ?? "");
+          if (hasCat && cat !== cur) { tbody.append(catRow(cat)); cur = cat; }
+          tbody.append(qaRow(r.q ?? "", r.a ?? ""));
+        });
+        el("table").hidden = rows.length === 0 && !canEdit;
+        el("empty").hidden = rows.length > 0 || canEdit;
+        el("savebar").hidden = !canEdit;
+        el("exportbar").hidden = rows.length === 0;
+        requestAnimationFrame(growAll);
+      }
+      el("addrow")?.addEventListener("click", () => el("tbody").append(qaRow("", "")));
+      /* 画面の表をそのまま書き出す（分類・設問・回答の3列）。編集中の未保存の内容も
+         画面の値を読むのでそのまま出る。Excel は改行やタブを含むセルを "" で囲めば
+         1セルとして受け取るため、TSV/CSV とも同じ引用規則で組み立てる。 */
+      function tableRows() {
+        const out = [];
+        let cur = "";
+        for (const tr of el("tbody").querySelectorAll("tr")) {
+          if (tr.classList.contains("ap-chat-cat")) {
+            cur = (tr.querySelector(".ap-chat-catname")?.value ?? tr.textContent ?? "").trim();
+            continue;
+          }
+          const q = tr.querySelector(".ap-chat-q")?.value ?? tr.children[0]?.textContent ?? "";
+          const a = tr.querySelector(".ap-chat-a")?.value ?? tr.children[1]?.textContent ?? "";
+          out.push([cur, q.trim(), a.trim()]);
+        }
+        return out;
+      }
+      const quote = (v, sep) =>
+        new RegExp(`[${sep === "\t" ? "\t" : ","}"\r\n]`).test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+      function toTable(sep) {
+        const head = ["分類", "設問", "回答"];
+        return [head, ...tableRows()]
+          .map((r) => r.map((v) => quote(String(v), sep)).join(sep)).join("\r\n");
+      }
+      function flash(msg) {
+        el("copied").textContent = msg;
+        setTimeout(() => { el("copied").textContent = ""; }, 4000);
+      }
+      el("copy")?.addEventListener("click", async () => {
+        const tsv = toTable("\t");
+        try {
+          await navigator.clipboard.writeText(tsv);
+          flash(`コピーしました（${tableRows().length}行）。Excel に貼り付けてください`);
+        } catch {
+          // クリップボードが拒否された場合（権限・非HTTPS）は選択状態にして手動コピーへ
+          const ta = document.createElement("textarea");
+          ta.value = tsv; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.append(ta); ta.select();
+          const ok = document.execCommand("copy");
+          ta.remove();
+          flash(ok ? "コピーしました。Excel に貼り付けてください" : "コピーできませんでした（CSVをお使いください）");
+        }
       });
-      $("ap-chat-table").hidden = rows.length === 0 && !canEdit;
-      $("ap-chat-empty").hidden = rows.length > 0 || canEdit;
-      $("ap-chat-savebar").hidden = !canEdit;
-      $("ap-chat-exportbar").hidden = rows.length === 0;
-      requestAnimationFrame(growAll);
-    }
-    $("ap-chat-addrow")?.addEventListener("click", () => $("ap-chat-tbody").append(chatRow("", "")));
-    /* 画面の表をそのまま書き出す（分類・設問・回答の3列）。編集中の未保存の内容も
-       画面の値を読むのでそのまま出る。Excel は改行やタブを含むセルを "" で囲めば
-       1セルとして受け取るため、TSV/CSV とも同じ引用規則で組み立てる。 */
-    function chatTableRows() {
-      const out = [];
-      let cur = "";
-      for (const tr of $("ap-chat-tbody").querySelectorAll("tr")) {
-        if (tr.classList.contains("ap-chat-cat")) {
-          cur = (tr.querySelector(".ap-chat-catname")?.value ?? tr.textContent ?? "").trim();
-          continue;
+      el("csv")?.addEventListener("click", () => {
+        // Excel は BOM が無いと UTF-8 の日本語を文字化けさせる
+        const blob = new Blob(["\uFEFF" + toTable(",")], { type: "text/csv;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cfg.csv}-${urlProp()}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        flash(`CSVを書き出しました（${tableRows().length}行）`);
+      });
+      el("addcat")?.addEventListener("click", () => {
+        const tb = el("tbody");
+        const head = catRow("");
+        tb.append(head, qaRow("", ""));
+        head.querySelector(".ap-chat-catname")?.focus();
+      });
+      el("save")?.addEventListener("click", async () => {
+        const rows = [];
+        let cur = "";
+        for (const tr of el("tbody").querySelectorAll("tr")) {
+          if (tr.classList.contains("ap-chat-cat")) {
+            cur = (tr.querySelector(".ap-chat-catname")?.value ?? "").trim();
+            continue;
+          }
+          const row = {
+            q: tr.querySelector(".ap-chat-q")?.value ?? "",
+            a: tr.querySelector(".ap-chat-a")?.value ?? "",
+          };
+          if (cur) row.cat = cur;
+          rows.push(row);
         }
-        const q = tr.querySelector(".ap-chat-q")?.value ?? tr.children[0]?.textContent ?? "";
-        const a = tr.querySelector(".ap-chat-a")?.value ?? tr.children[1]?.textContent ?? "";
-        out.push([cur, q.trim(), a.trim()]);
-      }
-      return out;
+        el("saved").textContent = "保存しています…";
+        const r = await api("POST", { prop: urlProp(), [cfg.field]: rows });
+        el("saved").textContent = r.ok
+          ? `保存しました（${r.saved}行）`
+          : `保存に失敗しました（${r.error ?? "error"}）`;
+      });
+      return { render, growAll };
     }
-    const quote = (v, sep) =>
-      new RegExp(`[${sep === "\t" ? "\t" : ","}"\r\n]`).test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    function chatTable(sep) {
-      const head = ["分類", "設問", "回答"];
-      return [head, ...chatTableRows()]
-        .map((r) => r.map((v) => quote(String(v), sep)).join(sep)).join("\r\n");
-    }
-    function flash(msg) {
-      $("ap-chat-copied").textContent = msg;
-      setTimeout(() => { $("ap-chat-copied").textContent = ""; }, 4000);
-    }
-    $("ap-chat-copy")?.addEventListener("click", async () => {
-      const tsv = chatTable("\t");
-      try {
-        await navigator.clipboard.writeText(tsv);
-        flash(`コピーしました（${chatTableRows().length}行）。Excel に貼り付けてください`);
-      } catch {
-        // クリップボードが拒否された場合（権限・非HTTPS）は選択状態にして手動コピーへ
-        const ta = document.createElement("textarea");
-        ta.value = tsv; ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.append(ta); ta.select();
-        const ok = document.execCommand("copy");
-        ta.remove();
-        flash(ok ? "コピーしました。Excel に貼り付けてください" : "コピーできませんでした（CSVをお使いください）");
-      }
-    });
-    $("ap-chat-csv")?.addEventListener("click", () => {
-      // Excel は BOM が無いと UTF-8 の日本語を文字化けさせる
-      const blob = new Blob(["\uFEFF" + chatTable(",")], { type: "text/csv;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `chatinfo-${urlProp()}.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      flash(`CSVを書き出しました（${chatTableRows().length}行）`);
-    });
-    $("ap-chat-addcat")?.addEventListener("click", () => {
-      const tb = $("ap-chat-tbody");
-      const head = catRow("");
-      tb.append(head, chatRow("", ""));
-      head.querySelector(".ap-chat-catname")?.focus();
-    });
-    $("ap-chat-save")?.addEventListener("click", async () => {
-      const rows = [];
-      let cur = "";
-      for (const tr of $("ap-chat-tbody").querySelectorAll("tr")) {
-        if (tr.classList.contains("ap-chat-cat")) {
-          cur = (tr.querySelector(".ap-chat-catname")?.value ?? "").trim();
-          continue;
-        }
-        const row = {
-          q: tr.querySelector(".ap-chat-q")?.value ?? "",
-          a: tr.querySelector(".ap-chat-a")?.value ?? "",
-        };
-        if (cur) row.cat = cur;
-        rows.push(row);
-      }
-      $("ap-chat-saved").textContent = "保存しています…";
-      const r = await api("POST", { prop: urlProp(), chatInfo: rows });
-      $("ap-chat-saved").textContent = r.ok
-        ? `保存しました（${r.saved}行）`
-        : `保存に失敗しました（${r.error ?? "error"}）`;
-    });
+    const chatEd = setupInfoEditor({ p: "ap-chat", field: "chatInfo", csv: "chatinfo" });
+    // 顧客メッセージ用情報はファクト編集のある直販2棟のみ（ビュー自体が無い施設では作らない）
+    const msgEd = $("ap-msg-tbody") ? setupInfoEditor({ p: "ap-msg", field: "messageInfo", csv: "messageinfo" }) : null;
+    // ビュー切替スクリプト（別ブロック）から呼べるようにする
+    window.__yahGrowChat = () => { chatEd.growAll(); msgEd?.growAll(); };
     /* 客室: 寝室数に連動した BR-1..n の内訳（シングル/ダブルの2列・数値）。
        合計と bedroomLayout 文字列はここから自動生成し、隠しフィールド経由で保存する。 */
     function bedRows() { return [...document.querySelectorAll(".ap-bed-row")]; }
@@ -804,7 +850,8 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
           ["operatorPhone","companyZip","companyAddressJa","companyAddressEn","companyStreetEn","companyLocalityEn","companyRegionEn","taxLow","taxHigh","taxHighThreshold"]
             .forEach((k) => { const el = $("ap-meta-" + k); if (el && m[k] !== undefined) el.value = m[k]; });
         }
-        renderChat(j.items[urlProp()]?.chatInfo ?? [], j.canEdit === true);
+        chatEd.render(j.items[urlProp()]?.chatInfo ?? [], j.canEdit === true);
+        msgEd?.render(j.items[urlProp()]?.messageInfo ?? [], j.canEdit === true);
         // 閲覧は全メンバー・編集は Owner のみ（2026-08-18 発注者判断）。
         // Owner 以外は入力を無効化し、保存バーを隠して読み取り専用にする
         if (!j.canEdit) {

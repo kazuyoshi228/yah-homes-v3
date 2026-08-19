@@ -1,7 +1,7 @@
 # 直販メッセージのAI応答 v1（設計書・P1着工中）
 
 - 起票: 2026-08-18（発注者との対話から）
-- 状態: **承認済み・P1着工（2026-08-19・ブランチ messages-ai）**。§6のうち①はP1=draftで確定、②③はP2着手前、④はデプロイ前に回答
+- 状態: **P1実装完了（2026-08-19・ブランチ messages-ai）・デプロイは承認待ち**。§6のうち①はdraftで確定、②③はP2着手前、④はデプロイ前に回答
 - 前提: chat.yah.homes で Vertex AI（Gemini・asia-northeast1）による自動応答が本番稼働中。
   同一Firebaseプロジェクト・同一SSoT（property_facts）のため、その資産を流用する。
 
@@ -106,3 +106,31 @@
 | 2026-08-18 | 設定・実績は adminメニュー直下 /admin/messages-ai・正本は settings/messagesAi（SSoT外） |
 | 2026-08-19 | 業者やり取りは本設計の対象外（yah.OSディスパッチ側・§7） |
 | 2026-08-19 | P1着工承認・ブランチ messages-ai・開始モードは draft で確定 |
+| 2026-08-19 | P1実装完了（§9）。RAG別立てはP2へ（インデックス作成がデプロイ作業のため） |
+
+## 9. P1実装メモ（2026-08-19・ブランチ messages-ai）
+
+- **ai_drafts/{autoId}**（新コレクション・staff読み取りのみ・書き込みは全てサーバ）:
+  bookingId / prop / guestMessageId / guestMessageExcerpt / body / translatedJa（運営レビュー用の日本語訳）/
+  language / escalationRequired / escalationTopics[] / sources[]（根拠表示）/ qaRows /
+  status（pending → sent | sent-edited | discarded | superseded）/ mode / model / ms / createdAt / resolvedBy / resolvedAt。
+  採用率はこのコレクションの集計＝派生値（保存正本を持たない）
+- **aiDraftReply**: threads/{id}/messages onDocumentCreated トリガ。ゲスト発言のみ・inquiry除外・
+  モード!=draftは即return・SSoT不読/生成失敗/空応答は書かない（fail-closed）。
+  注入=予約コンテキスト＋property_facts/meta＋chatInfo＋messageInfo＋直近12通。
+  Gemini 2.5 Flash（Vertex・asia-northeast1・ADC）・構造化出力。コスト上限=同一スレッド1日20件
+- **messagesApi**: action:aiMode（admin以上・off/draftのみ受付。auto-limitedはP2までAPIごと拒否）・
+  action:draftResolve（staff・採用記録）。送信経路は現行 send のまま＝AIに送信権限なし
+- **RAG別立て**はP1に含めず（ベクトルインデックス作成がデプロイ作業のため）。
+  P1の知識= SSoT＋Q&A注入で開始し、専用インデックスはP2で判断（§4の方針は不変）
+- ゲスト側（My Page）は無変更（draft運用では見た目が一切変わらない・§2）
+
+### デプロイ手順（承認後・この順）
+
+1. `cd functions && npm i`（@google/genai 追加済み）→ `firebase deploy --only functions:aiDraftReply,functions:messagesApi,functions:adminProperties`
+2. `firebase deploy --only firestore:rules,firestore:indexes`（ai_drafts の staff 読み取り＋複合インデックス）
+3. Vertex AI: `aiplatform.googleapis.com` の有効化（chatで有効化済みの見込み）＋
+   実行SA `yah-homes@appspot.gserviceaccount.com` に `roles/aiplatform.user`（chat側SAと同一なら不要）
+4. サイト: `./safe-deploy.sh live`（#message ビュー・/admin/messages-ai・下書きカード）
+5. 有効化: /admin/messages-ai でモードを「下書きのみ」にして保存（既定は停止＝デプロイ直後は何も起きない）
+6. 運用前に §6-4（Airstar への説明）を済ませる

@@ -39,6 +39,9 @@ const PROP = PROP_LABEL;
           <div class="ms-main">
             <div id="ms-head" class="ms-head" hidden></div>
             <div id="ms-thread" class="ms-thread"><p class="ms-empty">左のスレッドを選んでください。</p></div>
+            <!-- メッセージAIの返信下書き（design_messages_ai_v1）。会話と返信欄の間に1枚だけ。
+                 中身は onSnapshot(ai_drafts) が描く。送信は必ず人間（このカードのボタン経由） -->
+            <div id="ms-draft" hidden></div>
             <div class="ms-compose" id="ms-compose" hidden>
               <textarea id="ms-input" rows="3" maxlength="2000" placeholder="返信を入力（Cmd/Ctrl + Enter で送信）"></textarea>
               <button type="button" class="ms-btn" id="ms-send">送信</button>
@@ -71,6 +74,17 @@ const PROP = PROP_LABEL;
     };
 
     let threads = [], active = "", filter = "open", msgUnsub = null;
+    // メッセージAIの下書き: 表示中スレッドの pending 購読と「編集して送信」の追跡
+    let draftUnsub = null, armedDraft = null;
+
+    /* messagesApi への POST（send/read/draftResolve 共通） */
+    async function msApi(payload) {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload) });
+      return r.json();
+    }
 
     function renderList() {
       const rows = filter === "open" ? threads.filter((t) => (t.unreadForHost || 0) > 0 || t.lastMessageAt) : threads;
@@ -125,6 +139,51 @@ const PROP = PROP_LABEL;
     });
   }
 
+    /* ─── メッセージAIの下書きカード（design_messages_ai_v1・P1） ───
+       pending の最新1枚だけを会話と返信欄の間に出す。根拠と「自動送信対象外」の
+       理由を必ず表示。送信経路は現行の messagesApi send のまま＝AIに送信権限はない。 */
+    function renderDraft(d) {
+      const box = $("ms-draft");
+      if (!d) { box.hidden = true; box.innerHTML = ""; return; }
+      const badge = d.escalationRequired
+        ? `<span class="ms-d-badge">自動送信対象外：${esc((d.escalationTopics ?? []).join("・") || "要人間判断")}</span>` : "";
+      const src = (d.sources ?? []).length ? `根拠: ${esc(d.sources.join("・"))}` : "";
+      box.hidden = false;
+      box.innerHTML = `
+        <div class="ms-d-head"><span>🤖 <b>AI下書き</b></span>${badge}<span class="ms-d-src">${src}</span></div>
+        <div class="ms-d-body">${esc(d.body)}</div>
+        ${d.translatedJa ? `<div class="ms-d-tr">【訳】${esc(d.translatedJa)}</div>` : ""}
+        <div class="ms-d-actions">
+          <button type="button" class="ms-d-main" id="ms-d-send">このまま送信</button>
+          <button type="button" class="ms-d-sub" id="ms-d-edit">編集して送信</button>
+          <button type="button" class="ms-d-sub" id="ms-d-discard">破棄</button>
+        </div>`;
+      $("ms-d-send").addEventListener("click", () => sendDraftAsIs(d));
+      $("ms-d-edit").addEventListener("click", () => {
+        // 本文を返信欄へ流し込む。送信時に無編集/編集を判定して採用率に記録する
+        $("ms-input").value = d.body;
+        armedDraft = { id: d.id, original: d.body };
+        $("ms-input").focus();
+      });
+      $("ms-d-discard").addEventListener("click", () => resolveDraft(d.id, "discarded"));
+    }
+    /* 採用記録（無編集送信/編集送信/破棄）。カードは onSnapshot が消す。
+       記録の失敗は送信の成否に影響させない（計測が欠けるだけ） */
+    async function resolveDraft(draftId, outcome) {
+      if (armedDraft?.id === draftId) armedDraft = null;
+      try { await msApi({ action: "draftResolve", draftId, outcome }); } catch { /* 計測のみ */ }
+    }
+    async function sendDraftAsIs(d) {
+      if (!active) return;
+      $("ms-status").textContent = "送信中...";
+      try {
+        const j = await msApi({ action: "send", bookingId: active, body: d.body, as: "host" });
+        if (!j.ok) throw new Error(j.error || "fail");
+        $("ms-status").textContent = "";
+        resolveDraft(d.id, "sent");
+      } catch { $("ms-status").textContent = "送信できませんでした。もう一度お試しください。"; }
+    }
+
     /* 予約パネル（Airbnb の右カラムと同じ）。操作は置かず、詳細ページへ1リンクで送る */
     let panelOpen = false;
     function toggleBookingPanel(id, t) {
@@ -166,6 +225,19 @@ const PROP = PROP_LABEL;
       document.getElementById("ms-panel-toggle")?.addEventListener("click", () => toggleBookingPanel(id, t));
       $("ms-compose").hidden = false;
 
+      /* メッセージAIの下書き購読（pending のみ・最新1枚を表示）。
+         ルール未デプロイ・権限なしのときは黙って出さない（現行画面のまま） */
+      if (draftUnsub) draftUnsub();
+      armedDraft = null;
+      renderDraft(null);
+      const dq = fsm.query(fsm.collection(fs, "ai_drafts"),
+        fsm.where("bookingId", "==", id), fsm.where("status", "==", "pending"));
+      draftUnsub = fsm.onSnapshot(dq, (snap) => {
+        const ds = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+        ds.sort((p, q2) => (q2.createdAt?.toMillis?.() ?? 0) - (p.createdAt?.toMillis?.() ?? 0));
+        renderDraft(ds[0] ?? null);
+      }, () => renderDraft(null));
+
       if (msgUnsub) msgUnsub();
       const q = fsm.query(fsm.collection(fs, "threads", id, "messages"), fsm.orderBy("at", "asc"));
       msgUnsub = fsm.onSnapshot(q, (snap) => {
@@ -204,10 +276,7 @@ const PROP = PROP_LABEL;
       }, () => { $("ms-thread").innerHTML = '<p class="ms-empty">読み込めませんでした。</p>'; });
 
       try {
-        const token = await auth.currentUser.getIdToken();
-        await fetch(MESSAGES_ENDPOINT, { method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "read", bookingId: id, as: "host" }) });
+        await msApi({ action: "read", bookingId: id, as: "host" });
       } catch { /* 既読の失敗は表示に影響しない */ }
       if (location.hash.slice(1) !== id) history.replaceState(null, "", `#${id}`);
     }
@@ -217,13 +286,11 @@ const PROP = PROP_LABEL;
       if (!body || !active) return;
       const btn = $("ms-send"); btn.disabled = true; $("ms-status").textContent = "送信中...";
       try {
-        const token = await auth.currentUser.getIdToken();
-        const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "send", bookingId: active, body, as: "host" }) });
-        const j = await r.json();
+        const j = await msApi({ action: "send", bookingId: active, body, as: "host" });
         if (!j.ok) throw new Error(j.error || "fail");
         el.value = ""; $("ms-status").textContent = "";
+        // AI下書きを流し込んで送った場合は、無編集/編集を判定して採用率に記録
+        if (armedDraft) resolveDraft(armedDraft.id, body === armedDraft.original.trim() ? "sent" : "sent-edited");
       } catch { $("ms-status").textContent = "送信できませんでした。もう一度お試しください。"; }
       btn.disabled = false;
     }
@@ -312,6 +379,20 @@ const PROP = PROP_LABEL;
   }
   :global(.ms-bub-tr) { font-size: 0.76rem; color: #666666; margin-top: 0.4rem; line-height: 1.7; }
   :global(.ms-bub-host .ms-bub-tr) { color: rgba(255,255,255,0.65); }
+
+  /* メッセージAIの下書きカード。中身は JS が innerHTML で描くため :global 必須
+     （Astro のスコープ付きCSSは動的DOMに当たらない・このリポジトリで繰り返した罠） */
+  #ms-draft { border: 1px solid #d7d7d7; border-left: 3px solid #111111; border-radius: 6px; margin-bottom: 1rem; }
+  :global(.ms-d-head) { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.55rem 0.9rem; border-bottom: 1px solid #f0f0f0; font-size: 0.72rem; color: #666666; }
+  :global(.ms-d-head b) { color: #111111; font-weight: 600; }
+  :global(.ms-d-badge) { font-size: 0.66rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fdecea; color: #b3261e; }
+  :global(.ms-d-src) { margin-left: auto; font-size: 0.66rem; color: #888888; }
+  :global(.ms-d-body) { padding: 0.8rem 0.95rem; font-size: 0.84rem; line-height: 1.85; color: #111111; white-space: pre-wrap; word-break: break-word; }
+  :global(.ms-d-tr) { padding: 0 0.95rem 0.6rem; font-size: 0.74rem; color: #666666; line-height: 1.7; white-space: pre-wrap; }
+  :global(.ms-d-actions) { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0.9rem; border-top: 1px solid #f0f0f0; }
+  :global(.ms-d-main) { font-family: inherit; font-size: 0.78rem; color: #ffffff; background: #111111; border: 1px solid #111111; border-radius: 4px; padding: 0.55rem 1rem; cursor: pointer; }
+  :global(.ms-d-sub) { font-family: inherit; font-size: 0.78rem; color: #111111; background: #ffffff; border: 1px solid #d7d7d7; border-radius: 4px; padding: 0.55rem 1rem; cursor: pointer; }
+  :global(.ms-d-sub:hover) { border-color: #111111; }
 
   .ms-compose { display: flex; gap: 0.6rem; align-items: flex-end; }
   .ms-compose textarea {

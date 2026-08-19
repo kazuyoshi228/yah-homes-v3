@@ -1,0 +1,179 @@
+---
+/* /admin/messages-ai — メッセージAIの設定・実績（design_messages_ai_v1 §2-3）
+   adminメニュー直下の独立項目（2026-08-19 発注者判断・物件情報のビューにはしない）。
+   設定の正本: Firestore settings/messagesAi（SSoT=property_facts とは分離・未設定は off）。
+   モード切替は Admin 以上（messagesApi action:aiMode がサーバ側で強制）。
+   実績は ai_drafts の集計＝派生値（保存正本を持たない）。noindex・sitemap除外。 */
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { FB_SDK, ENDPOINTS, FB_CONFIG } from "../../lib/adminConfig";
+
+const MESSAGES_ENDPOINT = ENDPOINTS.messagesApi;
+---
+
+<SiteLayout adminNav
+  lang="ja"
+  path="/admin/messages-ai"
+  title="メッセージAI | yah.homes"
+  description="メッセージAIの設定と実績"
+  noindex={true}
+  solidNav
+>
+  <section class="mai">
+    <div class="mai-container">
+      <a class="mai-eyebrow" href="/admin/menu/">Admin</a>
+      <h1 class="mai-title">メッセージAI</h1>
+      <p class="mai-lead">
+        My Page メッセージへの返信下書きを AI が作ります。下書きは
+        <a href="/admin/messages/">メッセージ</a>のスレッド上にカードで出て、送信は必ず人間が行います。
+      </p>
+
+      <div id="mai-app" hidden>
+        <div class="mai-tablewrap">
+          <table class="mai-table">
+            <tbody>
+              <tr>
+                <th>動作モード</th>
+                <td>
+                  <select id="mai-mode">
+                    <option value="off">停止</option>
+                    <option value="draft">下書きのみ（推奨）</option>
+                    <option value="auto-limited" disabled>限定自動（FAQのみ）— P2 準備中</option>
+                  </select>
+                  <button type="button" class="mai-btn" id="mai-save">保存する</button>
+                  <span class="mai-saved" id="mai-status" role="status"></span>
+                  <p class="mai-hint">正本: settings/messagesAi（未設定は「停止」に倒れます）。切替は Admin 以上。</p>
+                </td>
+              </tr>
+              <tr>
+                <th>顧客メッセージ用情報</th>
+                <td>
+                  <a href="/admin/properties/kiyokawa/#message">清川</a> ／
+                  <a href="/admin/properties/takasago/#message">高砂</a>
+                  <p class="mai-hint">AIが参照する運用Q&amp;A（名簿の案内・返金の一次回答など）。チャット用情報とは別です。</p>
+                </td>
+              </tr>
+              <tr>
+                <th>免責フッター</th>
+                <td>
+                  <p class="mai-hint">
+                    自動送信（P2）を始めるときに、/admin/templates の文言承認とあわせて有効化します。
+                    下書き運用では不要です（送るのは人間のため）。
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 class="mai-h2">実績（直近30日）</h2>
+        <div id="mai-stats" class="mai-stats">読み込み中...</div>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script define:vars={{ FB_SDK, MESSAGES_ENDPOINT, FB_CONFIG }}>
+  import(`${FB_SDK}/firebase-app.js`).then(async ({ initializeApp }) => {
+    const { getAuth, onAuthStateChanged } = await import(`${FB_SDK}/firebase-auth.js`);
+    const fsm = await import(`${FB_SDK}/firebase-firestore.js`);
+    const app = initializeApp(FB_CONFIG);
+    const auth = getAuth(app);
+    const fs = fsm.getFirestore(app);
+    const $ = (id) => document.getElementById(id);
+
+    async function loadMode() {
+      try {
+        const snap = await fsm.getDoc(fsm.doc(fs, "settings", "messagesAi"));
+        $("mai-mode").value = snap.exists() && snap.data().mode === "draft" ? "draft" : "off";
+      } catch { $("mai-mode").value = "off"; }   // ルール未反映・権限なしは「停止」を表示
+    }
+
+    async function loadStats() {
+      const box = $("mai-stats");
+      try {
+        const since = new Date(Date.now() - 30 * 86400000);
+        const q = fsm.query(fsm.collection(fs, "ai_drafts"), fsm.where("createdAt", ">", since));
+        const snap = await fsm.getDocs(q);
+        const c = { total: 0, sent: 0, edited: 0, discarded: 0, pending: 0, superseded: 0, esc: 0 };
+        snap.forEach((d) => {
+          const v = d.data();
+          c.total++;
+          if (v.status === "sent") c.sent++;
+          else if (v.status === "sent-edited") c.edited++;
+          else if (v.status === "discarded") c.discarded++;
+          else if (v.status === "superseded") c.superseded++;
+          else c.pending++;
+          if (v.escalationRequired) c.esc++;
+        });
+        if (!c.total) {
+          box.textContent = "まだ下書きはありません（モードを「下書きのみ」にすると、ゲスト送信のたびに生成されます）。";
+          return;
+        }
+        const done = c.sent + c.edited + c.discarded;
+        const pct = (n) => (done ? Math.round((n / done) * 100) : 0);
+        box.innerHTML = `
+          <p>下書き <b>${c.total}件</b>（未対応 ${c.pending}・入れ替わり ${c.superseded}）／ エスカレーション付き <b>${c.esc}件</b></p>
+          <p>処理済み ${done}件の内訳 — 無編集送信 <b>${pct(c.sent)}%</b>（${c.sent}件）・編集して送信 <b>${pct(c.edited)}%</b>（${c.edited}件）・破棄 <b>${pct(c.discarded)}%</b>（${c.discarded}件）</p>`;
+      } catch {
+        box.textContent = "実績を読み込めませんでした（Firestore ルールの反映前は表示できません）。";
+      }
+    }
+
+    $("mai-save").addEventListener("click", async () => {
+      const btn = $("mai-save"); btn.disabled = true;
+      $("mai-status").textContent = "保存しています…";
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch(MESSAGES_ENDPOINT, { method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "aiMode", mode: $("mai-mode").value }) });
+        const j = await r.json();
+        $("mai-status").textContent = j.ok ? "保存しました"
+          : j.error === "admin_only" ? "Admin 以上の権限が必要です"
+          : `保存に失敗しました（${j.error ?? "error"}）`;
+      } catch { $("mai-status").textContent = "保存に失敗しました"; }
+      btn.disabled = false;
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { location.replace("/admin/?next=" + encodeURIComponent(location.pathname)); return; }
+      $("mai-app").hidden = false;
+      loadMode();
+      loadStats();
+    });
+  });
+</script>
+
+<style>
+  .mai { background: #ffffff; padding: 7rem 1.5rem 5rem; min-height: 70vh; }
+  .mai-container { max-width: 760px; margin: 0 auto; }
+  .mai-eyebrow { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #666666; margin-bottom: 1rem; text-decoration: none; }
+  .mai-title { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 500; color: #111111; margin-bottom: 0.8rem; }
+  .mai-lead { font-size: 0.84rem; color: #555555; line-height: 1.9; margin-bottom: 2rem; }
+  .mai-lead a { color: #111111; }
+
+  .mai-tablewrap { overflow-x: auto; }
+  .mai-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .mai-table th, .mai-table td { text-align: left; padding: 0.9rem 0.6rem; border-bottom: 1px solid #ececec; vertical-align: top; }
+  .mai-table th { width: 200px; font-weight: 500; color: #111111; white-space: nowrap; }
+  .mai-table td a { color: #111111; }
+  .mai-table select {
+    font-family: inherit; font-size: 0.82rem; color: #111111; background: #ffffff;
+    border: 1px solid #d7d7d7; border-radius: 4px; padding: 0.45rem 0.6rem;
+  }
+  .mai-btn {
+    font-family: inherit; font-size: 0.8rem; color: #ffffff; background: #111111;
+    border: none; border-radius: 4px; padding: 0.5rem 1.2rem; cursor: pointer; margin-left: 0.5rem;
+  }
+  .mai-btn:disabled { opacity: 0.5; }
+  .mai-saved { margin-left: 0.6rem; font-size: 0.76rem; color: #1a7f37; }
+  .mai-hint { font-size: 0.72rem; color: #888888; line-height: 1.7; margin-top: 0.45rem; }
+
+  .mai-h2 { font-size: 0.95rem; font-weight: 500; color: #111111; margin: 2.4rem 0 0.8rem; }
+  .mai-stats { font-size: 0.84rem; color: #333333; line-height: 2; }
+  .mai-stats :global(b) { color: #111111; }
+
+  @media (max-width: 640px) {
+    .mai-table th { width: auto; white-space: normal; }
+  }
+</style>

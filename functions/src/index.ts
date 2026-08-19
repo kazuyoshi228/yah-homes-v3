@@ -9,6 +9,7 @@
  */
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
 import { createHmac, createHash, timingSafeEqual } from "node:crypto";
@@ -1929,6 +1930,39 @@ export const messagesApi = onRequest(
     } catch { res.status(401).json({ ok: false, error: "unauthorized" }); return; }
     const isStaff = !!email && (isRootOwner(email) || !!(await getAdminUser(email)));
 
+    /* ─── メッセージAI（design_messages_ai_v1）───
+       モード切替（admin以上・正本 settings/messagesAi）と、下書きの採用記録（staff）。
+       どちらも bookingId を要しないため idStr 検証より前に置く。 */
+    if (action === "aiMode") {
+      if (!isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+      const role = await getRole(email);
+      if (!role || ROLE_RANK[role] < ROLE_RANK.admin) { res.status(403).json({ ok: false, error: "admin_only" }); return; }
+      const modeStr = String((req.body as Record<string, unknown>)?.mode ?? "");
+      // auto-limited は P2（免責文言・時間条件の承認後）。それまで API ごと受け付けない
+      if (modeStr !== "off" && modeStr !== "draft") { res.status(400).json({ ok: false, error: "invalid_mode" }); return; }
+      await db.collection("settings").doc("messagesAi").set(
+        { mode: modeStr, updatedAt: FieldValue.serverTimestamp(), updatedBy: email }, { merge: true });
+      await db.collection("audit_logs").add({
+        actor: email, action: "messages_ai_mode", value: modeStr, at: FieldValue.serverTimestamp() });
+      res.status(200).json({ ok: true });
+      return;
+    }
+    if (action === "draftResolve") {
+      if (!isStaff) { res.status(403).json({ ok: false, error: "forbidden" }); return; }
+      const { draftId, outcome } = (req.body ?? {}) as Record<string, unknown>;
+      const outcomeStr = String(outcome ?? "");
+      if (!["sent", "sent-edited", "discarded"].includes(outcomeStr)) {
+        res.status(400).json({ ok: false, error: "invalid_outcome" }); return;
+      }
+      const dref = db.collection("ai_drafts").doc(String(draftId ?? "-"));
+      const dsnap = await dref.get();
+      if (!dsnap.exists) { res.status(404).json({ ok: false, error: "not_found" }); return; }
+      if (dsnap.data()?.status !== "pending") { res.status(409).json({ ok: false, error: "already_resolved" }); return; }
+      await dref.update({ status: outcomeStr, resolvedBy: email, resolvedAt: FieldValue.serverTimestamp() });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     const idStr = String(bookingId ?? "");
     if (!idStr) { res.status(400).json({ ok: false, error: "invalid_input" }); return; }
 
@@ -2007,6 +2041,187 @@ export const messagesApi = onRequest(
     } catch (err) {
       logger.error("messagesApi failed", err);
       res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
+
+/* ─── メッセージAI: 返信下書きの生成（design_messages_ai_v1・P1） ───
+   ゲスト送信をトリガに Vertex AI Gemini で返信下書きを作り ai_drafts に置く。
+   送信は必ず人間（/admin/messages の下書きカード）。fail-closed:
+   モード未設定・生成失敗・SSoT不読では何も書かず、既存の通知メールだけが飛ぶ。
+   事実はSSoT（property_facts/meta）とQ&A（chatInfo/messageInfo）の注入のみ。
+   プロンプトに数字を直書きしない（CLAUDE.md SSoT原則）。 */
+const AI_DRAFT_MODEL = "gemini-2.5-flash";   // chat側と同系（chat-yah-homes-v1/functions/src/config.ts）
+const AI_DRAFT_DAILY_PER_THREAD = 20;        // コスト保護: 同一スレッド1日あたりの生成上限
+
+/** SSoT（property_facts/{prop}＋meta）→ プロンプトの【施設情報】ブロック */
+function aiFactsBlock(prop: string, f: Record<string, unknown>, meta: Record<string, unknown>): string {
+  const has = (v: unknown) => v !== undefined && v !== null && String(v).trim() !== "" && String(v) !== "0";
+  const L: string[] = [`施設名: ${propName(prop)}（一棟貸し）`];
+  if (has(f.checkinTime)) L.push(`チェックイン: ${f.checkinTime}${has(f.checkinEndTime) ? `（受付は ${f.checkinEndTime} まで）` : ""} / チェックアウト: ${f.checkoutTime}`);
+  if (has(f.addressJa)) L.push(`住所: 〒${f.zip ?? ""} ${f.addressJa}${has(f.addressEn) ? ` / ${f.addressEn}` : ""}`);
+  if (has(f.mapUrl)) L.push(`地図: ${f.mapUrl}`);
+  if (has(f.capacity)) L.push(`定員: ${f.capacity}名`);
+  if (has(f.bedroomLayout)) L.push(`寝室: ${f.bedrooms}室（${f.bedroomLayout} ＝ ダブル${f.bedDouble}台・シングル${f.bedSingle}台）`);
+  L.push(`専用駐車場: ${Number(f.parking) ? `あり ${f.parkingSpaces}台${has(f.parkingSize) ? `（${f.parkingSize}）` : ""}` : "なし"}`);
+  if (has(f.nearestStation)) L.push(`最寄り駅: ${f.nearestStation}駅 徒歩${f.fromStationWalkMin}分`);
+  if (has(f.fromAirportCarMin)) L.push(`福岡空港から: 車で約${f.fromAirportCarMin}分${has(f.airportTaxiFare) ? `・タクシー相場 ${f.airportTaxiFare}` : ""}`);
+  if (has(f.registerUrl)) L.push(`宿泊者名簿の提出フォーム: ${f.registerUrl}`);
+  if (f.freeCancelDays !== undefined) L.push(`無料キャンセル: チェックイン${f.freeCancelDays}日前まで（以降は全額）`);
+  if (has(meta.taxLow)) L.push(`宿泊税（福岡市）: 1人1泊 ${meta.taxLow}円（税抜宿泊料が1人1泊 ${meta.taxHighThreshold}円以上のときは ${meta.taxHigh}円）`);
+  if (has(meta.operatorPhone)) L.push(`運営の電話（緊急時）: ${meta.operatorPhone}`);
+  return L.join("\n");
+}
+
+/** Q&A行（chatInfo/messageInfo）→ プロンプトブロック。cap 文字で打ち切る */
+function aiQaBlock(rows: unknown, cap: number): string {
+  if (!Array.isArray(rows)) return "";
+  const out: string[] = [];
+  let len = 0;
+  for (const r of rows) {
+    const q = String((r as Record<string, unknown>)?.q ?? "").trim();
+    const a = String((r as Record<string, unknown>)?.a ?? "").trim();
+    if (!q && !a) continue;
+    const line = `Q: ${q}\nA: ${a}`;
+    len += line.length;
+    if (len > cap) { out.push("（以下省略）"); break; }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+export const aiDraftReply = onDocumentCreated(
+  { document: "threads/{threadId}/messages/{msgId}", region: REGION,
+    serviceAccount: SA, maxInstances: MAX_INSTANCES, memory: "512MiB", timeoutSeconds: 120 },
+  async (event) => {
+    const m = event.data?.data() as Record<string, unknown> | undefined;
+    const threadId = event.params.threadId;
+    if (!m || m.from !== "guest" || m.system === true) return;
+
+    // モード（正本: settings/messagesAi）。未設定・off・不明値は何もしない（fail-closed）
+    const mode = String((await db.collection("settings").doc("messagesAi").get()).data()?.mode ?? "off");
+    if (mode !== "draft") return;   // P1 は draft のみ（auto-limited は P2）
+
+    // 予約スレッドのみ。inquiry（予約前の問い合わせ）は予約文脈が無いため P1 対象外
+    const t = (await db.collection("threads").doc(threadId).get()).data();
+    if (!t || t.kind === "inquiry") return;
+    const b = (await db.collection("bookings").doc(threadId).get()).data() as (BookingDoc & Record<string, unknown>) | undefined;
+    if (!b) return;
+
+    try {
+      // コスト保護（要 firestore.indexes.json の ai_drafts 複合インデックス）
+      const since = new Date(Date.now() - 86400000);
+      const today = await db.collection("ai_drafts")
+        .where("bookingId", "==", threadId).where("createdAt", ">", since).get();
+      if (today.size >= AI_DRAFT_DAILY_PER_THREAD) { logger.warn("aiDraftReply capped", { threadId }); return; }
+
+      const prop = String(b.prop ?? "");
+      const [fsnap, msnap] = await Promise.all([
+        db.collection("property_facts").doc(prop).get(),
+        db.collection("property_facts").doc("meta").get(),
+      ]);
+      const f = fsnap.data() ?? {};
+      const meta = msnap.data() ?? {};
+      if (!fsnap.exists) { logger.warn("aiDraftReply no facts", { prop }); return; }   // SSoT不読は生成しない
+
+      const lang = String(b.lang ?? "en");
+      const booking = [
+        `予約番号: ${threadId.slice(0, 8).toUpperCase()}`,
+        `棟: ${propName(prop)}`,
+        `チェックイン: ${b.checkin} / チェックアウト: ${b.checkout}`,
+        `人数: ${b.guests}名`,
+        `代表者: ${String(b.name ?? "")}`,
+        `言語: ${lang}`,
+        `宿泊者名簿: ${b.registeredAt ? "提出済み" : "未提出"}`,
+        `予約状態: ${b.status}`,
+      ].join("\n");
+
+      // 会話履歴（直近12通・古い順）。自動送信メールは題名だけ渡す
+      const hist = await db.collection("threads").doc(threadId).collection("messages")
+        .orderBy("at", "desc").limit(12).get();
+      const history = hist.docs.map((d) => d.data()).reverse()
+        .map((v) => ({
+          role: v.from === "guest" ? "user" : "model",
+          parts: [{ text: String(v.system ? `（自動送信メール: ${v.title ?? ""}）` : v.body ?? "").slice(0, 1500) }],
+        }))
+        .filter((c) => c.parts[0].text);
+
+      const chatQa = aiQaBlock(f.chatInfo, 6000);
+      const msgQa = aiQaBlock(f.messageInfo, 6000);
+      const system = [
+        "あなたは yah.homes（福岡の一棟貸し宿泊施設）の運営スタッフを補助するAIです。",
+        "宿泊ゲストからの最新メッセージへの「返信の下書き」を書いてください。送信するかは人間のスタッフが判断します。",
+        "",
+        "【厳守】",
+        "1. 事実は下の【予約情報】【施設情報】【Q&A】にあるものだけを使う。無い事実は創作せず「確認してご案内します」と書く。",
+        "2. キーボックス・ドアの暗証番号は絶対に本文に書かない。聞かれたらQ&Aの方針（案内の経路・時期）だけを伝える。",
+        "3. 他のゲストの情報・決済カード情報を書かない。",
+        "4. 返金・キャンセル・日程/人数の変更・クレーム・名簿の内容・金銭全般・本人確認の話題は、金額や可否を約束せず「担当者より改めてご案内します」と書き、escalationRequired を true にする。",
+        "5. ゲストの言語（【予約情報】の「言語」）で書く。丁寧・簡潔。冒頭はゲスト名への呼びかけ。署名・AIであることの文言は書かない。",
+        "",
+        `【予約情報】\n${booking}`,
+        "",
+        `【施設情報】\n${aiFactsBlock(prop, f, meta)}`,
+        chatQa ? `\n【Q&A（チャット用情報）】\n${chatQa}` : "",
+        msgQa ? `\n【Q&A（顧客メッセージ用・運用方針はこちらを優先）】\n${msgQa}` : "",
+      ].join("\n");
+
+      const t0 = Date.now();
+      const { GoogleGenAI, Type } = await import("@google/genai");
+      const ai = new GoogleGenAI({ vertexai: true, project: GCP_PROJECT, location: REGION });
+      const r = await ai.models.generateContent({
+        model: AI_DRAFT_MODEL,
+        contents: history.length ? history : [{ role: "user", parts: [{ text: String(m.body ?? "").slice(0, 1500) }] }],
+        config: {
+          systemInstruction: system,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              body: { type: Type.STRING, description: "返信下書きの本文（ゲストの言語）" },
+              language: { type: Type.STRING, description: "本文の言語コード（ja/en/ko/zh/th）" },
+              escalationRequired: { type: Type.BOOLEAN, description: "人間の判断が必要な話題（返金・変更・クレーム等）を含むか" },
+              escalationTopics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "該当した話題の短い日本語表記。無ければ空配列" },
+              sources: { type: Type.ARRAY, items: { type: Type.STRING }, description: "根拠に使った情報源の短い日本語表記（例: 予約情報 / 施設情報:チェックイン / Q&A:名簿）" },
+            },
+            required: ["body", "language", "escalationRequired", "escalationTopics", "sources"],
+          },
+        },
+      });
+      const out = JSON.parse(r.text ?? "{}") as {
+        body?: string; language?: string; escalationRequired?: boolean;
+        escalationTopics?: string[]; sources?: string[];
+      };
+      const bodyText = String(out.body ?? "").trim();
+      if (!bodyText) { logger.warn("aiDraftReply empty", { threadId }); return; }   // 誤答より無応答
+
+      // 運営レビュー用の日本語訳（本文がゲスト言語のとき。失敗しても下書きは出す）
+      const translatedJa = (out.language ?? lang) === "ja" ? "" : await translateText(bodyText, "ja");
+
+      // 前の pending 下書きは新しい発言で古くなるため superseded に落とす（カードは常に1枚）
+      const pend = await db.collection("ai_drafts")
+        .where("bookingId", "==", threadId).where("status", "==", "pending").get();
+      await Promise.all(pend.docs.map((d) => d.ref.update({ status: "superseded" })));
+
+      await db.collection("ai_drafts").add({
+        bookingId: threadId, prop,
+        guestMessageId: event.params.msgId,
+        guestMessageExcerpt: String(m.body ?? "").slice(0, 200),
+        body: bodyText.slice(0, MSG_MAX),
+        translatedJa: translatedJa || null,
+        language: String(out.language ?? lang).slice(0, 8),
+        escalationRequired: out.escalationRequired === true,
+        escalationTopics: (out.escalationTopics ?? []).slice(0, 8).map((x) => String(x).slice(0, 40)),
+        sources: (out.sources ?? []).slice(0, 10).map((x) => String(x).slice(0, 60)),
+        qaRows: { chat: Array.isArray(f.chatInfo) ? f.chatInfo.length : 0,
+                  message: Array.isArray(f.messageInfo) ? f.messageInfo.length : 0 },
+        status: "pending", mode, model: AI_DRAFT_MODEL, ms: Date.now() - t0,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      // fail-closed: 下書きが出ないだけ。運営への通知メール（notifyMessage）は従来どおり
+      logger.warn("aiDraftReply failed", { threadId, err: String(err).slice(0, 200) });
     }
   }
 );
@@ -4524,6 +4739,22 @@ export const adminProperties = onRequest(
       if (req.method === "POST") {
         const { prop, values, ratingAsOf, chatInfo } = (req.body ?? {}) as Record<string, unknown>;
 
+        /* チャット用/顧客メッセージ用のQ&A行（q/a/cat）の共通検証。
+           空行は黙って捨てる。上限は行数300・設問200字・回答4000字。 */
+        const parseQa = (input: unknown[]): { rows?: { q: string; a: string; cat?: string }[]; error?: string } => {
+          if (input.length > 300) return { error: "too_many_rows" };
+          const rows: { q: string; a: string; cat?: string }[] = [];
+          for (const r of input) {
+            const q = String((r as Record<string, unknown>)?.q ?? "").trim();
+            const a = String((r as Record<string, unknown>)?.a ?? "").trim();
+            const cat = String((r as Record<string, unknown>)?.cat ?? "").trim().slice(0, 40);
+            if (!q && !a) continue;
+            if (q.length > 200 || a.length > 4000) return { error: "row_too_long" };
+            rows.push(cat ? { q, a, cat } : { q, a });
+          }
+          return { rows };
+        };
+
         /* チャット用情報の保存（2026-08-18 発注者指示で Firestore 管理に移行）。
            prop はクライアントが URL パスから導出した値。フォームの内部状態から
            取らせないのは「前の施設のIDが残って別施設に保存される」事故を防ぐため。
@@ -4532,22 +4763,31 @@ export const adminProperties = onRequest(
           const CHAT_KEYS = ["kiyokawa", "takasago", "ropponmatsu", "otemonA", "otemonB"];
           const propStr = String(prop ?? "");
           if (!CHAT_KEYS.includes(propStr)) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
-          if (chatInfo.length > 300) { res.status(400).json({ ok: false, error: "too_many_rows" }); return; }
-          const rows: { q: string; a: string; cat?: string }[] = [];
-          for (const r of chatInfo) {
-            const q = String((r as Record<string, unknown>)?.q ?? "").trim();
-            const a = String((r as Record<string, unknown>)?.a ?? "").trim();
-            const cat = String((r as Record<string, unknown>)?.cat ?? "").trim().slice(0, 40);
-            if (!q && !a) continue;                       // 空行は黙って捨てる
-            if (q.length > 200 || a.length > 4000) { res.status(400).json({ ok: false, error: "row_too_long" }); return; }
-            rows.push(cat ? { q, a, cat } : { q, a });
-          }
+          const parsed = parseQa(chatInfo);
+          if (!parsed.rows) { res.status(400).json({ ok: false, error: parsed.error }); return; }
           await db.collection("property_facts").doc(propStr).set(
-            { chatInfo: rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+            { chatInfo: parsed.rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
           await db.collection("audit_logs").add({
             actor: email, action: "facts_chat_info", target: propStr,
-            value: `${rows.length}行`, at: FieldValue.serverTimestamp() });
-          res.status(200).json({ ok: true, saved: rows.length });
+            value: `${parsed.rows.length}行`, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true, saved: parsed.rows.length });
+          return;
+        }
+
+        /* 顧客メッセージ用情報（design_messages_ai_v1 §2-2）。メッセージAIの下書きが参照する
+           運用Q&A。予約スレッドを持つ直販2棟のみ。エディタ・検証はチャット用情報と共通 */
+        const messageInfo = (req.body as Record<string, unknown>)?.messageInfo;
+        if (Array.isArray(messageInfo)) {
+          const propStr = String(prop ?? "");
+          if (propStr !== "kiyokawa" && propStr !== "takasago") { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+          const parsed = parseQa(messageInfo);
+          if (!parsed.rows) { res.status(400).json({ ok: false, error: parsed.error }); return; }
+          await db.collection("property_facts").doc(propStr).set(
+            { messageInfo: parsed.rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+          await db.collection("audit_logs").add({
+            actor: email, action: "facts_message_info", target: propStr,
+            value: `${parsed.rows.length}行`, at: FieldValue.serverTimestamp() });
+          res.status(200).json({ ok: true, saved: parsed.rows.length });
           return;
         }
 

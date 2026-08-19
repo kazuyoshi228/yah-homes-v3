@@ -40,6 +40,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // メッセージAIの返信下書き（design_messages_ai_v1）。運営のみ閲覧（下書きカード・実績集計）。
+    // 生成は aiDraftReply（Admin SDK）・採用記録は messagesApi 経由のみ＝クライアント書き込みなし。
+    // ゲストには一切見せない（下書きは送信されるまで存在しないのと同じ扱い）。
+    match /ai_drafts/{draftId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // 機能スイッチ（SSoTの property_facts とは分離・design_messages_ai_v1 §2-3）。
+    // 読みは運営（/admin/messages-ai の表示用）・書き込みは messagesApi の aiMode のみ。
+    match /settings/{doc} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
     // デフォルト: すべて拒否
     match /{document=**} {
       allow read, write: if false;
