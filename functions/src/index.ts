@@ -3774,7 +3774,19 @@ import { esc, mailHtml, chatBlock, chatUrlFor, SITE_URL, BRAND_FOOTER, myPageUrl
 const TERMS_VERSION_CURRENT = "2026-08-14";
 const TERMS_VERSIONS = [TERMS_VERSION_CURRENT];
 
-const OPERATOR_PHONE = "050-1721-4419";
+/* お客様向けの窓口番号。正本は Web SSoT（property_facts/meta.operatorPhone）。
+   ここの値は SSoT を読めなかった場合の最後の砦で、通常は使われない（2026-08-19 SSoT移設）。 */
+const OPERATOR_PHONE_FALLBACK = "050-1721-4419";
+let operatorPhoneCache = "";
+async function operatorPhone(): Promise<string> {
+  if (operatorPhoneCache) return operatorPhoneCache;
+  try {
+    const m = (await db.collection("property_facts").doc("meta").get()).data();
+    operatorPhoneCache = String(m?.operatorPhone ?? "") || OPERATOR_PHONE_FALLBACK;
+  } catch { operatorPhoneCache = OPERATOR_PHONE_FALLBACK; }
+  return operatorPhoneCache;
+}
+const OPERATOR_PHONE = OPERATOR_PHONE_FALLBACK;   // 既存の同期参照との互換（順次 operatorPhone() へ移行）
 /** メールの返信先（mailto の宛先にも使う） */
 const MAIL_NOREPLY = "no-reply@mail.yah.homes";
 const MAIL_FROM = "contact@mail.yah.homes";
@@ -5211,3 +5223,6 @@ export const adminInbox = onRequest(
     }
   }
 );
+
+/* 業者ディスパッチ（yah.OS）— 毎朝の自動運転と Gmail 受信口。実体は src/agency/ */
+export { agencyDaily, agencyGmailPush } from "./agency/functions.js";

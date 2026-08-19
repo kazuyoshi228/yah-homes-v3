@@ -67,7 +67,8 @@ export async function sendRequests(): Promise<Array<{ jobId: string; mode: strin
   const snap = await db.collection("jobs").where("status", "==", "draft").get();
   const out: Array<{ jobId: string; mode: string }> = [];
   for (const doc of snap.docs) {
-    const job = doc.data() as Job;
+    const job = doc.data() as Job & { aiPaused?: boolean };
+    if (job.aiPaused) continue;   // 人が対応中のジョブは触らない
     const vendor = await vendorOf(job);
     if (!vendor?.email) {                       // メールの無い業者は自動化の対象外
       await advance(doc.id, "exception", "system", `業者にメールアドレスが無い（${vendor?.name ?? "未設定"}）。人が手配する`);
@@ -85,7 +86,8 @@ export async function sendRequests(): Promise<Array<{ jobId: string; mode: strin
 export async function handleReply(jobId: string, body: string): Promise<{ action: string; detail: string }> {
   const db = agencyDb();
   const ref = db.collection("jobs").doc(jobId);
-  const job = { ...(await ref.get()).data(), id: jobId } as Job & { id: string; threadId?: string };
+  const job = { ...(await ref.get()).data(), id: jobId } as Job & { id: string; threadId?: string; aiPaused?: boolean };
+  if (job.aiPaused) return { action: "paused", detail: "人が対応中のためAIは動かない" };
   const vendor = await vendorOf(job);
   if (!vendor) return { action: "exception", detail: "業者が特定できない" };
 

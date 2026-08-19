@@ -105,6 +105,30 @@ export async function matchJob(mail: IncomingMail): Promise<{ jobId: string; how
   return jobs.size === 1 ? { jobId: jobs.docs[0].id, how: "sender" } : null;
 }
 
+/**
+ * 引き継ぎ検知 — スレッドに人間の送信があれば、そのジョブでAIは手を引く。
+ * 人とAIが同じ相手に二重に返信する事故を防ぐ（仕様書 §4）。
+ * 判定: AIが出したメール（messages.by="ai"）以外の送信が Gmail スレッドにあるか。
+ */
+export async function detectHumanTakeover(jobId: string, threadId: string): Promise<boolean> {
+  const g = gmail();
+  const t = await g.users.threads.get({ userId: "me", id: threadId, format: "metadata" });
+  const db = agencyDb();
+  const aiIds = new Set((await db.collection("jobs").doc(jobId).collection("messages").where("direction", "==", "out").get())
+    .docs.map((d) => String(d.data().gmailId ?? "")));
+  const humanSent = (t.data.messages ?? []).some((m) => {
+    const from = (m.payload?.headers ?? []).find((h) => h.name?.toLowerCase() === "from")?.value ?? "";
+    return from.includes(AI_ADDRESS) && !aiIds.has(String(m.id));   // AIの箱から出たがAIの記録に無い = 人が送った
+  });
+  if (humanSent) {
+    await db.collection("jobs").doc(jobId).update({
+      aiPaused: true, aiPausedAt: new Date().toISOString(),
+      aiPausedReason: "スレッドに人の送信を検知したため、AIは手を引きました",
+    });
+  }
+  return humanSent;
+}
+
 /** 受信を記録する（append-only）。紐付かないものは unmatched に積んで人へ回す */
 export async function record(mail: IncomingMail, jobId: string | null): Promise<void> {
   const db = agencyDb();
