@@ -132,8 +132,8 @@
 
 1. `cd functions && npm i`（@google/genai 追加済み）→ `firebase deploy --only functions:aiDraftReply,functions:messagesApi,functions:adminProperties`
 2. `firebase deploy --only firestore:rules,firestore:indexes`（ai_drafts の staff 読み取り＋複合インデックス）
-3. Vertex AI: `aiplatform.googleapis.com` の有効化（chatで有効化済みの見込み）＋
-   実行SA `yah-homes@appspot.gserviceaccount.com` に `roles/aiplatform.user`（chat側SAと同一なら不要）
+3. ~~Vertex AI の有効化・SA権限~~ → **済み（2026-08-19 発注者実施）**: API有効化はserviceAgent存在で確認、
+   `yah-homes@appspot.gserviceaccount.com` に `roles/aiplatform.user` 付与済み
 4. サイト: `./safe-deploy.sh live`（#message ビュー・/admin/messages-ai・下書きカード）
 5. 有効化: /admin/messages-ai でモードを「下書きのみ」にして保存（既定は停止＝デプロイ直後は何も起きない）
 6. 運用前に §6-4（Airstar への説明）を済ませる
