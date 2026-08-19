@@ -11,6 +11,8 @@ import { getFirestore } from "firebase-admin/firestore";
 import { agencyDb, advance, findOverdue, staleHeartbeats } from "./engine.js";
 import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "./templates.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
+import { loanSummary } from "./finance.js";
+import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
@@ -76,6 +78,22 @@ export const agencyApi = onRequest(
             heartbeats: await all("heartbeats"),
             unmatched: await all("unmatched"),
           });
+          return;
+        }
+        case "finance": {                                     // 融資の一覧（残債は契約条件から毎回計算）
+          res.json({ ok: true, ...(await loanSummary()) });
+          return;
+        }
+        case "loanPdf": {                                     // 契約書の原本を一時リンクで開く
+          const id = String(req.query.loanId ?? "");
+          const d = (await db.collection("finance").doc(id).get()).data();
+          const gs = String(d?.pdf ?? "");
+          if (!gs.startsWith("gs://")) { res.status(404).json({ ok: false, error: "原本が未登録です" }); return; }
+          const [bucket, ...rest] = gs.slice(5).split("/");
+          /* 保管庫は非公開のまま。10分だけ有効な署名付きリンクを都度作る（URLが漏れても長く生きない）。 */
+          const [url] = await getStorage().bucket(bucket).file(rest.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url });
           return;
         }
         case "timeline": {                                    // ジョブ1件の全やり取り
