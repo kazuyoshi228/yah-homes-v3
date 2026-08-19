@@ -1,7 +1,7 @@
 # 直販メッセージのAI応答 v1（設計書・P1着工中）
 
 - 起票: 2026-08-18（発注者との対話から）
-- 状態: **P1＋P2実装完了（2026-08-19・ブランチ messages-ai）・デプロイは承認待ち**。§6の残りは④（Airstarへの説明）のみ
+- 状態: **本番デプロイ済み（2026-08-19・モードは既定「停止」＝有効化待ち）**。有効化前に§6-④（Airstarへの説明）。§10（入室案内の再送）は未着工
 - 前提: chat.yah.homes で Vertex AI（Gemini・asia-northeast1）による自動応答が本番稼働中。
   同一Firebaseプロジェクト・同一SSoT（property_facts）のため、その資産を流用する。
 
@@ -129,7 +129,7 @@
   P1の知識= SSoT＋Q&A注入で開始し、専用インデックスはP2で判断（§4の方針は不変）
 - ゲスト側（My Page）は無変更（draft運用では見た目が一切変わらない・§2）
 
-### デプロイ手順（承認後・この順）
+### デプロイ手順（2026-08-19 実施済み・手順の記録）
 
 1. `cd functions && npm i`（@google/genai 追加済み）→ `firebase deploy --only functions:aiDraftReply,functions:messagesApi,functions:adminProperties`
 2. `firebase deploy --only firestore:rules,firestore:indexes`（ai_drafts の staff 読み取り＋複合インデックス）
