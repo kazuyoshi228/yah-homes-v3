@@ -117,6 +117,11 @@ export async function loanSummary(asOf = new Date()) {
     .map((d) => loanState({ id: d.id, ...(d.data() as object) } as Loan, asOf))
     .sort((a, b) => a.loan.firstPaymentMonth.localeCompare(b.loan.firstPaymentMonth));
   const sum = (f: (r: LoanState) => number) => rows.reduce((a, r) => a + f(r), 0);
+  /* 加重平均利率: 残債の大きい借入ほど効くので、残債で重み付けする（単純平均だと実感とずれる） */
+  const bal = sum((r) => r.balance);
+  const weightedRate = bal === 0 ? 0
+    : Math.round((rows.reduce((a, r) => a + r.balance * r.loan.rate, 0) / bal) * 1000) / 1000;
+
   return {
     rows,
     total: {
@@ -129,6 +134,18 @@ export async function loanSummary(asOf = new Date()) {
       /* 全部が返済期に入ったときの月々。資金繰りを見るときはこちらが効く */
       monthlyWhenAllRunning: rows.reduce((a, r) =>
         a + (r.loan.repayment === "bullet" ? 0 : r.loan.monthlyPayment), 0),
+      repaid: sum((r) => r.paidPrincipal),
+      /* 返済率は「元金をどれだけ返したか」。利息は資産にならないので分子に入れない */
+      repaidRate: Math.round((sum((r) => r.paidPrincipal) / sum((r) => r.loan.principal)) * 1000) / 10,
+      weightedRate,
+      interestThisMonth: sum((r) => r.interestThisMonth),
+      /* 直近1年に出ていく利息の概算。今の残債×加重平均利率で見る */
+      interestPerYear: Math.round((bal * weightedRate) / 100),
+      finalMonth: rows.map((r) => r.loan.finalPaymentMonth ?? "").sort().at(-1) ?? "",
+      /* 満期に一括で返す必要がある額。ここが資金繰りの崖になる */
+      bulletBalance: sum((r) => (r.loan.repayment === "bullet" ? r.balance : 0)),
+      bulletDue: rows.filter((r) => r.loan.repayment === "bullet" && r.balance > 0)
+        .map((r) => r.loan.finalPaymentMonth ?? "").sort()[0] ?? "",
     },
     asOf: asOf.toISOString().slice(0, 10),
   };
