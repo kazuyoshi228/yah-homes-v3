@@ -15,6 +15,7 @@ import { loanSummary } from "./finance.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 import { monthlySummary } from "./monthly.js";
+import { yieldSummary } from "./yields.js";
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -97,6 +98,10 @@ export const agencyApi = onRequest(
         }
         case "revenue": {                                     // 売上レポート（運営会社の月次報告）
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
+          return;
+        }
+        case "yields": {                                      // 利回り（取得価額に対する稼ぎ）
+          res.json({ ok: true, ...(await yieldSummary()) });
           return;
         }
         case "monthly": {                                     // 月次のまとめ（各カードの合流点）

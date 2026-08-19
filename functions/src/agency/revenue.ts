@@ -43,7 +43,7 @@ export async function revenueSummary(months = 12) {
       adr: Math.round(sum(rows, (r) => r.adr) / rows.length),
       payoutPerMonth: Math.round(sum(rows, (r) => r.payout) / rows.length),
     };
-  }).filter(Boolean);
+  }).filter((x): x is NonNullable<typeof x> => x !== null);
 
   /* 月ごとの横並び（棟を合算）。グラフや前年比の土台になる */
   const byMonth = recent.map((month) => {
