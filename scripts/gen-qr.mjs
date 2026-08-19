@@ -10,6 +10,7 @@
  *   public/qr/chat-{施設}.png             360px   メール4通・使い方ガイド
  *   public/qr/print/chat-{施設}-print.png 2048px  現地掲示・MANUAL本
  *   public/qr/print/chat-{施設}-card-a6.svg/.png  A6印刷カード
+ *   public/qr/print/chat-{施設}-card-97.svg/.png/.pdf  97×97mm カード（現地掲示・2026-08-19 発注者仕様）
  *
  * 実行: pnpm qr                （認証が要る。読めなければ止まる）
  *       pnpm qr --if-possible  （ビルド用。施設マスタを読めない環境では既存ファイルのまま
@@ -72,8 +73,61 @@ async function activeFacilities() {
 }
 
 /* A6カード（105×148mm＝1050×1480）。清川の既存カードと同じ体裁。 */
-const LOGO = `<g transform="translate(385,60) scale(0.28)"><path fill="#1A1A1A" d="M458.73,338.34c-1.92,7.08-8.7,10.92-15.64,9-7.08-1.92-10.92-8.56-9-15.49,1.92-7.08,8.56-11.07,15.49-9.15,7.08,1.92,11.07,8.7,9.15,15.64Z"/><path fill="#1A1A1A" d="M388.75,256.62c-9.68-2.3-18.46-.21-26.01,7.3l9.18-39.58-11.09-2.56-4.53-1.03-23.05,100.65,15.49,3.57,7.77-33.95c3.83-16.53,11.98-23.62,24.34-20.82,9.53,2.16,13.49,9.69,10.95,21.01l-9.56,41.39,15.93,3.55,9.94-43.33c4.46-19.36-2.51-32.39-19.33-36.21Z"/><path fill="#1A1A1A" d="M285.52,266.22c20.46,2.49,29.43,13.3,27.05,32.4l-5.7,46.39-15.77-1.96,1.11-10.14c-5.88,6.94-14.5,10.23-24.66,8.98-14.85-1.79-23.65-12.47-21.97-25.97,1.65-12.6,11.61-20.26,26.27-19.78l20.61.38c3.15.15,4.36-.76,4.66-2.89l.23-1.52c.62-6.2-4.15-10.44-13.41-11.67-9.99-1.13-17.26,2.28-20.01,9.22l-11.64-9.69c5.18-10.86,16.71-15.76,33.23-13.76ZM273.84,309.28c-6.86-.08-11.07,2.9-11.81,8.21-.66,5.9,3.36,10.11,10.93,10.98,11.08,1.42,20.56-5.27,21.73-14.98l.45-4.23-21.3.02Z"/><path fill="#1A1A1A" d="M131.33,274.68l-12.28-9.35c26.11-34.28,66.79-62.74,114.54-80.12,47.76-17.38,97.21-21.74,139.25-12.25l-3.39,15.05c-39.19-8.84-85.56-4.69-130.58,11.7-45.01,16.38-83.21,43.01-107.54,74.97Z"/><polygon fill="#1A1A1A" points="206.16 289.84 197.84 338.78 165.77 300.96 152.24 311.03 194.63 358.87 187.86 398.87 203.42 398.87 221.81 289.84 206.16 289.84"/></g>`;
+/* ロゴのパス（transform を変えて A6・97mm の両方で使う＝写しを持たない） */
+const LOGO_PATHS = `<path fill="#1A1A1A" d="M458.73,338.34c-1.92,7.08-8.7,10.92-15.64,9-7.08-1.92-10.92-8.56-9-15.49,1.92-7.08,8.56-11.07,15.49-9.15,7.08,1.92,11.07,8.7,9.15,15.64Z"/><path fill="#1A1A1A" d="M388.75,256.62c-9.68-2.3-18.46-.21-26.01,7.3l9.18-39.58-11.09-2.56-4.53-1.03-23.05,100.65,15.49,3.57,7.77-33.95c3.83-16.53,11.98-23.62,24.34-20.82,9.53,2.16,13.49,9.69,10.95,21.01l-9.56,41.39,15.93,3.55,9.94-43.33c4.46-19.36-2.51-32.39-19.33-36.21Z"/><path fill="#1A1A1A" d="M285.52,266.22c20.46,2.49,29.43,13.3,27.05,32.4l-5.7,46.39-15.77-1.96,1.11-10.14c-5.88,6.94-14.5,10.23-24.66,8.98-14.85-1.79-23.65-12.47-21.97-25.97,1.65-12.6,11.61-20.26,26.27-19.78l20.61.38c3.15.15,4.36-.76,4.66-2.89l.23-1.52c.62-6.2-4.15-10.44-13.41-11.67-9.99-1.13-17.26,2.28-20.01,9.22l-11.64-9.69c5.18-10.86,16.71-15.76,33.23-13.76ZM273.84,309.28c-6.86-.08-11.07,2.9-11.81,8.21-.66,5.9,3.36,10.11,10.93,10.98,11.08,1.42,20.56-5.27,21.73-14.98l.45-4.23-21.3.02Z"/><path fill="#1A1A1A" d="M131.33,274.68l-12.28-9.35c26.11-34.28,66.79-62.74,114.54-80.12,47.76-17.38,97.21-21.74,139.25-12.25l-3.39,15.05c-39.19-8.84-85.56-4.69-130.58,11.7-45.01,16.38-83.21,43.01-107.54,74.97Z"/><polygon fill="#1A1A1A" points="206.16 289.84 197.84 338.78 165.77 300.96 152.24 311.03 194.63 358.87 187.86 398.87 203.42 398.87 221.81 289.84 206.16 289.84"/>`;
+const LOGO = `<g transform="translate(385,60) scale(0.28)">${LOGO_PATHS}</g>`;
 const QR_BOX = 700, QR_X = 175, QR_Y = 420;   // カード中央に配置（1050幅の中央）
+
+/* 97×97mm カード（2026-08-19 発注者仕様・現地掲示用）。
+   版面 1000×1000 で作り、PDF/PNG で 97mm に縮尺する。
+   構成: 見出し（上部センター）／QR（版面センター・約57.5mm角）／
+         URL と ロゴ（下部・両者の視覚中心を揃える）。
+   QRは整数グリッドで描く（小数座標だと印刷時ににじみ、読み取りが落ちる）。 */
+const S97 = 1000;
+async function card97Svg(key, url) {
+  const qr = QRCode.create(url, { errorCorrectionLevel: "H" });
+  const size = qr.modules.size, data = qr.modules.data;
+  const m = Math.floor(600 / size);
+  const box = m * size;
+  const x0 = Math.round((S97 - box) / 2), y0 = Math.round((S97 - box) / 2);
+  let rects = "";
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (data[r * size + c]) rects += `<rect x="${x0 + c * m}" y="${y0 + r * m}" width="${m}" height="${m}"/>`;
+    }
+  }
+  const F = "Helvetica, Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif";
+  // ロゴ中心 889.7 に URL の視覚中心を合わせる（ベースライン 901）
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S97} ${S97}" width="${S97}" height="${S97}">
+<rect width="${S97}" height="${S97}" fill="#FFFFFF"/>
+<g transform="translate(801,816) scale(0.26)">${LOGO_PATHS}</g>
+<text x="500" y="145" text-anchor="middle" font-family="${F}" font-weight="600" font-size="42" fill="#1A1A1A">24/7 AI chat support</text>
+<g fill="#000000">${rects}</g>
+<text x="500" y="901" text-anchor="middle" font-family="${F}" font-size="31" fill="#1A1A1A">${url.replace("https://", "")}</text>
+</svg>`;
+}
+
+/* SVG → 97mm角 PDF。ローカルの Chrome で印刷出力する。
+   Chrome が無い環境（CI等）では PDF を飛ばして続行する（SVG・PNG は必ず出る）。 */
+async function card97Pdf(svg, outPath) {
+  const CHROME = process.env.SMOKE_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+  if (!existsSync(CHROME)) return false;
+  let puppeteer;
+  try { puppeteer = (await import("puppeteer-core")).default; } catch { return false; }
+  const html = `<!doctype html><meta charset="utf-8"><style>@page{size:97mm 97mm;margin:0}html,body{margin:0;padding:0}svg{display:block;width:97mm;height:97mm}</style>${svg.replace(/<\?xml[^>]*\?>/, "")}`;
+  const tmp = `${PRINT}/.card97.tmp.html`;
+  writeFileSync(tmp, html);
+  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-first-run"] });
+  const page = await browser.newPage();
+  await page.goto(`file://${process.cwd()}/${tmp}`, { waitUntil: "load" });
+  await new Promise((r) => setTimeout(r, 400));
+  await page.pdf({ path: outPath, width: "97mm", height: "97mm", printBackground: true,
+    margin: { top: 0, right: 0, bottom: 0, left: 0 } });
+  await browser.close();
+  rmSync(tmp);
+  return true;
+}
 
 async function cardSvg(key, url) {
   const qr = QRCode.create(url, { errorCorrectionLevel: "H" });
@@ -134,12 +188,16 @@ for (const key of keys) {
   const svg = await cardSvg(key, url);
   writeFileSync(`${PRINT}/chat-${key}-card-a6.svg`, svg);
   await sharp(Buffer.from(svg), { density: 300 }).png().toFile(`${PRINT}/chat-${key}-card-a6.png`);
-  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード(SVG・PNG)`);
+  const svg97 = await card97Svg(key, url);
+  writeFileSync(`${PRINT}/chat-${key}-card-97.svg`, svg97);
+  await sharp(Buffer.from(svg97), { density: 300 }).png().toFile(`${PRINT}/chat-${key}-card-97.png`);
+  const pdfOk = await card97Pdf(svg97, `${PRINT}/chat-${key}-card-97.pdf`);
+  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード / 97mmカード(SVG・PNG${pdfOk ? "・PDF" : "／PDFはChromeが無く省略"})`);
 }
 
 /* 公開をやめた施設のファイルを消す（古いQRを配り続けない） */
 const keep = new Set(keys);
-for (const [dir, re] of [[OUT, /^chat-(.+)\.png$/], [PRINT, /^chat-(.+?)-(print\.png|card-a6\.(svg|png))$/]]) {
+for (const [dir, re] of [[OUT, /^chat-(.+)\.png$/], [PRINT, /^chat-(.+?)-(print\.png|card-a6\.(svg|png)|card-97\.(svg|png|pdf))$/]]) {
   for (const f of readdirSync(dir)) {
     const m = re.exec(f);
     if (m && !keep.has(m[1])) { rmSync(`${dir}/${f}`); console.log(`[gen-qr] 公開停止のため削除: ${dir}/${f}`); }
