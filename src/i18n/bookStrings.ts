@@ -31,6 +31,9 @@ export interface BookStrings {
   rackLabel: string;
   discountApplied: string;
   totalNote: (nights: number, guests: number) => string;
+  /** 1人1泊あたり（{v}=金額）。総額は信頼の柱なので置き換えず、説得力のある単位を並記する。
+      記事側は「1人あたり約¥10,600」で売っているのに、決済直前で総額だけになっていた（2026-08-18） */
+  perGuestNight: (v: string) => string;
   approx: string;
   freeCancelUntil: (date: string) => string;
   proceed: string;
@@ -81,6 +84,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     rackLabel: "List price",
     discountApplied: "Discount applied",
     totalNote: (nights, guests) => `${nights} ${nights === 1 ? "night" : "nights"}, ${guests} ${guests === 1 ? "guest" : "guests"} · room, lodging tax and cleaning fee included`,
+    perGuestNight: (v) => `${v} per guest, per night`,
     approx: "approx.",
     freeCancelUntil: (d) => `Free cancellation until ${d}`,
     proceed: "Book now",
@@ -125,6 +129,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     rackLabel: "定価",
     discountApplied: "割引適用",
     totalNote: (nights, guests) => `${nights}泊${guests}名・宿泊料・宿泊税・清掃料込み`,
+    perGuestNight: (v) => `1人1泊あたり ${v}`,
     approx: "約",
     freeCancelUntil: (d) => `${d} まで無料キャンセル`,
     proceed: "予約する",
@@ -169,6 +174,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     rackLabel: "정가",
     discountApplied: "할인 적용",
     totalNote: (nights, guests) => `${nights}박 ${guests}명 · 숙박료・숙박세・청소비 포함`,
+    perGuestNight: (v) => `1인 1박당 ${v}`,
     approx: "약",
     freeCancelUntil: (d) => `${d}까지 무료 취소`,
     proceed: "예약하기",
@@ -213,6 +219,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     rackLabel: "定價",
     discountApplied: "已套用折扣",
     totalNote: (nights, guests) => `${nights}晚 ${guests}人・含住宿費・住宿稅・清潔費`,
+    perGuestNight: (v) => `每人每晚 ${v}`,
     approx: "約",
     freeCancelUntil: (d) => `${d} 前可免費取消`,
     proceed: "立即預訂",
@@ -257,6 +264,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     rackLabel: "ราคาปกติ",
     discountApplied: "รวมส่วนลดแล้ว",
     totalNote: (nights, guests) => `${nights} คืน ${guests} ท่าน · รวมค่าห้อง ภาษีที่พัก และค่าทำความสะอาด`,
+    perGuestNight: (v) => `${v} ต่อคนต่อคืน`,
     approx: "ประมาณ",
     freeCancelUntil: (d) => `ยกเลิกฟรีถึง ${d}`,
     proceed: "จองเลย",

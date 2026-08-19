@@ -169,8 +169,11 @@ for (let i = 0; i <= 13; i++) {
 }
 // 「2泊4名」表記のテンプレ（{n}/{g} を置換）
 const noteTemplate = t.totalNote(-1, -2).replace("-1", "{n}").replace("-2", "{g}");
+// 1人1泊あたりの表記テンプレ（{v} に金額）。関数はクライアントへ渡せないので文字列化する。
+const perGuestNightTemplate = t.perGuestNight("{v}");
 
 const strings = {
+  perGuestNightTemplate,
   selectDates: t.selectDates,
   selectCheckout: t.selectCheckout,
   searching: t.searching,
@@ -595,6 +598,9 @@ const strings = {
       <p class="bk-quote-label">${strings.totalLabel}</p>
       ${rack > p.total ? `<p class="bk-quote-rack"><s>${yen(rack)}</s>　<span class="bk-quote-disc">${strings.discountApplied}</span></p>` : ""}
       <p class="bk-quote-total">${yen(p.total)}</p>
+      ${nights > 0 && state.guests > 0
+        ? `<p class="bk-quote-pgn">${strings.perGuestNightTemplate.replace("{v}", yen(Math.round(p.total / nights / state.guests)))}</p>`
+        : ""}
       ${fx}
       <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
       <p class="bk-quote-note">${strings.noExtra}</p>
@@ -1157,6 +1163,15 @@ const strings = {
     font-weight: 500;
     color: #111111;
     line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+  /* 1人1泊あたり。総額の直下に置き、総額より小さく・注記より大きい中間の重みにする
+     （グループの幹事が比較するのはこの単位。ホテル1室単価と並べて判断される） */
+  .bk-quote :global(.bk-quote-pgn) {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #111111;
+    margin-top: 0.2rem;
     font-variant-numeric: tabular-nums;
   }
   .bk-quote :global(.bk-quote-fx) {
