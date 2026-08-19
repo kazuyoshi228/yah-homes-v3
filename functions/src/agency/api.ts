@@ -12,6 +12,7 @@ import { agencyDb, advance, findOverdue, staleHeartbeats } from "./engine.js";
 import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "./templates.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
 import { loanSummary } from "./finance.js";
+import { revenueSummary } from "./revenue.js";
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -90,6 +91,21 @@ export const agencyApi = onRequest(
             if (Number.isNaN(asOf.getTime())) { res.status(400).json({ ok: false, error: `日付が読めません: ${q}` }); return; }
           }
           res.json({ ok: true, ...(await loanSummary(asOf)) });
+          return;
+        }
+        case "revenue": {                                     // 売上レポート（運営会社の月次報告）
+          res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
+          return;
+        }
+        case "revenuePdf": {                                  // 月次報告の原本
+          const id = String(req.query.id ?? "");
+          const d = (await db.collection("revenue").doc(id).get()).data();
+          const gs = String(d?.pdf ?? "");
+          if (!gs.startsWith("gs://")) { res.status(404).json({ ok: false, error: "原本が未登録です" }); return; }
+          const [bucket, ...rest] = gs.slice(5).split("/");
+          const [url] = await getStorage().bucket(bucket).file(rest.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url });
           return;
         }
         case "loanPdf": {                                     // 契約書の原本を一時リンクで開く
