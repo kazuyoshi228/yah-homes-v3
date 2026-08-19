@@ -2059,7 +2059,7 @@ export const messagesApi = onRequest(
    ゲスト送信をトリガに Vertex AI Gemini で返信下書きを作り ai_drafts に置く。
    送信は必ず人間（/admin/messages の下書きカード）。fail-closed:
    モード未設定・生成失敗・SSoT不読では何も書かず、既存の通知メールだけが飛ぶ。
-   事実はSSoT（property_facts/meta）とQ&A（chatInfo/messageInfo）の注入のみ。
+   事実はSSoT（property_facts/meta）とQ&A（chatInfo・チャットと共通の1表）の注入のみ。
    プロンプトに数字を直書きしない（CLAUDE.md SSoT原則）。 */
 const AI_DRAFT_MODEL = "gemini-2.5-flash";   // chat側と同系（chat-yah-homes-v1/functions/src/config.ts）
 const AI_DRAFT_DAILY_PER_THREAD = 20;        // コスト保護: 同一スレッド1日あたりの生成上限
@@ -2105,7 +2105,7 @@ function aiFactsBlock(prop: string, f: Record<string, unknown>, meta: Record<str
   return L.join("\n");
 }
 
-/** Q&A行（chatInfo/messageInfo）→ プロンプトブロック。cap 文字で打ち切る */
+/** Q&A行（chatInfo）→ プロンプトブロック。cap 文字で打ち切る */
 function aiQaBlock(rows: unknown, cap: number): string {
   if (!Array.isArray(rows)) return "";
   const out: string[] = [];
@@ -2223,21 +2223,19 @@ export const aiDraftReply = onDocumentCreated(
          inquiry=予約前のため両棟のSSoT・Q&A（2026-08-19 発注者指示で対応） */
       let contextLabel = "予約情報";
       let contextBlock = "";
-      let factsBlock = "", chatQa = "", msgQa = "";
-      let qaRows = { chat: 0, message: 0 };
+      let factsBlock = "", chatQa = "";
+      let qaRows = { chat: 0 };
       let propLabel = "";
       if (isInquiry) {
         const snaps = await Promise.all(ALL_PROPS.map((p) => db.collection("property_facts").doc(p).get()));
         if (!snaps.some((sn) => sn.exists)) { logger.warn("aiDraftReply no facts", { threadId }); return; }   // SSoT不読は生成しない
         const docs = snaps.map((sn) => (sn.data() ?? {}) as Record<string, unknown>);
         factsBlock = ALL_PROPS.map((p, i) => `◆ ${propName(p)}\n${aiFactsBlock(p, docs[i], meta)}`).join("\n\n");
-        const per = (k: "chatInfo" | "messageInfo", cap: number) =>
+        const per = (k: "chatInfo", cap: number) =>
           ALL_PROPS.map((p, i) => { const qb = aiQaBlock(docs[i][k], cap); return qb ? `◆ ${propName(p)}\n${qb}` : ""; })
             .filter(Boolean).join("\n\n");
-        chatQa = per("chatInfo", 3500);
-        msgQa = per("messageInfo", 3000);
-        qaRows = { chat: docs.reduce((n, d2) => n + rowsOf(d2, "chatInfo"), 0),
-                   message: docs.reduce((n, d2) => n + rowsOf(d2, "messageInfo"), 0) };
+        chatQa = per("chatInfo", 4500);
+        qaRows = { chat: docs.reduce((n, d2) => n + rowsOf(d2, "chatInfo"), 0) };
         propLabel = "inquiry";
         contextLabel = "問い合わせ情報";
         contextBlock = [
@@ -2251,9 +2249,8 @@ export const aiDraftReply = onDocumentCreated(
         const f = (fsnap.data() ?? {}) as Record<string, unknown>;
         if (!fsnap.exists) { logger.warn("aiDraftReply no facts", { prop }); return; }   // SSoT不読は生成しない
         factsBlock = aiFactsBlock(prop, f, meta);
-        chatQa = aiQaBlock(f.chatInfo, 6000);
-        msgQa = aiQaBlock(f.messageInfo, 6000);
-        qaRows = { chat: rowsOf(f, "chatInfo"), message: rowsOf(f, "messageInfo") };
+        chatQa = aiQaBlock(f.chatInfo, 8000);
+        qaRows = { chat: rowsOf(f, "chatInfo") };
         propLabel = prop;
         contextBlock = [
           `予約番号: ${threadId.slice(0, 8).toUpperCase()}`,
@@ -2300,8 +2297,7 @@ export const aiDraftReply = onDocumentCreated(
         `【${contextLabel}】\n${contextBlock}`,
         "",
         `【施設情報】\n${factsBlock}`,
-        chatQa ? `\n【Q&A（チャット用情報）】\n${chatQa}` : "",
-        msgQa ? `\n【Q&A（顧客メッセージ用・運用方針はこちらを優先）】\n${msgQa}` : "",
+        chatQa ? `\n【Q&A（チャット・メッセージ共通）】\n${chatQa}` : "",
       ].join("\n");
 
       const t0 = Date.now();
@@ -3053,6 +3049,10 @@ export const beds24DailyObserver = onSchedule(
             { range: `E${row}`, values: [[tNew.g - tCxl.g - tDel.g]] }, { range: `F${row}`, values: [[tNew.n - tCxl.n - tDel.n]] },
             { range: `I${row}`, values: [[fwd.清川]] }, { range: `K${row}`, values: [[fwd.高砂]] },
             { range: `M${row}`, values: [[fwd.清川 + fwd.高砂]] },
+            // J/L/N = 先付け率（%表示セル向けに小数で記入: 清川/365・高砂/365・合計/730）
+            { range: `J${row}`, values: [[Math.round((fwd.清川 / 365) * 1000) / 1000] as (string | number)[]] },
+            { range: `L${row}`, values: [[Math.round((fwd.高砂 / 365) * 1000) / 1000] as (string | number)[]] },
+            { range: `N${row}`, values: [[Math.round(((fwd.清川 + fwd.高砂) / 730) * 1000) / 1000] as (string | number)[]] },
           ];
           // H列 = 直販サイトでの販売数（当日行・観測窓内の直販新規−直販キャンセル）
           data.push({ range: `H${row}`, values: [[directNew - directCxl]] });
@@ -4968,23 +4968,6 @@ export const adminProperties = onRequest(
             { chatInfo: parsed.rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
           await db.collection("audit_logs").add({
             actor: email, action: "facts_chat_info", target: propStr,
-            value: `${parsed.rows.length}行`, at: FieldValue.serverTimestamp() });
-          res.status(200).json({ ok: true, saved: parsed.rows.length });
-          return;
-        }
-
-        /* 顧客メッセージ用情報（design_messages_ai_v1 §2-2）。メッセージAIの下書きが参照する
-           運用Q&A。予約スレッドを持つ直販2棟のみ。エディタ・検証はチャット用情報と共通 */
-        const messageInfo = (req.body as Record<string, unknown>)?.messageInfo;
-        if (Array.isArray(messageInfo)) {
-          const propStr = String(prop ?? "");
-          if (propStr !== "kiyokawa" && propStr !== "takasago") { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
-          const parsed = parseQa(messageInfo);
-          if (!parsed.rows) { res.status(400).json({ ok: false, error: parsed.error }); return; }
-          await db.collection("property_facts").doc(propStr).set(
-            { messageInfo: parsed.rows, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-          await db.collection("audit_logs").add({
-            actor: email, action: "facts_message_info", target: propStr,
             value: `${parsed.rows.length}行`, at: FieldValue.serverTimestamp() });
           res.status(200).json({ ok: true, saved: parsed.rows.length });
           return;
