@@ -226,7 +226,7 @@ const HOUSES = HAS_FACTS ? [{ key: propKey, name: propLabel }] : [];
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="overview">施設概要</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="facilities">設備</button>}
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="transport">移動・距離</button>}
-            <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">Q&A（チャット・メッセージ共通）</button>
+            <button type="button" class:list={["ap-side-link", !HAS_FACTS && "is-active"]} data-view="chat">Q&A</button>
             <button type="button" class="ap-side-link" data-view="qr">QRコード</button>
             {HAS_FACTS && <button type="button" class="ap-side-link" data-view="common">共通情報</button>}
           </nav>
