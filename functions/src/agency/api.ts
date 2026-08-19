@@ -13,6 +13,7 @@ import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "./templat
 import { sendRequests, handleReply } from "./dispatcher.js";
 import { loanSummary } from "./finance.js";
 import { revenueSummary } from "./revenue.js";
+import { utilitySummary } from "./utilities.js";
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -95,6 +96,10 @@ export const agencyApi = onRequest(
         }
         case "revenue": {                                     // 売上レポート（運営会社の月次報告）
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
+          return;
+        }
+        case "utilities": {                                   // 光熱費（会計の仕訳から）
+          res.json({ ok: true, ...(await utilitySummary()) });
           return;
         }
         case "revenuePdf": {                                  // 月次報告の原本
