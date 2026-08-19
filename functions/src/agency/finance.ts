@@ -117,6 +117,29 @@ export function loanState(loan: Loan, asOf = new Date()): LoanState {
   };
 }
 
+/** yyyy-mm を n ヶ月進める */
+function addMonths(ym: string, n: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const t = (y * 12 + (m - 1)) + n;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`;
+}
+
+/**
+ * 過去12ヶ月に払った返済額（実績）。
+ * 当月はまだ払っていないので、先月までの12ヶ月を積み上げる。
+ * 「今月×12」だと、途中で始まった借入を12ヶ月分として数えてしまい多く見える。
+ */
+export function past12Months(loan: Loan, asOf = new Date()): number {
+  const start = `${asOf.getFullYear()}-${String(asOf.getMonth() + 1).padStart(2, "0")}`;
+  let sum = 0;
+  for (let k = 12; k >= 1; k--) {
+    const ym = addMonths(start, -k);
+    const st = loanState(loan, new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)) - 1, 15));
+    sum += st.monthlyTotal;
+  }
+  return Math.round(sum);
+}
+
 /** 全借入の一覧＋合計。複数本になっても同じ物差しで並ぶ */
 export async function loanSummary(asOf = new Date()) {
   const snap = await agencyDb().collection("finance").where("kind", "==", "loan").get();
@@ -147,6 +170,8 @@ export async function loanSummary(asOf = new Date()) {
       interestThisMonth: sum((r) => r.interestThisMonth),
       /* 直近1年に出ていく利息の概算。今の残債×加重平均利率で見る */
       interestPerYear: Math.round((bal * weightedRate) / 100),
+      /* 過去12ヶ月に実際に払った返済額（元金＋利息） */
+      past12Months: rows.reduce((a, r) => a + past12Months(r.loan, asOf), 0),
       finalMonth: rows.map((r) => r.loan.finalPaymentMonth ?? "").sort().at(-1) ?? "",
       /* 満期に一括で返す必要がある額。ここが資金繰りの崖になる */
       /* 据置中＝いまは利息だけ払っている額。返済が始まると月々が跳ねる */
