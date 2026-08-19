@@ -69,6 +69,12 @@ printf "  ページ総数: %s（下限 %s）\n" "$count" "$MIN_PAGES"
 [[ "$missing" -eq 1 ]] && { echo; echo "🛑 検証に失敗。デプロイせず中止します。"; exit 1; }
 echo "  → 検証OK"
 
+# 「ページがある」だけでは足りない（2026-08-19: define:vars渡し漏れでMy Pageが実行時に全停止）。
+# 全ページを headless Chrome で実際に開き、未捕捉JS例外が1件でもあれば出さない。
+echo
+echo "── 3-3. 実行時スモーク（全ページを headless Chrome で開き JSエラー0を確認） ──"
+node scripts/smoke-dist.mjs || { echo "🛑 実行時スモークに失敗。デプロイせず中止します。"; exit 1; }
+
 echo
 if [[ "$MODE" == "preview" ]]; then
   echo "── 4. プレビューチャネルへデプロイ ──"

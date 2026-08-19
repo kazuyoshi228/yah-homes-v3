@@ -251,6 +251,41 @@ if (ssot.kiyokawa.checkinTime !== ssot.takasago.checkinTime || ssot.kiyokawa.che
   }
 }
 
+
+// ── §11 define:vars の渡し漏れ（2026-08-19 の My Page 全停止の再発防止） ──
+// <script define:vars={{...}}> は素のJSとして出力され、front-matter の import が見えない。
+// import した識別子をスクリプト内で使うなら必ず vars に渡す。型チェックもビルドも通り、
+// 実行時に初めて ReferenceError で死ぬクラスのバグを、ここで機械的に止める。
+{
+  const { readdirSync } = await import("node:fs");
+  const walk = (dir) => readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })
+    .flatMap((e) => e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".astro") ? [`${dir}/${e.name}`] : []);
+  for (const path of walk("src")) {
+    const src = read(path);
+    const fm = (src.match(/^---\n([\s\S]*?)\n---/) ?? [])[1] ?? "";
+    const importNames = [];
+    for (const m of fm.matchAll(/import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from/g)) {
+      if (m[2]) importNames.push(m[2]);
+      if (m[1]) for (const part of m[1].split(",")) {
+        const name = (part.includes(" as ") ? part.split(" as ")[1] : part).trim();
+        if (/^\w+$/.test(name)) importNames.push(name);
+      }
+    }
+    if (!importNames.length) continue;
+    for (const m of src.matchAll(/<script\s+define:vars=\{\{([\s\S]*?)\}\}\s*>([\s\S]*?)<\/script>/g)) {
+      const passed = m[1].split(",").map((x) => x.split(":")[0].trim()).filter(Boolean);
+      const body = m[2];
+      for (const name of importNames) {
+        if (passed.includes(name)) continue;
+        if (new RegExp(`(?:const|let|var|function|class)\\s+${name}\\b`).test(body)) continue;   // ローカル定義があるなら別物
+        if (new RegExp(`\\b${name}\\b`).test(body)) {
+          fail(path, `define:vars に ${name} が渡っていないのにスクリプトが参照（実行時 ReferenceError で全停止する）`);
+        }
+      }
+    }
+  }
+}
+
 // ── 結果 ──
 if (errors.length) {
   console.error(`\n✗ 表記の不整合 ${errors.length} 件\n`);
