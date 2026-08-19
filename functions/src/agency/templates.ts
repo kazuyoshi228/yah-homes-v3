@@ -16,9 +16,9 @@ export type TemplateKey =
 
 /** 本文で使える差し込み記号。ここに無いものは保存時にエラーにする */
 export const TEMPLATE_VARS = [
-  "vendorName", "vendorContact", "propLabel", "address",
+  "vendorName", "vendorContact", "propLabel", "address", "vendorPhone", "legalName",
   "title", "dueYear", "dueMonth", "confirmedAt", "candidates",
-  "jobId", "aiAddress", "operatorPhone",
+  "jobId", "aiAddress",
 ] as const;
 
 export interface MailTemplate {
@@ -38,7 +38,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
     body: [
       "{{vendorName}} {{vendorContact}}様",
       "",
-      "いつもお世話になっております。yah.homes の自動手配システムです。",
+      "いつもお世話になっております。ボンファイア株式会社（yah.homes 運営）の自動手配システムです。",
       "{{dueYear}}年{{dueMonth}}月に、下記の作業をお願いしたくご連絡いたしました。",
       "",
       "　作業内容: {{title}}",
@@ -48,11 +48,11 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "ご都合のよい日程を、このメールへの返信でお知らせいただけますでしょうか。",
       "候補日をいくつかいただければ、こちらで確定してご連絡いたします。",
       "",
-      "※このメールは yah.homes の自動手配システム（AI）が送信しています。",
+      "※このメールはボンファイア株式会社の自動手配システム（AI）が送信しています。",
       "　ご返信は自動で処理され、判断が必要な内容は担当者へ引き継ぎます。",
-      "　お急ぎの場合は {{operatorPhone}} までお電話ください。",
+      "　お急ぎの場合は {{vendorPhone}} までお電話ください。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
       "{{aiAddress}}",
     ].join("\n"),
   },
@@ -73,7 +73,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "",
       "よろしくお願いいたします。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
   reschedule: {
@@ -88,7 +88,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "",
       "ご都合のよいものをお知らせください。いずれも難しい場合は、ご希望の日程をお知らせいただければ調整いたします。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
   reminder: {
@@ -104,7 +104,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "",
       "よろしくお願いいたします。作業後は完了のご報告と写真をお送りください。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
   chase: {
@@ -121,7 +121,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "",
       "お手数ですが、作業の状況と写真をこのメールへの返信でお知らせください。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
   thanks: {
@@ -133,7 +133,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "作業とご報告をありがとうございました。確認いたしました。",
       "引き続きよろしくお願いいたします。",
       "",
-      "yah.homes 自動手配システム（AI）",
+      "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
 };
