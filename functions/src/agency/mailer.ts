@@ -51,7 +51,9 @@ function buildRaw(to: string, subject: string, body: string, threadRef?: string,
   const headers = [
     `From: ${subjectEnc(AI_DISPLAY)} <${AI_ADDRESS}>`,
     `To: ${to}`,
-    `Cc: ${cc}`,   // 必須・省略不可（AIの送信は必ず人にも届く）
+    /* CC は必須・省略不可（AIの送信は必ず人にも届く）。
+       ただし宛先が本人の場合だけは重複するので落とす（同じ人に2通見えるのを防ぐ）。 */
+    ...(to.includes(cc) ? [] : [`Cc: ${cc}`]),
     `Subject: ${subjectEnc(subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
