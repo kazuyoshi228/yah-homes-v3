@@ -27,18 +27,32 @@ function dueDate(y: number, m: number): Date {
   return new Date(`${ym(y, m)}-01T00:00:00+09:00`);
 }
 
-/** schedule から「次に来る実施月」を列挙する（今月以降・count件） */
-export function upcomingMonths(months: number[], from: { y: number; m: number }, count = 4): Array<{ y: number; m: number }> {
+/**
+ * schedule から「次に来る実施月」を列挙する（今月以降・count件）。
+ *
+ * everyYears を指定すると数年に一度の作業になる（外壁クリーニング=5年など）。
+ * 基準年 anchorYear から everyYears ごとの年だけを拾う。
+ * 何年も先の話なので、忘れないためにこそ機械に持たせる。
+ */
+export function upcomingMonths(
+  months: number[], from: { y: number; m: number }, count = 4,
+  everyYears = 1, anchorYear?: number,
+): Array<{ y: number; m: number }> {
   const out: Array<{ y: number; m: number }> = [];
   const sorted = [...months].sort((a, b) => a - b);
+  const step = Math.max(1, everyYears);
+  const anchor = anchorYear ?? from.y;
   let y = from.y;
   while (out.length < count) {
-    for (const m of sorted) {
-      if (y > from.y || m >= from.m) out.push({ y, m });
-      if (out.length >= count) break;
+    const onCycle = ((y - anchor) % step + step) % step === 0;
+    if (onCycle) {
+      for (const m of sorted) {
+        if (y > from.y || m >= from.m) out.push({ y, m });
+        if (out.length >= count) break;
+      }
     }
     y++;
-    if (y > from.y + 20) break; // 保険
+    if (y > from.y + 20 * step) break; // 保険
   }
   return out;
 }
@@ -57,7 +71,7 @@ export async function createDueJobs(now = new Date()): Promise<{ created: string
   for (const doc of snap.docs) {
     const s = doc.data() as Schedule;
     const lead = s.leadDays ?? 60;
-    for (const { y, m } of upcomingMonths(s.months, today, 4)) {
+    for (const { y, m } of upcomingMonths(s.months, today, 4, s.everyYears, s.anchorYear)) {
       const daysUntil = Math.floor((dueDate(y, m).getTime() - now.getTime()) / 86400000);
       if (daysUntil > lead) continue;              // まだ早い
       const trigger = `${doc.id}:${ym(y, m)}`;
@@ -103,7 +117,9 @@ export async function scheduleNext(jobId: string): Promise<string | null> {
   if (!s?.active) return null;
 
   const [dy, dm] = job.dueMonth.split("-").map(Number);
-  const next = upcomingMonths(s.months, { y: dm === 12 ? dy + 1 : dy, m: dm === 12 ? 1 : dm + 1 }, 1)[0];
+  const next = upcomingMonths(
+    s.months, { y: dm === 12 ? dy + 1 : dy, m: dm === 12 ? 1 : dm + 1 }, 1, s.everyYears, s.anchorYear)[0];
+  if (!next) return null;   // 周期の設定が壊れていれば黙って次回を作らない（誤った期日を置かない）
   const trigger = `${job.scheduleId}:${ym(next.y, next.m)}`;
   const dup = await db.collection("jobs").where("trigger", "==", trigger).limit(1).get();
   if (!dup.empty) return null;

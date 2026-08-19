@@ -33,6 +33,10 @@ export interface Schedule {
   vendorId: string;
   /** 実行月（1-12）。毎年その月に実施。例: [3,6,9,12] / [7] */
   months: number[];
+  /** 数年に一度の作業（外壁クリーニング=5 など）。既定は毎年。 */
+  everyYears?: number;
+  /** everyYears の起点になる年。ここから everyYears ごとに実施する。 */
+  anchorYear?: number;
   /** 計画予算（円・1回あたり）。実績はMF仕訳が正本で、会計処理カードが突合 */
   budget?: number;
   /** 法定かどうか（fail-closed のしきい値が変わる: 法定=30日前・任意=7日前） */
