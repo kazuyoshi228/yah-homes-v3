@@ -67,14 +67,18 @@ export async function sendRequests(): Promise<Array<{ jobId: string; mode: strin
   const snap = await db.collection("jobs").where("status", "==", "draft").get();
   const out: Array<{ jobId: string; mode: string }> = [];
   for (const doc of snap.docs) {
-    const job = doc.data() as Job & { aiPaused?: boolean };
+    const job = doc.data() as Job & { aiPaused?: boolean; requestMailAt?: string };
     if (job.aiPaused) continue;   // 人が対応中のジョブは触らない
+    /* ドライラン中は下書きを作っても status が draft のまま残る。
+       ここで弾かないと毎朝おなじ依頼の下書きが増え続ける（2026-08-19 本番の初回実行で判明）。 */
+    if (job.requestMailAt) continue;
     const vendor = await vendorOf(job);
     if (!vendor?.email) {                       // メールの無い業者は自動化の対象外
       await advance(doc.id, "exception", "system", `業者にメールアドレスが無い（${vendor?.name ?? "未設定"}）。人が手配する`);
       continue;
     }
     const r = await sendFromTemplate(doc.id, job, vendor, "request");
+    await db.collection("jobs").doc(doc.id).update({ requestMailAt: new Date().toISOString() });
     await advance(doc.id, r.mode === "sent" ? "sent" : "draft", "ai",
       r.mode === "sent" ? "依頼メールを送信" : "依頼メールを下書きに作成（ドライラン中・人が送信する）");
     out.push({ jobId: doc.id, mode: r.mode });
