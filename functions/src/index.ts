@@ -5226,3 +5226,4 @@ export const adminInbox = onRequest(
 
 /* 業者ディスパッチ（yah.OS）— 毎朝の自動運転と Gmail 受信口。実体は src/agency/ */
 export { agencyDaily, agencyGmailPush } from "./agency/functions.js";
+export { agencyApi } from "./agency/api.js";
