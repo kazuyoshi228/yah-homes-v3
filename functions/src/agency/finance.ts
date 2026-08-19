@@ -14,6 +14,8 @@ export interface Loan {
   repayment?: "principal-equal" | "annuity" | "grace";
   /** 据置の場合、この月から元金の返済が始まる（yyyy-mm） */
   repaymentStartMonth?: string;
+  /** 据置明けの返済回数（15年=180 など） */
+  repaymentMonths?: number;
   principal: number;              // 借入額
   rate: number;                   // 年利（%）
   firstPayment: number;           // 初回の元金（一括返済では使わない）
@@ -72,7 +74,7 @@ export function loanState(loan: Loan, asOf = new Date()): LoanState {
     return {
       loan, paidCount: 0, paidPrincipal: 0, balance, interestThisMonth,
       monthlyTotal: interestThisMonth,       // いま出ていくのは利息だけ
-      remainingCount: loan.totalPayments,
+      remainingCount: loan.repaymentMonths ?? loan.totalPayments,
       progress: 0,
       graceUntil: start,
     };
