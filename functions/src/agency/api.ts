@@ -81,7 +81,15 @@ export const agencyApi = onRequest(
           return;
         }
         case "finance": {                                     // 融資の一覧（残債は契約条件から毎回計算）
-          res.json({ ok: true, ...(await loanSummary()) });
+          /* asOf を渡せば将来・過去の断面も出せる。残高を持たず条件から計算しているからできること。
+             不正な日付で黙って「今日」に落ちると数字を取り違えるので、その時はエラーにする。 */
+          const q = String(req.query.asOf ?? "");
+          let asOf = new Date();
+          if (q) {
+            asOf = new Date(q);
+            if (Number.isNaN(asOf.getTime())) { res.status(400).json({ ok: false, error: `日付が読めません: ${q}` }); return; }
+          }
+          res.json({ ok: true, ...(await loanSummary(asOf)) });
           return;
         }
         case "loanPdf": {                                     // 契約書の原本を一時リンクで開く
