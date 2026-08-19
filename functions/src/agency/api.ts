@@ -14,6 +14,7 @@ import { sendRequests, handleReply } from "./dispatcher.js";
 import { loanSummary } from "./finance.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
+import { monthlySummary } from "./monthly.js";
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -98,8 +99,13 @@ export const agencyApi = onRequest(
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
           return;
         }
+        case "monthly": {                                     // 月次のまとめ（各カードの合流点）
+          res.json({ ok: true, ...(await monthlySummary()) });
+          return;
+        }
         case "fixedCosts": {                                  // 税金・保険・積立（毎年決まって出ていくもの）
-          const [tax, ins, res_] = await Promise.all([all("taxes"), all("insurance"), all("reserves")]);
+          const [tax, ins, res_, asm] = await Promise.all([
+            all("taxes"), all("insurance"), all("reserves"), all("assumptions")]);
           const sumY = (rows: Array<Record<string, unknown>>, key: string) =>
             rows.reduce((a, r) => a + Number(r[key] ?? 0), 0);
           const taxes = sumY(tax as never, "amountPerYear");
@@ -109,7 +115,7 @@ export const agencyApi = onRequest(
           const props = new Set([...tax, ...ins, ...res_].map((r) => (r as { prop?: string }).prop).filter(Boolean)).size || 1;
           const perYear = taxes + premiums + reserves;
           res.json({
-            ok: true, taxes: tax, insurance: ins, reserves: res_,
+            ok: true, taxes: tax, insurance: ins, reserves: res_, assumptions: asm,
             total: {
               taxesPerYear: taxes, insurancePerYear: premiums, reservesPerYear: reserves,
               perYear, perMonth: Math.round(perYear / 12),
