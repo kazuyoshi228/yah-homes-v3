@@ -16,6 +16,7 @@ import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 import { monthlySummary } from "./monthly.js";
 import { yieldSummary } from "./yields.js";
+import { propertySummary, PROP_FIELDS } from "./props.js";
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -98,6 +99,23 @@ export const agencyApi = onRequest(
         }
         case "revenue": {                                     // 売上レポート（運営会社の月次報告）
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
+          return;
+        }
+        case "properties": {                                  // 物件（棟そのものの属性の正本）
+          res.json({ ok: true, ...(await propertySummary()) });
+          return;
+        }
+        case "saveProperty": {                                // 属性の編集は画面から
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+          const { id, data } = req.body ?? {};
+          if (!id) { res.status(400).json({ ok: false, error: "棟が指定されていません" }); return; }
+          /* 決めた項目以外は保存しない。画面の作り替えで勝手に項目が増えるのを防ぐ */
+          const clean: Record<string, unknown> = {};
+          for (const k of PROP_FIELDS) if (k in (data ?? {})) clean[k] = (data as Record<string, unknown>)[k];
+          if (!Object.keys(clean).length) { res.status(400).json({ ok: false, error: "保存できる項目がありません" }); return; }
+          await db.collection("properties").doc(String(id))
+            .set({ ...clean, kind: "property", updatedAt: new Date().toISOString(), updatedBy: email }, { merge: true });
+          res.json({ ok: true });
           return;
         }
         case "yields": {                                      // 利回り（取得価額に対する稼ぎ）
