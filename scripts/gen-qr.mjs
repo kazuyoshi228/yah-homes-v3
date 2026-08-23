@@ -16,12 +16,15 @@
  *       pnpm qr --if-possible  （ビルド用。施設マスタを読めない環境では既存ファイルのまま
  *                               続行する。ただし既存が1枚も無い、または生成から30日を
  *                               超えて古い場合は止める＝欠けた/古すぎるQRで公開しない）
+ *       pnpm qr --no-pdf       （PDFは既存があれば作り直さない。Chromeが生成日時を埋めるため
+ *                               毎ビルドでバイナリ差分が出るのを避ける。ビルドで併用する）
  */
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 
 const SOFT = process.argv.includes("--if-possible");
+const NO_PDF = process.argv.includes("--no-pdf");
 const BASE = "https://chat.yah.homes";
 const OUT = "public/qr";
 const PRINT = `${OUT}/print`;
@@ -191,8 +194,14 @@ for (const key of keys) {
   const svg97 = await card97Svg(key, url);
   writeFileSync(`${PRINT}/chat-${key}-card-97.svg`, svg97);
   await sharp(Buffer.from(svg97), { density: 300 }).png().toFile(`${PRINT}/chat-${key}-card-97.png`);
-  const pdfOk = await card97Pdf(svg97, `${PRINT}/chat-${key}-card-97.pdf`);
-  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード / 97mmカード(SVG・PNG${pdfOk ? "・PDF" : "／PDFはChromeが無く省略"})`);
+  // PDF は Chrome が生成日時を埋めるため、中身が同じでもビルドのたびにバイナリ差分が出る。
+  // ビルド（--no-pdf）では既存を維持し、git にノイズを出さない。デザインやURLを変えたときは
+  // pnpm qr で明示的に作り直す。ただし新規施設でまだ無い場合は --no-pdf でも作る（配布物を欠かさない）。
+  const pdfPath = `${PRINT}/chat-${key}-card-97.pdf`;
+  const keptPdf = NO_PDF && existsSync(pdfPath);
+  const pdfOk = keptPdf ? false : await card97Pdf(svg97, pdfPath);
+  const pdfNote = keptPdf ? "／PDFは既存を維持" : pdfOk ? "・PDF" : "／PDFはChromeが無く省略";
+  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード / 97mmカード(SVG・PNG${pdfNote})`);
 }
 
 /* 公開をやめた施設のファイルを消す（古いQRを配り続けない） */
