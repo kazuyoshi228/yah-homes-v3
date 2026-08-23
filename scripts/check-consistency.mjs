@@ -147,6 +147,7 @@ for (const [key, paths] of Object.entries(PROP_FILES)) {
 const anyCap = new Set([ssot.kiyokawa.capacity, ssot.takasago.capacity]);
 for (const path of ["src/data/faqData.ts", "src/i18n/uiStrings.ts", "src/i18n/translations.ts", "src/lib/seo.ts",
                     "src/pages/ja/partners.astro", "src/pages/ko/partners.astro", "src/pages/zh/partners.astro",
+                    "src/data/partners-facts.ja.json", "src/data/partners-facts.zh.json",
                     "src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
   checkCap(path, read(path), anyCap);
 }

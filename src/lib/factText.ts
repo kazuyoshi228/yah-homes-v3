@@ -28,6 +28,7 @@ export function makeFill(facts: PropertyFacts, lang: Locale): (v: string) => str
   const tv = String(facts.tvInch);
   const MAP: Record<string, string> = {
     ci, co, cap, d, rooms, bd, bs, tv,
+    capx: String(facts.capacity + 1),   // 「{capx}名以上不可」用
     bath: String(facts.bath), toilet: String(facts.toilet), sink: String(facts.sink), shower: String(facts.shower),
     pk: String(facts.parkingSpaces), pkSize: facts.parkingSize,
     airport: String(facts.fromAirportCarMin), station: String(facts.fromStationWalkMin),

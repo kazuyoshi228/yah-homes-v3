@@ -3,23 +3,23 @@
   "rows": [
     {
       "label": "類型",
-      "kiyokawa": "新建獨棟住宅 109㎡",
-      "takasago": "和風現代獨棟住宅 100㎡"
+      "kiyokawa": "新建獨棟住宅 {area}㎡",
+      "takasago": "和風現代獨棟住宅 {area}㎡"
     },
     {
       "label": "人數上限",
-      "kiyokawa": "最多7人（8人以上不可）",
-      "takasago": "最多6人（7人以上不可）"
+      "kiyokawa": "最多{cap}人（{capx}人以上不可）",
+      "takasago": "最多{cap}人（{capx}人以上不可）"
     },
     {
       "label": "臥室・床鋪",
-      "kiyokawa": "3間臥室・席夢思床墊（雙人床3＋單人床1）",
-      "takasago": "3間臥室・席夢思床墊（雙人床1＋單人床4）・可一人一床"
+      "kiyokawa": "{rooms}間臥室・席夢思床墊（雙人床{bd}＋單人床{bs}）",
+      "takasago": "{rooms}間臥室・席夢思床墊（雙人床{bd}＋單人床{bs}）・可一人一床"
     },
     {
       "label": "衛浴",
-      "kiyokawa": "浴室在1樓・洗手台1個",
-      "takasago": "浴室1間（2樓）・淋浴間1間・洗手台3個"
+      "kiyokawa": "浴室在1樓・洗手台{sink}個",
+      "takasago": "浴室{bath}間（2樓）・淋浴間{shower}間・洗手台{sink}個"
     },
     {
       "label": "位置",

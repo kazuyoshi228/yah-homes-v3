@@ -3,23 +3,23 @@
   "rows": [
     {
       "label": "タイプ",
-      "kiyokawa": "新築一戸建て 109㎡",
-      "takasago": "和モダン一戸建て 100㎡"
+      "kiyokawa": "新築一戸建て {area}㎡",
+      "takasago": "和モダン一戸建て {area}㎡"
     },
     {
       "label": "定員",
-      "kiyokawa": "最大7名（8名以上不可）",
-      "takasago": "最大6名（7名以上不可）"
+      "kiyokawa": "最大{cap}名（{capx}名以上不可）",
+      "takasago": "最大{cap}名（{capx}名以上不可）"
     },
     {
       "label": "寝室・ベッド",
-      "kiyokawa": "寝室3室・シモンズ製ベッド（ダブル3＋シングル1）",
-      "takasago": "寝室3室・シモンズ製ベッド（ダブル1＋シングル4）・1人1ベッド可"
+      "kiyokawa": "寝室{rooms}室・シモンズ製ベッド（ダブル{bd}＋シングル{bs}）",
+      "takasago": "寝室{rooms}室・シモンズ製ベッド（ダブル{bd}＋シングル{bs}）・1人1ベッド可"
     },
     {
       "label": "水回り",
-      "kiyokawa": "浴室1階・洗面台1つ",
-      "takasago": "浴室1つ（2階）・シャワーブース1つ・洗面台3つ"
+      "kiyokawa": "浴室1階・洗面台{sink}つ",
+      "takasago": "浴室{bath}つ（2階）・シャワーブース{shower}つ・洗面台{sink}つ"
     },
     {
       "label": "アクセス",

@@ -1,5 +1,7 @@
 ---
 import { ENDPOINTS } from "../../lib/adminConfig";
+import { getPropertyFacts } from "../../lib/propertyFacts";
+import { makeFill } from "../../lib/factText";
 /* パートナーページ（日本人ブロガー・インフルエンサー向け）— design_partners_page.md v0.7
    noindex・サイト内リンクなし・sitemap除外（astro.config filter）。
    構成: ヒーロー＋切り口例 → ファクトシート → 写真 → 提供条件 → 空き状況 → 申請フォーム → 掲載時のお願い → 連絡先。
@@ -9,6 +11,14 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import "../../styles/partners.css";
 import { GALLERIES } from "../../data/properties";
 import facts from "../../data/partners-facts.ja.json";
+
+/* 定員はSSoT（property_facts）から。棟の定員が変わってもここは直さない */
+const SSOT_FACTS = (await getPropertyFacts()).facts;
+const KCAP = SSOT_FACTS.kiyokawa.capacity;
+const TCAP = SSOT_FACTS.takasago.capacity;
+/* ファクトシートの各セルは棟ごとにSSoTを差し込む（列で棟が違うため fill を2つ使う） */
+const fillK = makeFill(SSOT_FACTS.kiyokawa, "ja");
+const fillT = makeFill(SSOT_FACTS.takasago, "ja");
 
 const APPLY_ENDPOINT = ENDPOINTS.partnersApply;
 const AVAIL_ENDPOINT = ENDPOINTS.bookingApi;
@@ -60,7 +70,7 @@ const PROPS = [
             </thead>
             <tbody>
               {facts.rows.map((r) => (
-                <tr><th>{r.label}</th><td>{r.kiyokawa}</td><td>{r.takasago}</td></tr>
+                <tr><th>{r.label}</th><td>{fillK(r.kiyokawa)}</td><td>{fillT(r.takasago)}</td></tr>
               ))}
               <tr>
                 <th>リンク</th>
@@ -159,8 +169,8 @@ const PROPS = [
             <label for="pf-property">希望する棟 *</label>
             <select id="pf-property" name="property" required>
               <option value="either">どちらでも</option>
-              <option value="kiyokawa">清川（最大7名）</option>
-              <option value="takasago">高砂（最大6名）</option>
+              <option value="kiyokawa">清川（最大{KCAP}名）</option>
+              <option value="takasago">高砂（最大{TCAP}名）</option>
               <option value="both">両棟に1泊ずつ（はしご泊）</option>
             </select>
           </div>
@@ -179,7 +189,7 @@ const PROPS = [
             <select id="pf-guests" name="guests" required>
               {[1, 2, 3, 4, 5, 6].map((n) => <option value={String(n)}>{n}名</option>)}
             </select>
-            <p class="pt-hint" id="pf-guests-hint">清川は最大7名・高砂は最大6名です。</p>
+            <p class="pt-hint" id="pf-guests-hint">清川は最大{KCAP}名・高砂は最大{TCAP}名です。</p>
           </div>
           <div class="pt-field">
             <label for="pf-message">メッセージ（任意）</label>
