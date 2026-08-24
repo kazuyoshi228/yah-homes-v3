@@ -215,6 +215,14 @@ export const agencyApi = onRequest(
           res.json({ ok: true });
           return;
         }
+        case "cvr": {                                         // AirBnB CVR定点観測（定期レポート）
+          const snap = await db.collection("cvr").get();
+          const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))
+            .sort((a, b) => String((a as { sortKey?: string }).sortKey ?? "")
+              .localeCompare(String((b as { sortKey?: string }).sortKey ?? "")));
+          res.json({ ok: true, rows });
+          return;
+        }
         case "contracts": {                                   // 契約書類（原本の所在の正本）
           const snap = await db.collection("contracts").get();
           const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))
