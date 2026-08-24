@@ -12,6 +12,11 @@ import { agencyDb } from "./engine.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 
+/* 収益還元の還元利回り。宿泊施設としては強気寄りだが、清川は住宅としても値が付き、
+   買い手が自主運営すればNOIはさらに大きくなる。査定が出たら実勢に置き換える。
+   （2026-08-19 発注者判断で 6% → 5%） */
+export const CAP_RATE = 0.05;
+
 /** 画面から編集できる項目。ここに無いものは保存時に弾く（勝手な項目が増えないように） */
 export const PROP_FIELDS = [
   "label", "status", "address", "area", "acquiredAt", "acquisitionPrice",
@@ -20,6 +25,7 @@ export const PROP_FIELDS = [
   "landPrice", "units", "planned",
   "investment", "investmentTotal", "investmentNote", "investmentSource",
   "additionalInvestment",   // 稼働後に足した費用（初期投資額とは分けて持つ）
+  "drawings",               // 図面データ（保管庫のパスと名前）
 ] as const;
 
 export async function propertySummary() {
@@ -68,8 +74,9 @@ export async function propertySummary() {
       noi,
       /* 実質利回りと収益還元の評価。取得価額が未入力なら出さない（0で割らない） */
       netYield: noi && price ? Math.round((noi / price) * 10000) / 100 : null,
-      value6: noi ? Math.round(noi / 0.06) : null,
-      gain: noi && price ? Math.round(noi / 0.06) - price : null,
+      capRate: CAP_RATE,
+      value: noi ? Math.round(noi / CAP_RATE) : null,
+      gain: noi && price ? Math.round(noi / CAP_RATE) - price : null,
       schedules: schedSnap.docs.filter((s) => s.data().prop === d.id)
         .map((s) => ({ id: s.id, title: s.data().title, months: s.data().months, everyYears: s.data().everyYears ?? 1 })),
       docs: insSnap.docs.filter((s) => s.data().prop === d.id)

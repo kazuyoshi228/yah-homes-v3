@@ -149,6 +149,17 @@ export const agencyApi = onRequest(
           });
           return;
         }
+        case "drawing": {                                     // 図面データ（非公開の保管庫から一時リンクで開く）
+          const gs = String(req.query.path ?? "");
+          if (!gs.startsWith("gs://yah-homes-os-archive/")) {
+            res.status(400).json({ ok: false, error: "その置き場は開けません" }); return;
+          }
+          const [bucket, ...rest] = gs.slice(5).split("/");
+          const [url] = await getStorage().bucket(bucket).file(rest.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url });
+          return;
+        }
         case "insurancePdf": {
           const id = String(req.query.id ?? "");
           const d = (await db.collection("insurance").doc(id).get()).data();
