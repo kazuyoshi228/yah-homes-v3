@@ -31,6 +31,7 @@ export const PROP_FIELDS = [
   "utilities", "roads", "parking", "surroundings", "psychologicalDefect", "encroachment",
   "riverDistance", "hazard",
   "interior", "interiorSource",   // 内装・仕様の一覧（標準仕様書から正本化）
+  "buildingConfirmation", "buildingConfirmationSource",   // 建築確認（確認済証類から正本化）
   "contractDateNote",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
