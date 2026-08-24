@@ -13,10 +13,21 @@ export interface UtilityEntry {
 }
 
 export async function utilitySummary() {
-  const snap = await agencyDb().collection("utilities").where("kind", "==", "utility").get();
+  const db = agencyDb();
+  const [snap, recSnap] = await Promise.all([
+    db.collection("utilities").where("kind", "==", "utility").get(),
+    db.collection("recurringCosts").where("recurring", "==", true).get(),
+  ]);
   const rows = snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as object) } as UtilityEntry))
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  /* セキュリティカメラのように、仕訳ではなく「台数×単価」で毎月決まって出るもの。
+     会計に個別の仕訳が立たなくても、月次の費用としては同じように効く。 */
+  const recurring = recSnap.docs.map((d) => {
+    const r = d.data() as { type: string; place: string; unitPrice: number; units: number; note?: string };
+    return { id: d.id, ...r, amountPerMonth: r.unitPrice * r.units };
+  });
 
   const months = [...new Set(rows.map((r) => r.month))].sort();
   const places = [...new Set(rows.map((r) => r.place))];
@@ -32,9 +43,10 @@ export async function utilitySummary() {
     };
   });
 
+  const recurringPerMonth = recurring.reduce((a, r) => a + r.amountPerMonth, 0);
   const total = sum(rows);
   return {
-    rows, byMonth, places, types,
+    rows, byMonth, places, types, recurring, recurringPerMonth,
     byPlace: places.map((place) => {
       const rs = rows.filter((r) => r.place === place);
       const ms = [...new Set(rs.map((r) => r.month))].length;
@@ -47,7 +59,8 @@ export async function utilitySummary() {
     window: { from: months[0] ?? "", to: months.at(-1) ?? "", months: months.length },
     total: {
       amount: total, count: rows.length,
-      perMonth: months.length ? Math.round(total / months.length) : 0,
+      perMonth: (months.length ? Math.round(total / months.length) : 0) + recurringPerMonth,
+      perMonthFromJournal: months.length ? Math.round(total / months.length) : 0,
       /* 補助科目が付いていないもの＝何の光熱費か分からない仕訳。放っておくと集計が静かに狂う */
       unknown: sum(rows.filter((r) => r.type === "不明")),
       unknownCount: rows.filter((r) => r.type === "不明").length,
