@@ -21,7 +21,9 @@ import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
-const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app", "http://localhost:5000"];
+/* localhost は手元で確認するとき用（5000 は macOS の ControlCenter が使っているので 5050 も許す） */
+const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app",
+  "http://localhost:5000", "http://localhost:5050", "http://127.0.0.1:5050"];
 
 /**
  * Google ログイン → 「外部委託を見てよい人」かを照合する。
