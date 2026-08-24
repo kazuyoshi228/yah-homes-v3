@@ -34,6 +34,7 @@ export const PROP_FIELDS = [
   "investment", "investmentTotal", "investmentNote", "investmentSource",
   "additionalInvestment",   // 稼働後に足した費用（初期投資額とは分けて持つ）
   "drawings",               // 図面データ（保管庫のパスと名前）
+  "requiredDocs",           // 追加必須書類（揃っていないものの一覧）
 ] as const;
 
 export async function propertySummary() {
@@ -44,6 +45,7 @@ export async function propertySummary() {
     db.collection("taxes").get(), db.collection("insurance").get(),
     db.collection("reserves").get(), db.collection("schedules").get(),
   ]);
+  const eqSnap = await db.collection("equipment").where("kind", "==", "equipment").get();
 
   const activeCount = rev.byProp.length || 1;
   const utilPerYear = Math.round(
@@ -87,6 +89,9 @@ export async function propertySummary() {
       gain: noi && price ? Math.round(noi / CAP_RATE) - price : null,
       schedules: schedSnap.docs.filter((s) => s.data().prop === d.id)
         .map((s) => ({ id: s.id, title: s.data().title, months: s.data().months, everyYears: s.data().everyYears ?? 1 })),
+      /* 設備台帳。故障時に業者へ即答できるよう、型番まで持つ */
+      equipment: eqSnap.docs.filter((e) => e.data().prop === d.id)
+        .map((e) => ({ id: e.id, ...(e.data() as object) })),
       docs: insSnap.docs.filter((s) => s.data().prop === d.id)
         .map((s) => ({ id: s.id, label: `${s.data().product}（${s.data().plan}）` })),
     };
