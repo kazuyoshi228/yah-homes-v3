@@ -229,6 +229,23 @@ export const agencyApi = onRequest(
           })) });
           return;
         }
+        case "reportArchive": {                               // 定期レポートの原本フォルダー（保管庫から毎回引く）
+          const FOLDERS: Record<string, { prefix: string }> = {
+            cvr: { prefix: "reports/cvr/" },
+            revenue: { prefix: "finance/revenue/" },
+          };
+          const fol = FOLDERS[String(req.query.folder ?? "")];
+          if (!fol) { res.status(400).json({ ok: false, error: "そのフォルダーはありません" }); return; }
+          const [rfiles] = await getStorage().bucket("yah-homes-os-archive")
+            .getFiles({ prefix: fol.prefix });
+          res.json({ ok: true, files: rfiles.map((f) => ({
+            path: `gs://yah-homes-os-archive/${f.name}`,
+            name: f.name.split("/").pop() ?? f.name,
+            sub: f.name.slice(fol.prefix.length).includes("/")
+              ? f.name.slice(fol.prefix.length).split("/")[0] : "",
+          })).sort((a, b) => b.sub.localeCompare(a.sub) || a.name.localeCompare(b.name)) });
+          return;
+        }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
           const [files] = await getStorage().bucket("yah-homes-os-archive")
             .getFiles({ prefix: "reports/cvr/" });
