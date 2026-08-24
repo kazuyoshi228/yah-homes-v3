@@ -7,7 +7,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { agencyDb, advance, findOverdue, staleHeartbeats } from "./engine.js";
 import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "./templates.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
@@ -16,6 +16,7 @@ import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 import { monthlySummary } from "./monthly.js";
 import { yieldSummary } from "./yields.js";
+import { renewalPlan } from "./lifecycle.js";
 import { propertySummary, PROP_FIELDS } from "./props.js";
 import { getStorage } from "firebase-admin/storage";
 
@@ -156,6 +157,60 @@ export const agencyApi = onRequest(
           res.json({ ok: true });
           return;
         }
+        case "saveLifespan": {                                // 実効年数の手直し（画面から1項目だけ）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+          const { id, years } = req.body ?? {};
+          if (!id) { res.status(400).json({ ok: false, error: "アイテムが指定されていません" }); return; }
+          const ref = db.collection("equipment").doc(String(id));
+          if (!(await ref.get()).exists) { res.status(404).json({ ok: false, error: "そのアイテムがありません" }); return; }
+          /* 空で送られたら手直しを取り消し、耐用年数×使用強度の計算に戻す */
+          if (years === null || years === "" || years === undefined) {
+            await ref.set({ effectiveYearsOverride: FieldValue.delete(),
+              overrideBy: FieldValue.delete(), overrideAt: FieldValue.delete() }, { merge: true });
+            res.json({ ok: true, cleared: true });
+            return;
+          }
+          const y = Number(years);
+          if (!Number.isFinite(y) || y <= 0 || y > 100) {
+            res.status(400).json({ ok: false, error: "年数は 1〜100 で入れてください" }); return;
+          }
+          await ref.set({ effectiveYearsOverride: Math.round(y * 10) / 10,
+            overrideBy: email, overrideAt: new Date().toISOString() }, { merge: true });
+          res.json({ ok: true });
+          return;
+        }
+        case "propJobs": {                                    // 棟ごとの作業（物件カードの作業タブ）
+          const prop = String(req.query.prop ?? "");
+          if (!prop) { res.status(400).json({ ok: false, error: "棟が指定されていません" }); return; }
+          const [jsnap, ssnap] = await Promise.all([
+            db.collection("jobs").where("prop", "==", prop).get(),
+            db.collection("schedules").where("prop", "==", prop).get(),
+          ]);
+          const led = new Map(ssnap.docs.map((d) => [d.id, String(d.data().ledgerId ?? "")]));
+          const jobs = jsnap.docs.map((d) => {
+            const j = d.data();
+            return { id: d.id, title: j.title, status: j.status, dueMonth: j.dueMonth,
+              statutory: !!j.statutory, manualOnly: !!j.manualOnly, vendorId: j.vendorId ?? "",
+              scheduleId: j.scheduleId ?? "", ledgerId: led.get(String(j.scheduleId ?? "")) ?? "",
+              actual: j.actual ?? null, confirmedAt: j.confirmedAt ?? null,
+              ledgerWrittenBack: j.ledgerWrittenBack ?? null,
+              timeline: j.timeline ?? [], updatedAt: j.updatedAt ?? "" };
+          }).sort((a, b) => String(b.dueMonth).localeCompare(String(a.dueMonth)));
+          /* まだジョブになっていない予定も並べる。「登録はしたが起票されていない」を見えるように */
+          const pending = ssnap.docs.map((d) => {
+            const sc = d.data();
+            return { id: d.id, title: sc.title, everyYears: sc.everyYears ?? 1,
+              months: sc.months ?? [], active: !!sc.active, needsDecision: !!sc.needsDecision,
+              vendorId: sc.vendorId ?? "", ledgerId: String(sc.ledgerId ?? ""),
+              hasJob: jobs.some((j) => j.scheduleId === d.id) };
+          }).sort((a, b) => String(a.title).localeCompare(String(b.title)));
+          res.json({ ok: true, jobs, schedules: pending });
+          return;
+        }
+        case "renewalPlan": {                                 // 更新計画（設備台帳から毎回引き直す）
+          res.json({ ok: true, ...(await renewalPlan(String(req.query.prop ?? "") || undefined)) });
+          return;
+        }
         case "yields": {                                      // 利回り（取得価額に対する稼ぎ）
           res.json({ ok: true, ...(await yieldSummary()) });
           return;
@@ -256,7 +311,25 @@ export const agencyApi = onRequest(
         /* ---- 書き込み（POSTのみ） ---- */
         case "advance": {                                     // 人が状態を進める／差し戻す
           if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
-          const { jobId, status, note } = req.body ?? {};
+          const { jobId, status, note, actual } = req.body ?? {};
+          /* 消し込みの実績。verified にする前に入れておく——advance の中で台帳へ書き戻すため */
+          if (actual && typeof actual === "object") {
+            const a = actual as { amount?: unknown; ym?: unknown; vendor?: unknown; note?: unknown };
+            const amt = Number(a.amount ?? 0);
+            if (a.amount != null && (!Number.isFinite(amt) || amt < 0)) {
+              res.status(400).json({ ok: false, error: "実額の入れ方が違います" }); return;
+            }
+            const ym = String(a.ym ?? "");
+            if (ym && !/^\d{4}-\d{2}$/.test(ym)) {
+              res.status(400).json({ ok: false, error: "実施年月は 2026-08 の形で入れてください" }); return;
+            }
+            await db.collection("jobs").doc(String(jobId)).set({
+              actual: { ...(amt ? { amount: amt } : {}), ...(ym ? { ym } : {}),
+                ...(a.vendor ? { vendor: String(a.vendor) } : {}),
+                ...(a.note ? { note: String(a.note) } : {}) },
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          }
           await advance(String(jobId), status, "human", `${note ?? ""}（${email}）`);
           res.json({ ok: true });
           return;

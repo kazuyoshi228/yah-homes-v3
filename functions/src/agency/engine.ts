@@ -136,6 +136,52 @@ export async function scheduleNext(jobId: string): Promise<string | null> {
   return trigger;
 }
 
+/**
+ * 消し込みの書き戻し: 完了確定したジョブの実績を、設備台帳の項目へ返す。
+ *
+ * これが無いと、作業をやっても更新計画はいつまでも当初の概算のままになる。
+ * 実施年月を入れ直すので次の更新年がずれ、実額を入れるので年割りが本物になる。
+ * 前の値は history[] に残す（上書きの痕跡を消さない）。
+ *
+ * 紐づけは schedules.ledgerId → equipment のドキュメントID。
+ * ledgerId が無いジョブ（清掃・消防点検など、物に紐づかない作業）は何もしない。
+ */
+async function writeBackToLedger(job: Job & { actual?: { amount?: number; ym?: string } }): Promise<string | null> {
+  const db = agencyDb();
+  if (!job.scheduleId) return null;
+  const sc = await db.collection("schedules").doc(job.scheduleId).get();
+  const ledgerId = String(sc.data()?.ledgerId ?? "");
+  if (!ledgerId) return null;
+
+  const ref = db.collection("equipment").doc(ledgerId);
+  const cur = await ref.get();
+  if (!cur.exists) return null;
+  const e = cur.data() ?? {};
+
+  /* 実施年月は、報告があればそれ。無ければ期日の月を使う（推測せず、あるものを使う） */
+  const ym = job.actual?.ym || job.confirmedAt?.slice(0, 7) || job.dueMonth;
+  /* 実額は報告があるときだけ置き換える。無いなら概算のまま（勝手に確定させない） */
+  const amount = Number(job.actual?.amount ?? 0);
+
+  const patch: Record<string, unknown> = {
+    installedAt: ym,
+    date: ym,
+    history: FieldValue.arrayUnion({
+      at: new Date().toISOString(), ym, jobId: job.trigger,
+      before: Number(e.amount ?? e.price ?? 0), after: amount || Number(e.amount ?? e.price ?? 0),
+      note: amount ? "実額に置き換え" : "実施年月のみ更新（実額の報告なし）",
+    }),
+    updatedAt: new Date().toISOString(),
+  };
+  if (amount > 0) {
+    patch.amount = amount; patch.price = amount;
+    patch.estimate = FieldValue.delete();     // 概算ではなくなった
+    patch.futureCost = false;                 // もう払った
+  }
+  await ref.set(patch, { merge: true });
+  return ledgerId;
+}
+
 /** 状態遷移は必ずここを通す（timeline に追記・上書きしない = append-only） */
 export async function advance(jobId: string, status: JobStatus, by: "ai" | "human" | "system", note?: string): Promise<void> {
   const db = agencyDb();
@@ -145,7 +191,19 @@ export async function advance(jobId: string, status: JobStatus, by: "ai" | "huma
     updatedAt: nowIso,
     timeline: FieldValue.arrayUnion({ at: nowIso, status, by, ...(note ? { note } : {}) }),
   });
-  if (status === "verified") await scheduleNext(jobId);
+  if (status !== "verified") return;
+  const job = (await db.collection("jobs").doc(jobId).get()).data() as Job | undefined;
+  if (job) {
+    const led = await writeBackToLedger(job);
+    if (led) {
+      await db.collection("jobs").doc(jobId).update({
+        ledgerWrittenBack: led, updatedAt: new Date().toISOString(),
+        timeline: FieldValue.arrayUnion({ at: new Date().toISOString(), status, by: "system",
+          note: `設備台帳 ${led} に実績を書き戻した` }),
+      });
+    }
+  }
+  await scheduleNext(jobId);
 }
 
 /**

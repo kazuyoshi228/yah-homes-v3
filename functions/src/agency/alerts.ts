@@ -32,12 +32,48 @@ async function unmatched() {
  * 毎朝の点検メール。異常が1つも無ければ送らない（通知が増えると読まれなくなるため）。
  * ただし「沈黙の検知」だけは別で、ハートビートが切れていたら必ず送る。
  */
+/**
+ * 見積の催促 — 概算のまま実施年が近づいている長期修繕を拾う。
+ *
+ * これが無いと、2036年に¥132万の請求書を見て初めて概算が甘かったと気づくことになる。
+ * 実施年の1年前に出す。金額が概算（estimate が付いている）ものだけが対象。
+ */
+async function estimatesDue(now: Date): Promise<Array<{ label: string; prop: string; due: number; amount: number }>> {
+  const db = agencyDb();
+  const [eq, props] = await Promise.all([
+    db.collection("equipment").where("kind", "==", "equipment").get(),
+    db.collection("properties").get(),
+  ]);
+  const label = new Map(props.docs.map((d) => [d.id, String(d.data().label ?? d.id)]));
+  const fx = new Map(props.docs.map((d) => [d.id,
+    { f: Number(d.data().usageFactor ?? 2), c: Number(d.data().lifespanCapYears ?? 30) }]));
+  const y = now.getFullYear();
+  const out: Array<{ label: string; prop: string; due: number; amount: number }> = [];
+  for (const d of eq.docs) {
+    const e = d.data();
+    if (!e.estimate) continue;                       // 実額が入っているものは催促しない
+    const life = Number(e.lifespanYears ?? 0);
+    if (!life) continue;
+    const p = fx.get(String(e.prop)) ?? { f: 2, c: 30 };
+    const ov = Number(e.effectiveYearsOverride ?? 0);
+    const eff = ov > 0 ? ov : e.noFactor === true ? life : Math.min(life * p.f, p.c);
+    const at = String(e.installedAt ?? e.date ?? "");
+    if (!/^\d{4}/.test(at)) continue;
+    const due = Math.round(Number(at.slice(0, 4)) + eff);
+    if (due - y > 1 || due < y) continue;            // 1年前になったら／過ぎたものは overdue 側で拾う
+    out.push({ label: String(e.model ?? d.id), prop: label.get(String(e.prop)) ?? String(e.prop),
+      due, amount: Number(e.amount ?? e.price ?? 0) });
+  }
+  return out.sort((a, b) => a.due - b.due);
+}
+
 export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean; items: number }> {
   const overdue = await findOverdue(now);
   const stale = await staleHeartbeats(now);
   const exc = await exceptions();
   const un = await unmatched();
-  const total = overdue.length + stale.length + exc.length + un.length;
+  const est = await estimatesDue(now);
+  const total = overdue.length + stale.length + exc.length + un.length + est.length;
   if (total === 0) return { sent: false, items: 0 };
 
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
@@ -63,6 +99,11 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     exc.forEach((e) => L.push(`　・${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`));
     L.push("");
   }
+  if (est.length) {
+    L.push("■ 見積を取る時期（概算のまま実施年が近い）");
+    est.forEach((e) => L.push(`　・${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`));
+    L.push("");
+  }
   if (un.length) {
     L.push("■ ジョブに紐付かなかったメール");
     un.forEach((u) => L.push(`　・${u.from}「${u.subject}」`));
@@ -79,7 +120,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   });
   await agencyDb().collection("alertLogs").add({
     at: new Date().toISOString(), items: total, mode: r.mode,
-    breakdown: { stale: stale.length, critical: crit.length, warn: warn.length, exception: exc.length, unmatched: un.length },
+    breakdown: { stale: stale.length, critical: crit.length, warn: warn.length,
+      exception: exc.length, unmatched: un.length, estimates: est.length },
   });
   return { sent: true, items: total };
 }

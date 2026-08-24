@@ -86,6 +86,10 @@ export interface Job {
   /** 突発の発生元 / 是正ジョブの親 */
   origin?: "manual" | "chat" | "inspection";
   parentJobId?: string;
+  /** 完了時に人が入れる実績（消し込みの入力）。実額が入ると設備台帳の概算が置き換わる */
+  actual?: { amount?: number; ym?: string; vendor?: string; note?: string };
+  /** 書き戻した設備台帳のID（二度書きの確認用） */
+  ledgerWrittenBack?: string;
   /** 状態遷移の履歴（append-only） */
   timeline: Array<{ at: string; status: JobStatus; by: "ai" | "human" | "system"; note?: string }>;
   createdAt: string;
