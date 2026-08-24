@@ -153,3 +153,12 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
   Functions URL→`adminConfig.ts` の `ENDPOINTS` / チャットURL・QRパス→`lib/chatLinks.ts` / 電話→`seo.ts` の `OPERATOR_PHONE` / サイトURL→`seo.ts` の `BASE_URL`（functions側は `mail-template.ts` の `SITE_URL`）/ 施設表示名→`lib/propNames.ts` / 施設ラベル対訳→`data/adminChatInfo.ts` の `CHAT_PROPS` / Firebase SDK版→`adminConfig.ts` の `FB_SDK` / Beds24 ID対応・SA・GA4→`functions/src/beds24Client.ts` / メール共通文言→`mail-template.ts`（`BRAND_FOOTER`・`MAIL_NOREPLY`）。
 - **fail-closed**: SSoT が読めないときは既定値に倒さず、止める・断る・警報（`notifyError`）。「読めなければ送る/受ける」を書かない。
 - **check-consistency.mjs は本文の実ファイルを検査する**（言語分割後の `src/data/{kiyokawa,takasago}/*.ts`）。データファイルを分割・移動したら検査対象も必ず追随させること（2026-08-18 に旧バレル検査で全検査が空振りしていた事故の教訓）。
+
+
+## 並行スレッド運用（2026-08-25 発注者承認・S1/S2）
+
+- functions のデプロイは **`./deploy-functions.sh` 経由のみ**（clean・origin/main一致・tsc通過が条件）。
+  `firebase deploy` を直接叩かない——並行スレッドの書きかけTSが本番に混入するのを防ぐ門番
+- `functions/src/agency/api.ts` は全エンドポイントが集まる衝突点。**エンドポイント追加は1スレッドずつ**。
+  恒久策（routeファイル分割＝S4）は提案書 docs/proposal_parallel_card_updates_20260825.md 参照
+- yah-os 側の鉄則は yah-os/CLAUDE.md

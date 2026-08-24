@@ -1,6 +1,8 @@
 # 提案書 — OSの各カードを別々のClaudeスレッドで並行更新できるようにする
 
-- 状態: **提案・未実装（承認待ち）**
+- 状態: **S1・S2 実装済み（2026-08-25 発注者承認）**。S3（CI）・S4（api分割）は未着手
+  - S1: yah-os/CLAUDE.md 新設・yah.homes-v2/CLAUDE.md に並行運用の節を追記
+  - S2: yah-os/deploy.sh（--preview でプレビューチャンネル）・yah.homes-v2/deploy-functions.sh
 - 起票: 2026-08-25
 - きっかけ: 「各カードをそれぞれスレッドで別々にClaudeで更新していっても、保存やPUSH・デプロイに影響がないようにしたい」（発注者）
 
