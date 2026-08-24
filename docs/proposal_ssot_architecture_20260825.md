@@ -1,6 +1,13 @@
 # 提案書 — yah.OS のデータ構造改善（強固・シンプル・SSoT・横断検証）
 
-- 状態: **提案・未実装（承認待ち）**
+- 状態: **A・B・D・E・F・G・C 実装済み（2026-08-25 発注者承認「全部進めましょう」）**
+  - A: health エンドポイント＋indexドットのhealth連動（手動ドット廃止）
+  - B: facts エンドポイント（flow=loan のみ次段）
+  - C: items コレクションへ移行（備品153・工事20・取得費用7行）。パリティ全一致を確認して旧配列を削除。
+    バックアップ: gs://yah-homes-os-archive/migrations/items_backup_20260825.json
+  - D: cap-rate / lifecycle を assumptions へ（コードはフォールバックのみ）
+  - E: docs/schema.md ／ F: Firestore標準バックアップ日次（agency・default・chat）
+  - G: investmentTotal等の保存合計・リフォーム/追加投資の保存行・手動ドットを削除。原則をCLAUDE.mdへ転記
 - 起票: 2026-08-25（共有部スレッド）
 - きっかけ: 「全体の構造がOSとして強固かつシンプルにSSoT化されており、分析時には横断的に数字を検証できるようにしたい」（発注者）
 
