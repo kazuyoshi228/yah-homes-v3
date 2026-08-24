@@ -394,7 +394,9 @@ export const agencyApi = onRequest(
         case "loanPdf": {                                     // 契約書の原本を一時リンクで開く
           const id = String(req.query.loanId ?? "");
           const d = (await db.collection("finance").doc(id).get()).data();
-          const gs = String(d?.pdf ?? "");
+          /* doc=schedule で返済予定表を開く（融資カード担当スレッド・loanPdf の範囲内の変更） */
+          const field = String(req.query.doc ?? "") === "schedule" ? "schedulePdf" : "pdf";
+          const gs = String((d as Record<string, unknown> | undefined)?.[field] ?? "");
           if (!gs.startsWith("gs://")) { res.status(404).json({ ok: false, error: "原本が未登録です" }); return; }
           const [bucket, ...rest] = gs.slice(5).split("/");
           /* 保管庫は非公開のまま。10分だけ有効な署名付きリンクを都度作る（URLが漏れても長く生きない）。 */

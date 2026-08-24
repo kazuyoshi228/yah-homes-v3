@@ -34,6 +34,7 @@ export const PROP_FIELDS = [
   "contractDateNote",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
+  "plants",                 // 植栽の台帳（植栽メンテカードが編集する）
   /* 明細（備品・工事・取得費用）の正本は items コレクション、リフォーム・追加投資は導出。
      配列や合計をここへ書き戻す経路は廃止した（2026-08-25 焼き付け最小化・C/G） */
   "investmentNote", "investmentSource",
