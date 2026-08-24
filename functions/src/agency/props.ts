@@ -19,6 +19,7 @@ export const PROP_FIELDS = [
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
   "investment", "investmentTotal", "investmentNote", "investmentSource",
+  "additionalInvestment",   // 稼働後に足した費用（初期投資額とは分けて持つ）
 ] as const;
 
 export async function propertySummary() {
