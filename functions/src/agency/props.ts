@@ -24,6 +24,10 @@ export const PROP_FIELDS = [
   /* 資料から拾えた項目（物件概要書・売買契約書） */
   "landArea", "floorAreaForFAR", "layout", "zoning", "coverageRatio", "access",
   "listPrice", "purchasePrice",
+  /* 取得の相手と根拠（決済のご案内・売買契約書） */
+  "seller", "broker", "contractDate", "buildingPermit", "warranty",
+  /* 現地の条件（物件概要書） */
+  "utilities", "roads", "parking", "surroundings", "psychologicalDefect", "encroachment",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
   "investment", "investmentTotal", "investmentNote", "investmentSource",
