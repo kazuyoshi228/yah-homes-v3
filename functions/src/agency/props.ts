@@ -29,7 +29,9 @@ export const PROP_FIELDS = [
   "seller", "broker", "contractDate", "buildingPermit", "warranty",
   /* 現地の条件（物件概要書） */
   "utilities", "roads", "parking", "surroundings", "psychologicalDefect", "encroachment",
-  "riverDistance",
+  "riverDistance", "hazard",
+  "interior", "interiorSource",   // 内装・仕様の一覧（標準仕様書から正本化）
+  "contractDateNote",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
   "investment", "investmentTotal", "investmentNote", "investmentSource",
