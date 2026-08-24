@@ -35,6 +35,7 @@ export const PROP_FIELDS = [
   "additionalInvestment",   // 稼働後に足した費用（初期投資額とは分けて持つ）
   "drawings",               // 図面データ（保管庫のパスと名前）
   "requiredDocs",           // 追加必須書類（揃っていないものの一覧）
+  "supplies", "suppliesTotal", "suppliesSource",   // 備品の明細（仕訳から）
 ] as const;
 
 export async function propertySummary() {
