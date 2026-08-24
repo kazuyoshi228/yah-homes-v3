@@ -52,6 +52,7 @@ async function estimatesDue(now: Date): Promise<Array<{ label: string; prop: str
   for (const d of eq.docs) {
     const e = d.data();
     if (!e.estimate) continue;                       // 実額が入っているものは催促しない
+    if (e.estimateObtained === true) continue;       // 見積を取り終えたものも催促しない
     const life = Number(e.lifespanYears ?? 0);
     if (!life) continue;
     const p = fx.get(String(e.prop)) ?? { f: 2, c: 30 };

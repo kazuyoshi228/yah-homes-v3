@@ -179,6 +179,18 @@ export const agencyApi = onRequest(
           res.json({ ok: true });
           return;
         }
+        case "saveEstimate": {                                // 見積の取得状況（未／済）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+          const { id, obtained } = req.body ?? {};
+          if (!id) { res.status(400).json({ ok: false, error: "アイテムが指定されていません" }); return; }
+          const ref = db.collection("equipment").doc(String(id));
+          if (!(await ref.get()).exists) { res.status(404).json({ ok: false, error: "そのアイテムがありません" }); return; }
+          await ref.set({ estimateObtained: !!obtained,
+            estimateObtainedAt: obtained ? new Date().toISOString() : FieldValue.delete(),
+            estimateObtainedBy: obtained ? email : FieldValue.delete() }, { merge: true });
+          res.json({ ok: true });
+          return;
+        }
         case "propJobs": {                                    // 棟ごとの作業（物件カードの作業タブ）
           const prop = String(req.query.prop ?? "");
           if (!prop) { res.status(400).json({ ok: false, error: "棟が指定されていません" }); return; }
@@ -201,6 +213,7 @@ export const agencyApi = onRequest(
             const sc = d.data();
             return { id: d.id, title: sc.title, everyYears: sc.everyYears ?? 1,
               months: sc.months ?? [], active: !!sc.active, needsDecision: !!sc.needsDecision,
+              category: sc.category ?? "",
               vendorId: sc.vendorId ?? "", ledgerId: String(sc.ledgerId ?? ""),
               hasJob: jobs.some((j) => j.scheduleId === d.id) };
           }).sort((a, b) => String(a.title).localeCompare(String(b.title)));
