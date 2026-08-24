@@ -37,6 +37,7 @@ export const PROP_FIELDS = [
   "requiredDocs",           // 追加必須書類（揃っていないものの一覧）
   "supplies", "suppliesTotal", "suppliesSource",   // 備品の明細（仕訳から）
   "construction", "constructionTotal", "constructionSource", "constructionNote",   // 工事の明細（仕訳から）
+  "materials", "materialsTotal", "materialsSource",   // 建材の明細（仕訳から。工事とは別タブ）
 ] as const;
 
 export async function propertySummary() {
@@ -76,8 +77,26 @@ export async function propertySummary() {
     const utilities = r ? utilPerYear : 0;
     const noi = r || other ? stayPayout + other - utilities - tax - ins - res : null;
 
+    /* 二重計上の検知。同じ仕訳（取引No）が複数の置き場に現れたら警告する。
+       エアスター・toolbox・カーテンFIXで実際に3回起きた失敗を、構造で防ぐ（2026-08-24）。
+       同一置き場内の分割（例: 振替¥760,000をキッチンと洗面台に分ける）は正常なので数えない。 */
+    const txSources: Record<string, Set<string>> = {};
+    const addTx = (t: unknown, src: string) => {
+      const k = String(t ?? ""); if (!k) return;
+      (txSources[k] ??= new Set()).add(src);
+    };
+    for (const it of ((p.supplies as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "備品");
+    for (const it of ((p.construction as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "工事");
+    for (const it of ((p.investment as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "投資額");
+    for (const e of eqSnap.docs.filter((e) => e.data().prop === d.id))
+      addTx(e.data().txNo, String(e.data().group ?? "設備"));
+    const dupWarnings = Object.entries(txSources)
+      .filter(([, srcs]) => srcs.size > 1)
+      .map(([txNo, srcs]) => ({ txNo, sources: [...srcs] }));
+
     return {
       id: d.id, ...p,
+      dupWarnings,
       investmentTotal: invTotal || null,
       priceBasis: invTotal ? "総投資額" : "取得価額",
       months: r?.months ?? 0, occ: r?.occ ?? null, adr: r?.adr ?? null,

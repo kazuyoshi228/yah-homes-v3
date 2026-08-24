@@ -117,6 +117,42 @@ export const agencyApi = onRequest(
           if (!Object.keys(clean).length) { res.status(400).json({ ok: false, error: "保存できる項目がありません" }); return; }
           await db.collection("properties").doc(String(id))
             .set({ ...clean, kind: "property", updatedAt: new Date().toISOString(), updatedBy: email }, { merge: true });
+
+          /* 新棟の自動シード（2026-08-24）。準備中の棟には、清川で後追いで集めた
+             「追加必須書類」10項目と、定番の周期4件（無効状態）を最初から置いておく。
+             次の棟は「空欄が並んでいて埋めていく」形になる。既にあれば触らない。 */
+          if (clean.status === "準備中" || clean.planned === true) {
+            const ref = db.collection("properties").doc(String(id));
+            const snap = await ref.get();
+            if (!snap.data()?.requiredDocs) {
+              const doc = (label: string, cat: string, need: string, pri: number, note: string) =>
+                ({ label, category: cat, necessity: need, priority: pri, status: "未取得", note });
+              await ref.set({ requiredDocs: [
+                doc("登記事項証明書（全部事項）", "権利・法令", "必須", 1, "所有権・抵当権の根拠。売却・融資で必ず求められる"),
+                doc("旅館業の営業許可証", "権利・法令", "必須", 1, "開業時に取得。更新・変更届の期限管理にも要る"),
+                doc("消防法令適合通知書", "権利・法令", "必須", 1, "旅館業とセット"),
+                doc("地積測量図・公図", "権利・法令", "必須", 2, "境界の根拠"),
+                doc("まもりすまい保険等の証券", "建物の維持", "あると効く", 2, "新築10年の瑕疵担保"),
+                doc("設備の保証書", "建物の維持", "あると効く", 2, "給湯器・エアコン・冷蔵庫・洗濯機の型番と保証期限"),
+                doc("鍵・キーボックスの管理情報", "建物の維持", "あると効く", 2, "個数と場所のみ。暗証番号は置かない"),
+                doc("家具・備品のリスト", "運営", "あると効く", 1, "次の棟の予算の基準になる"),
+                doc("竣工写真・現況写真", "運営", "あると効く", 3, "原状の証拠・OTA写真の履歴"),
+                doc("近隣との取り決め", "運営", "あると効く", 3, "ゴミ出し・駐車場の案内先・騒音"),
+              ] }, { merge: true });
+              const sched = (sid: string, title: string, months: number[], extra: object) =>
+                db.collection("schedules").doc(`${id}-${sid}`).set({
+                  title: `${title}（${clean.label ?? id}）`, prop: String(id), months,
+                  everyYears: 1, leadDays: 45, statutory: false,
+                  active: false, needsDecision: true, vendorId: "",
+                  note: "自動シード。時期・業者を確定したら active にする",
+                  updatedAt: new Date().toISOString(), ...extra,
+                }, { merge: true });
+              await sched("shoubou", "消防設備点検", [10], { statutory: true, leadDays: 60 });
+              await sched("gaiheki", "外壁クリーニング", [11], { everyYears: 5, leadDays: 90 });
+              await sched("hoken", "火災保険の更改", [1], { manualOnly: true, category: "保険" });
+              await sched("kotei-shisan", "固定資産税の納税通知書を確認して更新", [4], { manualOnly: true, category: "税金", leadDays: 15 });
+            }
+          }
           res.json({ ok: true });
           return;
         }
