@@ -55,7 +55,9 @@ const all = async (col: string) =>
   (await agencyDb().collection(col).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
 
 export const agencyApi = onRequest(
-  { region: REGION, secrets: [AGENCY_MAILER_KEY], maxInstances: 5 },
+  /* minInstances: 1 … コールドスタート殺し（P4・2026-08-24 発注者承認）。
+     常時1台ぶんの待機費用（月数百円〜千円台）がかかる */
+  { region: REGION, secrets: [AGENCY_MAILER_KEY], maxInstances: 5, minInstances: 1 },
   async (req, res) => {
     const origin = String(req.headers.origin ?? "");
     if (ALLOW_ORIGIN.includes(origin)) {
