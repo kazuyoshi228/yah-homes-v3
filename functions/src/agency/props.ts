@@ -81,15 +81,16 @@ export async function propertySummary() {
        エアスター・toolbox・カーテンFIXで実際に3回起きた失敗を、構造で防ぐ（2026-08-24）。
        同一置き場内の分割（例: 振替¥760,000をキッチンと洗面台に分ける）は正常なので数えない。 */
     const txSources: Record<string, Set<string>> = {};
-    const addTx = (t: unknown, src: string) => {
+    const addTx = (t: unknown, src: string, splitOk?: unknown) => {
       const k = String(t ?? ""); if (!k) return;
+      if (splitOk === true) return;   // 明示的な分割（1つの振込を2品目に割ったもの）は正常
       (txSources[k] ??= new Set()).add(src);
     };
-    for (const it of ((p.supplies as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "備品");
-    for (const it of ((p.construction as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "工事");
-    for (const it of ((p.investment as Array<{ txNo?: string }>) ?? [])) addTx(it.txNo, "投資額");
+    for (const it of ((p.supplies as Array<{ txNo?: string; splitOk?: boolean }>) ?? [])) addTx(it.txNo, "備品", it.splitOk);
+    for (const it of ((p.construction as Array<{ txNo?: string; splitOk?: boolean }>) ?? [])) addTx(it.txNo, "工事", it.splitOk);
+    for (const it of ((p.investment as Array<{ txNo?: string; splitOk?: boolean }>) ?? [])) addTx(it.txNo, "投資額", it.splitOk);
     for (const e of eqSnap.docs.filter((e) => e.data().prop === d.id))
-      addTx(e.data().txNo, String(e.data().group ?? "設備"));
+      addTx(e.data().txNo, String(e.data().group ?? "設備"), e.data().splitOk);
     const dupWarnings = Object.entries(txSources)
       .filter(([, srcs]) => srcs.size > 1)
       .map(([txNo, srcs]) => ({ txNo, sources: [...srcs] }));
