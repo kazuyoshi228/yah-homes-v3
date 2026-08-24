@@ -18,6 +18,8 @@ import { monthlySummary } from "./monthly.js";
 import { yieldSummary } from "./yields.js";
 import { renewalPlan } from "./lifecycle.js";
 import { propertySummary, PROP_FIELDS } from "./props.js";
+import { successionSummary } from "./succession.js";
+interface Dim { name: string; score: number; weight: number; note?: string }
 import { getStorage } from "firebase-admin/storage";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -102,6 +104,26 @@ export const agencyApi = onRequest(
         }
         case "revenue": {                                     // 売上レポート（運営会社の月次報告）
           res.json({ ok: true, ...(await revenueSummary(Number(req.query.months ?? 12))) });
+          return;
+        }
+        case "succession": {                                  // 事業承継（採点表と分析）
+          res.json({ ok: true, ...(await successionSummary()) });
+          return;
+        }
+        case "saveScorecard": {                               // 採点をやり直す（上書きせず日付ごとに積む）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+          const { date, dimensions, summary, horizon } = req.body ?? {};
+          if (!date || !Array.isArray(dimensions)) { res.status(400).json({ ok: false, error: "日付と観点が要ります" }); return; }
+          const w = (dimensions as Dim[]).reduce((a, d) => a + Number(d.weight ?? 0), 0);
+          if (w !== 100) { res.status(400).json({ ok: false, error: `重みの合計が${w}です。100にしてください` }); return; }
+          const total = Math.round((dimensions as Dim[])
+            .reduce((a, d) => a + Number(d.score) * Number(d.weight), 0) / 100 * 10) / 10;
+          await db.collection("scorecards").doc(String(date)).set({
+            kind: "scorecard", date, dimensions, total,
+            summary: summary ?? "", horizon: horizon ?? "50年",
+            updatedAt: new Date().toISOString(), updatedBy: email,
+          }, { merge: true });
+          res.json({ ok: true, total });
           return;
         }
         case "properties": {                                  // 物件（棟そのものの属性の正本）
