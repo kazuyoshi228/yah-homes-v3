@@ -21,6 +21,9 @@ export const CAP_RATE = 0.05;
 export const PROP_FIELDS = [
   "label", "status", "address", "area", "acquiredAt", "acquisitionPrice",
   "built", "structure", "rooms", "capacity", "note",
+  /* 資料から拾えた項目（物件概要書・売買契約書） */
+  "landArea", "floorAreaForFAR", "layout", "zoning", "coverageRatio", "access",
+  "listPrice", "purchasePrice",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
   "investment", "investmentTotal", "investmentNote", "investmentSource",
