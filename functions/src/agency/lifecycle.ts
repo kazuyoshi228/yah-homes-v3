@@ -14,9 +14,9 @@
  */
 import { agencyDb } from "./engine.js";
 
-/** 使用強度の既定。物件側に usageFactor があればそれを使う */
+/* 係数の正本は assumptions/lifecycle（2026-08-25 焼き付け解消・D）。
+   ここはデータが読めないときのフォールバックのみ。物件側の override はさらに優先 */
 const DEFAULT_FACTOR = 2.0;
-/** 実効年数の上限。これ以上先の更新は計画の精度が出ない（2026-08-24 発注者判断で 20 → 30） */
 const DEFAULT_CAP = 30;
 
 export type RenewalItem = {
@@ -42,6 +42,9 @@ export async function renewalPlan(prop?: string) {
     db.collection("jobs").where("status", "in",
       ["draft", "sent", "negotiating", "confirmed", "done"]).get(),
   ]);
+  const lc = (await db.collection("assumptions").doc("lifecycle").get()).data() ?? {};
+  const baseFactor = Number(lc.factor ?? DEFAULT_FACTOR);
+  const baseCap = Number(lc.capYears ?? DEFAULT_CAP);
   /* 設備台帳の項目 → いま動いているジョブ。schedules.ledgerId でつなぐ */
   const byLedger = new Map<string, { status: string; dueMonth: string; id: string }>();
   const schedOf = new Map<string, string>();   // scheduleId → ledgerId
@@ -60,8 +63,8 @@ export async function renewalPlan(prop?: string) {
   for (const d of propSnap.docs) {
     const p = d.data();
     factors.set(d.id, {
-      factor: Number(p.usageFactor ?? DEFAULT_FACTOR),
-      cap: Number(p.lifespanCapYears ?? DEFAULT_CAP),
+      factor: Number(p.usageFactor ?? baseFactor),
+      cap: Number(p.lifespanCapYears ?? baseCap),
       label: String(p.label ?? d.id),
     });
   }
@@ -81,7 +84,7 @@ export async function renewalPlan(prop?: string) {
     /* 耐用年数が未設定のものは黙って落とさず数える（欠測は明記する） */
     if (!life) { if (amount > 0) noLifespan++; continue; }
 
-    const fx = factors.get(pid) ?? { factor: DEFAULT_FACTOR, cap: DEFAULT_CAP, label: pid };
+    const fx = factors.get(pid) ?? { factor: baseFactor, cap: baseCap, label: pid };
     /* 画面で手直しした実効年数があればそれを優先する。無ければ耐用年数×使用強度（上限あり）。
        建物本体など、係数を当てないものは noFactor で除く */
     const ov = Number(e.effectiveYearsOverride ?? 0);

@@ -38,7 +38,7 @@ async function unmatched() {
  * これが無いと、2036年に¥132万の請求書を見て初めて概算が甘かったと気づくことになる。
  * 実施年の1年前に出す。金額が概算（estimate が付いている）ものだけが対象。
  */
-async function estimatesDue(now: Date): Promise<Array<{ label: string; prop: string; due: number; amount: number }>> {
+export async function estimatesDue(now: Date): Promise<Array<{ label: string; prop: string; due: number; amount: number }>> {
   const db = agencyDb();
   const [eq, props] = await Promise.all([
     db.collection("equipment").where("kind", "==", "equipment").get(),

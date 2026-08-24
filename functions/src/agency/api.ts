@@ -17,6 +17,8 @@ import { utilitySummary } from "./utilities.js";
 import { monthlySummary } from "./monthly.js";
 import { yieldSummary } from "./yields.js";
 import { renewalPlan } from "./lifecycle.js";
+import { healthSummary } from "./health.js";
+import { factsSummary } from "./facts.js";
 import { propertySummary, PROP_FIELDS } from "./props.js";
 import { successionSummary } from "./succession.js";
 interface Dim { name: string; score: number; weight: number; note?: string }
@@ -213,6 +215,18 @@ export const agencyApi = onRequest(
             estimateObtainedAt: obtained ? new Date().toISOString() : FieldValue.delete(),
             estimateObtainedBy: obtained ? email : FieldValue.delete() }, { merge: true });
           res.json({ ok: true });
+          return;
+        }
+        case "health": {                                      // 全検証を1本で（A・分析の前に必ずこれ）
+          res.json({ ok: true, ...(await healthSummary()) });
+          return;
+        }
+        case "facts": {                                       // 全金額行の単一射影（B・保存しない）
+          res.json({ ok: true, ...(await factsSummary({
+            prop: String(req.query.prop ?? "") || undefined,
+            ym: String(req.query.ym ?? "") || undefined,
+            flow: String(req.query.flow ?? "") || undefined,
+          })) });
           return;
         }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
