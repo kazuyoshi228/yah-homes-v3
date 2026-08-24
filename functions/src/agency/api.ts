@@ -215,6 +215,16 @@ export const agencyApi = onRequest(
           res.json({ ok: true });
           return;
         }
+        case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
+          const [files] = await getStorage().bucket("yah-homes-os-archive")
+            .getFiles({ prefix: "reports/cvr/" });
+          res.json({ ok: true, files: files.map((f) => ({
+            path: `gs://yah-homes-os-archive/${f.name}`,
+            name: f.name.split("/").pop() ?? f.name,
+            month: f.name.split("/")[2] ?? "",
+          })).sort((a, b) => b.month.localeCompare(a.month) || a.name.localeCompare(b.name)) });
+          return;
+        }
         case "cvr": {                                         // AirBnB CVR定点観測（定期レポート）
           const snap = await db.collection("cvr").get();
           const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))
