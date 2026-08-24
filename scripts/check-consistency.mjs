@@ -55,6 +55,20 @@ const PROP_FILES = {
   takasago: LANGS5.map((l) => `src/data/takasago/${l}.ts`),
 };
 
+/* ── 検査対象は src 配下を自動で走査する（2026-08-20 発注者指示で全走査へ）──
+   以前は検査対象がファイルの手書きリストだった。そのため partners-facts.*.json が
+   リストから漏れ、定員 7→8 の変更時に古い値とベッド構成が本番に残った。
+   新しいファイルが増えても自動で検査に入るよう、ホワイトリストを廃止する。 */
+const { readdirSync: _readdir } = await import("node:fs");
+const walkSrc = (dir) => _readdir(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })
+  .flatMap((e) => e.isDirectory() ? walkSrc(`${dir}/${e.name}`)
+    : /\.(ts|astro|json|txt)$/.test(e.name) ? [`${dir}/${e.name}`] : []);
+/* SSoT追従しないと決めたファイル（理由なしに増やさない） */
+const SSOT_EXEMPT = new Set([
+  "src/data/pressData.ts",   // 配信済みプレスリリースの原本（2026-08-20 発注者判断・当時の本文を保つ）
+]);
+const ALL_FILES = walkSrc("src").filter((f) => !SSOT_EXEMPT.has(f));
+
 // ── 1. 提供していない決済手段を書いていないか ──
 // 実際は Stripe のカード決済のみ・全額前払い・現地払いなし（2026-08-16 発注者確認）
 const FORBIDDEN = [
@@ -145,10 +159,9 @@ for (const [key, paths] of Object.entries(PROP_FILES)) {
   for (const path of paths) checkCap(path, read(path), new Set([ssot[key].capacity]));
 }
 const anyCap = new Set([ssot.kiyokawa.capacity, ssot.takasago.capacity]);
-for (const path of ["src/data/faqData.ts", "src/i18n/uiStrings.ts", "src/i18n/translations.ts", "src/lib/seo.ts",
-                    "src/pages/ja/partners.astro", "src/pages/ko/partners.astro", "src/pages/zh/partners.astro",
-                    "src/data/partners-facts.ja.json", "src/data/partners-facts.zh.json",
-                    "src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
+const propFileSet = new Set(Object.values(PROP_FILES).flat());
+for (const path of ALL_FILES) {
+  if (propFileSet.has(path)) continue;   // 棟別ファイルは上でその棟の定員だけを許して検査済み
   checkCap(path, read(path), anyCap);
 }
 
@@ -160,11 +173,11 @@ if (ssot.takasago.freeCancelDays !== FCD)
   fail("property_facts", `freeCancelDays が棟間で不一致（${FCD} vs ${ssot.takasago.freeCancelDays}）。FAQ等は共通文のため揃える運用`);
 const CANCEL_WORD = /(キャンセル|取消|cancel|취소|ยกเลิก)/i;
 const FCD_RES = [/(\d+)\s*日前/g, /(\d+)\+?\s*days?/gi, /(\d+)\s*일\s*전/g, /(\d+)\s*天前/g, /(\d+)\s*วัน/g];
-for (const path of [...Object.values(PROP_FILES).flat(), "src/data/faqData.ts",
-                    "src/pages/[...locale]/legal/terms.astro", "src/pages/[...locale]/legal/tokushoho.astro",
-                    "src/data/llms.template.txt", "src/data/llms-full.template.txt"]) {
+for (const path of ALL_FILES) {
+  const isPartner = /partners/.test(path);   // パートナー制度は7日前・別ポリシー（本文のコメント参照）
   read(path).split("\n").forEach((line, i) => {
     if (!CANCEL_WORD.test(line)) return;
+    if (isPartner) return;
     if (line.includes("{d}") || line.includes("{{FREE_DAYS}}")) return;   // 差し込み済み
     for (const re of FCD_RES) for (const m of line.matchAll(re)) {
       if (m[1] !== FCD) fail(path, `L${i + 1} キャンセル期限 ${m[1]} が SSoT(${FCD}日) と不一致: ${line.trim().slice(0, 70)}`);

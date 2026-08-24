@@ -1,6 +1,12 @@
 import { BASE_URL } from "../lib/seo";
 // プレスリリース（PR TIMES）— 旧 KiyokawaBooking.tsx の Press セクション＋
 // 旧 index.html の NewsArticle JSON-LD から逐語移植
+//
+// 【重要・SSoTの例外】ここは「いつ何を発表したか」の記録であり、配信当時の本文をそのまま保つ。
+// PR TIMES 側に原本が残っているため、後から数値を書き換えると原本と齟齬が出る
+// （例: 2025-06-27 の清川リリースは当時の定員「最大7名」のまま。現在の定員は8名）。
+// したがって定員・時刻などの整合チェックの対象外とする（scripts/check-consistency.mjs の SSOT_EXEMPT）。
+// 最新の事実は物件ページ・FAQ・llms.txt が SSoT から出しているので、実害はない。
 export interface PressItem {
   /** 対象物件（news一覧では全件表示・詳細ページではフィルタ） */
   property: "kiyokawa" | "takasago";
