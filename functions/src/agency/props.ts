@@ -8,6 +8,7 @@
  * 売上・光熱費・税金・保険・積立は、それぞれのカードが正本。ここでは参照して並べるだけ。
  * 借入はこの画面では扱わない（融資カードの領分・2026-08-19 発注者指示）。
  */
+import { getStorage } from "firebase-admin/storage";
 import { agencyDb } from "./engine.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
@@ -49,6 +50,18 @@ export async function propertySummary() {
     db.collection("reserves").get(), db.collection("schedules").get(),
   ]);
   const eqSnap = await db.collection("equipment").where("kind", "==", "equipment").get();
+
+  /* 書類一式の格納日時。保管庫（GCS）のオブジェクト作成時刻から毎回引く——
+     手入力の日付は必ずズレるため、日時をFirestoreに保存しない（2026-08-25 発注者指示） */
+  const storedAt = new Map<string, string>();
+  try {
+    const [files] = await getStorage().bucket("yah-homes-os-archive")
+      .getFiles({ prefix: "properties/" });
+    for (const f of files) {
+      const t = (f.metadata as { timeCreated?: string }).timeCreated;
+      if (t) storedAt.set(`gs://yah-homes-os-archive/${f.name}`, t);
+    }
+  } catch { /* 保管庫が読めなくても物件データは返す */ }
 
   const activeCount = rev.byProp.length || 1;
   const utilPerYear = Math.round(
@@ -203,6 +216,11 @@ export async function propertySummary() {
       lifespanCapYears: Number(p.lifespanCapYears ?? 30),
       buildingLifeYears: Number(p.buildingLifeYears ?? 0) || null,
       lifecycleNote: p.lifecycleNote ?? null,
+      /* 書類一式に格納日時を合成（保管庫の作成時刻＝導出。...p の後なので上書きになる） */
+      drawings: Array.isArray(p.drawings)
+        ? (p.drawings as Array<{ path?: string }>).map((dd) => ({
+            ...dd, storedAt: dd.path ? storedAt.get(String(dd.path)) ?? null : null }))
+        : p.drawings,
       /* 設備台帳。故障時に業者へ即答できるよう、型番まで持つ */
       strayGroups,
       /* 追加投資額はタブから毎回導出する。保存行は突合の対象として残す */
