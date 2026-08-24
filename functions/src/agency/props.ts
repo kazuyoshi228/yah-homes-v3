@@ -18,6 +18,7 @@ export const PROP_FIELDS = [
   "built", "structure", "rooms", "capacity", "note",
   "otherIncomeLabel", "otherIncomePerMonth", "otherIncomeNote",
   "landPrice", "units", "planned",
+  "investment", "investmentTotal", "investmentNote", "investmentSource",
 ] as const;
 
 export async function propertySummary() {
@@ -38,7 +39,13 @@ export async function propertySummary() {
   const rows = snap.docs.map((d) => {
     const p = d.data() as Record<string, unknown>;
     const r = rev.byProp.find((x) => x.prop === d.id);
-    const price = Number(p.acquisitionPrice ?? 0);
+    /* 利回りは取得価額ではなく総投資額（初期投資額の合計）で見る。
+       リフォームや申請費用も回収すべき投資だから（2026-08-19 発注者指示）。
+       総投資額がまだ無い棟は、暫定で取得価額を使う。 */
+    const invTotal = Array.isArray(p.investment)
+      ? (p.investment as Array<{ amount?: number }>).reduce((a, x) => a + (x.amount ?? 0), 0)
+      : Number(p.investmentTotal ?? 0);
+    const price = invTotal || Number(p.acquisitionPrice ?? 0);
     /* 宿泊以外の収入。OTA手数料も運営代行も清掃もかからないので、ほぼ全額がNOIに乗る */
     const other = Number(p.otherIncomePerMonth ?? 0) * 12;
 
@@ -52,6 +59,8 @@ export async function propertySummary() {
 
     return {
       id: d.id, ...p,
+      investmentTotal: invTotal || null,
+      priceBasis: invTotal ? "総投資額" : "取得価額",
       months: r?.months ?? 0, occ: r?.occ ?? null, adr: r?.adr ?? null,
       stayRevenue, stayPayout, otherIncomePerYear: other,
       utilities, tax, insurance: ins, reserve: res,

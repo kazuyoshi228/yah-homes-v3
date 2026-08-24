@@ -32,7 +32,12 @@ export async function yieldSummary() {
 
   const rows = rev.byProp.map((p) => {
     const doc = props.docs.find((d) => d.id === p.prop)?.data();
-    const price = Number(doc?.acquisitionPrice ?? 0);
+    /* 利回りの分母は総投資額（初期投資額の合計）。取得価額だけだと、
+       リフォームや申請費用が無かったことになり、利回りが良く出すぎる。 */
+    const invTotal = Array.isArray(doc?.investment)
+      ? (doc.investment as Array<{ amount?: number }>).reduce((a, x) => a + (x.amount ?? 0), 0)
+      : Number(doc?.investmentTotal ?? 0);
+    const price = invTotal || Number(doc?.acquisitionPrice ?? 0);
     /* 実績の月数で割ってから12倍する。10ヶ月しか無い棟を12ヶ月として扱わない */
     const revenueY = Math.round(p.revenue / p.months * 12);
     const payoutY = Math.round(p.payout / p.months * 12);
@@ -43,6 +48,8 @@ export async function yieldSummary() {
     const pct = (n: number) => (price ? Math.round((n / price) * 10000) / 100 : null);
     return {
       prop: p.prop, label: p.label, months: p.months, price,
+      priceBasis: invTotal ? "総投資額" : "取得価額",
+      acquisitionPrice: Number(doc?.acquisitionPrice ?? 0),
       revenueY, payoutY, utilities: utilPerYear, tax, insurance: ins, reserve: res,
       noi, noiExReserve: noi + res,
       gross: pct(revenueY), payoutYield: pct(payoutY),
