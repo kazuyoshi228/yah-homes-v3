@@ -40,7 +40,9 @@ async function query(tok: string, body: unknown): Promise<Row[]> {
 }
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 12);
-const day = (offset: number) => new Date(Date.now() - offset * 864e5).toISOString().slice(0, 10);
+/** JSTのn日前。UTCで計算すると朝8時（＝前日23時UTC）に1日ずれる（2026-08-26 修正） */
+const day = (offset: number) =>
+  new Date(Date.now() + 9 * 3600e3 - offset * 864e5).toISOString().slice(0, 10);
 
 export const gscSync = onSchedule(
   { schedule: "15 8 * * *", timeZone: "Asia/Tokyo", region: "asia-northeast1",

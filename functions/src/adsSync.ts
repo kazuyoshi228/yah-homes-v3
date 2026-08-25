@@ -27,6 +27,9 @@ async function ga4Token(): Promise<string> {
 }
 
 const ymd = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+/** JSTのn日前。UTCで計算すると朝8時（＝前日23時UTC）に1日ずれる（2026-08-26 修正） */
+const jstDay = (back: number) =>
+  new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
 /** 「yah.homes_台湾」→「台湾」。市場名だけを鍵にして画面で扱いやすくする */
 const market = (campaign: string) => campaign.replace(/^yah\.homes[_-]?/, "") || campaign;
 
@@ -37,8 +40,8 @@ export const adsTeitenSync = onSchedule(
     const db = agencyDb();
     const coll = db.collection("adsDaily");
     const existing = (await coll.count().get()).data().count;
-    const end = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    const start = existing < 10 ? SITE_OPENED : new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
+    const end = jstDay(1);                                   // JSTの昨日
+    const start = existing < 10 ? SITE_OPENED : jstDay(3);
 
     const days: string[] = [];
     for (let t = Date.parse(start); t <= Date.parse(end); t += 864e5) days.push(new Date(t).toISOString().slice(0, 10));

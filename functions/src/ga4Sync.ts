@@ -44,6 +44,9 @@ async function runReport(tok: string, body: unknown): Promise<Report> {
 }
 
 const ymd = (ga4date: string) => `${ga4date.slice(0, 4)}-${ga4date.slice(4, 6)}-${ga4date.slice(6, 8)}`;
+/** JSTのn日前。UTCで計算すると朝8時（＝前日23時UTC）に1日ずれる（2026-08-26 修正） */
+const jstDay = (back: number) =>
+  new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
 
 export const ga4TeitenSync = onSchedule(
   { schedule: "5 8 * * *", timeZone: "Asia/Tokyo", region: "asia-northeast1",
@@ -56,9 +59,8 @@ export const ga4TeitenSync = onSchedule(
     /* スキーマ移行の自己修復: 最新行に events が無ければ全期間を取り直す */
     const latest = await coll.orderBy("date", "desc").limit(1).get();
     const migrated = !latest.empty && latest.docs[0].data().events != null;
-    const end = new Date(Date.now() - 864e5).toISOString().slice(0, 10);   // 昨日（JSTズレは3日窓が吸収）
-    const start = existing < 10 || !migrated ? SITE_OPENED
-      : new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
+    const end = jstDay(1);                                   // JSTの昨日
+    const start = existing < 10 || !migrated ? SITE_OPENED : jstDay(3);
     const range = [{ startDate: start, endDate: end }];
 
     /* 対象日の一覧（失敗時に fetchFailed を立てる先） */
