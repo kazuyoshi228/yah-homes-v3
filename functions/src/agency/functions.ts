@@ -11,7 +11,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
-import { agencyDb, createDueJobs, beat } from "./engine.js";
+import { agencyDb, createDueJobs, createWarrantyJobs, beat } from "./engine.js";
 import { startWatch, fetchNew, matchJob, record, detectHumanTakeover } from "./inbox.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
 import { sendDailyAlert, testAlarm } from "./alerts.js";
@@ -33,6 +33,7 @@ export const agencyDaily = onSchedule(
       }
     };
     await step("createDueJobs", () => createDueJobs());
+    await step("createWarrantyJobs", () => createWarrantyJobs());
     await step("sendRequests", () => sendRequests());
     await step("gmailWatch", () => startWatch());   // 有効期限7日。毎日貼り直して切れないようにする
     await step("dailyAlert", () => sendDailyAlert());

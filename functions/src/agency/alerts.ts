@@ -101,6 +101,23 @@ export async function plantingUnscheduled(now: Date): Promise<string | null> {
   return has ? null : `清川: 今月（${ym}）の植栽作業日がまだ選ばれていません（花屋アンへ業者ページの確認を）`;
 }
 
+/**
+ * 保証期限ウォッチ（H・2026-08-25 発注者承認）。
+ * 保証は症状がないと使えない——防ぐのは「調子悪いまま放置→期限切れ→実費」。
+ * warrantyUntil（YYYY-MM）の90日前から拾い、期限月を過ぎたら黙る（過去は対象外）。
+ */
+export async function warrantyDue(now: Date): Promise<Array<{ id: string; label: string; prop: string; until: string }>> {
+  const snap = await agencyDb().collection("equipment").where("kind", "==", "equipment").get();
+  const ym = (d: Date) => d.toISOString().slice(0, 7);
+  const nowYm = ym(now);
+  const limit = ym(new Date(now.getFullYear(), now.getMonth() + 3, 1));
+  return snap.docs
+    .map((d) => ({ id: d.id, label: String(d.data().model ?? d.id),
+      prop: String(d.data().prop ?? ""), until: String(d.data().warrantyUntil ?? "") }))
+    .filter((x) => x.until && x.until >= nowYm && x.until <= limit)
+    .sort((a, b) => a.until.localeCompare(b.until));
+}
+
 export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean; items: number }> {
   const overdue = await findOverdue(now);
   const stale = await staleHeartbeats(now);
@@ -109,7 +126,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   const est = await estimatesDue(now);
   const cvx = await cvCrosscheck(now);
   const planting = await plantingUnscheduled(now);
-  const total = overdue.length + stale.length + exc.length + un.length + est.length + (cvx ? 1 : 0) + (planting ? 1 : 0);
+  const wty = await warrantyDue(now);
+  const total = overdue.length + stale.length + exc.length + un.length + est.length + wty.length + (cvx ? 1 : 0) + (planting ? 1 : 0);
   if (total === 0) return { sent: false, items: 0 };
 
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
@@ -148,6 +166,11 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   if (est.length) {
     L.push("■ 見積を取る時期（概算のまま実施年が近い）");
     est.forEach((e) => L.push(`　・${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`));
+    L.push("");
+  }
+  if (wty.length) {
+    L.push("■ 保証の期限が近い（不調がないか点検・あれば保証で修理）");
+    wty.forEach((w) => L.push(`　・${w.label}（${w.until}まで）`));
     L.push("");
   }
   if (un.length) {

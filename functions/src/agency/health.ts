@@ -10,7 +10,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { agencyDb, findOverdue } from "./engine.js";
 import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
-import { estimatesDue } from "./alerts.js";
+import { estimatesDue, warrantyDue } from "./alerts.js";
 
 export type HealthCheck = { card: string; name: string; ok: boolean; detail: string };
 
@@ -55,6 +55,9 @@ export async function healthSummary() {
   /* メンテナンス: 期日・見積・紐づけの整合 */
   add("メンテナンス", "期日超過のジョブ", overdue.length === 0,
     overdue.map((o) => o.job.title).join(" / ") || "なし");
+  const wty = await warrantyDue(now);
+  add("メンテナンス", "保証の期限が近い設備", wty.length === 0,
+    wty.map((w) => `${w.label}(${w.until}まで)`).join(" / ") || "なし");
   add("メンテナンス", "見積の催促（実施年が近い概算）", est.length === 0,
     est.map((e) => `${e.label}(${e.due})`).join(" / ") || "なし");
   const eqIds = new Set(eqSnap.docs.map((d) => d.id));

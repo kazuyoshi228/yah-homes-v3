@@ -182,6 +182,33 @@ async function writeBackToLedger(job: Job & { actual?: { amount?: number; ym?: s
   return ledgerId;
 }
 
+/**
+ * 保証点検ジョブ（H）。期限90日前に1回だけ内部ジョブを起票する。
+ * trigger を warranty:{台帳ID}:{期限} にして二重起票しない。人が動く前提（manualOnly）。
+ */
+export async function createWarrantyJobs(now = new Date()): Promise<number> {
+  const db = agencyDb();
+  const { warrantyDue } = await import("./alerts.js");
+  const due = await warrantyDue(now);
+  let made = 0;
+  for (const w of due) {
+    const trigger = `warranty:${w.id}:${w.until}`;
+    const dup = await db.collection("jobs").where("trigger", "==", trigger).limit(1).get();
+    if (!dup.empty) continue;
+    const nowIso = now.toISOString();
+    await db.collection("jobs").add({
+      type: "internal", title: `保証期限前の点検（${w.label}・${w.until}まで）`,
+      prop: w.prop, trigger, status: "draft", dueMonth: w.until,
+      statutory: false, manualOnly: true,
+      timeline: [{ at: nowIso, status: "draft", by: "system",
+        note: "保証期限の90日前。不調がないか点検し、あれば保証で修理（症状がないと保証は使えない）" }],
+      createdAt: nowIso, updatedAt: nowIso,
+    });
+    made++;
+  }
+  return made;
+}
+
 /** 状態遷移は必ずここを通す（timeline に追記・上書きしない = append-only） */
 export async function advance(jobId: string, status: JobStatus, by: "ai" | "human" | "system", note?: string): Promise<void> {
   const db = agencyDb();
