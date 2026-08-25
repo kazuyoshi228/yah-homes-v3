@@ -38,6 +38,24 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           })).sort((a, b) => b.month.localeCompare(a.month) || a.name.localeCompare(b.name)) });
           return true;
         }
+        case "adsTeiten": {                                   // Google広告費（adsDaily・日次のみ保存）
+          const asnap = await db.collection("adsDaily").orderBy("date", "desc").limit(400).get();
+          res.json({ ok: true, rows: asnap.docs.map((d) => d.data()) });
+          return true;
+        }
+        case "gscTeiten": {                                   // 検索流入（gscDaily＋期間指定でクエリ/ページ）
+          const qFrom = String(req.query.qFrom ?? "");
+          const [dsnap, qsnap, psnap] = await Promise.all([
+            db.collection("gscDaily").orderBy("date", "desc").limit(600).get(),
+            qFrom ? db.collection("gscQuery").where("date", ">=", qFrom).get() : null,
+            qFrom ? db.collection("gscPage").where("date", ">=", qFrom).get() : null,
+          ]);
+          res.json({ ok: true,
+            rows: dsnap.docs.map((d) => d.data()),
+            queries: qsnap ? qsnap.docs.map((d) => d.data()) : [],
+            pages: psnap ? psnap.docs.map((d) => d.data()) : [] });
+          return true;
+        }
         case "ga4Teiten": {                                   // GA4定点（ga4Daily・正本はGA4直取り）
           const gsnap = await db.collection("ga4Daily")
             .orderBy("date", "desc").limit(400).get();
