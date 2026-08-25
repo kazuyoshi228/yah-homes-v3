@@ -4,6 +4,10 @@
  * GA4の数字の正本はここ（APIから直接）。定点シート経由の bookingDaily.cv は別系統の鏡で、
  * 両者の突合は毎朝の点検メールが行う（agency/alerts.ts）。
  *
+ * クリック系は eventCount（発生数）で取る——keyEvents だと 8/16 のキーイベント設定変更以降、
+ * クリックが起きていても0になる（設定に依存する指標のため）。設定に依存しない発生数を正とし、
+ * キーイベント合計（keyEventsTotal）は定点シート経由のCVとの突合用に別フィールドで残す。
+ *
  * 毎朝8:05に直近3日を取り直す（GA4の日次集計は24〜48時間ゆらぐため）。
  * 初回実行はサイト開設 2026-07-12 からのバックフィルになる。
  * 取得に失敗した日は fetchFailed を立てる——欠測を無言にしない。
@@ -49,8 +53,11 @@ export const ga4TeitenSync = onSchedule(
     const coll = db.collection("ga4Daily");
     /* 初回＝バックフィル。2回目以降＝直近3日の取り直し */
     const existing = (await coll.count().get()).data().count;
+    /* スキーマ移行の自己修復: 最新行に events が無ければ全期間を取り直す */
+    const latest = await coll.orderBy("date", "desc").limit(1).get();
+    const migrated = !latest.empty && latest.docs[0].data().events != null;
     const end = new Date(Date.now() - 864e5).toISOString().slice(0, 10);   // 昨日（JSTズレは3日窓が吸収）
-    const start = existing < 10 ? SITE_OPENED
+    const start = existing < 10 || !migrated ? SITE_OPENED
       : new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
     const range = [{ startDate: start, endDate: end }];
 
@@ -60,8 +67,14 @@ export const ga4TeitenSync = onSchedule(
 
     try {
       const tok = await ga4Token();
-      const [ev, ses, rev] = await Promise.all([
+      const [ev, ke, ses, rev] = await Promise.all([
+        /* 発生数（キーイベント設定に依存しない） */
         runReport(tok, { dateRanges: range, dimensions: [{ name: "date" }, { name: "eventName" }],
+          metrics: [{ name: "eventCount" }],
+          dimensionFilter: { filter: { fieldName: "eventName",
+            inListFilter: { values: KEY_EVENTS } } }, limit: 100000 }),
+        /* キーイベント合計（突合用・定点シートのH列と同じ定義） */
+        runReport(tok, { dateRanges: range, dimensions: [{ name: "date" }],
           metrics: [{ name: "keyEvents" }], limit: 100000 }),
         runReport(tok, { dateRanges: range, dimensions: [{ name: "date" }],
           metrics: [{ name: "sessions" }, { name: "activeUsers" }], limit: 100000 }),
@@ -71,10 +84,10 @@ export const ga4TeitenSync = onSchedule(
       ]);
 
       const byDay = new Map<string, { sessions: number; activeUsers: number; revenue: number;
-        keyEvents: Record<string, number> }>();
+        keyEventsTotal: number; events: Record<string, number> }>();
       const day = (d: string) => {
-        if (!byDay.has(d)) byDay.set(d, { sessions: 0, activeUsers: 0, revenue: 0,
-          keyEvents: { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, purchase: 0, other: 0, total: 0 } });
+        if (!byDay.has(d)) byDay.set(d, { sessions: 0, activeUsers: 0, revenue: 0, keyEventsTotal: 0,
+          events: { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, purchase: 0, total: 0 } });
         return byDay.get(d)!;
       };
       for (const row of ses.rows ?? []) {
@@ -86,17 +99,19 @@ export const ga4TeitenSync = onSchedule(
         const d = day(ymd(row.dimensionValues[0].value));
         const name = row.dimensionValues[1].value;
         const v = Number(row.metricValues[0].value);
-        if (KEY_EVENTS.includes(name)) d.keyEvents[name] += v; else d.keyEvents.other += v;
-        d.keyEvents.total += v;
+        if (name in d.events) d.events[name] += v;
+        d.events.total += v;
       }
+      for (const row of ke.rows ?? []) day(ymd(row.dimensionValues[0].value)).keyEventsTotal = Number(row.metricValues[0].value);
       for (const row of rev.rows ?? []) day(ymd(row.dimensionValues[0].value)).revenue = Number(row.metricValues[0].value);
 
       let batch = db.batch(), inBatch = 0, upserts = 0;
       for (const dstr of days) {
-        const d = byDay.get(dstr) ?? { sessions: 0, activeUsers: 0, revenue: 0,
-          keyEvents: { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, purchase: 0, other: 0, total: 0 } };
+        const d = byDay.get(dstr) ?? { sessions: 0, activeUsers: 0, revenue: 0, keyEventsTotal: 0,
+          events: { click_airbnb: 0, click_booking_com: 0, click_booking_calendar: 0, purchase: 0, total: 0 } };
         batch.set(coll.doc(dstr), {
           date: dstr, ...d,
+          keyEvents: FieldValue.delete(),          // 旧スキーマの掃除
           source: `GA4 Data API（property ${GA4_PROPERTY}）`,
           fetchFailed: FieldValue.delete(),          // 以前の失敗印は成功で消す
           syncedAt: FieldValue.serverTimestamp(),

@@ -79,7 +79,7 @@ async function cvCrosscheck(now: Date): Promise<string | null> {
     db.collection("ga4Daily").doc(y).get(),
     db.collection("bookingDaily").doc(y).get(),
   ]);
-  const gv = g.data()?.keyEvents?.total;
+  const gv = g.data()?.keyEventsTotal ?? g.data()?.keyEvents?.total;
   const bv = b.data()?.cv;
   if (g.data()?.fetchFailed) return `GA4定点の取得が失敗（${y}・fetchFailed）`;
   if (gv == null || bv == null) return null;        // どちらか未着はまだ判定しない
