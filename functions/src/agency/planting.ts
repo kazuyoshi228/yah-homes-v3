@@ -25,6 +25,29 @@ const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app", "http://
 
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 
+/* 通知メールのHTML（yah.homesのトーン: 生成り背景・緑・yah.ワードマーク。
+   メールはCSS対応が貧弱なので全部インラインで書く） */
+function noticeHtml(title: string, rows: Array<[string, string]>, note: string): string {
+  const tr = rows.map(([k, v]) =>
+    `<tr><td style="padding:6px 14px 6px 0;color:#999;font-size:13px;white-space:nowrap;vertical-align:top">${k}</td>` +
+    `<td style="padding:6px 0;color:#222;font-size:14px;font-weight:600">${v}</td></tr>`).join("");
+  return `<!doctype html><html><body style="margin:0;background:#f6f5f2;padding:28px 14px;` +
+    `font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">` +
+    `<div style="max-width:460px;margin:0 auto">` +
+    `<p style="margin:0 0 14px;font-size:19px;font-weight:700;color:#222">yah.<span style="font-weight:400;color:#8a8a8a">homes</span></p>` +
+    `<div style="background:#fff;border:1px solid #e2ded6;border-radius:12px;padding:22px 22px 18px">` +
+    `<p style="margin:0 0 14px;color:#2b7a3f;font-size:15px;font-weight:700">${title}</p>` +
+    `<table style="border-collapse:collapse">${tr}</table>` +
+    `<p style="margin:16px 0 0;padding-top:14px;border-top:1px solid #eee;color:#777;font-size:12px;line-height:1.9">${note}</p>` +
+    `</div>` +
+    `<p style="margin:14px 0 0;color:#b0b0b0;font-size:11px;line-height:1.7">yah. 自動手配（AI）／このメールは清川の植栽カレンダーから自動送信されています</p>` +
+    `</div></body></html>`;
+}
+const jpDate = (d: string) => {
+  const [y, m, dd] = d.split("-").map(Number);
+  return `${y}年${m}月${dd}日（${"日月火水木金土"[new Date(y, m - 1, dd).getDay()]}）`;
+};
+
 /** チェックアウト日を Beds24 から引く（1時間キャッシュ・清川のみ） */
 async function checkoutDays(db: FirebaseFirestore.Firestore): Promise<{ dates: string[]; asOf: string }> {
   const ref = db.collection("beds24cache").doc("planting");
@@ -145,6 +168,9 @@ export const plantingCal = onRequest(
         await sendNotice({
           to: notifyTo, subject: `[yah-${ref.id}] 植栽作業の日程が入りました: 清川 ${date}`,
           body: `業者（${vendor || "名前未入力"}）が植栽作業の日程を選択しました。\n\n　棟: 清川\n　日付: ${date} 11:00〜15:00\n\n自動確定です。都合が悪ければメンテナンスカードでこのジョブを取り消してください。`,
+          html: noticeHtml("植栽作業の日程が入りました", [
+            ["棟", "清川"], ["日付", jpDate(date)], ["時間", "11:00〜15:00"], ["業者", vendor || "—"],
+          ], "自動確定です。都合が悪ければメンテナンスカード（yah.OS）でこのジョブを取り消してください。"),
         }).catch(() => { /* 通知失敗でも選択は成立させる */ });
         res.json({ ok: true, jobId: ref.id });
         return;
@@ -189,7 +215,11 @@ export const plantingCal = onRequest(
         }
         await sendNotice({
           to: notifyTo, subject: `[yah-${jobId}] 植栽作業の完了報告: 清川 ${date}`,
-          body: `業者から完了報告が届きました。\n\n　棟: 清川\n　日付: ${date}\n　内容: ${text}\n${amount ? `　金額: ¥${amount.toLocaleString()}\n` : ""}${photos.length ? `　写真: ${photos.length}枚（保管庫 reports/planting-work/）\n` : ""}\n検収（実施日・実額の確定）はメンテナンスカードでお願いします。`,
+          body: `業者から完了報告が届きました。\n\n　棟: 清川\n　日付: ${date}\n　内容: ${text}\n${photos.length ? `　写真: ${photos.length}枚（保管庫 reports/planting-work/）\n` : ""}\n検収（実施日・実額の確定）はメンテナンスカードでお願いします。`,
+          html: noticeHtml("植栽作業の完了報告が届きました", [
+            ["棟", "清川"], ["日付", jpDate(date)], ["内容", text.replace(/</g, "&lt;").replace(/\n/g, "<br>")],
+            ...(photos.length ? [["写真", `${photos.length}枚（保管庫に保存済み）`] as [string, string]] : []),
+          ], "検収（実施日・実額の確定）はメンテナンスカード（yah.OS）でお願いします。"),
         }).catch(() => { /* 通知失敗でも報告は残る */ });
         res.json({ ok: true, jobId, photos: photos.length });
         return;

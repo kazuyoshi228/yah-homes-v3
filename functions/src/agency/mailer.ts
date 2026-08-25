@@ -47,7 +47,7 @@ export async function autoSendEnabled(): Promise<boolean> {
 const b64 = (s: string) => Buffer.from(s).toString("base64");
 const subjectEnc = (s: string) => `=?UTF-8?B?${b64(s)}?=`;
 
-function buildRaw(to: string, subject: string, body: string, threadRef?: string, cc = ALWAYS_CC): string {
+function buildRaw(to: string, subject: string, body: string, threadRef?: string, cc = ALWAYS_CC, html?: string): string {
   const headers = [
     `From: ${subjectEnc(AI_DISPLAY)} <${AI_ADDRESS}>`,
     `To: ${to}`,
@@ -56,10 +56,10 @@ function buildRaw(to: string, subject: string, body: string, threadRef?: string,
     ...(to.includes(cc) ? [] : [`Cc: ${cc}`]),
     `Subject: ${subjectEnc(subject)}`,
     "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
+    html ? 'Content-Type: text/html; charset="UTF-8"' : 'Content-Type: text/plain; charset="UTF-8"',
     ...(threadRef ? [`In-Reply-To: ${threadRef}`, `References: ${threadRef}`] : []),
   ];
-  return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${body}`).toString("base64url");
+  return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${html ?? body}`).toString("base64url");
 }
 
 /**
@@ -69,9 +69,9 @@ function buildRaw(to: string, subject: string, body: string, threadRef?: string,
 /** 通知の直送（オーナー・関係者宛て）。autoSend のゲートを通らない——
     業者へのAI発信ではなく「起きた事実の通知」のため。ゲートに掛けると下書きに眠って
     誰にも届かない（2026-08-25 植栽の日程通知が届かず発覚） */
-export async function sendNotice(opts: { to: string; subject: string; body: string }): Promise<string> {
+export async function sendNotice(opts: { to: string; subject: string; body: string; html?: string }): Promise<string> {
   const gmail = await gmailClient();
-  const raw = buildRaw(opts.to, opts.subject, opts.body);
+  const raw = buildRaw(opts.to, opts.subject, opts.body, undefined, undefined, opts.html);
   const r = await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
   return r.data.id!;
 }
