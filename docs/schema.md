@@ -22,7 +22,8 @@
 | `reserves` | 積立1行 | prop, type, amountPerMonth, amountPerYear | スクリプト | 妥当性はrenewalPlanが毎回判定 |
 | `finance` | 借入1本 | kind="loan", lender, principal, rate, months, firstPaymentMonth, method, schedule… | スクリプト | 返済表はloanState()で導出 |
 | `revenue` | 月次報告1行 | kind="monthly", prop, month, revenue, expenses, payout, occ, adr, pdf | スクリプト | AIRSTAR報告書が原本 |
-| `utilities` | 光熱費仕訳1行 | kind="utility", date, month, place(日本語名), type, amount | スクリプト | place→propの対応はfactsが持つ |
+| `places` | 拠点の台帳 | label, lodging(宿泊事業か), prop, note | 人 | **「その拠点は宿泊事業か」の唯一の正本**。無い拠点は宿泊事業とみなす |
+| `utilities` | 光熱費仕訳1行 | kind="utility", date, month, place(日本語名), type, amount | スクリプト | place→propの対応は places 台帳 |
 | `recurringCosts` | 定額費1行 | type, place, unitPrice, units, recurring | スクリプト | 例: セキュリティカメラ500円×台数 |
 | `contracts` | 契約書類1行 | label, category, prop, counterparty, signedAt, expiresAt, autoRenew, noticeDays, path(原本gs://), status, feeSchedule[], notes[] | 画面(saveContract)・スクリプト | 原本の所在の正本 |
 | `cvr` | CVR観測1行 | prop, label, sortKey, type(month/rolling/rolling90), overallCvr, imprRate, searchToView, viewToBook, views, impressions, occupancy, bookedNights, checkins, source | スクリプト | 欠測は書かない。検算はhealth |
