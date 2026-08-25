@@ -45,11 +45,12 @@ export const PROP_FIELDS = [
 
 export async function propertySummary() {
   const db = agencyDb();
-  const [snap, rev, util, taxSnap, insSnap, resSnap, schedSnap] = await Promise.all([
+  const [snap, rev, util, taxSnap, insSnap, resSnap, schedSnap, conSnap] = await Promise.all([
     db.collection("properties").get(),
     revenueSummary(12), utilitySummary(),
     db.collection("taxes").get(), db.collection("insurance").get(),
     db.collection("reserves").get(), db.collection("schedules").get(),
+    db.collection("contracts").get(),
   ]);
   const eqSnap = await db.collection("equipment").where("kind", "==", "equipment").get();
   /* 明細の正本。備品・工事・取得費用は items（1行=1ドキュメント・idx順） */
@@ -211,11 +212,23 @@ export async function propertySummary() {
       lifespanCapYears: Number(p.lifespanCapYears ?? 30),
       buildingLifeYears: Number(p.buildingLifeYears ?? 0) || null,
       lifecycleNote: p.lifecycleNote ?? null,
-      /* 書類一式に格納日時を合成（保管庫の作成時刻＝導出。...p の後なので上書きになる） */
-      drawings: Array.isArray(p.drawings)
-        ? (p.drawings as Array<{ path?: string }>).map((dd) => ({
-            ...dd, storedAt: dd.path ? storedAt.get(String(dd.path)) ?? null : null }))
-        : p.drawings,
+      /* 書類一式。格納日時は保管庫の作成時刻から合成し、契約性質の原本は契約書類カード
+         （contracts）から毎回マージする——同じ原本を2か所に保存しない（2026-08-25 発注者指示）。
+         ...p の後なので、この導出結果が保存値を上書きする */
+      drawings: [
+        ...(Array.isArray(p.drawings)
+          ? (p.drawings as Array<{ path?: string }>).map((dd) => ({
+              ...dd, storedAt: dd.path ? storedAt.get(String(dd.path)) ?? null : null }))
+          : []),
+        ...conSnap.docs
+          .filter((c) => c.data().prop === d.id && c.data().path)
+          .map((c) => ({
+            kind: "契約書類", label: String(c.data().label ?? c.id),
+            path: String(c.data().path),
+            storedAt: storedAt.get(String(c.data().path)) ?? null,
+            note: "正本は契約書類カード（ここは表示のみ）",
+          })),
+      ],
       /* 設備台帳。故障時に業者へ即答できるよう、型番まで持つ */
       strayGroups,
       /* 追加投資額は台帳（equipment 2026）と工事明細（items 2026）から毎回導出。保存しない */
