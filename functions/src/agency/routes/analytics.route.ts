@@ -5,6 +5,7 @@
  * 本文は api.ts から移設したまま（一字も変えない方針。return; → return true; のみ機械置換）。
  */
 import { FieldValue } from "firebase-admin/firestore";
+import { judgmentSummary } from "../judgments.js";
 import { getStorage } from "firebase-admin/storage";
 import { healthSummary } from "../health.js";
 import { successionSummary } from "../succession.js";
@@ -194,6 +195,10 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           const proposedTotal = Math.round(draft.reduce((a, x) => a + x.score * x.weight, 0) / 100 * 10) / 10;
           res.json({ ok: true, latest: { date: latestDoc.id, total: latest.total },
             draft, proposedTotal, metrics });
+          return true;
+        }
+        case "judgments": {                                   // 判定カレンダー（合格ラインと実測の突合）
+          res.json({ ok: true, ...(await judgmentSummary()) });
           return true;
         }
         case "health": {                                      // 全検証を1本で（A・分析の前に必ずこれ）
