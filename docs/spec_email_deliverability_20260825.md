@@ -1,6 +1,11 @@
 # 作業指示書 — メールが迷惑メールに入る問題の根本対処（SPF / DKIM / DMARC）
 
-- 状態: **調査完了・作業待ち（発注者の作業が必要／Claudeは実行不可）**
+- 状態: **完了（2026-08-25）**。SPF・DKIM・DMARC の3点セットを設置し、実メールのヘッダーで
+  `spf=pass` `dkim=pass` を確認済み
+  - SPF: `v=spf1 include:_spf.google.com include:_spf.heteml.jp ~all`（ムームーの簡易SPFは「利用しない」にし、カスタム設定にTXTを1本）
+  - DKIM: `google._domainkey`（1024ビット）＋管理コンソールで「認証を開始」済み
+  - DMARC: `v=DMARC1; p=none; rua=mailto:kazuyoshi.yamada@bonfire.co.jp`（監視のみ）
+  - 次の見直し: 1〜2ヶ月レポートを見て問題なければ `p=quarantine` へ
 - 起票: 2026-08-25
 - きっかけ: 植栽の通知メールが kazuyoshi.yamada / airstar.sugimoto の両方で迷惑メール判定
 - 調査方法: 外部からのDNS実査（dig）。管理コンソールは見ていない
