@@ -7,7 +7,7 @@
  */
 import { agencyDb, findOverdue, staleHeartbeats } from "./engine.js";
 import { notifySettings } from "./settings.js";
-import { sendOrDraft } from "./mailer.js";
+import { sendNotice } from "./mailer.js";
 
 const PROP_LABEL: Record<string, string> = {
   kiyokawa: "清川", takasago: "高砂", ropponmatsu: "六本松", otemonA: "大手門A", otemonB: "大手門B",
@@ -87,6 +87,20 @@ async function cvCrosscheck(now: Date): Promise<string | null> {
     : `CV突合の乖離（${y}）: GA4直取り ${gv} vs 定点シート経由 ${bv}`;
 }
 
+/** 当月の植栽作業日が未選択なら知らせる（毎月10日から・清川）。
+    業者ページで日を選べば消える。2026-08-25 発注者指示 */
+export async function plantingUnscheduled(now: Date): Promise<string | null> {
+  if (now.getDate() < 10) return null;
+  const ym = now.toISOString().slice(0, 7);
+  const snap = await agencyDb().collection("jobs")
+    .where("category", "==", "植栽").where("prop", "==", "kiyokawa").get();
+  const has = snap.docs.some((d) => {
+    const j = d.data() as { plantingDate?: string; status?: string };
+    return (j.plantingDate ?? "").startsWith(ym) && j.status !== "cancelled";
+  });
+  return has ? null : `清川: 今月（${ym}）の植栽作業日がまだ選ばれていません（花屋アンへ業者ページの確認を）`;
+}
+
 export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean; items: number }> {
   const overdue = await findOverdue(now);
   const stale = await staleHeartbeats(now);
@@ -94,7 +108,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   const un = await unmatched();
   const est = await estimatesDue(now);
   const cvx = await cvCrosscheck(now);
-  const total = overdue.length + stale.length + exc.length + un.length + est.length + (cvx ? 1 : 0);
+  const planting = await plantingUnscheduled(now);
+  const total = overdue.length + stale.length + exc.length + un.length + est.length + (cvx ? 1 : 0) + (planting ? 1 : 0);
   if (total === 0) return { sent: false, items: 0 };
 
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
@@ -125,6 +140,11 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     L.push(`　・${cvx}`);
     L.push("");
   }
+  if (planting) {
+    L.push("■ 植栽");
+    L.push(`　・${planting}`);
+    L.push("");
+  }
   if (est.length) {
     L.push("■ 見積を取る時期（概算のまま実施年が近い）");
     est.forEach((e) => L.push(`　・${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`));
@@ -139,11 +159,14 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   L.push("（このメールは異常がある日だけ届きます）");
 
   const to = (await notifySettings()).exceptionsTo;
-  const r = await sendOrDraft({
+  /* 点検メールは「起きた事実の通知」——autoSendゲート（業者へのAI発信の停止弁）を通らない。
+     ゲートに掛けると下書きに眠って誰にも届かない（2026-08-25 植栽の通知で発覚・同日修正） */
+  await sendNotice({
     to,
     subject: `[yah.OS] 外部委託の要対応 ${total}件${stale.length ? "（自動処理の停止あり）" : ""}`,
     body: L.join("\n"),
   });
+  const r = { mode: "sent" as const };
   await agencyDb().collection("alertLogs").add({
     at: new Date().toISOString(), items: total, mode: r.mode,
     breakdown: { stale: stale.length, critical: crit.length, warn: warn.length,
