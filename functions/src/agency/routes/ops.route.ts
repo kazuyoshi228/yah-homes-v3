@@ -9,6 +9,7 @@ import { advance, findOverdue, staleHeartbeats } from "../engine.js";
 import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "../templates.js";
 import { sendRequests, handleReply } from "../dispatcher.js";
 import { plantingToken } from "../planting.js";
+import { enrichSchedules, SCHEDULE_FIELDS } from "../schedules.js";
 
 export type Ctx = {
   db: FirebaseFirestore.Firestore;
@@ -21,8 +22,10 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
   const { db, email, all } = ctx;
   switch (action) {
         case "overview": {
-          const [jobs, vendors, schedules, equipment] =
-            await Promise.all([all("jobs"), all("vendors"), all("schedules"), all("equipment")]);
+          const [jobs, vendors, schedulesRaw, equipment, properties] =
+            await Promise.all([all("jobs"), all("vendors"), all("schedules"), all("equipment"), all("properties")]);
+          /* 周期と前回実施はここで毎回引き直す（写しを持たない・spec_schedules_editable_20260825） */
+          const schedules = enrichSchedules(schedulesRaw, jobs, equipment, properties);
           const settings = Object.fromEntries((await db.collection("settings").get()).docs.map((d) => [d.id, d.data()]));
           const templates = Object.fromEntries(
             Object.keys(DEFAULT_TEMPLATES).map((k) => [k, { ...DEFAULT_TEMPLATES[k as TemplateKey], ...(settings.mailTemplates?.[k] ?? {}) }]),
@@ -137,6 +140,13 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           const { col, id, data } = req.body ?? {};
           if (!["vendors", "schedules", "settings", "equipment"].includes(col)) {
             res.status(400).json({ ok: false, error: "その置き場は編集できません" }); return true;
+          }
+          /* 定期作業は許可リストで絞る。周期(ledgerIdあり)・前回実施は導出なので保存させない
+             （spec_schedules_editable_20260825） */
+          if (col === "schedules") {
+            const d = (data ?? {}) as Record<string, unknown>;
+            const bad = Object.keys(d).filter((k) => !(SCHEDULE_FIELDS as readonly string[]).includes(k));
+            if (bad.length) { res.status(400).json({ ok: false, error: `保存できない項目: ${bad.join("・")}` }); return true; }
           }
           if (col === "settings" && id === "mailTemplates") {  // 差し込み語の綴り間違いを通さない
             for (const [k, t] of Object.entries(data as Record<string, { subject: string; body: string }>)) {
