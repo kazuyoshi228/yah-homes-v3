@@ -17,8 +17,29 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
   const { db, email } = ctx;
   switch (action) {
         case "contracts": {                                   // 契約書類（原本の所在の正本）
-          const snap = await db.collection("contracts").get();
-          const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))
+          const [snap, loanSnap] = await Promise.all([
+            db.collection("contracts").get(),
+            db.collection("finance").where("kind", "==", "loan").get(),
+          ]);
+          /* 融資カテゴリは手書き行ではなく finance コレクションから導出する（2026-08-25 発注者承認・
+             融資スレッドの例外対応）。貸し手・金額・原本パスが融資カードと常に一致し、
+             借入が増えたときの取り残し（福岡銀行2本が契約書類に無かった件）が構造的に消える */
+          const loanRows = loanSnap.docs.map((d) => {
+            const l = d.data() as Record<string, unknown>;
+            return {
+              id: `fin-${d.id}`, derived: true,
+              label: `金銭消費貸借契約（${String(l.tabLabel ?? l.lender ?? d.id)}）`,
+              category: "融資", prop: String(l.prop ?? ""),
+              counterparty: String(l.lender ?? ""),
+              signedAt: String(l.contractDate ?? ""), expiresAt: "",
+              amount: Number(l.principal ?? 0),
+              path: String(l.pdf ?? ""),
+              status: l.pdf ? "取得済" : "未取得",
+              note: [String(l.purpose ?? ""), l.schedulePdf ? "返済予定表も保管庫にあり（融資カードの正本タブから）" : "",
+                "融資カードから導出した行（編集は融資カード側で）"].filter(Boolean).join("。"),
+            };
+          });
+          const rows = [...snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })), ...loanRows]
             .sort((a, b) => String((b as { signedAt?: string }).signedAt ?? "")
               .localeCompare(String((a as { signedAt?: string }).signedAt ?? "")));
           /* 期限のあるものは残り日数を出す。切れてから気づくのを防ぐ */
