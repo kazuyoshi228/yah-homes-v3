@@ -14,6 +14,7 @@ import { getStorage } from "firebase-admin/storage";
 import crypto from "node:crypto";
 import { agencyDb } from "./engine.js";
 import { sendNotice } from "./mailer.js";
+import { loadTemplate, fill } from "./templates.js";
 
 /* 通知の宛先の既定値。正本は settings/planting.notifyTo（カードもそこを表示する＝二重に持たない） */
 const NOTIFY_FALLBACK = "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com";
@@ -27,21 +28,27 @@ const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 /* 通知メールのHTML（yah.homesのトーン: 生成り背景・緑・yah.ワードマーク。
    メールはCSS対応が貧弱なので全部インラインで書く） */
-function noticeHtml(title: string, rows: Array<[string, string]>, note: string): string {
-  const tr = rows.map(([k, v]) =>
-    `<tr><td style="padding:6px 14px 6px 0;color:#999;font-size:13px;white-space:nowrap;vertical-align:top">${k}</td>` +
-    `<td style="padding:6px 0;color:#222;font-size:14px;font-weight:600">${v}</td></tr>`).join("");
+function noticeHtml(title: string, bodyText: string): string {
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const bodyHtml = esc(bodyText).replace(/\n/g, "<br>");
   return `<!doctype html><html><body style="margin:0;background:#f6f5f2;padding:28px 14px;` +
     `font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">` +
     `<div style="max-width:460px;margin:0 auto">` +
     `<p style="margin:0 0 14px;font-size:19px;font-weight:700;color:#222">yah.<span style="font-weight:400;color:#8a8a8a">homes</span></p>` +
-    `<div style="background:#fff;border:1px solid #e2ded6;border-radius:12px;padding:22px 22px 18px">` +
-    `<p style="margin:0 0 14px;color:#2b7a3f;font-size:15px;font-weight:700">${title}</p>` +
-    `<table style="border-collapse:collapse">${tr}</table>` +
-    `<p style="margin:16px 0 0;padding-top:14px;border-top:1px solid #eee;color:#777;font-size:12px;line-height:1.9">${note}</p>` +
+    `<div style="background:#fff;border:1px solid #e2ded6;border-radius:12px;padding:22px">` +
+    `<p style="margin:0 0 14px;color:#2b7a3f;font-size:15px;font-weight:700">${esc(title)}</p>` +
+    `<p style="margin:0;color:#333;font-size:14px;line-height:2.0">${bodyHtml}</p>` +
     `</div>` +
-    `<p style="margin:14px 0 0;color:#b0b0b0;font-size:11px;line-height:1.7">yah. 自動手配（AI）／このメールは清川の植栽カレンダーから自動送信されています</p>` +
+    `<p style="margin:14px 0 0;color:#b0b0b0;font-size:11px;line-height:1.7">yah. 自動手配（AI）／このメールは清川の植栽カレンダーから自動送信されています。文面はメンテナンスカード > 定型メール で編集できます</p>` +
     `</div></body></html>`;
+}
+/** テンプレを差し込んで送る（文面の正本は 定型メール＝mailTemplates。ここに文章を書かない） */
+async function sendPlantingNotice(key: "plantingSelect" | "plantingUnselect" | "plantingReport",
+  to: string, vars: Record<string, string>): Promise<void> {
+  const t = await loadTemplate(key);
+  const subject = fill(t.subject, vars);
+  const body = fill(t.body, vars);
+  await sendNotice({ to, subject, body, html: noticeHtml(t.label.replace(/^植栽: /, ""), body) });
 }
 const jpDate = (d: string) => {
   const [y, m, dd] = d.split("-").map(Number);
@@ -165,14 +172,31 @@ export const plantingCal = onRequest(
           note: "業者がカレンダーから日程を選択（自動確定・取消はメンテナンスカードで）",
           timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（niwa）` }],
         });
-        await sendNotice({
-          to: notifyTo, subject: `[yah-${ref.id}] 植栽作業の日程が入りました: 清川 ${date}`,
-          body: `業者（${vendor || "名前未入力"}）が植栽作業の日程を選択しました。\n\n　棟: 清川\n　日付: ${date} 11:00〜15:00\n\n自動確定です。都合が悪ければメンテナンスカードでこのジョブを取り消してください。`,
-          html: noticeHtml("植栽作業の日程が入りました", [
-            ["棟", "清川"], ["日付", jpDate(date)], ["時間", "11:00〜15:00"], ["業者", vendor || "—"],
-          ], "自動確定です。都合が悪ければメンテナンスカード（yah.OS）でこのジョブを取り消してください。"),
+        await sendPlantingNotice("plantingSelect", notifyTo, {
+          jobId: ref.id, propLabel: "清川", plantingDate: jpDate(date), vendorName: vendor || "—",
         }).catch(() => { /* 通知失敗でも選択は成立させる */ });
         res.json({ ok: true, jobId: ref.id });
+        return;
+      }
+
+      /* 選び直し: 業者が自分の選択を取り消す。done（報告済み）以降は取り消せない */
+      if (body.action === "unselect") {
+        const date = String(body.date ?? "");
+        const taken = await takenDates(db);
+        const jobId = taken.get(date);
+        if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
+        const ref = db.collection("jobs").doc(jobId);
+        const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string; timeline?: unknown[] };
+        if (j.source !== "niwa" || j.status !== "confirmed") {
+          res.status(409).json({ ok: false, error: "この日は取り消せません（報告済みか、こちらで確定済み）" }); return;
+        }
+        await ref.set({ status: "cancelled",
+          timeline: [...(j.timeline ?? []), { at: now, status: "cancelled", by: "vendor", note: "業者がカレンダーから取消（niwa）" }],
+        }, { merge: true });
+        await sendPlantingNotice("plantingUnselect", notifyTo, {
+          jobId, propLabel: "清川", plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—"),
+        }).catch(() => { /* 通知失敗でも取消は成立 */ });
+        res.json({ ok: true });
         return;
       }
 
@@ -213,13 +237,9 @@ export const plantingCal = onRequest(
           });
           jobId = ref.id;
         }
-        await sendNotice({
-          to: notifyTo, subject: `[yah-${jobId}] 植栽作業の完了報告: 清川 ${date}`,
-          body: `業者から完了報告が届きました。\n\n　棟: 清川\n　日付: ${date}\n　内容: ${text}\n${photos.length ? `　写真: ${photos.length}枚（保管庫 reports/planting-work/）\n` : ""}\n検収（実施日・実額の確定）はメンテナンスカードでお願いします。`,
-          html: noticeHtml("植栽作業の完了報告が届きました", [
-            ["棟", "清川"], ["日付", jpDate(date)], ["内容", text.replace(/</g, "&lt;").replace(/\n/g, "<br>")],
-            ...(photos.length ? [["写真", `${photos.length}枚（保管庫に保存済み）`] as [string, string]] : []),
-          ], "検収（実施日・実額の確定）はメンテナンスカード（yah.OS）でお願いします。"),
+        await sendPlantingNotice("plantingReport", notifyTo, {
+          jobId, propLabel: "清川", plantingDate: jpDate(date),
+          reportText: text, photoCount: String(photos.length),
         }).catch(() => { /* 通知失敗でも報告は残る */ });
         res.json({ ok: true, jobId, photos: photos.length });
         return;

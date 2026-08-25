@@ -47,9 +47,9 @@ export async function autoSendEnabled(): Promise<boolean> {
 const b64 = (s: string) => Buffer.from(s).toString("base64");
 const subjectEnc = (s: string) => `=?UTF-8?B?${b64(s)}?=`;
 
-function buildRaw(to: string, subject: string, body: string, threadRef?: string, cc = ALWAYS_CC, html?: string): string {
+function buildRaw(to: string, subject: string, body: string, threadRef?: string, cc = ALWAYS_CC, html?: string, fromDisplay = AI_DISPLAY): string {
   const headers = [
-    `From: ${subjectEnc(AI_DISPLAY)} <${AI_ADDRESS}>`,
+    `From: ${subjectEnc(fromDisplay)} <${AI_ADDRESS}>`,
     `To: ${to}`,
     /* CC は必須・省略不可（AIの送信は必ず人にも届く）。
        ただし宛先が本人の場合だけは重複するので落とす（同じ人に2通見えるのを防ぐ）。 */
@@ -71,7 +71,8 @@ function buildRaw(to: string, subject: string, body: string, threadRef?: string,
     誰にも届かない（2026-08-25 植栽の日程通知が届かず発覚） */
 export async function sendNotice(opts: { to: string; subject: string; body: string; html?: string }): Promise<string> {
   const gmail = await gmailClient();
-  const raw = buildRaw(opts.to, opts.subject, opts.body, undefined, undefined, opts.html);
+  /* 通知の表示名は yah.OS（2026-08-25 発注者指示）。業者向け依頼メールの表示名（AI_DISPLAY）とは分ける */
+  const raw = buildRaw(opts.to, opts.subject, opts.body, undefined, undefined, opts.html, "yah.OS 自動配信");
   const r = await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
   return r.data.id!;
 }
