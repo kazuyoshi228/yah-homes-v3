@@ -36,7 +36,8 @@ async function checkoutDays(db: FirebaseFirestore.Firestore): Promise<{ dates: s
   try {
     const token = await beds24WriteToken();
     const from = day(Date.now());
-    const to = day(Date.now() + 90 * 86400000);
+    /* 表示は直近2ヶ月のみ（2026-08-25 発注者指示。遠い日程は予約で埋まって剥がれるため） */
+    const to = day(Date.now() + 61 * 86400000);
     const dates = new Set<string>();
     let next: string | null =
       `${BEDS24_API}/bookings?propertyId=${BOOKING_PROP_IDS.kiyokawa}` +
