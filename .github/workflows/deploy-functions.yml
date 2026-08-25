@@ -1,0 +1,30 @@
+# S3（2026-08-25 発注者承認）: functions/ に触れる main への push で agencyApi を本番へ。
+# tsc が通らなければ止まる。デプロイ元は常にコミット済みの main。
+# 対象は yah.OS の agencyApi のみ（seoserver 等は従来どおり手元から——対象を広げるときは承認を得る）。
+name: deploy-agency-api
+on:
+  push:
+    branches: [main]
+    paths: ["functions/**", ".github/workflows/deploy-functions.yml"]
+concurrency:
+  group: deploy-agency-api
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: 依存を入れて型チェック
+        working-directory: functions
+        run: |
+          npm ci
+          npx tsc --noEmit -p .
+      - name: agencyApi をデプロイ
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
+          npx firebase-tools deploy --only functions:agencyApi --project yah-homes --non-interactive --force

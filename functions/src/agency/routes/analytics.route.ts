@@ -28,6 +28,20 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, rows });
           return true;
         }
+        case "branding": {                                    // Branding カード（アセットは保管庫から毎回引く）
+          const [bFiles] = await getStorage().bucket("yah-homes-os-archive")
+            .getFiles({ prefix: "branding/" });
+          const bDoc = (await db.collection("settings").doc("branding").get()).data() ?? {};
+          res.json({ ok: true,
+            assets: bFiles.filter((f) => !f.name.endsWith("/")).map((f) => ({
+              name: f.name.split("/").pop() ?? f.name,
+              use: String((f.metadata?.metadata as Record<string, string> | undefined)?.use ?? ""),
+              path: `gs://yah-homes-os-archive/${f.name}`,
+              size: Number(f.metadata?.size ?? 0),
+            })).sort((a, b) => a.name.localeCompare(b.name)),
+            colors: bDoc.colors ?? [], type: bDoc.type ?? [], voice: bDoc.voice ?? [] });
+          return true;
+        }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
           const [files] = await getStorage().bucket("yah-homes-os-archive")
             .getFiles({ prefix: "reports/cvr/" });
