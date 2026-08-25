@@ -8,6 +8,8 @@
  *  - 年額（固定資産税・火災保険・修繕積立）は12で割って各月へ按分する
  *  - 運営会社の報告書が届いていない月は空欄（0で埋めない＝埋まっていないことが見える）
  *  - 報告書が揃っている月を「確定」、そうでない月を「暫定」として区別する
+ *  - 広告費は日次（adsDaily）を月で合算する。月額は保存しない——正本は adsDaily 単独
+ *    （裁量費なので固定費とは別の列。docs/spec_ad_cost_classification_20260825.md）
  */
 import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
@@ -26,8 +28,9 @@ export interface MonthlyRow {
   revenue: number | null; payout: number | null;
   utilities: number | null;
   fixed: number;
+  ads: number;                           // 広告費（adsDailyの月合算・裁量費）
   repayment: number; principal: number; interest: number;
-  profit: number | null;                 // 返済に回せる利益（入金 − 光熱費 − 固定費）
+  profit: number | null;                 // 返済に回せる利益（入金 − 光熱費 − 固定費 − 広告費）
   net: number | null;                    // 手残り（利益 − 返済）
   dscr: number | null;
   props: number;                         // その月に報告書が揃っている棟数
@@ -35,13 +38,22 @@ export interface MonthlyRow {
 
 export async function monthlySummary() {
   const db = agencyDb();
-  const [revSnap, utilSnap, taxSnap, insSnap, resSnap, loanSnap] = await Promise.all([
+  const [revSnap, utilSnap, taxSnap, insSnap, resSnap, loanSnap, adsSnap] = await Promise.all([
     db.collection("revenue").where("kind", "==", "monthly").get(),
     db.collection("utilities").where("kind", "==", "utility").get(),
     db.collection("taxes").get(), db.collection("insurance").get(),
     db.collection("reserves").get(),
     db.collection("finance").where("kind", "==", "loan").get(),
+    db.collection("adsDaily").get(),
   ]);
+  /* 広告費は日次で貯めているものを月へ畳む。月額は保存しない（合算は読むたびに作る） */
+  const adsByMonth = new Map<string, number>();
+  for (const d of adsSnap.docs) {
+    const a = d.data() as { date?: string; total?: { cost?: number } };
+    const ym = String(a.date ?? "").slice(0, 7);
+    if (!ym) continue;
+    adsByMonth.set(ym, (adsByMonth.get(ym) ?? 0) + Number(a.total?.cost ?? 0));
+  }
   const rev = revSnap.docs.map((d) => d.data() as { prop: string; month: string; revenue: number; payout: number });
   const util = utilSnap.docs.map((d) => d.data() as { month: string; place: string; amount: number });
   const loans = loanSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Loan);
@@ -80,11 +92,15 @@ export async function monthlySummary() {
     }
     const principal = Math.max(0, repayment - interest);
 
-    const profit = payout == null ? null : payout - (utilities ?? 0) - fixedPerMonth;
+    /* 広告費は裁量費（明日ゼロにできる）だが、実際に出ていくキャッシュなので利益から引く。
+       記録が無い月は0（出稿していなかった月と区別しない——GA4連携前は取得できないため） */
+    const ads = Math.round(adsByMonth.get(month) ?? 0);
+
+    const profit = payout == null ? null : payout - (utilities ?? 0) - fixedPerMonth - ads;
     return {
       month,
       status: !hasReport ? "未着" : rs.length >= ACTIVE_PROPS.length ? "確定" : "暫定",
-      revenue, payout, utilities, fixed: fixedPerMonth,
+      revenue, payout, utilities, fixed: fixedPerMonth, ads,
       repayment, principal, interest,
       profit, net: profit == null ? null : profit - repayment,
       dscr: profit == null || repayment === 0 ? null : Math.round((profit / repayment) * 100) / 100,
@@ -104,6 +120,7 @@ export async function monthlySummary() {
       avgRevenue: avg((r) => r.revenue), avgPayout: avg((r) => r.payout),
       avgProfit: avg((r) => r.profit), avgNet: avg((r) => r.net),
       avgPrincipal: avg((r) => r.principal), avgInterest: avg((r) => r.interest),
+      avgAds: avg((r) => r.ads),
       avgDscr: done.length
         ? Math.round((done.reduce((a, r) => a + (r.dscr ?? 0), 0) / done.length) * 100) / 100 : null,
     },
