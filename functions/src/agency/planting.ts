@@ -34,7 +34,7 @@ function noticeHtml(title: string, bodyText: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f6f5f2;padding:28px 14px;` +
     `font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">` +
     `<div style="max-width:460px;margin:0 auto">` +
-    `<img src="https://os.yah.homes/logo-yah.png" alt="yah." width="72" height="72" style="display:block;margin:0 0 14px">` +
+    `<img src="https://os.yah.homes/logo-yah.png" alt="yah." width="72" height="72" style="display:block;margin:0 auto 14px">` +
     `<div style="background:#fff;border:1px solid #e2ded6;border-radius:12px;padding:22px">` +
     `<p style="margin:0 0 14px;color:#2b7a3f;font-size:15px;font-weight:700">${esc(title)}</p>` +
     `<p style="margin:0;color:#333;font-size:14px;line-height:2.0">${bodyHtml}</p>` +
