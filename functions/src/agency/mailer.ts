@@ -66,6 +66,16 @@ function buildRaw(to: string, subject: string, body: string, threadRef?: string,
  * 送信（またはドライラン時は下書き作成）。
  * 戻り値の mode で、実際にどちらをしたかが分かる（記録・画面表示に使う）。
  */
+/** 通知の直送（オーナー・関係者宛て）。autoSend のゲートを通らない——
+    業者へのAI発信ではなく「起きた事実の通知」のため。ゲートに掛けると下書きに眠って
+    誰にも届かない（2026-08-25 植栽の日程通知が届かず発覚） */
+export async function sendNotice(opts: { to: string; subject: string; body: string }): Promise<string> {
+  const gmail = await gmailClient();
+  const raw = buildRaw(opts.to, opts.subject, opts.body);
+  const r = await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
+  return r.data.id!;
+}
+
 export async function sendOrDraft(opts: {
   to: string; subject: string; body: string; threadId?: string; threadRef?: string;
 }): Promise<{ mode: "sent" | "draft"; id: string; threadId?: string; cc: string }> {
