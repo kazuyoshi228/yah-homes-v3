@@ -244,6 +244,25 @@ export const agencyApi = onRequest(
           })) });
           return;
         }
+        case "ga4AdsProbe": {                                 // 手順0: GA4に広告費が入っているかの確認（一時的）
+          const tokr = await fetch(
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+            + "?scopes=" + encodeURIComponent("https://www.googleapis.com/auth/analytics.readonly"),
+            { headers: { "Metadata-Flavor": "Google" } }).then((x) => x.json() as Promise<{ access_token?: string }>);
+          const pr = await fetch("https://analyticsdata.googleapis.com/v1beta/properties/539535968:runReport", {
+            method: "POST",
+            headers: { authorization: `Bearer ${tokr.access_token}`, "content-type": "application/json" },
+            body: JSON.stringify({
+              dateRanges: [{ startDate: "14daysAgo", endDate: "yesterday" }],
+              dimensions: [{ name: "sessionCampaignName" }],
+              metrics: [{ name: "advertiserAdCost" }, { name: "advertiserAdClicks" },
+                        { name: "advertiserAdImpressions" }, { name: "sessions" }],
+              limit: 30,
+            }),
+          }).then((x) => x.json());
+          res.json({ ok: true, probe: pr });
+          return;
+        }
         case "ga4Teiten": {                                   // GA4定点（ga4Daily・正本はGA4直取り）
           const gsnap = await db.collection("ga4Daily")
             .orderBy("date", "desc").limit(400).get();
