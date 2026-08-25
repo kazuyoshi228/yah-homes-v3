@@ -7,6 +7,7 @@
  * （手動ドットは廃止。保存された判断もどきを持たない・G）。
  */
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import { agencyDb, findOverdue } from "./engine.js";
 import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
@@ -136,6 +137,20 @@ export async function healthSummary() {
     }
   } catch {
     add("定期レポート", "Beds24との突合", false, "beds24_state が読めない");
+  }
+
+  /* Branding: 配布リンクが実在のアセットを指しているか（保管庫からファイルが消えたら気づく） */
+  try {
+    const bDoc = (await db.collection("settings").doc("branding").get()).data() ?? {};
+    const usage = (bDoc.usage ?? []) as Array<{ scene: string; asset: string }>;
+    const [bFiles] = await getStorage().bucket("yah-homes-os-archive").getFiles({ prefix: "branding/" });
+    const names = new Set(bFiles.map((f) => f.name.split("/").pop() ?? ""));
+    const broken = usage.filter((u) => u.asset && !names.has(u.asset)).map((u) => `${u.scene}→${u.asset}`);
+    const undecided = usage.filter((u) => !u.asset).map((u) => u.scene);
+    add("Branding", "配布リンクの実在", broken.length === 0, broken.join(" / ") || `${usage.length}件`);
+    add("Branding", "配布先が未定", undecided.length === 0, undecided.join(" / ") || "なし");
+  } catch {
+    add("Branding", "配布リンクの実在", false, "保管庫が読めない");
   }
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
