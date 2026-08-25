@@ -243,6 +243,12 @@ export const agencyApi = onRequest(
           })) });
           return;
         }
+        case "bookingTeiten": {                               // 予約状況の定点観測（定点シートの鏡を読む）
+          const snap = await db.collection("bookingDaily")
+            .orderBy("date", "desc").limit(400).get();
+          res.json({ ok: true, rows: snap.docs.map((d) => d.data()) });
+          return;
+        }
         case "reportArchive": {                               // 定期レポートの原本フォルダー（保管庫から毎回引く）
           const FOLDERS: Record<string, { prefix: string }> = {
             cvr: { prefix: "reports/cvr/" },

@@ -2905,6 +2905,8 @@ async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | nul
   }
 }
 
+export { bookingTeitenSync } from "./teitenSync.js";
+
 export const beds24DailyObserver = onSchedule(
   // serviceAccount: 第2世代の既定はcompute SAだが、シート/GA4の共有先=appspot SAに合わせて明示指定（spec §3）
   { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300, serviceAccount: SA },
