@@ -6,6 +6,7 @@
  * check.card は index の data-key と同一文字列——ドットの色はここから導出する
  * （手動ドットは廃止。保存された判断もどきを持たない・G）。
  */
+import { getFirestore } from "firebase-admin/firestore";
 import { agencyDb, findOverdue } from "./engine.js";
 import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
@@ -87,6 +88,52 @@ export async function healthSummary() {
     return Math.abs((Number(x.views) / Number(x.impressions)) * 100 - Number(x.searchToView)) > 0.06;
   }).map((d) => d.id);
   add("定期レポート", "CVRの検算（閲覧÷表示）", cvrBad.length === 0, cvrBad.join(" / ") || "全行一致");
+
+  /* 横断: AIRSTAR月次報告の稼働 ↔ Beds24の実予約（独立ソース同士の突合・2026-08-25 発注者承認）。
+     報告書は運営会社の申告、beds24_state は毎朝の観測ジョブが維持する生の予約一覧——出所が別。
+     予約の泊を月に按分して締月ごとに比べる。許容±2泊（按分・キャンセル扱いの差） */
+  try {
+    const PROP_JA: Record<string, string> = { "清川": "kiyokawa", "高砂": "takasago" };
+    const st = (await getFirestore().collection("beds24_state").doc("latest").get()).data();
+    const bookings = (st?.bookings ?? {}) as Record<string,
+      { status?: string; arrival?: string; n?: number; prop?: string }>;
+    const nights: Record<string, number> = {};
+    for (const b of Object.values(bookings)) {
+      if (!b?.arrival || String(b.status ?? "") === "cancelled") continue;
+      const prop = PROP_JA[String(b.prop)] ?? String(b.prop);
+      const d = new Date(String(b.arrival) + "T00:00:00Z");
+      for (let i = 0; i < Number(b.n ?? 0); i++) {
+        const ym = d.toISOString().slice(0, 7);
+        nights[`${prop}|${ym}`] = (nights[`${prop}|${ym}`] ?? 0) + 1;
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+    }
+    const thisYm = now.toISOString().slice(0, 7);
+    const revSnap = await db.collection("revenue").where("kind", "==", "monthly").get();
+    const byProp: Record<string, string[]> = {};
+    let comparable = 0;
+    for (const dref of revSnap.docs) {
+      const r = dref.data() as { prop: string; month: string; occ: number };
+      if (!r.month || r.month >= thisYm) continue;
+      /* beds24_state の履歴は2026年5月末から。5月は部分データで必ず偽陽性になるため
+         照合の下限を06に置く（06は両棟±0泊で一致を実測確認・2026-08-25） */
+      if (r.month < "2026-06") continue;
+      const beds = nights[`${r.prop}|${r.month}`];
+      if (beds == null) continue;   // Beds24側に履歴が無い月は照合しない（下の件数で欠測が分かる）
+      comparable++;
+      const days = new Date(Number(r.month.slice(0, 4)), Number(r.month.slice(5, 7)), 0).getDate();
+      const rep = Math.round(Number(r.occ) / 100 * days);
+      byProp[r.prop] ??= [];
+      if (Math.abs(beds - rep) > 2) byProp[r.prop].push(`${r.month}: 報告${rep}泊 vs Beds24 ${beds}泊`);
+    }
+    for (const [prop, bad] of Object.entries(byProp)) {
+      const label = prop === "kiyokawa" ? "清川" : prop === "takasago" ? "高砂" : prop;
+      add("定期レポート", `${label}: 稼働の突合（AIRSTAR報告 ↔ Beds24実予約）`, bad.length === 0,
+        bad.length ? bad.join(" / ") : `照合できた全月が±2泊以内（${comparable}ヶ月）`);
+    }
+  } catch {
+    add("定期レポート", "Beds24との突合", false, "beds24_state が読めない");
+  }
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));
