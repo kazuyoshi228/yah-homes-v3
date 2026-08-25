@@ -68,13 +68,33 @@ export async function estimatesDue(now: Date): Promise<Array<{ label: string; pr
   return out.sort((a, b) => a.due - b.due);
 }
 
+/**
+ * CVの突合 — GA4直取り（ga4Daily）と定点シート経由（bookingDaily.cv）を昨日ぶんで比べる。
+ * 同じGA4を見た2系統が食い違う＝どちらかの取得が壊れた合図（spec_ga4_teiten §3）。
+ */
+async function cvCrosscheck(now: Date): Promise<string | null> {
+  const db = agencyDb();
+  const y = new Date(now.getTime() - 864e5).toISOString().slice(0, 10);
+  const [g, b] = await Promise.all([
+    db.collection("ga4Daily").doc(y).get(),
+    db.collection("bookingDaily").doc(y).get(),
+  ]);
+  const gv = g.data()?.keyEvents?.total;
+  const bv = b.data()?.cv;
+  if (g.data()?.fetchFailed) return `GA4定点の取得が失敗（${y}・fetchFailed）`;
+  if (gv == null || bv == null) return null;        // どちらか未着はまだ判定しない
+  return Number(gv) === Number(bv) ? null
+    : `CV突合の乖離（${y}）: GA4直取り ${gv} vs 定点シート経由 ${bv}`;
+}
+
 export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean; items: number }> {
   const overdue = await findOverdue(now);
   const stale = await staleHeartbeats(now);
   const exc = await exceptions();
   const un = await unmatched();
   const est = await estimatesDue(now);
-  const total = overdue.length + stale.length + exc.length + un.length + est.length;
+  const cvx = await cvCrosscheck(now);
+  const total = overdue.length + stale.length + exc.length + un.length + est.length + (cvx ? 1 : 0);
   if (total === 0) return { sent: false, items: 0 };
 
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
@@ -98,6 +118,11 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   if (exc.length) {
     L.push("■ 人の判断待ち");
     exc.forEach((e) => L.push(`　・${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`));
+    L.push("");
+  }
+  if (cvx) {
+    L.push("■ GA4定点の点検");
+    L.push(`　・${cvx}`);
     L.push("");
   }
   if (est.length) {

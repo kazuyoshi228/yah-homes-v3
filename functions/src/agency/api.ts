@@ -244,6 +244,12 @@ export const agencyApi = onRequest(
           })) });
           return;
         }
+        case "ga4Teiten": {                                   // GA4定点（ga4Daily・正本はGA4直取り）
+          const gsnap = await db.collection("ga4Daily")
+            .orderBy("date", "desc").limit(400).get();
+          res.json({ ok: true, rows: gsnap.docs.map((d) => d.data()) });
+          return;
+        }
         case "bookingTeiten": {                               // 予約状況の定点観測（定点シートの鏡を読む）
           const snap = await db.collection("bookingDaily")
             .orderBy("date", "desc").limit(400).get();
