@@ -207,7 +207,8 @@ export async function propertySummary() {
       value: noi ? Math.round(noi / capRate) : null,
       gain: noi && price ? Math.round(noi / capRate) - price : null,
       schedules: schedSnap.docs.filter((s) => s.data().prop === d.id)
-        .map((s) => ({ id: s.id, title: s.data().title, months: s.data().months, everyYears: s.data().everyYears ?? 1 })),
+        .map((s) => ({ id: s.id, title: s.data().title, months: s.data().months, everyYears: s.data().everyYears ?? 1,
+          anchorYear: s.data().anchorYear ?? null, active: s.data().active !== false })),
       /* 更新計画の前提。実効年数＝耐用年数×usageFactor（上限 lifespanCapYears） */
       usageFactor: Number(p.usageFactor ?? 2.0),
       lifespanCapYears: Number(p.lifespanCapYears ?? 30),
