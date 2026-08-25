@@ -162,6 +162,6 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 - **新しいエンドポイントは `functions/src/agency/routes/` の担当ファイルへ足す（S4・2026-08-25）。**
   api.ts は認証とCORSだけ——触らない。route: props / finance / analytics / contracts / ops
 - git 事故防止（2026-08-25）: `pull.rebase=true`・`rebase.autostash=true` 設定済み（.gitローカル。
-  クローンし直したら再設定）。**編集したら pull の前に commit** ——dirty なまま pull して
+  クローンし直したら再設定）。**編集したら pull の前に commit（add は担当ファイルだけ・`git add -A` 禁止＝並行スレッドの編集を巻き込まない）** ——dirty なまま pull して
   未コミット編集を失う事故が実際に起きた。未追跡ファイルの衝突は退避してからやり直す
 - yah-os 側の鉄則は yah-os/CLAUDE.md
