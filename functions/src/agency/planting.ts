@@ -13,7 +13,10 @@ import { onRequest } from "firebase-functions/v2/https";
 import { getStorage } from "firebase-admin/storage";
 import crypto from "node:crypto";
 import { agencyDb } from "./engine.js";
-import { sendOrDraft, ALWAYS_CC } from "./mailer.js";
+import { sendOrDraft } from "./mailer.js";
+
+/* 通知の宛先（2026-08-25 発注者指示）: オーナー＋運営会社（Airstar 杉本様） */
+const NOTIFY_TO = "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com";
 import { BEDS24_API, BEDS24_WRITE_REFRESH, beds24WriteToken, BOOKING_PROP_IDS } from "../beds24Client.js";
 
 const REGION = "asia-northeast1";
@@ -137,7 +140,7 @@ export const plantingCal = onRequest(
           timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（niwa）` }],
         });
         await sendOrDraft({
-          to: ALWAYS_CC, subject: `[yah-${ref.id}] 植栽作業の日程が入りました: 清川 ${date}`,
+          to: NOTIFY_TO, subject: `[yah-${ref.id}] 植栽作業の日程が入りました: 清川 ${date}`,
           body: `業者（${vendor || "名前未入力"}）が植栽作業の日程を選択しました。\n\n　棟: 清川\n　日付: ${date} 11:00〜15:00\n\n自動確定です。都合が悪ければメンテナンスカードでこのジョブを取り消してください。`,
         }).catch(() => { /* 通知失敗でも選択は成立させる */ });
         res.json({ ok: true, jobId: ref.id });
@@ -182,7 +185,7 @@ export const plantingCal = onRequest(
           jobId = ref.id;
         }
         await sendOrDraft({
-          to: ALWAYS_CC, subject: `[yah-${jobId}] 植栽作業の完了報告: 清川 ${date}`,
+          to: NOTIFY_TO, subject: `[yah-${jobId}] 植栽作業の完了報告: 清川 ${date}`,
           body: `業者から完了報告が届きました。\n\n　棟: 清川\n　日付: ${date}\n　内容: ${text}\n${amount ? `　金額: ¥${amount.toLocaleString()}\n` : ""}${photos.length ? `　写真: ${photos.length}枚（保管庫 reports/planting-work/）\n` : ""}\n検収（実施日・実額の確定）はメンテナンスカードでお願いします。`,
         }).catch(() => { /* 通知失敗でも報告は残る */ });
         res.json({ ok: true, jobId, photos: photos.length });
