@@ -42,6 +42,31 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             colors: bDoc.colors ?? [], type: bDoc.type ?? [], voice: bDoc.voice ?? [] });
           return true;
         }
+        case "media": {                                       // 写真・動画（保管庫から毎回引く）
+          const kind = String(req.query.kind ?? "photos");     // photos | videos
+          if (kind !== "photos" && kind !== "videos") {
+            res.status(400).json({ ok: false, error: "kind は photos / videos" }); return true;
+          }
+          const [mFiles] = await getStorage().bucket("yah-homes-os-archive")
+            .getFiles({ prefix: `${kind}/` });
+          res.json({ ok: true, kind,
+            files: mFiles
+              .filter((f) => !f.name.endsWith("/") && !f.name.endsWith("/.keep"))
+              .map((f) => {
+                const rel = f.name.slice(kind.length + 1);
+                const i = rel.lastIndexOf("/");
+                return {
+                  name: rel.slice(i + 1),
+                  /* 棟は保管庫のフォルダ名から毎回導出する（別に保存しない）。
+                     直下は棟に属さない素材＝「共用」扱い */
+                  prop: i < 0 ? "" : rel.slice(0, i).split("/")[0],
+                  path: `gs://yah-homes-os-archive/${f.name}`,
+                  size: Number(f.metadata?.size ?? 0),
+                };
+              })
+              .sort((a, b) => a.prop.localeCompare(b.prop) || a.name.localeCompare(b.name)) });
+          return true;
+        }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
           const [files] = await getStorage().bucket("yah-homes-os-archive")
             .getFiles({ prefix: "reports/cvr/" });
