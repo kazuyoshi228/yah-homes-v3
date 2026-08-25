@@ -31,15 +31,17 @@ const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 function noticeHtml(title: string, bodyText: string): string {
   const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const bodyHtml = esc(bodyText).replace(/\n/g, "<br>");
-  return `<!doctype html><html><body style="margin:0;background:#f6f5f2;padding:28px 14px;` +
+  /* 黒背景（2026-08-25 発注者指示）。ロゴは白抜き＋背景焼き込み版——透過だと
+     暗色非対応のクライアントで白ロゴが白地に溶けて消えるため */
+  return `<!doctype html><html><body style="margin:0;background:#0f0f0f;padding:28px 14px;` +
     `font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">` +
     `<div style="max-width:460px;margin:0 auto">` +
-    `<img src="https://os.yah.homes/logo-yah.png" alt="yah." width="72" height="72" style="display:block;margin:0 auto 14px">` +
-    `<div style="background:#fff;border:1px solid #e2ded6;border-radius:12px;padding:22px">` +
-    `<p style="margin:0 0 14px;color:#2b7a3f;font-size:15px;font-weight:700">${esc(title)}</p>` +
-    `<p style="margin:0;color:#333;font-size:14px;line-height:2.0">${bodyHtml}</p>` +
+    `<img src="https://os.yah.homes/logo-yah-onblack.png" alt="yah." width="72" height="72" style="display:block;margin:0 auto 14px">` +
+    `<div style="background:#1a1a1a;border:1px solid #2e2e2e;border-radius:12px;padding:22px">` +
+    `<p style="margin:0 0 14px;color:#63d297;font-size:15px;font-weight:700">${esc(title)}</p>` +
+    `<p style="margin:0;color:#e2e2e2;font-size:14px;line-height:2.0">${bodyHtml}</p>` +
     `</div>` +
-    `<p style="margin:14px 0 0;color:#b0b0b0;font-size:11px;line-height:1.7">yah. 自動手配（AI）／このメールは清川の植栽カレンダーから自動送信されています。文面はメンテナンスカード > 定型メール で編集できます</p>` +
+    `<p style="margin:14px 0 0;color:#6a6a6a;font-size:11px;line-height:1.7">yah. 自動手配（AI）／このメールは清川の植栽カレンダーから自動送信されています。文面はメンテナンスカード > 定型メール で編集できます</p>` +
     `</div></body></html>`;
 }
 /** テンプレを差し込んで送る（文面の正本は 定型メール＝mailTemplates。ここに文章を書かない） */
