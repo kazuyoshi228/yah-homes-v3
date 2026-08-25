@@ -21,6 +21,7 @@ import { healthSummary } from "./health.js";
 import { factsSummary } from "./facts.js";
 import { propertySummary, PROP_FIELDS } from "./props.js";
 import { successionSummary } from "./succession.js";
+import { plantingToken } from "./planting.js";
 interface Dim { name: string; score: number; weight: number; note?: string }
 import { getStorage } from "firebase-admin/storage";
 
@@ -264,6 +265,12 @@ export const agencyApi = onRequest(
             sub: f.name.slice(fol.prefix.length).includes("/")
               ? f.name.slice(fol.prefix.length).split("/")[0] : "",
           })).sort((a, b) => b.sub.localeCompare(a.sub) || a.name.localeCompare(b.name)) });
+          return;
+        }
+        case "plantingToken": {                               // 業者用カレンダーのトークン（発行・再発行）
+          const rotate = req.method === "POST" && (req.body as { rotate?: boolean } | undefined)?.rotate === true;
+          const token = await plantingToken(db, rotate);
+          res.json({ ok: true, token });
           return;
         }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
