@@ -161,4 +161,7 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
   `firebase deploy` を直接叩かない——並行スレッドの書きかけTSが本番に混入するのを防ぐ門番
 - `functions/src/agency/api.ts` は全エンドポイントが集まる衝突点。**エンドポイント追加は1スレッドずつ**。
   恒久策（routeファイル分割＝S4）は提案書 docs/proposal_parallel_card_updates_20260825.md 参照
+- git 事故防止（2026-08-25）: `pull.rebase=true`・`rebase.autostash=true` 設定済み（.gitローカル。
+  クローンし直したら再設定）。**編集したら pull の前に commit** ——dirty なまま pull して
+  未コミット編集を失う事故が実際に起きた。未追跡ファイルの衝突は退避してからやり直す
 - yah-os 側の鉄則は yah-os/CLAUDE.md
