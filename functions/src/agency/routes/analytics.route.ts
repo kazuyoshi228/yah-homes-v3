@@ -109,6 +109,24 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, rows: snap.docs.map((d) => d.data()) });
           return true;
         }
+        case "costArchive": {                                 // 費用カードの原本フォルダー（保管庫から毎回引く）
+          const FOLDERS: Record<string, { prefix: string; label: string }> = {
+            insurance: { prefix: "finance/insurance/", label: "保険の証券・見積" },
+            utilities: { prefix: "costs/utilities/", label: "光熱費・通信費の資料" },
+            tax: { prefix: "costs/tax/", label: "税金の通知書" },
+            recurring: { prefix: "costs/recurring/", label: "定額サービスの契約書" },
+          };
+          const cf = FOLDERS[String(req.query.folder ?? "")];
+          if (!cf) { res.status(400).json({ ok: false, error: "そのフォルダーはありません" }); return true; }
+          const [cfiles] = await getStorage().bucket("yah-homes-os-archive")
+            .getFiles({ prefix: cf.prefix });
+          res.json({ ok: true, label: cf.label, files: cfiles.map((f) => ({
+            path: `gs://yah-homes-os-archive/${f.name}`,
+            name: f.name.slice(cf.prefix.length),
+            storedAt: String((f.metadata as { timeCreated?: string }).timeCreated ?? "").slice(0, 10),
+          })).filter((f) => f.name).sort((a, b) => a.name.localeCompare(b.name)) });
+          return true;
+        }
         case "reportArchive": {                               // 定期レポートの原本フォルダー（保管庫から毎回引く）
           const FOLDERS: Record<string, { prefix: string }> = {
             cvr: { prefix: "reports/cvr/" },
