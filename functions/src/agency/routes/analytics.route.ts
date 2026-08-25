@@ -144,6 +144,58 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, total });
           return true;
         }
+        case "successionDraft": {                             // 承継採点の自動ドラフト（G・2026-08-25 発注者承認）
+          /* 判断は人のまま、集計だけ機械へ。前回の点を土台に、測定できる観点だけ
+             控えめな増減（根拠つき）を提案する。保存はしない——人が直して保存する */
+          const [h, scSnap, eqSnap, conSnap, cvrSnap, bkSnap, itSnap] = await Promise.all([
+            healthSummary(),
+            db.collection("scorecards").get(),
+            db.collection("equipment").where("kind", "==", "equipment").get(),
+            db.collection("contracts").get(),
+            db.collection("cvr").get(), db.collection("bookingDaily").get(),
+            db.collection("items").get(),
+          ]);
+          const latestDoc = scSnap.docs.sort((a, b) => b.id.localeCompare(a.id))[0];
+          if (!latestDoc) { res.status(404).json({ ok: false, error: "採点表がまだありません" }); return true; }
+          const latest = latestDoc.data() as { total: number; dimensions: Array<{ name: string; score: number; weight: number; note: string }> };
+          const lin = (docs: Array<{ data: () => Record<string, unknown> }>) => {
+            const t = docs.filter((d) => d.data().offLedger !== true);
+            return { withTx: t.filter((d) => d.data().txNo).length, total: t.length };
+          };
+          const eqL = lin(eqSnap.docs as never); const itL = lin(itSnap.docs as never);
+          const linRate = (eqL.withTx + itL.withTx) / Math.max(1, eqL.total + itL.total);
+          const orig = conSnap.docs.filter((d) => d.data().path || d.data().file).length;
+          const origRate = orig / Math.max(1, conSnap.size);
+          const warn = h.summary.warn;
+          const occ = h.checks.find((c) => c.name.includes("稼働の突合"));
+          const opsCon = conSnap.docs.find((d) => d.id === "ops-airstar")?.data();
+          const metrics = {
+            healthWarn: warn, lineage: `${eqL.withTx + itL.withTx}/${eqL.total + itL.total}`,
+            originals: `${orig}/${conSnap.size}`, teitenDays: bkSnap.size, cvrRows: cvrSnap.size,
+            occRecon: occ ? (occ.ok ? "一致" : "不一致: " + occ.detail) : "未照合",
+          };
+          const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+          const draft = latest.dimensions.map((x) => {
+            let d = 0; let basis = "機械計測の対象外。前回値を踏襲——判断で直す";
+            if (x.name === "記録と説明力") {
+              d = (warn === 0 ? 2 : warn <= 2 ? 1 : 0) + (linRate >= 0.99 ? 1 : 0) + (origRate >= 0.5 ? 1 : 0);
+              basis = `機械集計: health警告${warn}件・仕訳血統${metrics.lineage}（${Math.round(linRate * 100)}%）・`
+                + `契約原本${metrics.originals}・定点蓄積 予約${bkSnap.size}日/CVR${cvrSnap.size}行 → ${d >= 0 ? "+" : ""}${d}提案`;
+            } else if (x.name === "収益の再現性") {
+              d = occ ? (occ.ok ? 1 : -3) : 0;
+              basis = `機械集計: 稼働の独立ソース突合＝${metrics.occRecon}・先付けデータ${bkSnap.size}日蓄積 → ${d >= 0 ? "+" : ""}${d}提案`;
+            } else if (x.name === "他社依存の低さ") {
+              d = opsCon?.path || opsCon?.file ? 1 : 0;
+              basis = `機械集計: 運営委託契約の原本${opsCon?.path || opsCon?.file ? "・条項分析を格納済み" : "が未登録"}。`
+                + `料率逓減の覚書は未締結 → ${d >= 0 ? "+" : ""}${d}提案`;
+            }
+            return { name: x.name, weight: x.weight, prev: x.score, score: clamp(x.score + d), note: basis };
+          });
+          const proposedTotal = Math.round(draft.reduce((a, x) => a + x.score * x.weight, 0) / 100 * 10) / 10;
+          res.json({ ok: true, latest: { date: latestDoc.id, total: latest.total },
+            draft, proposedTotal, metrics });
+          return true;
+        }
         case "health": {                                      // 全検証を1本で（A・分析の前に必ずこれ）
           res.json({ ok: true, ...(await healthSummary()) });
           return true;
