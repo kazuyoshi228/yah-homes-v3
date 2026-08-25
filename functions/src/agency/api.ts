@@ -217,6 +217,20 @@ export const agencyApi = onRequest(
           res.json({ ok: true });
           return;
         }
+        case "saveDot": {                                     // ドットの手動上書き（人の判断・Firestoreに保存）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+          const { card, state } = req.body ?? {};
+          if (!card) { res.status(400).json({ ok: false, error: "カードが指定されていません" }); return; }
+          if (state != null && state !== "ok" && state !== "warn") {
+            res.status(400).json({ ok: false, error: "state は ok / warn / null" }); return;
+          }
+          await db.collection("settings").doc("dots").set({
+            cards: { [String(card)]: state == null ? FieldValue.delete()
+              : { state, by: email, at: new Date().toISOString() } },
+          }, { merge: true });
+          res.json({ ok: true });
+          return;
+        }
         case "health": {                                      // 全検証を1本で（A・分析の前に必ずこれ）
           res.json({ ok: true, ...(await healthSummary()) });
           return;

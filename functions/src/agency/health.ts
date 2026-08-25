@@ -30,6 +30,10 @@ export async function healthSummary() {
         ["draft", "sent", "negotiating", "confirmed", "done"]).get(),
       db.collection("assumptions").get(),
     ]);
+  /* 手動の上書き（人の判断＝保存してよい・Firestoreが正本）。色は上書きが勝つが、
+     検証結果は捨てない——ツールチップに残す */
+  const ovDoc = await db.collection("settings").doc("dots").get();
+  const overrides = (ovDoc.data()?.cards ?? {}) as Record<string, { state: string; by: string; at: string }>;
 
   /* 物件: 各棟の監査（血統・二重計上・group未宣言） */
   for (const r of props.rows as Array<{ id: string; label?: string;
@@ -92,5 +96,5 @@ export async function healthSummary() {
 
   const summary = { ok: checks.filter((c) => c.ok).length,
     warn: checks.filter((c) => !c.ok).length, total: checks.length, at: now.toISOString() };
-  return { checks, summary };
+  return { checks, summary, overrides };
 }
