@@ -149,6 +149,11 @@ export async function healthSummary() {
     const undecided = usage.filter((u) => !u.asset).map((u) => u.scene);
     add("Branding", "配布リンクの実在", broken.length === 0, broken.join(" / ") || `${usage.length}件`);
     add("Branding", "配布先が未定", undecided.length === 0, undecided.join(" / ") || "なし");
+    /* サブブランドの位置づけ（role）が空のもの。ロゴだけ存在して定義が無い状態を晒す */
+    const subs = (bDoc.subbrands ?? []) as Array<{ name: string; role: string }>;
+    const noRole = subs.filter((x) => !x.role).map((x) => x.name);
+    add("Branding", "サブブランドの位置づけが未定義", noRole.length === 0,
+      noRole.join(" / ") || `${subs.length}件すべて定義済み`);
   } catch {
     add("Branding", "配布リンクの実在", false, "保管庫が読めない");
   }

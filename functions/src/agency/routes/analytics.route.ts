@@ -41,7 +41,7 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
               size: Number(f.metadata?.size ?? 0),
             })).sort((a, b) => a.name.localeCompare(b.name)),
             colors: bDoc.colors ?? [], type: bDoc.type ?? [], voice: bDoc.voice ?? [],
-            usage: bDoc.usage ?? [] });
+            usage: bDoc.usage ?? [], subbrands: bDoc.subbrands ?? [] });
           return true;
         }
         case "media": {                                       // 写真・動画（保管庫から毎回引く）
