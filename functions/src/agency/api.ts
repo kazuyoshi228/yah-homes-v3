@@ -270,7 +270,8 @@ export const agencyApi = onRequest(
         case "plantingToken": {                               // 業者用カレンダーのトークン（発行・再発行）
           const rotate = req.method === "POST" && (req.body as { rotate?: boolean } | undefined)?.rotate === true;
           const token = await plantingToken(db, rotate);
-          res.json({ ok: true, token });
+          const ps = await db.collection("settings").doc("planting").get();
+          res.json({ ok: true, token, notifyTo: String((ps.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
           return;
         }
         case "cvrArchive": {                                  // CVR原本の一覧（保管庫から毎回引く＝一覧を二重に持たない）
