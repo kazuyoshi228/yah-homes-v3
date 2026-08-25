@@ -157,10 +157,10 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
 
 ## 並行スレッド運用（2026-08-25 発注者承認・S1/S2）
 
-- functions のデプロイは **`./deploy-functions.sh` 経由のみ**（clean・origin/main一致・tsc通過が条件）。
-  `firebase deploy` を直接叩かない——並行スレッドの書きかけTSが本番に混入するのを防ぐ門番
-- `functions/src/agency/api.ts` は全エンドポイントが集まる衝突点。**エンドポイント追加は1スレッドずつ**。
-  恒久策（routeファイル分割＝S4）は提案書 docs/proposal_parallel_card_updates_20260825.md 参照
+- **agencyApi の本番デプロイは push すれば CI が行う（S3・2026-08-25）**——functions/ に触れる
+  main への push で tsc → deploy（衝突は concurrency で直列化）。手元の `./deploy-functions.sh` は非常用
+- **新しいエンドポイントは `functions/src/agency/routes/` の担当ファイルへ足す（S4・2026-08-25）。**
+  api.ts は認証とCORSだけ——触らない。route: props / finance / analytics / contracts / ops
 - git 事故防止（2026-08-25）: `pull.rebase=true`・`rebase.autostash=true` 設定済み（.gitローカル。
   クローンし直したら再設定）。**編集したら pull の前に commit** ——dirty なまま pull して
   未コミット編集を失う事故が実際に起きた。未追跡ファイルの衝突は退避してからやり直す
