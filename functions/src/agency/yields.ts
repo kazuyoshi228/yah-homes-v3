@@ -10,6 +10,7 @@
  * 修繕積立を引くかどうかで見え方が変わるので、両方返す。
  */
 import { agencyDb } from "./engine.js";
+import { lodgingFilter } from "./places.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 
@@ -23,9 +24,10 @@ export async function yieldSummary() {
 
   /* 光熱費・通信費は「yah全体」の合算でしか無いので、稼働している棟数で割る。
      棟別に分けたいなら、会計側で科目を棟ごとに分ける必要がある。 */
+  const isLodging = await lodgingFilter();   // 宿泊事業の拠点かは places 台帳が持つ
   const activeCount = rev.byProp.length || 1;
   const utilPerYear = Math.round(
-    util.byPlace.filter((p) => p.place !== "千人町").reduce((a, p) => a + p.perMonth, 0) / activeCount * 12);
+    util.byPlace.filter((p) => isLodging(p.place)).reduce((a, p) => a + p.perMonth, 0) / activeCount * 12);
 
   const per = (snap: FirebaseFirestore.QuerySnapshot, prop: string, key: string) =>
     snap.docs.filter((d) => d.data().prop === prop).reduce((a, d) => a + Number(d.data()[key] ?? 0), 0);

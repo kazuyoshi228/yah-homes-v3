@@ -12,6 +12,7 @@
  *    （裁量費なので固定費とは別の列。docs/spec_ad_cost_classification_20260825.md）
  */
 import { agencyDb } from "./engine.js";
+import { lodgingFilter } from "./places.js";
 import { loanState, type Loan } from "./finance.js";
 
 const ACTIVE_PROPS = ["kiyokawa", "takasago"];      // 稼働中の棟。増えたらここに足す
@@ -72,14 +73,16 @@ export async function monthlySummary() {
   const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   for (let m = start; m <= end; m = addMonths(m, 1)) months.push(m);
 
+  const isLodging = await lodgingFilter();
+
   const rows: MonthlyRow[] = months.map((month) => {
     const rs = rev.filter((r) => r.month === month);
     const hasReport = rs.length > 0;
     const revenue = hasReport ? rs.reduce((a, r) => a + r.revenue, 0) : null;
     const payout = hasReport ? rs.reduce((a, r) => a + r.payout, 0) : null;
 
-    /* 光熱費は千人町（宿泊事業の物件ではない）を除く。仕訳が無い月は空欄 */
-    const us = util.filter((u) => u.month === month && u.place !== "千人町");
+    /* 光熱費は宿泊事業の拠点だけ。どの拠点がそうかは places 台帳が持つ。仕訳が無い月は空欄 */
+    const us = util.filter((u) => u.month === month && isLodging(u.place));
     const utilities = us.length ? us.reduce((a, u) => a + u.amount, 0) : null;
 
     /* 返済は契約条件から計算する。過去の月も同じ式で出せる */

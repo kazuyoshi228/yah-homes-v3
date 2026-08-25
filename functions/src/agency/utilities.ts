@@ -6,6 +6,7 @@
  * 取引Noを鍵にしているので、同じCSVを何度取り込んでも二重にならない。
  */
 import { agencyDb } from "./engine.js";
+import { placeBook } from "./places.js";
 
 export interface UtilityEntry {
   id: string; date: string; month: string;
@@ -29,11 +30,8 @@ export async function utilitySummary() {
     return { id: d.id, ...r, amountPerMonth: r.unitPrice * r.units };
   });
 
-  /* 拠点の台帳（places）。「宿泊事業の物件か」という人の判断はここ1か所に置く。
-     以前は monthly/props/yields/reports/utilities の6か所に直書きされていて、
-     拠点が増えるたびに全部直す必要があった（2026-08-25 発注者指示で集約） */
-  const placeSnap = await db.collection("places").get();
-  const placeBook = placeSnap.docs.map((d) => ({ place: d.id, ...(d.data() as { label?: string; lodging?: boolean; prop?: string; note?: string }) }));
+  /* 拠点の台帳。判断は places.ts（＝Firestoreのplaces）だけが持つ */
+  const book = await placeBook();
 
   const months = [...new Set(rows.map((r) => r.month))].sort();
   const places = [...new Set(rows.map((r) => r.place))];
@@ -52,7 +50,7 @@ export async function utilitySummary() {
   const recurringPerMonth = recurring.reduce((a, r) => a + r.amountPerMonth, 0);
   const total = sum(rows);
   return {
-    rows, byMonth, places, types, recurring, recurringPerMonth, placeBook,
+    rows, byMonth, places, types, recurring, recurringPerMonth, placeBook: book,
     byPlace: places.map((place) => {
       const rs = rows.filter((r) => r.place === place);
       const ms = [...new Set(rs.map((r) => r.month))].length;

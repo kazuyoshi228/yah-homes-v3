@@ -10,6 +10,7 @@
  */
 import { getStorage } from "firebase-admin/storage";
 import { agencyDb } from "./engine.js";
+import { lodgingFilter } from "./places.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
 
@@ -76,9 +77,10 @@ export async function propertySummary() {
     }
   } catch { /* 保管庫が読めなくても物件データは返す */ }
 
+  const isLodging = await lodgingFilter();   // 宿泊事業の拠点かは places 台帳が持つ
   const activeCount = rev.byProp.length || 1;
   const utilPerYear = Math.round(
-    util.byPlace.filter((p) => p.place !== "千人町").reduce((a, p) => a + p.perMonth, 0) / activeCount * 12);
+    util.byPlace.filter((p) => isLodging(p.place)).reduce((a, p) => a + p.perMonth, 0) / activeCount * 12);
   const per = (s: FirebaseFirestore.QuerySnapshot, prop: string, key: string) =>
     s.docs.filter((d) => d.data().prop === prop).reduce((a, d) => a + Number(d.data()[key] ?? 0), 0);
 

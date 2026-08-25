@@ -15,8 +15,9 @@
 import { agencyDb } from "./engine.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
+import { placeBook } from "./places.js";
 
-const PLACE2PROP: Record<string, string> = { "清川": "kiyokawa", "高砂": "takasago", "千人町": "senninCho" };
+/* place→prop の対応も places 台帳が持つ（コードに表を置かない） */
 const ymOf = (d: unknown) => {
   const m = String(d ?? "").match(/^(\d{4})(?:-(\d{2}))?/);
   return m ? (m[2] ? `${m[1]}-${m[2]}` : m[1]) : "";
@@ -35,6 +36,9 @@ export async function factsSummary(q: { prop?: string; ym?: string; flow?: strin
     db.collection("taxes").get(), db.collection("insurance").get(), db.collection("reserves").get(),
     revenueSummary(120), utilitySummary(),
   ]);
+  /* place→prop の対応表は台帳から組む。コードに表を持たない（拠点が増えても直さない） */
+  const place2prop = Object.fromEntries(
+    (await placeBook()).map((b) => [b.place, b.prop ?? ""]).filter(([, v]) => v));
   const out: Fact[] = [];
   const push = (f: Fact) => { if (f.amount) out.push(f); };
 
@@ -76,12 +80,12 @@ export async function factsSummary(q: { prop?: string; ym?: string; flow?: strin
   yearly(resSnap, "積立", "amountPerYear", "type");
 
   for (const r of util.rows as Array<{ id: string; month: string; place: string; type: string; amount: number }>) {
-    push({ prop: PLACE2PROP[r.place] ?? r.place, ym: r.month, amount: r.amount,
+    push({ prop: place2prop[r.place] ?? r.place, ym: r.month, amount: r.amount,
       flow: "opex", group: r.type, label: `${r.place} ${r.type}`, periodicity: "once",
       docPath: `utilities/${r.id}` });
   }
   for (const r of util.recurring as Array<{ id: string; place: string; type: string; amountPerMonth: number }>) {
-    push({ prop: PLACE2PROP[r.place] ?? r.place, ym: "", amount: r.amountPerMonth,
+    push({ prop: place2prop[r.place] ?? r.place, ym: "", amount: r.amountPerMonth,
       flow: "opex", group: r.type, label: `${r.place} ${r.type}（定額）`, periodicity: "month",
       docPath: `recurringCosts/${r.id}` });
   }
