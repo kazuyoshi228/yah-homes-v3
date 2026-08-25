@@ -118,6 +118,17 @@ export async function warrantyDue(now: Date): Promise<Array<{ id: string; label:
     .sort((a, b) => a.until.localeCompare(b.until));
 }
 
+/** 実施予定日を過ぎたのに報告が無い植栽ジョブ（P10・2026-08-25）。
+    「選んだのに来なかった」「やったのに報告を忘れた」の両方を拾う */
+export async function plantingUnreported(now: Date): Promise<string[]> {
+  const today = now.toISOString().slice(0, 10);
+  const snap = await agencyDb().collection("jobs")
+    .where("category", "==", "植栽").where("status", "==", "confirmed").get();
+  return snap.docs.map((d) => d.data() as { plantingDate?: string; vendorName?: string })
+    .filter((j) => j.plantingDate && j.plantingDate < today)
+    .map((j) => `清川 ${j.plantingDate} の作業（${j.vendorName ?? "業者"}）— 完了報告がまだありません`);
+}
+
 export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean; items: number }> {
   const overdue = await findOverdue(now);
   const stale = await staleHeartbeats(now);
@@ -127,7 +138,9 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   const cvx = await cvCrosscheck(now);
   const planting = await plantingUnscheduled(now);
   const wty = await warrantyDue(now);
-  const total = overdue.length + stale.length + exc.length + un.length + est.length + wty.length + (cvx ? 1 : 0) + (planting ? 1 : 0);
+  const pUnrep = await plantingUnreported(now);
+  const total = overdue.length + stale.length + exc.length + un.length + est.length + wty.length
+    + (cvx ? 1 : 0) + (planting ? 1 : 0) + pUnrep.length;
   if (total === 0) return { sent: false, items: 0 };
 
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
@@ -158,9 +171,10 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     L.push(`　・${cvx}`);
     L.push("");
   }
-  if (planting) {
+  if (planting || pUnrep.length) {
     L.push("■ 植栽");
-    L.push(`　・${planting}`);
+    if (planting) L.push(`　・${planting}`);
+    pUnrep.forEach((x) => L.push(`　・${x}`));
     L.push("");
   }
   if (est.length) {
