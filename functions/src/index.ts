@@ -2909,6 +2909,7 @@ export { bookingTeitenSync } from "./teitenSync.js";
 export { ga4TeitenSync } from "./ga4Sync.js";
 export { adsTeitenSync } from "./adsSync.js";
 export { gscSync } from "./gscSync.js";
+export { msgProbe } from "./msgProbe.js";
 
 export const beds24DailyObserver = onSchedule(
   // serviceAccount: 第2世代の既定はcompute SAだが、シート/GA4の共有先=appspot SAに合わせて明示指定（spec §3）
