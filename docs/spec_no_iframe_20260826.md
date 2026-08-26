@@ -1,6 +1,9 @@
 # 仕様書 — yah.OS iframe全廃＋URL再々設計（MPA直遷移への転換）
 
-- 状態: **提案（承認待ち）**
+- 状態: **承認済み・実装済み・本番デプロイ済み（2026-08-26）**
+  - 実装: os-nav.js 新設／index.html ホーム化＋旧URL転送シム／全12カード一斉配線／os-embed.js 削除／
+    os.css embed規則撤去＋osnav＋view-transition／firebase.json cleanUrls／CLAUDE.md 改訂
+  - 検証: プレビューで全カード描画・コンソールエラー0・旧URL転送（/?card=maintenance&tab=cal&prop=kiyokawa → /maintenance?tab=cal&prop=kiyokawa で棟・タブ復元）を確認後、CI経由で本番へ
 - 起票: 2026-08-26。きっかけ: 発注者「画面遷移のフラッシュのようにバババッとなる動作をどうにかして。iframe全部削除したら？」「URLも再度再設計して」
 - 前提: spec_display_stability_20260826.md の原因判定は有効。本仕様はその **P1（キープアライブ等）を置き換える**上位案。発注者の指示どおり iframe を全廃する。
 
