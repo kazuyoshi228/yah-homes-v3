@@ -148,6 +148,15 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             const bad = Object.keys(d).filter((k) => !(SCHEDULE_FIELDS as readonly string[]).includes(k));
             if (bad.length) { res.status(400).json({ ok: false, error: `保存できない項目: ${bad.join("・")}` }); return true; }
           }
+          /* 業者も許可リストで絞る。導出値（担当作業＝定期作業からの集計）は保存させない
+             （2026-08-26 業者台帳をパネルで編集できるようにしたときに追加） */
+          if (col === "vendors") {
+            const VENDOR_FIELDS = ["name", "contactName", "contact", "phone", "email",
+              "channel", "services", "active", "note"] as const;
+            const d = (data ?? {}) as Record<string, unknown>;
+            const bad = Object.keys(d).filter((k) => !(VENDOR_FIELDS as readonly string[]).includes(k));
+            if (bad.length) { res.status(400).json({ ok: false, error: `保存できない項目: ${bad.join("・")}` }); return true; }
+          }
           if (col === "settings" && id === "mailTemplates") {  // 差し込み語の綴り間違いを通さない
             for (const [k, t] of Object.entries(data as Record<string, { subject: string; body: string }>)) {
               const v = validateTemplate(t);
