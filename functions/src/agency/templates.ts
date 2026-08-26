@@ -13,16 +13,16 @@ export type TemplateKey =
   | "reminder"       // 前日リマインド
   | "chase"          // 完了報告の催促
   | "thanks"         // 完了のお礼
-  | "plantingSelect"   // 植栽: 業者が日程を選択（オーナー・運営会社への通知）
-  | "plantingUnselect" // 植栽: 業者が日程を取消
-  | "plantingReport";  // 植栽: 業者の完了報告
+  | "portalSelect"     // 業者ポータル: 日程を選択（オーナー・運営会社への通知）
+  | "portalUnselect"   // 業者ポータル: 日程を取消
+  | "portalReport";    // 業者ポータル: 完了報告
 
 /** 本文で使える差し込み記号。ここに無いものは保存時にエラーにする */
 export const TEMPLATE_VARS = [
   "vendorName", "vendorContact", "propLabel", "address", "vendorPhone", "legalName",
   "title", "dueYear", "dueMonth", "confirmedAt", "candidates",
   "jobId", "aiAddress",
-  "plantingDate", "reportText", "photoCount",   // 植栽の通知（2026-08-25）
+  "plantingDate", "reportText", "photoCount", "workLabel",   // 業者ポータルの通知（2026-08-25）
 ] as const;
 
 export interface MailTemplate {
@@ -141,12 +141,12 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "ボンファイア株式会社　自動手配システム（AI）",
     ].join("\n"),
   },
-  plantingSelect: {
-    label: "植栽: 日程が入った（通知）",
-    subject: "[yah-{{jobId}}] 植栽作業の日程が入りました: {{propLabel}} {{plantingDate}}",
+  portalSelect: {
+    label: "ポータル: {{workLabel}}の日程が入りました",
+    subject: "[yah-{{jobId}}] {{workLabel}}の日程が入りました: {{propLabel}} {{plantingDate}}",
     note: "業者がカレンダーで日を選んだときに、オーナーと運営会社へ飛ぶ通知",
     body: [
-      "業者（{{vendorName}}）が植栽作業の日程を選択しました。",
+      "業者（{{vendorName}}）が{{workLabel}}の日程を選択しました。",
       "",
       "　棟: {{propLabel}}",
       "　日付: {{plantingDate}}",
@@ -155,23 +155,23 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "自動確定です。都合が悪ければメンテナンスカード（yah.OS）でこのジョブを取り消してください。",
     ].join("\n"),
   },
-  plantingUnselect: {
-    label: "植栽: 日程の取消（通知）",
-    subject: "[yah-{{jobId}}] 植栽作業の日程が取り消されました: {{propLabel}} {{plantingDate}}",
+  portalUnselect: {
+    label: "ポータル: {{workLabel}}の日程が取り消されました",
+    subject: "[yah-{{jobId}}] {{workLabel}}の日程が取り消されました: {{propLabel}} {{plantingDate}}",
     note: "業者がカレンダーで自分の選択を取り消したときの通知。日付は空きに戻る",
     body: [
-      "業者（{{vendorName}}）が植栽作業の日程を取り消しました。",
+      "業者（{{vendorName}}）が{{workLabel}}の日程を取り消しました。",
       "",
       "　棟: {{propLabel}}",
       "　日付: {{plantingDate}}（空きに戻りました）",
     ].join("\n"),
   },
-  plantingReport: {
-    label: "植栽: 完了報告（通知）",
-    subject: "[yah-{{jobId}}] 植栽作業の完了報告: {{propLabel}} {{plantingDate}}",
+  portalReport: {
+    label: "ポータル: {{workLabel}}の完了報告",
+    subject: "[yah-{{jobId}}] {{workLabel}}の完了報告: {{propLabel}} {{plantingDate}}",
     note: "業者の完了報告。検収（実施日・実額の確定）はメンテナンスカードで",
     body: [
-      "業者から完了報告が届きました。",
+      "業者から{{workLabel}}の完了報告が届きました。",
       "",
       "　棟: {{propLabel}}",
       "　日付: {{plantingDate}}",

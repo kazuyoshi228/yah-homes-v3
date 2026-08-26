@@ -1,0 +1,273 @@
+/**
+ * 業者ポータル — 「作業に入れる日」カレンダーの共通実装（公開・トークン認証）
+ * 仕様: docs/spec_planting_schedule_beds24.md ＋ docs/proposal_vendor_portal_expansion_20260825.md
+ *
+ * 植栽（花屋アン）で実証した流れを、屋外・短時間の作業なら業者を変えて使い回せるようにした。
+ * ここに文章も棟名も持たない——ぜんぶ PortalConfig と定型メール（mailTemplates）が正本。
+ *
+ * 作業可能日＝チェックアウト日のみ。完全空室日は出さない（販売中の在庫。後から予約が入ると
+ * 作業日が潰れる。チェックアウト日は「確定済みの退去」と「16時チェックイン」に挟まれた窓）。
+ * 書けるのは「日付の選択（confirmed）」と「完了報告（done止まり）」だけ。検収は人だけ。
+ */
+import type { Request } from "firebase-functions/v2/https";
+import type { Response } from "express";
+import { getStorage } from "firebase-admin/storage";
+import crypto from "node:crypto";
+import { agencyDb } from "./engine.js";
+import { sendNotice } from "./mailer.js";
+import { loadTemplate, fill } from "./templates.js";
+import { BEDS24_API, beds24WriteToken, BOOKING_PROP_IDS } from "../beds24Client.js";
+
+export type PortalConfig = {
+  id: string;          // settings のドキュメントID（トークン・通知先の置き場）
+  category: string;    // jobs.category（メンテナンスカードの区分と一致させる）
+  prop: string;        // 対象の棟
+  propLabel: string;
+  source: string;      // jobs.source（どのポータルから来たか）
+  workLabel: string;   // 「植栽作業」「外構清掃」
+  window: string;      // 作業時間帯
+  photoDir: string;    // 保管庫の置き場
+  vendorName?: string; // 決まっていれば固定。無ければ業者が名乗る
+  notifyFallback: string;
+};
+
+export const PORTALS: Record<string, PortalConfig> = {
+  planting: {
+    id: "planting", category: "植栽", prop: "kiyokawa", propLabel: "清川",
+    source: "niwa", workLabel: "植栽作業", window: "11:00〜15:00",
+    photoDir: "reports/planting-work", vendorName: "花屋アン",
+    notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
+  },
+  exterior: {
+    id: "exterior", category: "外構清掃", prop: "kiyokawa", propLabel: "清川",
+    source: "soji", workLabel: "外構清掃", window: "11:00〜15:00",
+    photoDir: "reports/exterior-work",
+    notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
+  },
+};
+
+const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app", "http://localhost:5050"];
+const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+const jpDate = (d: string) => {
+  const [y, m, dd] = d.split("-").map(Number);
+  return `${y}年${m}月${dd}日（${"日月火水木金土"[new Date(y, m - 1, dd).getDay()]}）`;
+};
+
+/* 通知メールのHTML。Gmail は <body> のスタイルを捨てるので背景は table の bgcolor で持つ */
+function noticeHtml(title: string, bodyText: string): string {
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const bodyHtml = esc(bodyText).replace(/\n/g, "<br>");
+  return `<!doctype html><html><head><meta name="color-scheme" content="dark"></head>` +
+    `<body style="margin:0;padding:0;background:#0f0f0f">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0f0f0f" ` +
+    `style="background:#0f0f0f;margin:0;padding:0;width:100%"><tr><td align="center" ` +
+    `style="padding:28px 14px;font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">` +
+    `<table role="presentation" width="460" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;width:100%">` +
+    `<tr><td align="center" style="padding:0 0 14px">` +
+    `<img src="https://os.yah.homes/logo-yah-onblack.png" alt="yah." width="72" height="72" style="display:block;border:0">` +
+    `</td></tr>` +
+    `<tr><td bgcolor="#1a1a1a" style="background:#1a1a1a;border:1px solid #2e2e2e;border-radius:12px;padding:22px">` +
+    `<p style="margin:0 0 14px;color:#63d297;font-size:15px;font-weight:700">${esc(title)}</p>` +
+    `<p style="margin:0;color:#e2e2e2;font-size:14px;line-height:2.0">${bodyHtml}</p>` +
+    `</td></tr>` +
+    `<tr><td style="padding:14px 0 0;color:#6a6a6a;font-size:11px;line-height:1.7">` +
+    `yah. 自動手配（AI）／このメールは業者ポータルから自動送信されています。文面はメンテナンスカード > 定型メール で編集できます` +
+    `</td></tr></table></td></tr></table></body></html>`;
+}
+
+async function notify(key: "portalSelect" | "portalUnselect" | "portalReport",
+  to: string, vars: Record<string, string>): Promise<void> {
+  const t = await loadTemplate(key);
+  const body = fill(t.body, vars);
+  await sendNotice({ to, subject: fill(t.subject, vars), body,
+    html: noticeHtml(fill(t.label.replace(/^ポータル: /, ""), vars), body) });
+}
+
+/** チェックアウト日を Beds24 から引く（1時間キャッシュ・直近2ヶ月） */
+async function checkoutDays(db: FirebaseFirestore.Firestore, c: PortalConfig) {
+  const ref = db.collection("beds24cache").doc(c.id);
+  const snap = await ref.get();
+  const cached = snap.exists ? (snap.data() as { dates: string[]; at: string }) : null;
+  if (cached && Date.now() - Date.parse(cached.at) < 3600e3) return { dates: cached.dates, asOf: cached.at };
+  try {
+    const token = await beds24WriteToken();
+    const from = day(Date.now()), to = day(Date.now() + 61 * 86400000);
+    const dates = new Set<string>();
+    let next: string | null = `${BEDS24_API}/bookings?propertyId=${BOOKING_PROP_IDS[c.prop]}` +
+      `&departureFrom=${from}&departureTo=${to}&pageSize=200`;
+    while (next) {
+      const r = (await fetch(next, { headers: { token } }).then((x) => x.json())) as {
+        success?: boolean; data?: Array<{ departure?: string; status?: string }>;
+        pages?: { nextPageExists?: boolean; nextPageLink?: string };
+      };
+      if (!r.success) throw new Error(`beds24: ${JSON.stringify(r).slice(0, 200)}`);
+      for (const b of r.data ?? []) {
+        if (b.departure && !["cancelled", "black"].includes(String(b.status))) dates.add(b.departure);
+      }
+      next = r.pages?.nextPageExists ? (r.pages.nextPageLink ?? null) : null;
+    }
+    const sorted = [...dates].filter((d) => d >= from && d <= to).sort();
+    const at = new Date().toISOString();
+    await ref.set({ dates: sorted, at });
+    return { dates: sorted, asOf: at };
+  } catch (e) {
+    if (cached) return { dates: cached.dates, asOf: cached.at };   // 落ちていたら最後の断面
+    throw e;
+  }
+}
+
+/** 押さえ済みの日。ジョブが正本・取消は空きに戻る */
+async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig) {
+  const snap = await db.collection("jobs")
+    .where("category", "==", c.category).where("prop", "==", c.prop).get();
+  const m = new Map<string, string>();
+  for (const d of snap.docs) {
+    const j = d.data() as { plantingDate?: string; status?: string };
+    if (j.plantingDate && j.status !== "cancelled") m.set(j.plantingDate, d.id);
+  }
+  return m;
+}
+
+/** 書き込みのレート制限（トークン漏れ時のノイズ抑え） */
+async function rateOk(db: FirebaseFirestore.Firestore, c: PortalConfig) {
+  const hour = new Date().toISOString().slice(0, 13);
+  const ref = db.collection("beds24cache").doc(`${c.id}Rate`);
+  return db.runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    const d = s.exists ? (s.data() as { hour: string; n: number }) : { hour, n: 0 };
+    const n = d.hour === hour ? d.n + 1 : 1;
+    tx.set(ref, { hour, n });
+    return n <= 10;
+  });
+}
+
+/** トークンの発行・再発行（オーナー側の画面から呼ぶ） */
+export async function portalToken(db: FirebaseFirestore.Firestore, id: string, rotate: boolean): Promise<string> {
+  const ref = db.collection("settings").doc(id);
+  const s = await ref.get();
+  const cur = s.exists ? String((s.data() as { token?: string }).token ?? "") : "";
+  if (cur && !rotate) return cur;
+  const token = crypto.randomBytes(24).toString("base64url");
+  await ref.set({ token, updatedAt: new Date().toISOString() }, { merge: true });
+  return token;
+}
+
+/** 公開エンドポイントの本体。plantingCal / exteriorCal から設定を渡して使う */
+export async function handlePortal(c: PortalConfig, req: Request, res: Response): Promise<void> {
+  const origin = String(req.headers.origin ?? "");
+  if (ALLOW_ORIGIN.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+  }
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const db = agencyDb();
+    const t = String(req.query.t ?? (req.body as { t?: string } | undefined)?.t ?? "");
+    const st = await db.collection("settings").doc(c.id).get();
+    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string };
+    const token = String(sd.token ?? "");
+    const notifyTo = String(sd.notifyTo ?? "") || c.notifyFallback;
+    if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
+
+    if (req.method === "GET") {
+      const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
+      res.json({
+        ok: true, prop: c.prop, propLabel: c.propLabel, workLabel: c.workLabel,
+        vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "", asOf,
+        days: dates.map((d) => ({ date: d, taken: taken.has(d) })),
+      });
+      return;
+    }
+    if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+
+    const body = (req.body ?? {}) as {
+      action?: string; date?: string; vendor?: string; text?: string;
+      photos?: Array<{ name?: string; b64?: string }>;
+    };
+    if (!(await rateOk(db, c))) { res.status(429).json({ ok: false, error: "しばらく待ってから送ってください" }); return; }
+    const now = new Date().toISOString();
+    const vars = (o: Record<string, string>) => ({ propLabel: c.propLabel, workLabel: c.workLabel, ...o });
+
+    if (body.action === "select") {
+      const date = String(body.date ?? "");
+      const vendor = c.vendorName ?? String(body.vendor ?? "").slice(0, 60);
+      const [{ dates }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
+      if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
+      if (taken.has(date)) { res.status(409).json({ ok: false, error: "この日は既に選択されています" }); return; }
+      const ref = await db.collection("jobs").add({
+        type: "spot", source: c.source, category: c.category, prop: c.prop,
+        title: `${c.workLabel}（${c.propLabel}・${date} ${c.window}）`,
+        dueMonth: date.slice(0, 7), plantingDate: date, vendorName: vendor,
+        status: "confirmed", createdAt: now,
+        note: "業者がカレンダーから日程を選択（自動確定・取消はメンテナンスカードで）",
+        timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（${c.source}）` }],
+      });
+      await notify("portalSelect", notifyTo,
+        vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—" })).catch(() => {});
+      res.json({ ok: true, jobId: ref.id });
+      return;
+    }
+
+    /* 選び直し。done（報告済み）以降は取り消せない */
+    if (body.action === "unselect") {
+      const date = String(body.date ?? "");
+      const jobId = (await takenDates(db, c)).get(date);
+      if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
+      const ref = db.collection("jobs").doc(jobId);
+      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string; timeline?: unknown[] };
+      if (j.source !== c.source || j.status !== "confirmed") {
+        res.status(409).json({ ok: false, error: "この日は取り消せません（報告済みか、こちらで確定済み）" }); return;
+      }
+      await ref.set({ status: "cancelled",
+        timeline: [...(j.timeline ?? []), { at: now, status: "cancelled", by: "vendor", note: `業者がカレンダーから取消（${c.source}）` }],
+      }, { merge: true });
+      await notify("portalUnselect", notifyTo,
+        vars({ jobId, plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
+      res.json({ ok: true });
+      return;
+    }
+
+    if (body.action === "report") {
+      const date = String(body.date ?? "");
+      const text = String(body.text ?? "").slice(0, 2000);
+      if (!date || !text) { res.status(400).json({ ok: false, error: "日付と作業内容を入れてください" }); return; }
+      const photos: string[] = [];
+      const bucket = getStorage().bucket("yah-homes-os-archive");
+      for (const [i, ph] of (body.photos ?? []).slice(0, 5).entries()) {
+        const buf = Buffer.from(String(ph.b64 ?? ""), "base64");
+        if (!buf.length || buf.length > 5 * 1024 * 1024) continue;
+        const safe = String(ph.name ?? "photo").replace(/[^\w.\-]/g, "_").slice(0, 60);
+        const path = `${c.photoDir}/${date.slice(0, 7)}/${date}_${i + 1}_${safe}`;
+        await bucket.file(path).save(buf, { contentType: "image/jpeg" });
+        photos.push(`gs://yah-homes-os-archive/${path}`);
+      }
+      const ev = { at: now, status: "done", by: "vendor", note: `業者報告: ${text}` };
+      let jobId = (await takenDates(db, c)).get(date);
+      if (jobId) {
+        const ref = db.collection("jobs").doc(jobId);
+        const cur = (await ref.get()).data() as { timeline?: unknown[]; photos?: string[] };
+        await ref.set({ status: "done", vendorReported: true, reportText: text, reportedAt: now,
+          photos: [...(cur.photos ?? []), ...photos], timeline: [...(cur.timeline ?? []), ev] }, { merge: true });
+      } else {
+        /* 選択なしの飛び込み報告は、vendorReported付きの突発ジョブとして残す */
+        const ref = await db.collection("jobs").add({
+          type: "spot", source: c.source, category: c.category, prop: c.prop,
+          title: `${c.workLabel}（${c.propLabel}・${date}・報告のみ）`, dueMonth: date.slice(0, 7),
+          plantingDate: date, status: "done", vendorReported: true, reportText: text,
+          reportedAt: now, createdAt: now, photos, timeline: [ev],
+        });
+        jobId = ref.id;
+      }
+      await notify("portalReport", notifyTo,
+        vars({ jobId, plantingDate: jpDate(date), reportText: text, photoCount: String(photos.length) })).catch(() => {});
+      res.json({ ok: true, jobId, photos: photos.length });
+      return;
+    }
+
+    res.status(400).json({ ok: false, error: "unknown action" });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: (e as Error).message });
+  }
+}
