@@ -88,6 +88,38 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
 
         /* ---- 書き込み（POSTのみ） ---- */
+        case "recordDone": {   /* 過去の実施を記録する（定期作業カードの「実施を記録」）
+             前回実施は jobs が正本なので、日付を schedules に直接書かせない。
+             ここで実績ジョブを1件作り、既存の advance に渡す——検収・台帳への書き戻し・
+             次回の自動起票は、いつもの経路がそのまま動く（2026-08-25） */
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          const { scheduleId, ym, amount, vendorId, note } = req.body ?? {};
+          if (!scheduleId || !/^\d{4}-\d{2}$/.test(String(ym ?? ""))) {
+            res.status(400).json({ ok: false, error: "実施年月は 2026-08 の形で入れてください" }); return true;
+          }
+          const sc = await db.collection("schedules").doc(String(scheduleId)).get();
+          if (!sc.exists) { res.status(404).json({ ok: false, error: "その定期作業がありません" }); return true; }
+          const sd = sc.data() as Record<string, unknown>;
+          const amt = Number(amount ?? 0);
+          if (amount != null && amount !== "" && (!Number.isFinite(amt) || amt < 0)) {
+            res.status(400).json({ ok: false, error: "金額の入れ方が違います" }); return true;
+          }
+          const now = new Date().toISOString();
+          const ref = await db.collection("jobs").add({
+            type: "cycle", scheduleId: String(scheduleId),
+            title: sd.title ?? "", prop: sd.prop ?? "", category: sd.category ?? "",
+            vendorId: String(vendorId ?? sd.vendorId ?? ""),
+            status: "done", dueMonth: String(ym), doneAt: String(ym), confirmedAt: String(ym),
+            createdAt: now, backfilled: true,
+            actual: { ...(amt ? { amount: amt } : {}), ym: String(ym) },
+            note: `${note ?? ""}（過去の実施を後から記録・${email}）`,
+            timeline: [{ at: now, status: "done", by: "human", note: `${ym} に実施として登録（${email}）` }],
+          });
+          /* 検収まで進める＝設備台帳への書き戻しと次回の起票が走る */
+          await advance(ref.id, "verified", "human", `実施の記録（${email}）`);
+          res.json({ ok: true, jobId: ref.id });
+          return true;
+        }
         case "advance": {                                     // 人が状態を進める／差し戻す
           if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
           const { jobId, status, note, actual } = req.body ?? {};

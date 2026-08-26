@@ -124,4 +124,5 @@ export function enrichSchedules(
 export const SCHEDULE_FIELDS = [
   "title", "prop", "category", "everyMonths", "months", "leadDays", "vendorId",
   "budget", "active", "needsDecision", "manualOnly", "statutory", "note",
+  "anchorYear",   // 起点年。次回は導出だが「いつから始まるか」は人が決める（2026-08-25）
 ] as const;
