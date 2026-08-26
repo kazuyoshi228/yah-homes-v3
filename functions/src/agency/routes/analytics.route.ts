@@ -109,6 +109,21 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, rows: snap.docs.map((d) => d.data()) });
           return true;
         }
+        case "archiveText": {                                 // 原本（テキスト/MD）の中身を返す。履歴の表示に使う
+          const ap = String(req.query.path ?? "");
+          const PREFIX = "gs://yah-homes-os-archive/";
+          /* 保管庫の外や、意図しない領域を読ませない */
+          if (!ap.startsWith(PREFIX) || ap.includes("..")) {
+            res.status(400).json({ ok: false, error: "その場所は読めません" }); return true;
+          }
+          const objName = ap.slice(PREFIX.length);
+          if (!/^(costs|reports)\//.test(objName)) {
+            res.status(400).json({ ok: false, error: "その場所は読めません" }); return true;
+          }
+          const [buf] = await getStorage().bucket("yah-homes-os-archive").file(objName).download();
+          res.json({ ok: true, text: buf.toString("utf8").slice(0, 200000) });
+          return true;
+        }
         case "costArchive": {                                 // 費用カードの原本フォルダー（保管庫から毎回引く）
           const FOLDERS: Record<string, { prefix: string; label: string }> = {
             insurance: { prefix: "finance/insurance/", label: "保険の証券・見積" },
