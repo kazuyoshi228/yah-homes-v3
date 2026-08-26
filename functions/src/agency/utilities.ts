@@ -32,6 +32,9 @@ export async function utilitySummary() {
 
   /* 拠点の台帳。判断は places.ts（＝Firestoreのplaces）だけが持つ */
   const book = await placeBook();
+  /* 回線などの契約者情報。パスワードは持たない（管理ツール側・2026-08-26） */
+  const acctSnap = await db.collection("serviceAccounts").get();
+  const accounts = acctSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }));
 
   const months = [...new Set(rows.map((r) => r.month))].sort();
   const places = [...new Set(rows.map((r) => r.place))];
@@ -50,7 +53,7 @@ export async function utilitySummary() {
   const recurringPerMonth = recurring.reduce((a, r) => a + r.amountPerMonth, 0);
   const total = sum(rows);
   return {
-    rows, byMonth, places, types, recurring, recurringPerMonth, placeBook: book,
+    rows, byMonth, places, types, recurring, recurringPerMonth, placeBook: book, accounts,
     byPlace: places.map((place) => {
       const rs = rows.filter((r) => r.place === place);
       const ms = [...new Set(rs.map((r) => r.month))].length;
