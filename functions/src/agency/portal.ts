@@ -19,6 +19,9 @@ import { loadTemplate, fill } from "./templates.js";
 import { BEDS24_API, beds24WriteToken, BOOKING_PROP_IDS } from "../beds24Client.js";
 
 export type PortalConfig = {
+  /* checkout: チェックアウト日の窓から選ぶ（屋内に影響する作業。Beds24を読む）
+     quarter : 四半期ごとに1日を自由に決める（屋外だけで完結する作業。Beds24を読まない） */
+  mode: "checkout" | "quarter";
   id: string;          // settings のドキュメントID（トークン・通知先の置き場）
   category: string;    // jobs.category（メンテナンスカードの区分と一致させる）
   prop: string;        // 対象の棟
@@ -33,14 +36,16 @@ export type PortalConfig = {
 
 export const PORTALS: Record<string, PortalConfig> = {
   planting: {
+    mode: "checkout",
     id: "planting", category: "植栽", prop: "kiyokawa", propLabel: "清川",
     source: "niwa", workLabel: "植栽作業", window: "11:00〜15:00",
     photoDir: "reports/planting-work", vendorName: "花屋アン",
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
   exterior: {
+    mode: "quarter",
     id: "exterior", category: "外構清掃", prop: "kiyokawa", propLabel: "清川",
-    source: "soji", workLabel: "外構清掃", window: "11:00〜15:00",
+    source: "soji", workLabel: "外構清掃", window: "時間は業者様のご都合で",
     photoDir: "reports/exterior-work", vendorName: "エプロン花子",
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
@@ -116,6 +121,20 @@ async function checkoutDays(db: FirebaseFirestore.Firestore, c: PortalConfig) {
   }
 }
 
+/** 今の四半期から4つ分の枠。外構のように在庫の制約が無い作業はここから日を決める */
+function quarterSlots(now: Date, n = 4) {
+  const out: Array<{ key: string; label: string; from: string; to: string }> = [];
+  let y = now.getFullYear(), q = Math.floor(now.getMonth() / 3);   // 0..3
+  for (let i = 0; i < n; i++) {
+    const m0 = q * 3;
+    const from = `${y}-${String(m0 + 1).padStart(2, "0")}-01`;
+    const last = new Date(Date.UTC(y, m0 + 3, 0)).toISOString().slice(0, 10);
+    out.push({ key: `${y}Q${q + 1}`, label: `${y}年 第${q + 1}四半期（${m0 + 1}〜${m0 + 3}月）`, from, to: last });
+    if (++q > 3) { q = 0; y++; }
+  }
+  return out;
+}
+
 /** 押さえ済みの日。ジョブが正本・取消は空きに戻る */
 async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig) {
   const snap = await db.collection("jobs")
@@ -172,12 +191,21 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
 
     if (req.method === "GET") {
+      const base = { ok: true, mode: c.mode, prop: c.prop, propLabel: c.propLabel,
+        workLabel: c.workLabel, vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "" };
+      if (c.mode === "quarter") {
+        const taken = await takenDates(db, c);
+        const today = day(Date.now());
+        const quarters = quarterSlots(new Date()).map((q) => {
+          const hit = [...taken.entries()].find(([d]) => d >= q.from && d <= q.to);
+          return { ...q, from: q.from < today ? today : q.from,   // 過ぎた日は選べない
+            date: hit?.[0] ?? null, jobId: hit?.[1] ?? null };
+        });
+        res.json({ ...base, asOf: new Date().toISOString(), quarters });
+        return;
+      }
       const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
-      res.json({
-        ok: true, prop: c.prop, propLabel: c.propLabel, workLabel: c.workLabel,
-        vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "", asOf,
-        days: dates.map((d) => ({ date: d, taken: taken.has(d) })),
-      });
+      res.json({ ...base, asOf, days: dates.map((d) => ({ date: d, taken: taken.has(d) })) });
       return;
     }
     if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
@@ -193,9 +221,19 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (body.action === "select") {
       const date = String(body.date ?? "");
       const vendor = c.vendorName ?? String(body.vendor ?? "").slice(0, 60);
-      const [{ dates }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
-      if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
-      if (taken.has(date)) { res.status(409).json({ ok: false, error: "この日は既に選択されています" }); return; }
+      const taken = await takenDates(db, c);
+      if (c.mode === "quarter") {
+        const qs = quarterSlots(new Date());
+        const q = qs.find((x) => date >= x.from && date <= x.to);
+        if (!q) { res.status(400).json({ ok: false, error: "選べるのは今の四半期から4つ先までです" }); return; }
+        if (date < day(Date.now())) { res.status(400).json({ ok: false, error: "過ぎた日は選べません" }); return; }
+        const dup = [...taken.keys()].find((d) => d >= q.from && d <= q.to);
+        if (dup) { res.status(409).json({ ok: false, error: `${q.label}は ${dup} で決まっています` }); return; }
+      } else {
+        const { dates } = await checkoutDays(db, c);
+        if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
+        if (taken.has(date)) { res.status(409).json({ ok: false, error: "この日は既に選択されています" }); return; }
+      }
       const ref = await db.collection("jobs").add({
         type: "spot", source: c.source, category: c.category, prop: c.prop,
         title: `${c.workLabel}（${c.propLabel}・${date} ${c.window}）`,
