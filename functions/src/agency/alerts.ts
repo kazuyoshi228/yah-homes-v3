@@ -90,7 +90,12 @@ async function cvCrosscheck(now: Date): Promise<string | null> {
 /** 当月の植栽作業日が未選択なら知らせる（毎月10日から・清川）。
     業者ページで日を選べば消える。2026-08-25 発注者指示 */
 export async function plantingUnscheduled(now: Date): Promise<string | null> {
-  if (now.getDate() < 10) return null;
+  /* 周期の正本は settings/planting（コードに埋めない）。植栽は定期作業に置かない——
+     予定を立てるのは業者で、こちらは「今月まだ選ばれていない」ことに気づければよい */
+  const st = await agencyDb().collection("settings").doc("planting").get();
+  const cfg = (st.data() ?? {}) as { cadenceMonths?: number; alertFromDay?: number };
+  const fromDay = Number(cfg.alertFromDay ?? 10);
+  if (now.getDate() < fromDay) return null;
   const ym = now.toISOString().slice(0, 7);
   const snap = await agencyDb().collection("jobs")
     .where("category", "==", "植栽").where("prop", "==", "kiyokawa").get();
