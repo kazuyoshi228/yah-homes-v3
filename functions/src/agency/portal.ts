@@ -32,6 +32,9 @@ export type PortalConfig = {
   photoDir: string;    // 保管庫の置き場
   vendorName?: string; // 決まっていれば固定。無ければ業者が名乗る
   notifyFallback: string;
+  /* 一度に回れる棟のまとまり（quarter モード）。1回の選択で棟ごとにジョブを立て、
+     費用は頭割りにする——業者の操作は1回、帳簿は棟別（2026-08-27 発注者決定） */
+  groups?: Array<{ key: string; label: string; props: string[]; propLabels: string[]; availableFrom?: string }>;
 };
 
 export const PORTALS: Record<string, PortalConfig> = {
@@ -47,6 +50,11 @@ export const PORTALS: Record<string, PortalConfig> = {
     id: "exterior", category: "外構清掃", prop: "kiyokawa", propLabel: "清川",
     source: "soji", workLabel: "外構清掃", window: "時間は業者様のご都合で",
     photoDir: "reports/exterior-work", vendorName: "エプロン花子",
+    groups: [
+      { key: "kt", label: "清川＋高砂", props: ["kiyokawa", "takasago"], propLabels: ["清川", "高砂"] },
+      { key: "ro", label: "六本松＋大手門", props: ["ropponmatsu", "otemonA", "otemonB"],
+        propLabels: ["六本松", "大手門A", "大手門B"], availableFrom: "2027-02-01" },
+    ],
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
 };
@@ -135,16 +143,25 @@ function quarterSlots(now: Date, n = 4) {
   return out;
 }
 
-/** 押さえ済みの日。ジョブが正本・取消は空きに戻る */
-async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig) {
-  const snap = await db.collection("jobs")
-    .where("category", "==", c.category).where("prop", "==", c.prop).get();
+/** 押さえ済みの日。ジョブが正本・取消は空きに戻る。
+    group を渡すとそのまとまりだけを見る（棟ごとに複数のジョブが立つため、代表1件を返す） */
+async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig, group?: string) {
+  const q = group
+    ? db.collection("jobs").where("category", "==", c.category).where("portalGroup", "==", group)
+    : db.collection("jobs").where("category", "==", c.category).where("prop", "==", c.prop);
+  const snap = await q.get();
   const m = new Map<string, string>();
   for (const d of snap.docs) {
     const j = d.data() as { plantingDate?: string; status?: string };
-    if (j.plantingDate && j.status !== "cancelled") m.set(j.plantingDate, d.id);
+    if (j.plantingDate && j.status !== "cancelled" && !m.has(j.plantingDate)) m.set(j.plantingDate, d.id);
   }
   return m;
+}
+
+/** 同じ選択で立った兄弟ジョブ（棟ごと）をまとめて動かすために引く */
+async function batchJobs(db: FirebaseFirestore.Firestore, batch: string) {
+  const snap = await db.collection("jobs").where("portalBatch", "==", batch).get();
+  return snap.docs.filter((d) => (d.data() as { status?: string }).status !== "cancelled");
 }
 
 /** 書き込みのレート制限（トークン漏れ時のノイズ抑え） */
@@ -194,14 +211,23 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       const base = { ok: true, mode: c.mode, prop: c.prop, propLabel: c.propLabel,
         workLabel: c.workLabel, vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "" };
       if (c.mode === "quarter") {
-        const taken = await takenDates(db, c);
         const today = day(Date.now());
-        const quarters = quarterSlots(new Date()).map((q) => {
-          const hit = [...taken.entries()].find(([d]) => d >= q.from && d <= q.to);
-          return { ...q, from: q.from < today ? today : q.from,   // 過ぎた日は選べない
-            date: hit?.[0] ?? null, jobId: hit?.[1] ?? null };
-        });
-        res.json({ ...base, asOf: new Date().toISOString(), quarters });
+        const slots = quarterSlots(new Date());
+        const groups = await Promise.all((c.groups ?? []).map(async (g) => {
+          const taken = await takenDates(db, c, g.key);
+          return {
+            key: g.key, label: g.label, availableFrom: g.availableFrom ?? null,
+            quarters: slots.map((q) => {
+              const hit = [...taken.entries()].find(([d]) => d >= q.from && d <= q.to);
+              const from = q.from < today ? today : q.from;
+              /* 未オープンの棟は、開業日より前の四半期を選べなくする */
+              const blocked = !!g.availableFrom && q.to < g.availableFrom;
+              return { ...q, from: g.availableFrom && from < g.availableFrom ? g.availableFrom : from,
+                blocked, date: hit?.[0] ?? null, jobId: hit?.[1] ?? null };
+            }),
+          };
+        }));
+        res.json({ ...base, asOf: new Date().toISOString(), groups });
         return;
       }
       const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
@@ -211,7 +237,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
 
     const body = (req.body ?? {}) as {
-      action?: string; date?: string; from?: string; vendor?: string; text?: string;
+      action?: string; date?: string; from?: string; group?: string; vendor?: string; text?: string;
       photos?: Array<{ name?: string; b64?: string }>;
     };
     if (!(await rateOk(db, c))) { res.status(429).json({ ok: false, error: "しばらく待ってから送ってください" }); return; }
@@ -221,14 +247,43 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (body.action === "select") {
       const date = String(body.date ?? "");
       const vendor = c.vendorName ?? String(body.vendor ?? "").slice(0, 60);
-      const taken = await takenDates(db, c);
+      const g = c.groups?.find((x) => x.key === String(body.group ?? ""));
+      const taken = await takenDates(db, c, g?.key);
       if (c.mode === "quarter") {
+        if (c.groups && !g) { res.status(400).json({ ok: false, error: "対象のまとまりが指定されていません" }); return; }
         const qs = quarterSlots(new Date());
         const q = qs.find((x) => date >= x.from && date <= x.to);
         if (!q) { res.status(400).json({ ok: false, error: "選べるのは今の四半期から4つ先までです" }); return; }
         if (date < day(Date.now())) { res.status(400).json({ ok: false, error: "過ぎた日は選べません" }); return; }
+        if (g?.availableFrom && date < g.availableFrom) {
+          res.status(400).json({ ok: false, error: `${g.label}は ${g.availableFrom} 以降で選んでください` }); return;
+        }
         const dup = [...taken.keys()].find((d) => d >= q.from && d <= q.to);
         if (dup) { res.status(409).json({ ok: false, error: `${q.label}は ${dup} で決まっています` }); return; }
+        /* まとまりで1回選ぶと、棟ごとにジョブが立つ。費用は頭割り（2026-08-27 発注者決定）。
+           業者の操作は1回・帳簿は棟別、を両立させる */
+        if (g) {
+          const batch = crypto.randomBytes(9).toString("base64url");
+          const share = Math.round((1 / g.props.length) * 1000) / 1000;
+          const ids: string[] = [];
+          for (const [i, prop] of g.props.entries()) {
+            const ref = await db.collection("jobs").add({
+              type: "spot", source: c.source, category: c.category, prop,
+              title: `${c.workLabel}（${g.propLabels[i]}・${date}）`,
+              dueMonth: date.slice(0, 7), plantingDate: date, vendorName: vendor,
+              portalGroup: g.key, portalBatch: batch, costShare: share,
+              status: "confirmed", createdAt: now,
+              note: `業者がカレンダーから日程を選択（${g.label} をまとめて実施・費用は頭割り ${Math.round(share * 100)}%）`,
+              timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（${c.source}・${g.label}）` }],
+            });
+            ids.push(ref.id);
+          }
+          await notify("portalSelect", notifyTo,
+            vars({ jobId: ids[0], plantingDate: jpDate(date), vendorName: vendor || "—",
+              propLabel: g.label })).catch(() => {});
+          res.json({ ok: true, jobId: ids[0], jobIds: ids });
+          return;
+        }
       } else {
         const { dates } = await checkoutDays(db, c);
         if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
@@ -251,7 +306,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     /* 日程の変更。取消→再選択の2手を1手にする。ジョブは同じものを動かす＝履歴が切れない */
     if (body.action === "change") {
       const from = String(body.from ?? ""), date = String(body.date ?? "");
-      const taken = await takenDates(db, c);
+      const taken = await takenDates(db, c, String(body.group ?? "") || undefined);
       const jobId = taken.get(from);
       if (!jobId) { res.status(404).json({ ok: false, error: "変更元の日が見つかりません" }); return; }
       if (date === from) { res.json({ ok: true, jobId }); return; }
@@ -267,15 +322,22 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません" }); return; }
       }
       const ref = db.collection("jobs").doc(jobId);
-      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string; timeline?: unknown[] };
+      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;
+        timeline?: unknown[]; portalBatch?: string; title?: string };
       if (j.source !== c.source || j.status !== "confirmed") {
         res.status(409).json({ ok: false, error: "この日は変更できません（報告済みか、こちらで確定済み）" }); return;
       }
-      await ref.set({
-        plantingDate: date, dueMonth: date.slice(0, 7),
-        title: `${c.workLabel}（${c.propLabel}・${date}）`,
-        timeline: [...(j.timeline ?? []), { at: now, status: "confirmed", by: "vendor", note: `業者が日程を変更: ${from} → ${date}（${c.source}）` }],
-      }, { merge: true });
+      /* まとまりで立てたジョブは兄弟もいっしょに動かす（棟ごとに日がズレない） */
+      const sibs = j.portalBatch ? await batchJobs(db, j.portalBatch) : [];
+      const targets = sibs.length ? sibs : [await ref.get()];
+      for (const d of targets) {
+        const cur = d.data() as { timeline?: unknown[]; title?: string };
+        await d.ref.set({
+          plantingDate: date, dueMonth: date.slice(0, 7),
+          title: String(cur.title ?? "").replace(/・\d{4}-\d{2}-\d{2}/, `・${date}`),
+          timeline: [...(cur.timeline ?? []), { at: now, status: "confirmed", by: "vendor", note: `業者が日程を変更: ${from} → ${date}（${c.source}）` }],
+        }, { merge: true });
+      }
       await notify("portalChange", notifyTo,
         vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
       res.json({ ok: true, jobId });
@@ -285,16 +347,21 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     /* 選び直し。done（報告済み）以降は取り消せない */
     if (body.action === "unselect") {
       const date = String(body.date ?? "");
-      const jobId = (await takenDates(db, c)).get(date);
+      const jobId = (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
       if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
       const ref = db.collection("jobs").doc(jobId);
-      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string; timeline?: unknown[] };
+      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;
+        timeline?: unknown[]; portalBatch?: string };
       if (j.source !== c.source || j.status !== "confirmed") {
         res.status(409).json({ ok: false, error: "この日は取り消せません（報告済みか、こちらで確定済み）" }); return;
       }
-      await ref.set({ status: "cancelled",
-        timeline: [...(j.timeline ?? []), { at: now, status: "cancelled", by: "vendor", note: `業者がカレンダーから取消（${c.source}）` }],
-      }, { merge: true });
+      const sibs2 = j.portalBatch ? await batchJobs(db, j.portalBatch) : [];
+      for (const d of (sibs2.length ? sibs2 : [await ref.get()])) {
+        const cur = d.data() as { timeline?: unknown[] };
+        await d.ref.set({ status: "cancelled",
+          timeline: [...(cur.timeline ?? []), { at: now, status: "cancelled", by: "vendor", note: `業者がカレンダーから取消（${c.source}）` }],
+        }, { merge: true });
+      }
       await notify("portalUnselect", notifyTo,
         vars({ jobId, plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
       res.json({ ok: true });
@@ -316,12 +383,17 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         photos.push(`gs://yah-homes-os-archive/${path}`);
       }
       const ev = { at: now, status: "done", by: "vendor", note: `業者報告: ${text}` };
-      let jobId = (await takenDates(db, c)).get(date);
+      let jobId = (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
       if (jobId) {
         const ref = db.collection("jobs").doc(jobId);
-        const cur = (await ref.get()).data() as { timeline?: unknown[]; photos?: string[] };
-        await ref.set({ status: "done", vendorReported: true, reportText: text, reportedAt: now,
-          photos: [...(cur.photos ?? []), ...photos], timeline: [...(cur.timeline ?? []), ev] }, { merge: true });
+        const j0 = (await ref.get()).data() as { portalBatch?: string };
+        /* まとまりで立てたジョブは兄弟もいっしょに done にする（片方だけ残らない） */
+        const sibs = j0.portalBatch ? await batchJobs(db, j0.portalBatch) : [];
+        for (const d of (sibs.length ? sibs : [await ref.get()])) {
+          const cur = d.data() as { timeline?: unknown[]; photos?: string[] };
+          await d.ref.set({ status: "done", vendorReported: true, reportText: text, reportedAt: now,
+            photos: [...(cur.photos ?? []), ...photos], timeline: [...(cur.timeline ?? []), ev] }, { merge: true });
+        }
       } else {
         /* 選択なしの飛び込み報告は、vendorReported付きの突発ジョブとして残す */
         const ref = await db.collection("jobs").add({
