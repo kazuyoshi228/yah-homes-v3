@@ -29,8 +29,8 @@ async function unmatched() {
 }
 
 /**
- * 毎朝の点検メール。異常が1つも無ければ送らない（通知が増えると読まれなくなるため）。
- * ただし「沈黙の検知」だけは別で、ハートビートが切れていたら必ず送る。
+ * 毎朝の点検メール。異常ゼロの日も「全て正常」を1通送る（2026-08-27 発注者指示）——
+ * 毎日届くこと自体が見張りの生存証明になる（届かない日＝配信系の異常）。
  */
 /**
  * 見積の催促 — 概算のまま実施年が近づいている長期修繕を拾う。
@@ -146,7 +146,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   const pUnrep = await plantingUnreported(now);
   const total = overdue.length + stale.length + exc.length + un.length + est.length + wty.length
     + (cvx ? 1 : 0) + (planting ? 1 : 0) + pUnrep.length;
-  if (total === 0) return { sent: false, items: 0 };
+  /* 異常ゼロでも毎日1通送る（2026-08-27 発注者指示）。
+     「静かだから正常」ではなく「正常だと毎日言ってくる」——見張り自体が生きている証明を兼ねる */
 
   /* セクションを一度データで組み、テキスト版とHTML版を同じ内容から生成する（2026-08-27 発注者指示でHTML化）。
      期日の表示は dueLabel（実施日が決まっていれば日付・なければ月） */
@@ -178,15 +179,17 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     sec.rows.forEach((r2) => L.push(`　・${r2}`));
     L.push("");
   }
+  if (total === 0) L.push("✓ 全て正常です（期日・ハートビート・突合・保証・受信箱、すべて異常なし）", "");
   L.push(`画面: ${SCREEN}`);
-  L.push("（このメールは異常がある日だけ届きます）");
+  L.push("（毎日届きます。届かない日は配信系の異常です）");
 
   const escH = (v: string) => v.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
   const toneColor = { bad: "#c0392b", warn: "#b07d10", info: "#556" };
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f2;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1c1c1c">
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px">
     <p style="margin:0 0 4px;font-size:15px;font-weight:700">yah.OS 外部委託の点検結果</p>
-    <p style="margin:0 0 18px;font-size:12px;color:#888">要対応 ${total}件（このメールは異常がある日だけ届きます）</p>
+    <p style="margin:0 0 18px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}（毎日届きます。届かない日は配信系の異常です）</p>
+    ${total === 0 ? `<p style="margin:0;font-size:13px;color:#1e7d3e;background:#eef7f0;border:1px solid #cfe8d6;border-radius:7px;padding:10px 14px">✓ 全て正常です——期日・ハートビート・突合・保証・受信箱、すべて異常なし</p>` : ""}
     ${secs.map((sec) => `
     <p style="margin:16px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;color:${toneColor[sec.tone]}">■ ${escH(sec.title)}</p>
     <ul style="margin:0;padding-left:1.2em">
@@ -201,7 +204,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
      ゲートに掛けると下書きに眠って誰にも届かない（2026-08-25 植栽の通知で発覚・同日修正） */
   await sendNotice({
     to,
-    subject: `[yah.OS] 外部委託の要対応 ${total}件${stale.length ? "（自動処理の停止あり）" : ""}`,
+    subject: total === 0 ? "[yah.OS] 点検 異常なし"
+      : `[yah.OS] 外部委託の要対応 ${total}件${stale.length ? "（自動処理の停止あり）" : ""}`,
     body: L.join("\n"),
     html,
   });
