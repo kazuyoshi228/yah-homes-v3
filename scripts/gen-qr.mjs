@@ -11,6 +11,7 @@
  *   public/qr/print/chat-{施設}-print.png 2048px  現地掲示・MANUAL本
  *   public/qr/print/chat-{施設}-card-a6.svg/.png  A6印刷カード
  *   public/qr/print/chat-{施設}-card-97.svg/.png/.pdf  97×97mm カード（現地掲示・2026-08-19 発注者仕様）
+ *   public/qr/print/chat-{施設}-card-a4.svg/.png/.pdf  A4横 297×210mm カード（2026-08-27 発注者仕様）
  *
  * 実行: pnpm qr                （認証が要る。読めなければ止まる）
  *       pnpm qr --if-possible  （ビルド用。施設マスタを読めない環境では既存ファイルのまま
@@ -111,25 +112,54 @@ async function card97Svg(key, url) {
 </svg>`;
 }
 
-/* SVG → 97mm角 PDF。ローカルの Chrome で印刷出力する。
+/* SVG → 指定サイズの PDF。ローカルの Chrome で印刷出力する（97mm角・A4横で共用）。
    Chrome が無い環境（CI等）では PDF を飛ばして続行する（SVG・PNG は必ず出る）。 */
-async function card97Pdf(svg, outPath) {
+async function cardPdf(svg, outPath, w, h, tag) {
   const CHROME = process.env.SMOKE_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   if (!existsSync(CHROME)) return false;
   let puppeteer;
   try { puppeteer = (await import("puppeteer-core")).default; } catch { return false; }
-  const html = `<!doctype html><meta charset="utf-8"><style>@page{size:97mm 97mm;margin:0}html,body{margin:0;padding:0}svg{display:block;width:97mm;height:97mm}</style>${svg.replace(/<\?xml[^>]*\?>/, "")}`;
-  const tmp = `${PRINT}/.card97.tmp.html`;
+  const html = `<!doctype html><meta charset="utf-8"><style>@page{size:${w} ${h};margin:0}html,body{margin:0;padding:0}svg{display:block;width:${w};height:${h}}</style>${svg.replace(/<\?xml[^>]*\?>/, "")}`;
+  const tmp = `${PRINT}/.card-${tag}.tmp.html`;
   writeFileSync(tmp, html);
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-first-run"] });
   const page = await browser.newPage();
   await page.goto(`file://${process.cwd()}/${tmp}`, { waitUntil: "load" });
   await new Promise((r) => setTimeout(r, 400));
-  await page.pdf({ path: outPath, width: "97mm", height: "97mm", printBackground: true,
+  await page.pdf({ path: outPath, width: w, height: h, printBackground: true,
     margin: { top: 0, right: 0, bottom: 0, left: 0 } });
   await browser.close();
   rmSync(tmp);
   return true;
+}
+
+/* A4横カード（297×210mm・2026-08-27 発注者仕様）。現地掲示・遠目に見せる用途。
+   左にQR（約92mm角＝125mmの75%）、右に見出し・URL・ロゴ。QR＋情報の塊を版面中央に置く。 */
+const A4W = 2970, A4H = 2100;
+async function cardA4Svg(key, url) {
+  const qr = QRCode.create(url, { errorCorrectionLevel: "H" });
+  const size = qr.modules.size, data = qr.modules.data;
+  const m = Math.floor(1250 * 0.75 / size);   // 整数グリッド（にじみ防止）
+  const box = m * size;
+  const GAP = 220, TEXT_W = 1000;
+  const qx = Math.round((A4W - (box + GAP + TEXT_W)) / 2), qy = Math.round((A4H - box) / 2);
+  let rects = "";
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (data[r * size + c]) rects += `<rect x="${qx + c * m}" y="${qy + r * m}" width="${m}" height="${m}"/>`;
+    }
+  }
+  const tx = qx + box + GAP;
+  const F = "Helvetica, Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${A4W} ${A4H}" width="${A4W}" height="${A4H}">
+<rect width="${A4W}" height="${A4H}" fill="#FFFFFF"/>
+<g fill="#000000">${rects}</g>
+<text x="${tx}" y="905" font-family="${F}" font-weight="600" font-size="104" fill="#1A1A1A">24/7 AI chat support</text>
+<text x="${tx}" y="1030" font-family="${F}" font-size="62" fill="#777777">Scan the QR code to chat with us</text>
+<text x="${tx}" y="1180" font-family="${F}" font-size="72" fill="#1A1A1A">${url.replace("https://", "")}</text>
+<g transform="translate(${tx - 25},1265) scale(0.52)">${LOGO_PATHS}</g>
+</svg>`;
 }
 
 async function cardSvg(key, url) {
@@ -199,14 +229,21 @@ for (const key of keys) {
   // pnpm qr で明示的に作り直す。ただし新規施設でまだ無い場合は --no-pdf でも作る（配布物を欠かさない）。
   const pdfPath = `${PRINT}/chat-${key}-card-97.pdf`;
   const keptPdf = NO_PDF && existsSync(pdfPath);
-  const pdfOk = keptPdf ? false : await card97Pdf(svg97, pdfPath);
-  const pdfNote = keptPdf ? "／PDFは既存を維持" : pdfOk ? "・PDF" : "／PDFはChromeが無く省略";
-  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード / 97mmカード(SVG・PNG${pdfNote})`);
+  const pdfOk = keptPdf ? false : await cardPdf(svg97, pdfPath, "97mm", "97mm", "97");
+  // A4横カード（297×210mm・現地掲示用）。PDF の扱いは 97mm と同じ方針（--no-pdf で既存維持）
+  const svgA4 = await cardA4Svg(key, url);
+  writeFileSync(`${PRINT}/chat-${key}-card-a4.svg`, svgA4);
+  await sharp(Buffer.from(svgA4), { density: 200 }).png().toFile(`${PRINT}/chat-${key}-card-a4.png`);
+  const a4Path = `${PRINT}/chat-${key}-card-a4.pdf`;
+  const keptA4 = NO_PDF && existsSync(a4Path);
+  const a4Ok = keptA4 ? false : await cardPdf(svgA4, a4Path, "297mm", "210mm", "a4");
+  const pdfNote = (keptPdf && keptA4) ? "／PDFは既存を維持" : (pdfOk && a4Ok) ? "・PDF" : "／PDFはChromeが無く省略";
+  console.log(`[gen-qr] ${key}: ${url} → 通常360px / 印刷2048px / A6カード / 97mmカード / A4横カード(SVG・PNG${pdfNote})`);
 }
 
 /* 公開をやめた施設のファイルを消す（古いQRを配り続けない） */
 const keep = new Set(keys);
-for (const [dir, re] of [[OUT, /^chat-(.+)\.png$/], [PRINT, /^chat-(.+?)-(print\.png|card-a6\.(svg|png)|card-97\.(svg|png|pdf))$/]]) {
+for (const [dir, re] of [[OUT, /^chat-(.+)\.png$/], [PRINT, /^chat-(.+?)-(print\.png|card-a6\.(svg|png)|card-(97|a4)\.(svg|png|pdf))$/]]) {
   for (const f of readdirSync(dir)) {
     const m = re.exec(f);
     if (m && !keep.has(m[1])) { rmSync(`${dir}/${f}`); console.log(`[gen-qr] 公開停止のため削除: ${dir}/${f}`); }

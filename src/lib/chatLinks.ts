@@ -12,4 +12,7 @@ export const qrPaths = (prop: string) => ({
   card97Pdf: `/qr/print/chat-${prop}-card-97.pdf`,
   card97Svg: `/qr/print/chat-${prop}-card-97.svg`,
   card97Png: `/qr/print/chat-${prop}-card-97.png`,
+  // A4横 297×210mm カード（現地掲示・2026-08-27 発注者仕様）
+  cardA4Pdf: `/qr/print/chat-${prop}-card-a4.pdf`,
+  cardA4Svg: `/qr/print/chat-${prop}-card-a4.svg`,
 });
