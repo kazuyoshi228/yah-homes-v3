@@ -105,21 +105,49 @@ export async function propertySummary() {
 
     /* 二重計上の検知。同じ仕訳（取引No）が複数の置き場に現れたら警告する。
        エアスター・toolbox・カーテンFIXで実際に3回起きた失敗を、構造で防ぐ（2026-08-24）。
-       同一置き場内の分割（例: 振替¥760,000をキッチンと洗面台に分ける）は正常なので数えない。 */
-    const txSources: Record<string, Set<string>> = {};
-    const addTx = (t: unknown, src: string, splitOk?: unknown) => {
+       同一置き場内の分割（例: 振替¥760,000をキッチンと洗面台に分ける）は正常なので数えない。
+
+       1枚の伝票を意図して割ることもある（ミラタップ¥294,900＝キッチン設備＋キッチンパネル、
+       キューネック¥110,000＝カメラ機器＋設置工事）。これを黙って見逃すと本物の二重計上まで
+       素通りするので、splitTotal（元の伝票額）を持たせ、**割った合計が伝票額と一致するかを検算する**。
+       一致すれば正常な分割、ズレていれば警告に残す（2026-08-26 発注者承認）。
+       splitOk は検算なしで抑制する旧方式。splitTotal が無い行のためだけに残す */
+    type TxRow = { src: string; amount: number; splitTotal: number | null; splitOk: boolean };
+    const txRows: Record<string, TxRow[]> = {};
+    const addTx = (t: unknown, src: string, amount: unknown,
+                   splitOk?: unknown, splitTotal?: unknown) => {
       const k = String(t ?? ""); if (!k) return;
-      if (splitOk === true) return;   // 明示的な分割（1つの振込を2品目に割ったもの）は正常
-      (txSources[k] ??= new Set()).add(src);
+      /* 「512,520,680」のように1行が複数の仕訳をまとめている場合は、
+         集約行なので二重計上の検知対象から外す（金額は行に1つしかなく按分できない） */
+      if (k.includes(",")) return;
+      (txRows[k] ??= []).push({
+        src, amount: Number(amount ?? 0),
+        splitTotal: splitTotal == null ? null : Number(splitTotal),
+        splitOk: splitOk === true,
+      });
     };
-    for (const it of supplies) addTx(it.txNo, "備品", it.splitOk);
-    for (const it of construction) addTx(it.txNo, "工事", it.splitOk);
-    for (const it of acquisition) addTx(it.txNo, "投資額", it.splitOk);
-    for (const e of eqSnap.docs.filter((e) => e.data().prop === d.id))
-      addTx(e.data().txNo, String(e.data().group ?? "設備"), e.data().splitOk);
-    const dupWarnings = Object.entries(txSources)
-      .filter(([, srcs]) => srcs.size > 1)
-      .map(([txNo, srcs]) => ({ txNo, sources: [...srcs] }));
+    for (const it of supplies) addTx(it.txNo, "備品", it.amount, it.splitOk, it.splitTotal);
+    for (const it of construction) addTx(it.txNo, "工事", it.amount, it.splitOk, it.splitTotal);
+    for (const it of acquisition) addTx(it.txNo, "投資額", it.amount, it.splitOk, it.splitTotal);
+    for (const e of eqSnap.docs.filter((e) => e.data().prop === d.id)) {
+      const v = e.data();
+      addTx(v.txNo, String(v.group ?? "設備"), v.amount ?? v.price, v.splitOk, v.splitTotal);
+    }
+    const dupWarnings = Object.entries(txRows)
+      .map(([txNo, rows]) => {
+        const srcs = [...new Set(rows.map((r2) => r2.src))];
+        if (srcs.length <= 1) return null;
+        if (rows.every((r2) => r2.splitOk)) return null;   // 旧方式の明示的な分割
+        /* 全行が同じ splitTotal を持ち、合計が一致するなら意図した分割＝正常 */
+        const totals = [...new Set(rows.map((r2) => r2.splitTotal))];
+        const sum = rows.reduce((a, r2) => a + r2.amount, 0);
+        if (totals.length === 1 && totals[0] !== null && sum === totals[0]) return null;
+        const detail = totals.length === 1 && totals[0] !== null
+          ? `分割の合計¥${sum.toLocaleString()}が伝票額¥${totals[0].toLocaleString()}と一致しない`
+          : "";
+        return { txNo, sources: srcs, sum, splitTotal: totals.length === 1 ? totals[0] : null, detail };
+      })
+      .filter((w): w is NonNullable<typeof w> => w !== null);
 
     const sumArr = (arr: Array<{ amount?: unknown; date?: unknown }>, y2026?: boolean) =>
       arr.filter((x) => y2026 === undefined || String(x.date ?? "").startsWith("2026") === y2026)
