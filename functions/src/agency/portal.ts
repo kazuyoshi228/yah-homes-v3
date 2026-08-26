@@ -41,7 +41,7 @@ export const PORTALS: Record<string, PortalConfig> = {
   exterior: {
     id: "exterior", category: "外構清掃", prop: "kiyokawa", propLabel: "清川",
     source: "soji", workLabel: "外構清掃", window: "11:00〜15:00",
-    photoDir: "reports/exterior-work",
+    photoDir: "reports/exterior-work", vendorName: "エプロン花子",
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
 };
