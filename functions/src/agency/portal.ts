@@ -53,7 +53,9 @@ export const PORTALS: Record<string, PortalConfig> = {
     groups: [
       { key: "kt", label: "清川＋高砂", props: ["kiyokawa", "takasago"], propLabels: ["清川", "高砂"] },
       { key: "ro", label: "六本松＋大手門", props: ["ropponmatsu", "otemonA", "otemonB"],
-        propLabels: ["六本松", "大手門A", "大手門B"], availableFrom: "2027-02-01" },
+        /* 六本松のオープンは2027年2月だが、外構清掃は 2027Q2（4〜6月）から
+           ——開業直後は不要という判断（2026-08-27 発注者） */
+        propLabels: ["六本松", "大手門A", "大手門B"], availableFrom: "2027-04-01" },
     ],
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
