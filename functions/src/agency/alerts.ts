@@ -148,57 +148,53 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     + (cvx ? 1 : 0) + (planting ? 1 : 0) + pUnrep.length;
   if (total === 0) return { sent: false, items: 0 };
 
-  const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
-  if (stale.length) {
-    L.push("■ 自動処理が動いていない可能性（最優先）");
-    stale.forEach((s) => L.push(`　・${s.name}: ${Math.floor(s.silentSec / 3600)}時間 音沙汰なし`));
-    L.push("");
-  }
+  /* セクションを一度データで組み、テキスト版とHTML版を同じ内容から生成する（2026-08-27 発注者指示でHTML化）。
+     期日の表示は dueLabel（実施日が決まっていれば日付・なければ月） */
   const crit = overdue.filter((o) => o.level === "critical");
-  if (crit.length) {
-    L.push("■ 期日を大きく超過");
-    crit.forEach((o) => L.push(`　・${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.job.dueMonth}）— ${o.reason}`));
-    L.push("");
-  }
   const warn = overdue.filter((o) => o.level === "warn");
-  if (warn.length) {
-    L.push("■ 期日が近い・遅れている");
-    warn.forEach((o) => L.push(`　・${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.job.dueMonth}）— ${o.reason}`));
+  const secs: Array<{ title: string; tone: "bad" | "warn" | "info"; rows: string[] }> = [];
+  if (stale.length) secs.push({ title: "自動処理が動いていない可能性（最優先）", tone: "bad",
+    rows: stale.map((s2) => `${s2.name}: ${Math.floor(s2.silentSec / 3600)}時間 音沙汰なし`) });
+  if (crit.length) secs.push({ title: "期日を大きく超過", tone: "bad",
+    rows: crit.map((o) => `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`) });
+  if (warn.length) secs.push({ title: "期日が近い・遅れている", tone: "warn",
+    rows: warn.map((o) => `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`) });
+  if (exc.length) secs.push({ title: "人の判断待ち", tone: "warn",
+    rows: exc.map((e) => `${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`) });
+  if (cvx) secs.push({ title: "GA4定点の点検", tone: "warn", rows: [cvx] });
+  if (planting || pUnrep.length) secs.push({ title: "植栽", tone: "warn",
+    rows: [...(planting ? [planting] : []), ...pUnrep] });
+  if (est.length) secs.push({ title: "見積を取る時期（概算のまま実施年が近い）", tone: "info",
+    rows: est.map((e) => `${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`) });
+  if (wty.length) secs.push({ title: "保証の期限が近い（不調がないか点検・あれば保証で修理）", tone: "info",
+    rows: wty.map((w) => `${w.label}（${w.until}まで）`) });
+  if (un.length) secs.push({ title: "ジョブに紐付かなかったメール", tone: "info",
+    rows: un.map((u) => `${u.from}「${u.subject}」`) });
+
+  const SCREEN = "https://os.yah.homes/maintenance";
+  const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
+  for (const sec of secs) {
+    L.push(`■ ${sec.title}`);
+    sec.rows.forEach((r2) => L.push(`　・${r2}`));
     L.push("");
   }
-  if (exc.length) {
-    L.push("■ 人の判断待ち");
-    exc.forEach((e) => L.push(`　・${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`));
-    L.push("");
-  }
-  if (cvx) {
-    L.push("■ GA4定点の点検");
-    L.push(`　・${cvx}`);
-    L.push("");
-  }
-  if (planting || pUnrep.length) {
-    L.push("■ 植栽");
-    if (planting) L.push(`　・${planting}`);
-    pUnrep.forEach((x) => L.push(`　・${x}`));
-    L.push("");
-  }
-  if (est.length) {
-    L.push("■ 見積を取る時期（概算のまま実施年が近い）");
-    est.forEach((e) => L.push(`　・${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`));
-    L.push("");
-  }
-  if (wty.length) {
-    L.push("■ 保証の期限が近い（不調がないか点検・あれば保証で修理）");
-    wty.forEach((w) => L.push(`　・${w.label}（${w.until}まで）`));
-    L.push("");
-  }
-  if (un.length) {
-    L.push("■ ジョブに紐付かなかったメール");
-    un.forEach((u) => L.push(`　・${u.from}「${u.subject}」`));
-    L.push("");
-  }
-  L.push("画面: https://os.yah.homes/vendors.html");
+  L.push(`画面: ${SCREEN}`);
   L.push("（このメールは異常がある日だけ届きます）");
+
+  const escH = (v: string) => v.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
+  const toneColor = { bad: "#c0392b", warn: "#b07d10", info: "#556" };
+  const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f2;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1c1c1c">
+  <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px">
+    <p style="margin:0 0 4px;font-size:15px;font-weight:700">yah.OS 外部委託の点検結果</p>
+    <p style="margin:0 0 18px;font-size:12px;color:#888">要対応 ${total}件（このメールは異常がある日だけ届きます）</p>
+    ${secs.map((sec) => `
+    <p style="margin:16px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;color:${toneColor[sec.tone]}">■ ${escH(sec.title)}</p>
+    <ul style="margin:0;padding-left:1.2em">
+      ${sec.rows.map((r2) => `<li style="font-size:13px;line-height:1.9;color:#333">${escH(r2)}</li>`).join("")}
+    </ul>`).join("")}
+    <p style="margin:24px 0 0"><a href="${SCREEN}" style="display:inline-block;background:#1c1c1c;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px">yah.OS で確認する</a></p>
+  </div>
+</body></html>`;
 
   const to = (await notifySettings()).exceptionsTo;
   /* 点検メールは「起きた事実の通知」——autoSendゲート（業者へのAI発信の停止弁）を通らない。
@@ -207,6 +203,7 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     to,
     subject: `[yah.OS] 外部委託の要対応 ${total}件${stale.length ? "（自動処理の停止あり）" : ""}`,
     body: L.join("\n"),
+    html,
   });
   const r = { mode: "sent" as const };
   await agencyDb().collection("alertLogs").add({
