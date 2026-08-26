@@ -31,6 +31,7 @@ export type ScheduleView = Doc & {
   lastDone: string | null;      // 前回実施（YYYY-MM または YYYY-MM-DD）
   lastDoneFrom: "job" | "ledger" | null;
   nextDueMonth: string | null;  // 次回（自動）
+  nextDueFrom: "job" | "anchor" | "month" | null;   // どう出したか（推測の度合いを画面に出す）
 };
 
 export function enrichSchedules(
@@ -64,10 +65,10 @@ export function enrichSchedules(
       : num(s.everyMonths) || (num(s.everyYears) >= 99 ? 0 : num(s.everyYears) * 12);
 
     const months = (Array.isArray(s.months) ? s.months as number[] : []).map(Number).filter(Boolean);
+    /* 実施月は「次回」の列で分かるので、周期には出さない（2026-08-25 発注者指摘） */
     const cycleLabel = everyMonths === 0 ? "単発"
-      : everyMonths % 12 === 0
-        ? `${everyMonths / 12}年ごと${months.length ? `（${months.join("・")}月）` : ""}`
-        : `${everyMonths}ヶ月ごと${months.length ? `（${months.join("・")}月）` : ""}`;
+      : everyMonths % 12 === 0 ? `${everyMonths / 12}年ごと`
+        : `${everyMonths}ヶ月ごと`;
 
     /* 前回実施。ジョブが最優先、無ければ設備の設置年月 */
     const fromJob = lastBySchedule.get(String(s.id)) ?? null;
@@ -75,21 +76,47 @@ export function enrichSchedules(
     const lastDone = fromJob ?? fromEq;
     const lastDoneFrom = fromJob ? "job" as const : (fromEq ? "ledger" as const : null);
 
-    /* 次回。前回＋周期。実施月が決まっていればその月に丸める */
+    /* 次回。実績が無くても分かるものは出す。分からないものは推測せず「初回待ち」と言う
+       （2026-08-25 発注者指摘: 単発も繰り返しも「—」ばかりで区別できなかった） */
+    const anchor = num(s.anchorYear);
+    const now = new Date();
+    const fmt = (y: number, m: number) => `${y}/${String(m).padStart(2, "0")}`;
     let nextDueMonth: string | null = null;
+    let nextDueFrom: "job" | "anchor" | "month" | null = null;
+
     if (lastDone && everyMonths > 0) {
+      /* ① 実績がある: 前回＋周期。実施月が決まっていればその月に丸める */
       const [y, m] = lastDone.split("-").map(Number);
       if (y) {
         const d = new Date(Date.UTC(y, (m || 1) - 1 + everyMonths, 1));
         let yy = d.getUTCFullYear(), mm = d.getUTCMonth() + 1;
         if (months.length) mm = months.reduce((a, b) =>
           Math.abs(b - mm) < Math.abs(a - mm) ? b : a, months[0]);
-        nextDueMonth = `${yy}/${String(mm).padStart(2, "0")}`;
+        nextDueMonth = fmt(yy, mm); nextDueFrom = "job";
       }
+    } else if (anchor) {
+      /* ② 起点年がある（単発・長周期）: その年の実施月。過ぎていて繰り返しなら次の周期へ送る */
+      let yy = anchor, mm = months.length ? months[0] : 1;
+      if (everyMonths > 0) {
+        while (yy * 12 + mm < now.getFullYear() * 12 + now.getMonth() + 1) {
+          const d = new Date(Date.UTC(yy, mm - 1 + everyMonths, 1));
+          yy = d.getUTCFullYear(); mm = d.getUTCMonth() + 1;
+        }
+      }
+      nextDueMonth = months.length ? fmt(yy, mm) : `${yy}年`;
+      nextDueFrom = "anchor";
+    } else if (months.length && everyMonths > 0 && everyMonths <= 12) {
+      /* ③ 毎年・半年など短い周期で実施月が決まっている: 次に来るその月
+            （2年以上は起点が分からないと年が決まらないので推測しない） */
+      const nowKey = now.getFullYear() * 12 + now.getMonth() + 1;
+      const cands = months.map((m) => (nowKey <= now.getFullYear() * 12 + m
+        ? { y: now.getFullYear(), m } : { y: now.getFullYear() + 1, m }));
+      const pick = cands.sort((a, b) => (a.y * 12 + a.m) - (b.y * 12 + b.m))[0];
+      nextDueMonth = fmt(pick.y, pick.m); nextDueFrom = "month";
     }
 
     return { ...s, everyMonths, cycleLabel, cycleFromLedger: fromLedger, ledgerId,
-             lastDone, lastDoneFrom, nextDueMonth } as ScheduleView;
+             lastDone, lastDoneFrom, nextDueMonth, nextDueFrom } as ScheduleView;
   });
 }
 
