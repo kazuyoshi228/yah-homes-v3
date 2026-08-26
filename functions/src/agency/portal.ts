@@ -80,7 +80,7 @@ function noticeHtml(title: string, bodyText: string): string {
     `</td></tr></table></td></tr></table></body></html>`;
 }
 
-async function notify(key: "portalSelect" | "portalUnselect" | "portalReport",
+async function notify(key: "portalSelect" | "portalChange" | "portalUnselect" | "portalReport",
   to: string, vars: Record<string, string>): Promise<void> {
   const t = await loadTemplate(key);
   const body = fill(t.body, vars);
@@ -211,7 +211,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
 
     const body = (req.body ?? {}) as {
-      action?: string; date?: string; vendor?: string; text?: string;
+      action?: string; date?: string; from?: string; vendor?: string; text?: string;
       photos?: Array<{ name?: string; b64?: string }>;
     };
     if (!(await rateOk(db, c))) { res.status(429).json({ ok: false, error: "しばらく待ってから送ってください" }); return; }
@@ -245,6 +245,40 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       await notify("portalSelect", notifyTo,
         vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—" })).catch(() => {});
       res.json({ ok: true, jobId: ref.id });
+      return;
+    }
+
+    /* 日程の変更。取消→再選択の2手を1手にする。ジョブは同じものを動かす＝履歴が切れない */
+    if (body.action === "change") {
+      const from = String(body.from ?? ""), date = String(body.date ?? "");
+      const taken = await takenDates(db, c);
+      const jobId = taken.get(from);
+      if (!jobId) { res.status(404).json({ ok: false, error: "変更元の日が見つかりません" }); return; }
+      if (date === from) { res.json({ ok: true, jobId }); return; }
+      if (taken.has(date)) { res.status(409).json({ ok: false, error: "その日は既に決まっています" }); return; }
+      if (date < day(Date.now())) { res.status(400).json({ ok: false, error: "過ぎた日は選べません" }); return; }
+      if (c.mode === "quarter") {
+        const q = quarterSlots(new Date()).find((x) => from >= x.from && from <= x.to);
+        if (!q || date < q.from || date > q.to) {
+          res.status(400).json({ ok: false, error: "同じ四半期のなかで選んでください" }); return;
+        }
+      } else {
+        const { dates } = await checkoutDays(db, c);
+        if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません" }); return; }
+      }
+      const ref = db.collection("jobs").doc(jobId);
+      const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string; timeline?: unknown[] };
+      if (j.source !== c.source || j.status !== "confirmed") {
+        res.status(409).json({ ok: false, error: "この日は変更できません（報告済みか、こちらで確定済み）" }); return;
+      }
+      await ref.set({
+        plantingDate: date, dueMonth: date.slice(0, 7),
+        title: `${c.workLabel}（${c.propLabel}・${date}）`,
+        timeline: [...(j.timeline ?? []), { at: now, status: "confirmed", by: "vendor", note: `業者が日程を変更: ${from} → ${date}（${c.source}）` }],
+      }, { merge: true });
+      await notify("portalChange", notifyTo,
+        vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
+      res.json({ ok: true, jobId });
       return;
     }
 

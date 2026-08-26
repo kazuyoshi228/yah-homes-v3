@@ -14,6 +14,7 @@ export type TemplateKey =
   | "chase"          // 完了報告の催促
   | "thanks"         // 完了のお礼
   | "portalSelect"     // 業者ポータル: 日程を選択（オーナー・運営会社への通知）
+  | "portalChange"     // 業者ポータル: 日程を変更
   | "portalUnselect"   // 業者ポータル: 日程を取消
   | "portalReport";    // 業者ポータル: 完了報告
 
@@ -22,7 +23,7 @@ export const TEMPLATE_VARS = [
   "vendorName", "vendorContact", "propLabel", "address", "vendorPhone", "legalName",
   "title", "dueYear", "dueMonth", "confirmedAt", "candidates",
   "jobId", "aiAddress",
-  "plantingDate", "reportText", "photoCount", "workLabel",   // 業者ポータルの通知（2026-08-25）
+  "plantingDate", "reportText", "photoCount", "workLabel", "beforeDate",   // 業者ポータルの通知（2026-08-25）
 ] as const;
 
 export interface MailTemplate {
@@ -151,6 +152,20 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, MailTemplate> = {
       "　棟: {{propLabel}}",
       "　日付: {{plantingDate}}",
       "　時間: 11:00〜15:00",
+      "",
+      "自動確定です。都合が悪ければメンテナンスカード（yah.OS）でこのジョブを取り消してください。",
+    ].join("\n"),
+  },
+  portalChange: {
+    label: "ポータル: {{workLabel}}の日程が変更されました",
+    subject: "[yah-{{jobId}}] {{workLabel}}の日程が変更されました: {{propLabel}} {{plantingDate}}",
+    note: "業者がカレンダーで日程を選び直したときの通知",
+    body: [
+      "業者（{{vendorName}}）が{{workLabel}}の日程を変更しました。",
+      "",
+      "　棟: {{propLabel}}",
+      "　変更前: {{beforeDate}}",
+      "　変更後: {{plantingDate}}",
       "",
       "自動確定です。都合が悪ければメンテナンスカード（yah.OS）でこのジョブを取り消してください。",
     ].join("\n"),
