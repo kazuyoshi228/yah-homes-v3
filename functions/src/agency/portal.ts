@@ -190,6 +190,24 @@ async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig, grou
   return m;
 }
 
+/** 他のポータルが同じ棟で押さえている日。ぶつかりを知らせるために引く（塞ぎはしない）。
+    屋外どうしなら同日でも困らないので、判断は業者に委ねて「他の業者が入る」とだけ伝える */
+async function othersBusy(db: FirebaseFirestore.Firestore, c: PortalConfig) {
+  const props = c.groups ? [...new Set(c.groups.flatMap((g) => g.props))] : [c.prop];
+  const snap = await db.collection("jobs").where("prop", "in", props.slice(0, 10)).get();
+  const m = new Map<string, string[]>();
+  for (const d of snap.docs) {
+    const j = d.data() as { plantingDate?: string; status?: string; source?: string; vendorName?: string };
+    if (!j.plantingDate || j.status === "cancelled" || !j.source) continue;
+    if (j.source === c.source) continue;                    // 自分のポータルは除く
+    if (!["niwa", "soji", "kaiteki"].includes(j.source)) continue;
+    const who = j.vendorName || "他の業者";
+    const cur = m.get(j.plantingDate) ?? [];
+    if (!cur.includes(who)) m.set(j.plantingDate, [...cur, who]);
+  }
+  return m;
+}
+
 /** 同じ選択で立った兄弟ジョブ（棟ごと）をまとめて動かすために引く */
 async function batchJobs(db: FirebaseFirestore.Firestore, batch: string) {
   const snap = await db.collection("jobs").where("portalBatch", "==", batch).get();
@@ -249,7 +267,9 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         /* 水まわりは最初の1件を決めてから deadlineDays 以内に終わらせる（仕様 §2） */
         const first = tasks.map((t) => taken.get(t.key)?.date).filter(Boolean).sort()[0];
         const deadline = first ? day(Date.parse(first) + Number(sd.deadlineDays ?? 30) * 86400000) : null;
+        const busyT = await othersBusy(db, c);
         res.json({ ...base, asOf, days: dates, deadline, deadlineGroup: "水まわり",
+          busy: Object.fromEntries(busyT),
           tasks: tasks.map((t) => ({ ...t, date: null, jobId: null, status: null, ...(taken.get(t.key) ?? {}) })) });
         return;
       }
@@ -272,11 +292,14 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
             }),
           };
         }));
-        res.json({ ...base, asOf: new Date().toISOString(), groups });
+        res.json({ ...base, asOf: new Date().toISOString(), groups,
+          busy: Object.fromEntries(await othersBusy(db, c)) });
         return;
       }
       const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
-      res.json({ ...base, asOf, days: dates.map((d) => ({ date: d, taken: taken.has(d) })) });
+      const busy = await othersBusy(db, c);
+      res.json({ ...base, asOf, busy: Object.fromEntries(busy),
+        days: dates.map((d) => ({ date: d, taken: taken.has(d), busy: busy.get(d) ?? null })) });
       return;
     }
     if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
