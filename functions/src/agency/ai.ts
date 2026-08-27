@@ -12,7 +12,15 @@ import { GoogleGenAI, Type, FunctionDeclaration, Content } from "@google/genai";
 import { healthSummary } from "./health.js";
 import { factsSummary } from "./facts.js";
 import { renewalPlan } from "./lifecycle.js";
-import { findOverdue } from "./engine.js";
+import { findOverdue, agencyDb } from "./engine.js";
+import { propertySummary } from "./props.js";
+import { loanSummary } from "./finance.js";
+import { monthlySummary } from "./monthly.js";
+import { yieldSummary } from "./yields.js";
+import { revenueSummary } from "./revenue.js";
+import { utilitySummary } from "./utilities.js";
+import { successionSummary } from "./succession.js";
+import { judgmentSummary } from "./judgments.js";
 
 const MODEL = "gemini-2.5-pro";
 
@@ -51,7 +59,72 @@ const TOOLS: FunctionDeclaration[] = [
     description: "期日が近い・遅れている外部委託ジョブの一覧（見張りと同じ判定）。",
     parameters: { type: Type.OBJECT, properties: {} },
   },
+  {
+    name: "get_properties",
+    description: "物件の全属性＋投資額（取得費用＋リフォーム導出）＋監査。棟のスペック・取得価格・構造・耐用年数の質問はこれ。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_loans",
+    description: "借入の一覧と返済状態（残債・月々・利率・完済時期は契約条件から毎回導出）。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_monthly",
+    description: "月次の財務集計（売上・費用・収支）。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_yields",
+    description: "利回り（投資額と収益から導出）。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_revenue",
+    description: "月次売上報告（AIRSTAR報告書が原本）。売上・稼働率・ADR・支払額。",
+    parameters: {
+      type: Type.OBJECT,
+      properties: { months: { type: Type.NUMBER, description: "直近何ヶ月分か（既定12）" } },
+    },
+  },
+  {
+    name: "get_utilities",
+    description: "光熱費・通信費など変動費の明細と月次集計。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_succession",
+    description: "事業承継の採点（scorecards）と説明力の推移。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_judgments",
+    description: "判定カレンダー（値上げ等の合格ラインと実測の突合）。",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "read_collection",
+    description: "上の道具に無いデータの最後の手段。agency DB の台帳を生のまま読む（読み取り専用）。" +
+      "対象: properties / items / equipment / schedules / jobs / taxes / insurance / reserves / finance / " +
+      "revenue / places / utilities / recurringCosts / contracts / cvr / assumptions / scorecards / vendors / " +
+      "templates / alertLogs / unmatched / heartbeats。" +
+      "集計済みの答えが欲しい時は専用道具を優先（このツールは生の行を返すだけ）。",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        collection: { type: Type.STRING, description: "コレクション名（上記のいずれか）" },
+        prop: { type: Type.STRING, description: "棟IDで絞る（propフィールドを持つ台帳のみ有効）" },
+        limit: { type: Type.NUMBER, description: "最大行数（既定100・上限300）" },
+      },
+      required: ["collection"],
+    },
+  },
 ];
+
+/* read_collection の許可台帳（読み取り専用・settings は通知先メール等を含むため除外） */
+const READABLE = new Set(["properties", "items", "equipment", "schedules", "jobs", "taxes", "insurance",
+  "reserves", "finance", "revenue", "places", "utilities", "recurringCosts", "contracts", "cvr",
+  "assumptions", "scorecards", "vendors", "templates", "alertLogs", "unmatched", "heartbeats"]);
 
 async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
   switch (name) {
@@ -74,6 +147,30 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
     case "list_overdue_jobs":
       return (await findOverdue()).map((o) => ({
         title: o.job.title, prop: o.job.prop, due: o.dueLabel, level: o.level, reason: o.reason }));
+    case "get_properties": return propertySummary();
+    case "get_loans": return loanSummary();
+    case "get_monthly": return monthlySummary();
+    case "get_yields": return yieldSummary();
+    case "get_revenue": return revenueSummary(Math.min(Number(input.months ?? 12) || 12, 36));
+    case "get_utilities": return utilitySummary();
+    case "get_succession": return successionSummary();
+    case "get_judgments": return judgmentSummary();
+    case "read_collection": {
+      const col = String(input.collection ?? "");
+      if (!READABLE.has(col)) return { error: `読めない台帳: ${col}（許可: ${[...READABLE].join(", ")}）` };
+      const limit = Math.min(Math.max(Number(input.limit ?? 100) || 100, 1), 300);
+      let q = agencyDb().collection(col).limit(limit) as FirebaseFirestore.Query;
+      if (input.prop) q = agencyDb().collection(col).where("prop", "==", String(input.prop)).limit(limit);
+      const snap = await q.get();
+      /* 長文フィールド（メール本文等）は刈ってトークンを守る */
+      const rows = snap.docs.map((d) => {
+        const o: Record<string, unknown> = { id: d.id };
+        for (const [k, v] of Object.entries(d.data()))
+          o[k] = typeof v === "string" && v.length > 500 ? v.slice(0, 500) + "…" : v;
+        return o;
+      });
+      return { collection: col, count: rows.length, truncatedAt: limit, rows };
+    }
     default: return { error: `不明な道具: ${name}` };
   }
 }
@@ -83,7 +180,8 @@ const SYSTEM = `あなたは yah.OS（宿泊事業の経営OS）の分析アシ�
 事業の前提: 一棟貸しの宿泊施設を運営（清川=kiyokawa・高砂=takasago が稼働中、六本松=ropponmatsu・大手門A/B=otemonA/otemonB が開発中）。運営は外部委託（管理料は棟数逓増で率が下がる）。
 
 鉄則:
-- 数字は必ず道具（get_facts 等）の結果から引用する。道具に無い数字を推測で作らない。データが無ければ「データがありません」と言う
+- 数字は必ず道具の結果から引用する。道具に無い数字を推測で作らない。データが無ければ「データがありません」と言う
+- 集計済みの導出道具（get_facts / get_properties / get_loans 等）を優先し、無いものだけ read_collection で生の台帳を読む。複数の道具を跨いで横断してよい
 - 金額は ¥12,345 形式。集計はどの行から計算したか一言添える
 - 回答は簡潔に。表が要るときだけ表。結論を先に
 - 判断や公開などの操作はできない（読み取り専用）。求められたら「操作は画面から人が行う決まりです」と案内する`;
