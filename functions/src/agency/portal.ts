@@ -34,7 +34,11 @@ export type PortalConfig = {
   notifyFallback: string;
   /* 一度に回れる棟のまとまり（quarter モード）。1回の選択で棟ごとにジョブを立て、
      費用は頭割りにする——業者の操作は1回、帳簿は棟別（2026-08-27 発注者決定） */
-  groups?: Array<{ key: string; label: string; props: string[]; propLabels: string[]; availableFrom?: string }>;
+  groups?: Array<{ key: string; label: string; props: string[]; propLabels: string[];
+    availableFrom?: string;
+    /* 業者に説明するまで画面に出さない。settings の showGroups に key を足すと出る
+       （消すのではなく隠す＝説明が済んだら戻せる・2026-08-27 発注者指示） */
+    hiddenUntilAnnounced?: boolean }>;
 };
 
 export const PORTALS: Record<string, PortalConfig> = {
@@ -55,7 +59,8 @@ export const PORTALS: Record<string, PortalConfig> = {
       { key: "ro", label: "六本松＋大手門", props: ["ropponmatsu", "otemonA", "otemonB"],
         /* 六本松のオープンは2027年2月だが、外構清掃は 2027Q2（4〜6月）から
            ——開業直後は不要という判断（2026-08-27 発注者） */
-        propLabels: ["六本松", "大手門A", "大手門B"], availableFrom: "2027-04-01" },
+        propLabels: ["六本松", "大手門A", "大手門B"], availableFrom: "2027-04-01",
+        hiddenUntilAnnounced: true },
     ],
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
@@ -204,7 +209,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     const db = agencyDb();
     const t = String(req.query.t ?? (req.body as { t?: string } | undefined)?.t ?? "");
     const st = await db.collection("settings").doc(c.id).get();
-    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string };
+    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string; showGroups?: string[] };
     const token = String(sd.token ?? "");
     const notifyTo = String(sd.notifyTo ?? "") || c.notifyFallback;
     if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
@@ -215,7 +220,9 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       if (c.mode === "quarter") {
         const today = day(Date.now());
         const slots = quarterSlots(new Date());
-        const groups = await Promise.all((c.groups ?? []).map(async (g) => {
+        /* 説明前のまとまりは出さない（業者を混乱させないため） */
+        const shown = (c.groups ?? []).filter((g) => !g.hiddenUntilAnnounced || (sd.showGroups ?? []).includes(g.key));
+        const groups = await Promise.all(shown.map(async (g) => {
           const taken = await takenDates(db, c, g.key);
           return {
             key: g.key, label: g.label, availableFrom: g.availableFrom ?? null,
@@ -249,7 +256,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (body.action === "select") {
       const date = String(body.date ?? "");
       const vendor = c.vendorName ?? String(body.vendor ?? "").slice(0, 60);
-      const g = c.groups?.find((x) => x.key === String(body.group ?? ""));
+      const g = c.groups?.find((x) => x.key === String(body.group ?? "")
+        && (!x.hiddenUntilAnnounced || (sd.showGroups ?? []).includes(x.key)));
       const taken = await takenDates(db, c, g?.key);
       if (c.mode === "quarter") {
         if (c.groups && !g) { res.status(400).json({ ok: false, error: "対象のまとまりが指定されていません" }); return; }
