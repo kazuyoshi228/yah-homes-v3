@@ -10,6 +10,7 @@ import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "../templa
 import { sendRequests, handleReply } from "../dispatcher.js";
 import { plantingToken, exteriorToken, kaitekiToken } from "../planting.js";
 import { enrichSchedules, SCHEDULE_FIELDS } from "../schedules.js";
+import { acceptIntake } from "../intake.js";
 
 export type Ctx = {
   db: FirebaseFirestore.Firestore;
@@ -250,6 +251,39 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           const token = await plantingToken(db, rotate);
           const ps = await db.collection("settings").doc("planting").get();
           res.json({ ok: true, token, notifyTo: String((ps.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
+          return true;
+        }
+        case "intake": {                                      // 取込の下書き一覧（段D・検収待ち）
+          const snap = await ctx.db.collection("intake").where("status", "==", "draft").get();
+          const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+              String(b.at ?? "").localeCompare(String(a.at ?? "")));
+          res.json({ ok: true, rows });
+          return true;
+        }
+        case "intakeAccept": {                                // 検収＝正本へ（人のクリックのみ）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          const r2 = await acceptIntake(String(req.body?.id ?? ""), ctx.email);
+          res.json({ ok: true, ...r2 });
+          return true;
+        }
+        case "intakeReject": {                                // 破棄（誤読・重複）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          await ctx.db.collection("intake").doc(String(req.body?.id ?? "")).update({
+            status: "rejected", rejectedBy: ctx.email, rejectedAt: new Date().toISOString(),
+            note: String(req.body?.note ?? "") });
+          res.json({ ok: true });
+          return true;
+        }
+        case "intakeDoc": {                                   // 原本スクショを一時リンクで開く
+          const gs3 = String(req.query.path ?? "");
+          if (!gs3.startsWith("gs://yah-homes-os-archive/intake/")) {
+            res.status(400).json({ ok: false, error: "その置き場は開けません" }); return true;
+          }
+          const [bk3, ...rest3] = gs3.slice(5).split("/");
+          const [url3] = await getStorage().bucket(bk3).file(rest3.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url: url3 });
           return true;
         }
         case "unmatched": {                                   // 紐付かなかったメール（受信箱・人待ちのみ）

@@ -159,6 +159,12 @@ export async function healthSummary() {
     add("Branding", "配布リンクの実在", false, "保管庫が読めない");
   }
 
+  /* 取込の検収待ち（段D）。消し込みはメンテナンスの受信箱 */
+  const inSnap = await db.collection("intake").where("status", "==", "draft").get();
+  add("メンテナンス", "取込の検収待ち", inSnap.empty,
+    inSnap.docs.map((d) => `${d.data().kind}: ${String(d.data().summary ?? d.data().filename ?? "")}`).join(" / ") || "なし",
+    "/maintenance?tab=hist");
+
   /* 未紐付けメール（誰宛か分からず人待ちのもの）。消し込みはメンテナンスの受信箱 */
   const unSnap = await db.collection("unmatched").where("needsHuman", "==", true).get();
   add("メンテナンス", "紐付かなかったメール", unSnap.empty,

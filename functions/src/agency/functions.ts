@@ -13,6 +13,7 @@ import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { agencyDb, createDueJobs, createWarrantyJobs, beat } from "./engine.js";
 import { startWatch, fetchNew, matchJob, record, detectHumanTakeover } from "./inbox.js";
+import { isOwnerIntake, processIntake } from "./intake.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
 import { notifySettings } from "./settings.js";
 import { sendNotice } from "./mailer.js";
@@ -91,6 +92,12 @@ export const agencyGmailPush = onMessagePublished(
 
     for (const mail of mails) {
       try {
+        /* オーナーが転送したスクショ・PDF → 取込パイプ（段D）。業者メールのフローには流さない */
+        if (isOwnerIntake(mail)) {
+          const n = await processIntake(mail);
+          logger.info(`agency/gmailPush: 取込 ${n}件（${mail.subject}）`);
+          continue;
+        }
         const m = await matchJob(mail);
         const jobId = m?.jobId ?? null;
         await record(mail, jobId);
