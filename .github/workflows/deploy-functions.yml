@@ -1,6 +1,8 @@
 # S3（2026-08-25 発注者承認）: functions/ に触れる main への push で agencyApi を本番へ。
 # tsc が通らなければ止まる。デプロイ元は常にコミット済みの main。
 # 対象は yah.OS の agencyApi と定点の同期関数（seoserver 等は従来どおり手元から——対象を広げるときは承認を得る）。
+# agencyDaily を追加（2026-08-27）: 点検メールの改修が agencyApi だけ配られ、
+# メール送信側（スケジュール関数）が旧コードのまま動く事故が実際に起きた。
 # 定点の同期を追加（2026-08-26 発注者承認）: スケジュール関数がCIの対象外で、
 # 直すたびに手元デプロイ＋firebase認証が要った（当日、認証切れで実際に足止めされた）。
 name: deploy-agency-api
@@ -30,4 +32,4 @@ jobs:
           echo "$FIREBASE_SA" > /tmp/sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
           npx firebase-tools deploy --project yah-homes --non-interactive --force \
-            --only functions:agencyApi,functions:ga4TeitenSync,functions:adsTeitenSync,functions:gscSync,functions:bookingTeitenSync
+            --only functions:agencyApi,functions:agencyDaily,functions:ga4TeitenSync,functions:adsTeitenSync,functions:gscSync,functions:bookingTeitenSync
