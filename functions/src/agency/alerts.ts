@@ -190,14 +190,13 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   }
   if (total === 0) L.push("✓ 全て正常です（期日・ハートビート・突合・保証・受信箱、すべて異常なし）", "");
   L.push(`画面: ${SCREEN}`);
-  L.push("（毎日届きます。届かない日は配信系の異常です）");
 
   const escH = (v: string) => v.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
   const toneColor = { bad: "#c0392b", warn: "#b07d10", info: "#556" };
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f2;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1c1c1c">
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px">
     <p style="margin:0 0 4px;font-size:15px;font-weight:700">yah.OS 外部委託の点検結果</p>
-    <p style="margin:0 0 18px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}（毎日届きます。届かない日は配信系の異常です）</p>
+    <p style="margin:0 0 18px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}</p>
     ${total === 0 ? `<p style="margin:0;font-size:13px;color:#1e7d3e;background:#eef7f0;border:1px solid #cfe8d6;border-radius:7px;padding:10px 14px">✓ 全て正常です——期日・ハートビート・突合・保証・受信箱、すべて異常なし</p>` : ""}
     ${secs.map((sec) => `
     <p style="margin:16px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;color:${toneColor[sec.tone]}">■ ${escH(sec.title)}</p>
