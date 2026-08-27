@@ -8,7 +8,7 @@ import { getStorage } from "firebase-admin/storage";
 import { advance, findOverdue, staleHeartbeats } from "../engine.js";
 import { DEFAULT_TEMPLATES, validateTemplate, type TemplateKey } from "../templates.js";
 import { sendRequests, handleReply } from "../dispatcher.js";
-import { plantingToken, exteriorToken } from "../planting.js";
+import { plantingToken, exteriorToken, kaitekiToken } from "../planting.js";
 import { enrichSchedules, SCHEDULE_FIELDS } from "../schedules.js";
 
 export type Ctx = {
@@ -208,6 +208,13 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
           const { jobId, body } = req.body ?? {};
           res.json({ ok: true, result: await handleReply(String(jobId), String(body)) });
+          return true;
+        }
+        case "kaitekiToken": {                                // 快適クリーンの業者用URL（発行・再発行）
+          const rotate = req.method === "POST" && (req.body as { rotate?: boolean } | undefined)?.rotate === true;
+          const token = await kaitekiToken(db, rotate);
+          const ks = await db.collection("settings").doc("kaiteki").get();
+          res.json({ ok: true, token, notifyTo: String((ks.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
           return true;
         }
         case "exteriorToken": {                               // 外構清掃の業者用URL（発行・再発行）

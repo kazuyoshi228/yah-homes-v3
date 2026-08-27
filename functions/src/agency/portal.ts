@@ -21,7 +21,8 @@ import { BEDS24_API, beds24WriteToken, BOOKING_PROP_IDS } from "../beds24Client.
 export type PortalConfig = {
   /* checkout: チェックアウト日の窓から選ぶ（屋内に影響する作業。Beds24を読む）
      quarter : 四半期ごとに1日を自由に決める（屋外だけで完結する作業。Beds24を読まない） */
-  mode: "checkout" | "quarter";
+  /* task: 作業（部位）ごとにチェックアウト日を1つ決める。数日に分けたい作業向け */
+  mode: "checkout" | "quarter" | "task";
   id: string;          // settings のドキュメントID（トークン・通知先の置き場）
   category: string;    // jobs.category（メンテナンスカードの区分と一致させる）
   prop: string;        // 対象の棟
@@ -64,7 +65,31 @@ export const PORTALS: Record<string, PortalConfig> = {
     ],
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
+  kaiteki: {
+    mode: "task",
+    id: "kaiteki", category: "清掃", prop: "kiyokawa", propLabel: "清川",
+    source: "kaiteki", workLabel: "清掃", window: "11:00〜15:00",
+    photoDir: "reports/kaiteki-work", vendorName: "快適クリーン",
+    notifyFallback: "kazuyoshi.yamada@bonfire.co.jp",
+  },
 };
+/** 作業の一覧は settings に置く＝デプロイなしで増減できる（仕様 §3） */
+type Task = { key: string; label: string; group: string; prop: string; propLabel: string };
+
+/** 作業（部位）ごとの押さえ状況。taskKey が正本 */
+async function takenTasks(db: FirebaseFirestore.Firestore, c: PortalConfig) {
+  const snap = await db.collection("jobs")
+    .where("category", "==", c.category).where("source", "==", c.source).get();
+  const m = new Map<string, { date: string; jobId: string; status: string }>();
+  for (const d of snap.docs) {
+    const j = d.data() as { taskKey?: string; plantingDate?: string; status?: string };
+    if (j.taskKey && j.plantingDate && j.status !== "cancelled") {
+      m.set(j.taskKey, { date: j.plantingDate, jobId: d.id, status: String(j.status ?? "") });
+    }
+  }
+  return m;
+}
+
 
 const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app", "http://localhost:5050"];
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -209,7 +234,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     const db = agencyDb();
     const t = String(req.query.t ?? (req.body as { t?: string } | undefined)?.t ?? "");
     const st = await db.collection("settings").doc(c.id).get();
-    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string; showGroups?: string[] };
+    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string;
+      showGroups?: string[]; tasks?: unknown[]; deadlineDays?: number };
     const token = String(sd.token ?? "");
     const notifyTo = String(sd.notifyTo ?? "") || c.notifyFallback;
     if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
@@ -217,6 +243,16 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (req.method === "GET") {
       const base = { ok: true, mode: c.mode, prop: c.prop, propLabel: c.propLabel,
         workLabel: c.workLabel, vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "" };
+      if (c.mode === "task") {
+        const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenTasks(db, c)]);
+        const tasks = (sd.tasks ?? []) as Task[];
+        /* 水まわりは最初の1件を決めてから deadlineDays 以内に終わらせる（仕様 §2） */
+        const first = tasks.map((t) => taken.get(t.key)?.date).filter(Boolean).sort()[0];
+        const deadline = first ? day(Date.parse(first) + Number(sd.deadlineDays ?? 30) * 86400000) : null;
+        res.json({ ...base, asOf, days: dates, deadline, deadlineGroup: "水まわり",
+          tasks: tasks.map((t) => ({ ...t, date: null, jobId: null, status: null, ...(taken.get(t.key) ?? {}) })) });
+        return;
+      }
       if (c.mode === "quarter") {
         const today = day(Date.now());
         const slots = quarterSlots(new Date());
@@ -246,7 +282,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
 
     const body = (req.body ?? {}) as {
-      action?: string; date?: string; from?: string; group?: string; vendor?: string; text?: string;
+      action?: string; date?: string; from?: string; group?: string; task?: string; vendor?: string; text?: string;
       photos?: Array<{ name?: string; b64?: string }>;
     };
     if (!(await rateOk(db, c))) { res.status(429).json({ ok: false, error: "しばらく待ってから送ってください" }); return; }
@@ -256,6 +292,38 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (body.action === "select") {
       const date = String(body.date ?? "");
       const vendor = c.vendorName ?? String(body.vendor ?? "").slice(0, 60);
+      if (c.mode === "task") {
+        const tasks = (sd.tasks ?? []) as Task[];
+        const task = tasks.find((x) => x.key === String(body.task ?? ""));
+        if (!task) { res.status(400).json({ ok: false, error: "作業が指定されていません" }); return; }
+        const takenT = await takenTasks(db, c);
+        if (takenT.has(task.key)) { res.status(409).json({ ok: false, error: `${task.label}は ${takenT.get(task.key)!.date} で決まっています` }); return; }
+        const { dates } = await checkoutDays(db, c);
+        if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
+        /* 水まわりは最初の1件から1ヶ月以内（仕様 §2）。屋外には期限を置かない */
+        if (task.group === "水まわり") {
+          const first = tasks.filter((x) => x.group === "水まわり")
+            .map((x) => takenT.get(x.key)?.date).filter(Boolean).sort()[0];
+          if (first) {
+            const limit = day(Date.parse(first) + Number(sd.deadlineDays ?? 30) * 86400000);
+            if (date > limit) { res.status(400).json({ ok: false, error: `水まわりは ${limit} までに終わらせてください` }); return; }
+          }
+        }
+        const ref = await db.collection("jobs").add({
+          type: "spot", source: c.source, category: c.category, prop: task.prop,
+          title: `${task.label}（${task.propLabel}・${date}）`,
+          dueMonth: date.slice(0, 7), plantingDate: date, vendorName: vendor,
+          taskKey: task.key, taskGroup: task.group,
+          status: "confirmed", createdAt: now,
+          note: "業者がカレンダーから日程を選択（自動確定・取消はメンテナンスカードで）",
+          timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（${c.source}・${task.label}）` }],
+        });
+        await notify("portalSelect", notifyTo,
+          vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—",
+            propLabel: task.propLabel, workLabel: task.label })).catch(() => {});
+        res.json({ ok: true, jobId: ref.id });
+        return;
+      }
       const g = c.groups?.find((x) => x.key === String(body.group ?? "")
         && (!x.hiddenUntilAnnounced || (sd.showGroups ?? []).includes(x.key)));
       const taken = await takenDates(db, c, g?.key);
@@ -357,7 +425,9 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     /* 選び直し。done（報告済み）以降は取り消せない */
     if (body.action === "unselect") {
       const date = String(body.date ?? "");
-      const jobId = (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
+      const jobId = c.mode === "task"
+        ? [...(await takenTasks(db, c)).values()].find((x) => x.date === date)?.jobId
+        : (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
       if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
       const ref = db.collection("jobs").doc(jobId);
       const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;

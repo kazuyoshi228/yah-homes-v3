@@ -16,10 +16,16 @@ export const plantingCal = onRequest(OPTS, (req, res) => handlePortal(PORTALS.pl
 /** 外構清掃（清川）。業者は未定＝ページで名乗ってもらう */
 export const exteriorCal = onRequest(OPTS, (req, res) => handlePortal(PORTALS.exterior, req, res));
 
+/** 快適クリーン（清川・水まわり＋屋外）。作業ごとにチェックアウト日を1つ決める */
+export const kaitekiCal = onRequest(OPTS, (req, res) => handlePortal(PORTALS.kaiteki, req, res));
+
 /** オーナー側のトークン管理（agencyApi から呼ぶ） */
 export async function plantingToken(db: FirebaseFirestore.Firestore, rotate: boolean): Promise<string> {
   return portalToken(db, "planting", rotate);
 }
 export async function exteriorToken(db: FirebaseFirestore.Firestore, rotate: boolean): Promise<string> {
   return portalToken(db, "exterior", rotate);
+}
+export async function kaitekiToken(db: FirebaseFirestore.Firestore, rotate: boolean): Promise<string> {
+  return portalToken(db, "kaiteki", rotate);
 }
