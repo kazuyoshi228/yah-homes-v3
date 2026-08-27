@@ -105,6 +105,27 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             res.status(400).json({ ok: false, error: "金額の入れ方が違います" }); return true;
           }
           const now = new Date().toISOString();
+
+          /* 同じ周期・同じ月に未完のジョブがあれば、それを実績にする。
+             新しく作ると、周期マスタが自動起票した分が起票のまま残って二重に見える
+             （2026-08-27 発注者指摘: カレンダーに会計仕訳が2個並んでいた） */
+          const dupSnap = await db.collection("jobs")
+            .where("scheduleId", "==", String(scheduleId))
+            .where("dueMonth", "==", String(ym)).get();
+          const dup = dupSnap.docs.find((d) => !["verified", "cancelled"].includes(String(d.data().status)));
+          if (dup) {
+            await dup.ref.update({
+              status: "done", doneAt: String(ym), confirmedAt: String(ym),
+              vendorId: String(vendorId ?? sd.vendorId ?? ""),
+              actual: { ...(amt ? { amount: amt } : {}), ym: String(ym) },
+              timeline: [...(dup.data().timeline ?? []), { at: now, status: "done", by: "human",
+                note: `${ym} に実施として登録（${email}・起票済みのジョブに記録）` }],
+            });
+            await advance(dup.id, "verified", "human", `実施の記録（${email}）`);
+            res.json({ ok: true, jobId: dup.id, reused: true });
+            return true;
+          }
+
           const ref = await db.collection("jobs").add({
             type: "cycle", scheduleId: String(scheduleId),
             title: sd.title ?? "", prop: sd.prop ?? "", category: sd.category ?? "",
