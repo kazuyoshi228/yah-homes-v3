@@ -8,6 +8,7 @@
 import { agencyDb, findOverdue, staleHeartbeats } from "./engine.js";
 import { notifySettings } from "./settings.js";
 import { sendNotice } from "./mailer.js";
+import { askAI } from "./ai.js";
 
 const PROP_LABEL: Record<string, string> = {
   kiyokawa: "清川", takasago: "高砂", ropponmatsu: "六本松", otemonA: "大手門A", otemonB: "大手門B",
@@ -184,6 +185,7 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
 
   const SCREEN = "https://os.yah.homes/maintenance";
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
+  /* aiNote はこの時点では未生成なので、後で先頭へ差し込む（下の sendNotice 直前） */
   for (const sec of secs) {
     L.push(`■ ${sec.title}`);
     sec.rows.forEach((r2) => L.push(`　・${r2.c.filter(Boolean).join("／")}`));
@@ -223,15 +225,36 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   </div>
 </body></html>`;
 
+  /* AI所見（C+G・spec_ai_deepening・2026-08-27 発注者承認）: 警告がある日だけ、
+     ①全体所見3行 ②主要警告の原因一次調査 を冒頭に添える。AIが失敗してもメールは出す（本文が主・所見は従） */
+  let aiNote = "";
+  if (total > 0) {
+    try {
+      const digest = secs.map((sec) => `■${sec.title}\n` + sec.rows.map((r2) => `・${r2.c.filter(Boolean).join("／")}`).join("\n")).join("\n");
+      const r = await askAI(
+        `毎朝の点検メールの冒頭に添える所見を書いてください。今日の警告一覧:\n${digest}\n\n` +
+        `出力は次の2部だけ・合計10行以内・Markdown記号なし:\n` +
+        `【所見】全体を3行以内で。数字の傾向（前月比など）は道具で実データを確認してから書く\n` +
+        `【原因の見立て】重要な警告に絞り「警告名: 原因の見立て（根拠）」を各1行。道具で裏取りできないものは書かない`,
+        [], { maxTurns: 8, maxOutputTokens: 4000 });
+      aiNote = r.answer.trim();
+    } catch { /* 所見なしで送る */ }
+  }
+
   const to = (await notifySettings()).exceptionsTo;
   /* 点検メールは「起きた事実の通知」——autoSendゲート（業者へのAI発信の停止弁）を通らない。
      ゲートに掛けると下書きに眠って誰にも届かない（2026-08-25 植栽の通知で発覚・同日修正） */
+  const bodyText = aiNote ? `yah.OS 外部委託の点検結果です。\n\n${aiNote}\n\n` + L.slice(2).join("\n") : L.join("\n");
+  const htmlWithNote = aiNote
+    ? html.replace('<table style="width:100%;border-collapse:collapse">',
+        `<div style="background:#f4f6fa;border:1px solid #dde3ee;border-radius:8px;padding:12px 16px;margin:0 0 16px;font-size:12.5px;line-height:1.9;color:#334;white-space:pre-wrap">${escH(aiNote)}</div><table style="width:100%;border-collapse:collapse">`)
+    : html;
   await sendNotice({
     to,
     subject: total === 0 ? "[yah.OS] 点検 異常なし"
       : `[yah.OS] 外部委託の要対応 ${total}件${stale.length ? "（自動処理の停止あり）" : ""}`,
-    body: L.join("\n"),
-    html,
+    body: bodyText,
+    html: htmlWithNote,
   });
   const r = { mode: "sent" as const };
   await agencyDb().collection("alertLogs").add({
