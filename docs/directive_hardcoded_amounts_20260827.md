@@ -29,7 +29,13 @@ assumptions/insurance-units:
 ```
 画面は `api` 経由で読み、**取れない時は試算UIを畳む**（フォールバック値をコードに残すと二重管理に戻る）。
 
-### 2. reports.html（定期レポート）——優先度: 中
+### 2. reports.html（定期レポート）——優先度: 中　**済（2026-08-27・横断で消化）**
+
+> 実施メモ: 分岐値 `cpaBreakevenHandoff` は既に `assumptions/teiten-baseline` にあり、
+> 指示書の `assumptions/ads-breakeven` を新設すると**同じ数字が2か所**になる。
+> そこで内訳（`netPerBooking` `cvrHandoffToBooking` `cpaBasis`）を teiten-baseline に追記し、
+> 新設した ads-breakeven は削除した。文章は `beBasis()` が assumptions から組み立てる
+> （取れなければ内訳を書かず「正本の場所」だけ示す＝フォールバック値を置かない）。
 
 | 行 | 中身 | 処置 |
 |---|---|---|
@@ -37,14 +43,19 @@ assumptions/insurance-units:
 
 ※ この数字は広告判断の合格ラインそのもの。値が変わった時にHTML4箇所を追いかける現状は事故のもと。
 
-### 3. properties.html（物件）——優先度: 低
+### 3. properties.html（物件）——優先度: 低　**済（2026-08-27・横断で消化）**
+
+> 実施メモ: 品目・金額・年数は `equipment`（`futureCost: true`）が正本。
+> `futureNote(R)` が `renewalPlan` の応答から文章を組み立てるので、品目が増減しても文章は古くならない。
 
 | 行 | 中身 | 処置 |
 |---|---|---|
 | 981 | 説明文の「防水・外壁塗装¥200万/12年、給排水管¥50万/30年…」 | 正本は equipment（長期修繕行）に既にある。文から金額を消し「金額と周期は表のとおり（概算）」に |
 | 565・704 | コメント内の例示 | **対応不要**（コード注釈の例え話は焼き込みに当たらない） |
 
-### 4. utilities.html（費用）——優先度: 低
+### 4. utilities.html（費用）——優先度: 低　**済（2026-08-27・横断で消化）**
+
+> 実施メモ: 例示の月額も `reserves` の実額合計から導出（月額×60ヶ月）。登録が無ければ数字を出さない。
 
 | 行 | 中身 | 処置 |
 |---|---|---|
