@@ -28,6 +28,7 @@ const EXTRACT_PROMPT = `これは宿泊事業の経営OSへ取り込む書類の
 - "revenue": 運営会社の月次売上報告。month(YYYY-MM), prop(施設名), revenue, expenses, payout, occ, adr のうち読み取れたもの
 - "journal": 仕訳・取引明細の一覧。rows: [{date, description, amount}]
 - "airdna": AirDNAの市場データ画面。読み取れた指標を fields に
+- "vendor": 業者・取引先の情報（名刺・連絡先画面・会社概要など）。vendors: [{name(社名/屋号), person(担当者), phone, email, address, service(何の業者か)}]（複数可・読み取れた項目のみ）
 - "other": 上記以外
 出力はJSONのみ: {"kind": "...", "confidence": 0-1, "summary": "1行の日本語要約", "data": {...}}
 数値は必ず画像から読む。読めない項目は入れない（推測で埋めない）。`;
@@ -105,6 +106,20 @@ export async function acceptIntake(id: string, email: string): Promise<{ wrote: 
       source: doc.gsPath ?? "", acceptedBy: email, acceptedAt: new Date().toISOString(),
     });
     wrote = `cash/${date}`;
+  } else if (doc.kind === "vendor") {
+    const vs = ((doc.data as { vendors?: Array<Record<string, string>> }).vendors ?? []);
+    if (!vs.length) throw new Error("業者情報が読み取れていません（破棄して手で登録してください）");
+    const ids: string[] = [];
+    for (const v of vs) {
+      const r = await db.collection("vendors").add({
+        name: String(v.name ?? ""), person: String(v.person ?? ""),
+        phone: String(v.phone ?? ""), email: String(v.email ?? ""),
+        address: String(v.address ?? ""), service: String(v.service ?? ""),
+        source: doc.gsPath ?? "", addedBy: email, addedAt: new Date().toISOString(),
+      });
+      ids.push(r.id);
+    }
+    wrote = `vendors/${ids.join(",")}`;
   } else {
     throw new Error(`この種類（${doc.kind}）の検収はまだ対応していません（順次拡大）`);
   }
