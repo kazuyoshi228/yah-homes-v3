@@ -186,7 +186,8 @@ const SYSTEM = `あなたは yah.OS（宿泊事業の経営OS）の分析アシ�
 - 回答は簡潔に。表が要るときだけ表。結論を先に
 - 判断や公開などの操作はできない（読み取り専用）。求められたら「操作は画面から人が行う決まりです」と案内する`;
 
-export async function askAI(question: string, history: Array<{ role: "user" | "assistant"; content: string }>):
+export async function askAI(question: string, history: Array<{ role: "user" | "assistant"; content: string }>,
+  opts: { maxTurns?: number; maxOutputTokens?: number } = {}):
   Promise<{ answer: string; toolsUsed: string[] }> {
   /* Vertex AI モード: APIキー不要。実行SA（yah-homes@appspot）の IAM（roles/aiplatform.user）で認証 */
   const ai = new GoogleGenAI({ vertexai: true, project: "yah-homes", location: "global" });
@@ -197,14 +198,14 @@ export async function askAI(question: string, history: Array<{ role: "user" | "a
   ];
   const toolsUsed: string[] = [];
 
-  for (let turn = 0; turn < 6; turn++) {
+  for (let turn = 0; turn < (opts.maxTurns ?? 6); turn++) {
     const response = await ai.models.generateContent({
       model: MODEL,
       contents,
       config: {
         systemInstruction: `${SYSTEM}\n\n今日: ${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
         tools: [{ functionDeclarations: TOOLS }],
-        maxOutputTokens: 8000,
+        maxOutputTokens: opts.maxOutputTokens ?? 8000,
       },
     });
     const parts = response.candidates?.[0]?.content?.parts ?? [];
@@ -226,4 +227,25 @@ export async function askAI(question: string, history: Array<{ role: "user" | "a
     contents.push({ role: "user", parts: results });
   }
   return { answer: "調査が長くなりすぎたため打ち切りました。質問を絞って試してください。", toolsUsed };
+}
+
+/**
+ * 月次経営レポート（段E・spec_ai_deepening_20260827・2026-08-27 発注者承認）。
+ * 毎月1日の朝、AIが全道具を横断して1通のメールにまとめる。
+ * 規律: レポートは保存しない（メール＝通知・数字の正本は各台帳）。判断の提案はするが操作はしない。
+ */
+export async function monthlyAiReport(now = new Date()): Promise<{ answer: string; toolsUsed: string[] }> {
+  const jst = new Date(now.getTime() + 9 * 3600e3);
+  const prev = new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth() - 1, 1));
+  const ym = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
+  const prompt = `${ym} の月次経営レポートを作成してください。オーナーが5分で読める分量で、必ず次の構成・この順で:
+
+【結論】3行以内（先月の総括と最重要の1点）
+【棟別収支】稼働中の各棟の売上・稼働率・主要費用（前月比つき・表形式）
+【異常・要注意】前月比や検証（health）で目についた点（無ければ「特になし」）
+【市場との差】競合定点（competitorObs）と自社の稼働・単価の比較（定点が無い月は省略可）
+【今月の要判断】人が決めるべきことのリスト（期日ジョブ・見積・契約期限から。無ければ「なし」）
+
+注意: 数字は必ず道具から。取れなかった項目は「データ未着」と書く（推測で埋めない）。メール本文になるのでMarkdown記号は使わず、見出しは【】、表は「棟名: 売上¥X / 稼働Y%」形式の行で。`;
+  return askAI(prompt, [], { maxTurns: 12, maxOutputTokens: 12000 });
 }

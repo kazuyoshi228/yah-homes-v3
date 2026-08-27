@@ -14,6 +14,9 @@ import { logger } from "firebase-functions/v2";
 import { agencyDb, createDueJobs, createWarrantyJobs, beat } from "./engine.js";
 import { startWatch, fetchNew, matchJob, record, detectHumanTakeover } from "./inbox.js";
 import { sendRequests, handleReply } from "./dispatcher.js";
+import { notifySettings } from "./settings.js";
+import { sendNotice } from "./mailer.js";
+import { monthlyAiReport } from "./ai.js";
 import { sendDailyAlert, testAlarm } from "./alerts.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -37,6 +40,26 @@ export const agencyDaily = onSchedule(
     await step("sendRequests", () => sendRequests());
     await step("gmailWatch", () => startWatch());   // 有効期限7日。毎日貼り直して切れないようにする
     await step("dailyAlert", () => sendDailyAlert());
+    /* 月次経営レポート（段E）: 毎月1日のJSTに送る。手動再実行は settings/aiReport.runOnce=true を置く
+       （実行後に自動で消す・認証配管を増やさないための運用スイッチ） */
+    const jstDay = new Date(Date.now() + 9 * 3600e3).getUTCDate();
+    const flagRef = agencyDb().collection("settings").doc("aiReport");
+    const runOnce = (await flagRef.get()).data()?.runOnce === true;
+    if (jstDay === 1 || runOnce) {
+      await step("monthlyAiReport", async () => {
+        const r = await monthlyAiReport();
+        const to = (await notifySettings()).exceptionsTo;
+        const ym = new Date(Date.now() + 9 * 3600e3);
+        const label = `${ym.getUTCFullYear()}-${String(ym.getUTCMonth() === 0 ? 12 : ym.getUTCMonth()).padStart(2, "0")}`;
+        await sendNotice({
+          to, subject: `[yah.OS] 月次経営レポート ${label}`,
+          body: r.answer + `\n\n（参照: ${[...new Set(r.toolsUsed)].join("・")}／このレポートはAIが台帳から毎回導出しています。数字の正本は各カード）`,
+          html: `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f2;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1c1c1c"><div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px"><p style="margin:0 0 14px;font-size:15px;font-weight:700">yah.OS 月次経営レポート ${label}</p><pre style="margin:0;font-family:inherit;font-size:13px;line-height:1.95;white-space:pre-wrap;color:#333">${r.answer.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string))}</pre><p style="margin:18px 0 0;font-size:11px;color:#999">参照: ${[...new Set(r.toolsUsed)].join("・")}／AIが台帳から毎回導出（保存しない）。数字の正本は各カード。<a href="https://os.yah.homes/" style="color:#1a4f9c">yah.OS を開く</a></p></div></body></html>`,
+        });
+        if (runOnce) await flagRef.set({ runOnce: false }, { merge: true });
+        return { sent: true, tools: r.toolsUsed.length };
+      });
+    }
     /* 月初だけ、警報そのものが生きているかを試す（原則2-5・鳴らない警報は有害） */
     if (new Date().getDate() === 1) {
       await step("alarmTest", async () => {
