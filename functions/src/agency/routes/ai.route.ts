@@ -16,12 +16,7 @@ export async function handle(action: string, req: any, res: any, _ctx: Ctx): Pro
             .filter((h) => (h.role === "user" || h.role === "assistant") && typeof h.content === "string")
             .map((h) => ({ role: h.role as "user" | "assistant", content: h.content.slice(0, 4000) }))
         : [];
-      const key = process.env.ANTHROPIC_API_KEY ?? "";
-      if (!key || key === "placeholder") {
-        res.status(503).json({ ok: false, error: "AIのAPIキーが未設定です（ANTHROPIC_API_KEY）" });
-        return true;
-      }
-      const r = await askAI(question, history, key);
+      const r = await askAI(question, history);
       res.json({ ok: true, ...r });
       return true;
     }

@@ -18,7 +18,6 @@ import * as opsRoute from "./routes/ops.route.js";
 import * as aiRoute from "./routes/ai.route.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
-const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");   // AI質問窓（spec_ai_ask_20260827）
 const REGION = "asia-northeast1";
 /* localhost は手元で確認するとき用（5000 は macOS の ControlCenter が使っているので 5050 も許す） */
 const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app",
@@ -54,7 +53,7 @@ export const agencyApi = onRequest(
   /* minInstances: 1 … コールドスタート殺し（P4・2026-08-24 発注者承認）。
      常時1台ぶんの待機費用（月数百円〜千円台）がかかる */
   /* timeoutSeconds: AIの道具ループは60秒を超えることがある */
-  { region: REGION, secrets: [AGENCY_MAILER_KEY, ANTHROPIC_API_KEY], maxInstances: 5, minInstances: 1, timeoutSeconds: 300 },
+  { region: REGION, secrets: [AGENCY_MAILER_KEY], maxInstances: 5, minInstances: 1, timeoutSeconds: 300 },
   async (req, res) => {
     const origin = String(req.headers.origin ?? "");
     if (ALLOW_ORIGIN.includes(origin)) {
