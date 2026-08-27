@@ -66,7 +66,10 @@ export const PORTALS: Record<string, PortalConfig> = {
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp, airstar.sugimoto@gmail.com",
   },
   kaiteki: {
-    mode: "task",
+    /* 実施内容はメールで詰める。ツールは日程だけ（2026-08-27 発注者決定）。
+       部位ごとのタスク分割はやめ、必要な日数だけチェックアウト日を選んでもらう。
+       task モードの実装は portal.ts に残してあるので、必要になれば戻せる */
+    mode: "checkout",
     id: "kaiteki", category: "清掃", prop: "kiyokawa", propLabel: "清川",
     source: "kaiteki", workLabel: "清掃", window: "11:00〜15:00",
     photoDir: "reports/kaiteki-work", vendorName: "快適クリーン",
