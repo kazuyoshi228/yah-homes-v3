@@ -24,6 +24,9 @@ export type PortalConfig = {
   /* task: 作業（部位）ごとにチェックアウト日を1つ決める。数日に分けたい作業向け */
   mode: "checkout" | "quarter" | "task";
   id: string;          // settings のドキュメントID（トークン・通知先の置き場）
+  /* 1つのポータルで複数の棟を扱う場合の許可リスト。?prop= で切り替える
+     （urlState の標準キーと同じ語彙。カードのパネル2と揃える・2026-08-27） */
+  props?: Array<{ key: string; label: string }>;
   category: string;    // jobs.category（メンテナンスカードの区分と一致させる）
   prop: string;        // 対象の棟
   propLabel: string;
@@ -73,6 +76,8 @@ export const PORTALS: Record<string, PortalConfig> = {
     id: "kaiteki", category: "清掃", prop: "kiyokawa", propLabel: "清川",
     source: "kaiteki", workLabel: "清掃", window: "11:00〜15:00",
     photoDir: "reports/kaiteki-work", vendorName: "快適クリーン",
+    /* 高砂の清掃は起点2028年。棟が増えたらここに足すだけで切替が出る */
+    props: [{ key: "kiyokawa", label: "清川" }],
     notifyFallback: "kazuyoshi.yamada@bonfire.co.jp",
   },
 };
@@ -132,8 +137,9 @@ async function notify(key: "portalSelect" | "portalChange" | "portalUnselect" | 
 }
 
 /** チェックアウト日を Beds24 から引く（1時間キャッシュ・直近2ヶ月） */
-async function checkoutDays(db: FirebaseFirestore.Firestore, c: PortalConfig) {
-  const ref = db.collection("beds24cache").doc(c.id);
+async function checkoutDays(db: FirebaseFirestore.Firestore, c: PortalConfig, prop?: string) {
+  const target = prop ?? c.prop;
+  const ref = db.collection("beds24cache").doc(target === c.prop ? c.id : `${c.id}-${target}`);
   const snap = await ref.get();
   const cached = snap.exists ? (snap.data() as { dates: string[]; at: string }) : null;
   if (cached && Date.now() - Date.parse(cached.at) < 3600e3) return { dates: cached.dates, asOf: cached.at };
@@ -141,7 +147,7 @@ async function checkoutDays(db: FirebaseFirestore.Firestore, c: PortalConfig) {
     const token = await beds24WriteToken();
     const from = day(Date.now()), to = day(Date.now() + 61 * 86400000);
     const dates = new Set<string>();
-    let next: string | null = `${BEDS24_API}/bookings?propertyId=${BOOKING_PROP_IDS[c.prop]}` +
+    let next: string | null = `${BEDS24_API}/bookings?propertyId=${BOOKING_PROP_IDS[target]}` +
       `&departureFrom=${from}&departureTo=${to}&pageSize=200`;
     while (next) {
       const r = (await fetch(next, { headers: { token } }).then((x) => x.json())) as {
@@ -180,10 +186,10 @@ function quarterSlots(now: Date, n = 4) {
 
 /** 押さえ済みの日。ジョブが正本・取消は空きに戻る。
     group を渡すとそのまとまりだけを見る（棟ごとに複数のジョブが立つため、代表1件を返す） */
-async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig, group?: string) {
+async function takenDates(db: FirebaseFirestore.Firestore, c: PortalConfig, group?: string, prop?: string) {
   const q = group
     ? db.collection("jobs").where("category", "==", c.category).where("portalGroup", "==", group)
-    : db.collection("jobs").where("category", "==", c.category).where("prop", "==", c.prop);
+    : db.collection("jobs").where("category", "==", c.category).where("prop", "==", prop ?? c.prop);
   const snap = await q.get();
   const m = new Map<string, string>();
   for (const d of snap.docs) {
@@ -261,9 +267,15 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     const notifyTo = String(sd.notifyTo ?? "") || c.notifyFallback;
     if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
 
+    /* 対象の棟。許可リストに無い値は既定へ落とす（勝手な棟を触らせない） */
+    const wanted = String(req.query.prop ?? (req.body as { prop?: string } | undefined)?.prop ?? "");
+    const allowed = c.props ?? [{ key: c.prop, label: c.propLabel }];
+    const cur = allowed.find((x) => x.key === wanted) ?? allowed[0];
+
     if (req.method === "GET") {
-      const base = { ok: true, mode: c.mode, prop: c.prop, propLabel: c.propLabel,
-        workLabel: c.workLabel, vendorName: c.vendorName ?? "", window: c.window, notes: sd.notes ?? "" };
+      const base = { ok: true, mode: c.mode, prop: cur.key, propLabel: cur.label,
+        props: allowed, workLabel: c.workLabel, vendorName: c.vendorName ?? "",
+        window: c.window, notes: sd.notes ?? "" };
       if (c.mode === "task") {
         const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenTasks(db, c)]);
         const tasks = (sd.tasks ?? []) as Task[];
@@ -299,7 +311,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
           busy: Object.fromEntries(await othersBusy(db, c)) });
         return;
       }
-      const [{ dates, asOf }, taken] = await Promise.all([checkoutDays(db, c), takenDates(db, c)]);
+      const [{ dates, asOf }, taken] = await Promise.all([
+        checkoutDays(db, c, cur.key), takenDates(db, c, undefined, cur.key)]);
       const busy = await othersBusy(db, c);
       res.json({ ...base, asOf, busy: Object.fromEntries(busy),
         days: dates.map((d) => ({ date: d, taken: taken.has(d), busy: busy.get(d) ?? null })) });
@@ -352,7 +365,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       }
       const g = c.groups?.find((x) => x.key === String(body.group ?? "")
         && (!x.hiddenUntilAnnounced || (sd.showGroups ?? []).includes(x.key)));
-      const taken = await takenDates(db, c, g?.key);
+      const taken = await takenDates(db, c, g?.key, cur.key);
       if (c.mode === "quarter") {
         if (c.groups && !g) { res.status(400).json({ ok: false, error: "対象のまとまりが指定されていません" }); return; }
         const qs = quarterSlots(new Date());
@@ -389,13 +402,13 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
           return;
         }
       } else {
-        const { dates } = await checkoutDays(db, c);
+        const { dates } = await checkoutDays(db, c, cur.key);
         if (!dates.includes(date)) { res.status(400).json({ ok: false, error: "この日は作業できません（予約状況が変わった可能性）" }); return; }
         if (taken.has(date)) { res.status(409).json({ ok: false, error: "この日は既に選択されています" }); return; }
       }
       const ref = await db.collection("jobs").add({
-        type: "spot", source: c.source, category: c.category, prop: c.prop,
-        title: `${c.workLabel}（${c.propLabel}・${date} ${c.window}）`,
+        type: "spot", source: c.source, category: c.category, prop: cur.key,
+        title: `${c.workLabel}（${cur.label}・${date} ${c.window}）`,
         dueMonth: date.slice(0, 7), plantingDate: date, vendorName: vendor,
         status: "confirmed", createdAt: now,
         note: "業者がカレンダーから日程を選択（自動確定・取消はメンテナンスカードで）",
@@ -410,7 +423,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     /* 日程の変更。取消→再選択の2手を1手にする。ジョブは同じものを動かす＝履歴が切れない */
     if (body.action === "change") {
       const from = String(body.from ?? ""), date = String(body.date ?? "");
-      const taken = await takenDates(db, c, String(body.group ?? "") || undefined);
+      const taken = await takenDates(db, c, String(body.group ?? "") || undefined, cur.key);
       const jobId = taken.get(from);
       if (!jobId) { res.status(404).json({ ok: false, error: "変更元の日が見つかりません" }); return; }
       if (date === from) { res.json({ ok: true, jobId }); return; }
@@ -453,7 +466,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       const date = String(body.date ?? "");
       const jobId = c.mode === "task"
         ? [...(await takenTasks(db, c)).values()].find((x) => x.date === date)?.jobId
-        : (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
+        : (await takenDates(db, c, String(body.group ?? "") || undefined, cur.key)).get(date);
       if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
       const ref = db.collection("jobs").doc(jobId);
       const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;
