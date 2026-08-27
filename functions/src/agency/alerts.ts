@@ -153,39 +153,40 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
      期日の表示は dueLabel（実施日が決まっていれば日付・なければ月） */
   const crit = overdue.filter((o) => o.level === "critical");
   const warn = overdue.filter((o) => o.level === "warn");
-  /* 各行に「消し込む場所」への深リンクを持たせる（今日ボードと同じ・2026-08-27）。
-     テキスト版は文言のみ・HTML版は行ごとリンクになる */
+  /* 各行に「消し込む場所」への深リンクを持たせ、HTML版は表で出す（2026-08-27 発注者指示）。
+     列 = 対象 / 施設 / 期日 / 状況。テキスト版は従来の箇条書きを列から合成する */
   const OS = "https://os.yah.homes";
-  type Row = { t: string; url?: string };
+  type Row = { c: [string, string, string, string]; url?: string };
   const secs: Array<{ title: string; tone: "bad" | "warn" | "info"; rows: Row[] }> = [];
   if (stale.length) secs.push({ title: "自動処理が動いていない可能性（最優先）", tone: "bad",
-    rows: stale.map((s2) => ({ t: `${s2.name}: ${Math.floor(s2.silentSec / 3600)}時間 音沙汰なし` })) });
+    rows: stale.map((s2) => ({ c: [s2.name, "", "", `${Math.floor(s2.silentSec / 3600)}時間 音沙汰なし`] })) });
   if (crit.length) secs.push({ title: "期日を大きく超過", tone: "bad",
-    rows: crit.map((o) => ({ t: `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`,
+    rows: crit.map((o) => ({ c: [o.job.title, PROP_LABEL[o.job.prop] ?? o.job.prop, o.dueLabel, o.reason],
       url: `${OS}/maintenance?tab=cal` })) });
   if (warn.length) secs.push({ title: "期日が近い・遅れている", tone: "warn",
-    rows: warn.map((o) => ({ t: `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`,
+    rows: warn.map((o) => ({ c: [o.job.title, PROP_LABEL[o.job.prop] ?? o.job.prop, o.dueLabel, o.reason],
       url: `${OS}/maintenance?tab=cal` })) });
   if (exc.length) secs.push({ title: "人の判断待ち", tone: "warn",
-    rows: exc.map((e) => ({ t: `${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`,
+    rows: exc.map((e) => ({ c: [e.title, PROP_LABEL[e.prop] ?? e.prop, e.dueMonth, e.timeline?.at(-1)?.note ?? ""],
       url: `${OS}/maintenance?tab=cal` })) });
-  if (cvx) secs.push({ title: "GA4定点の点検", tone: "warn", rows: [{ t: cvx, url: `${OS}/reports` }] });
+  if (cvx) secs.push({ title: "GA4定点の点検", tone: "warn",
+    rows: [{ c: ["CV突合", "", "", cvx], url: `${OS}/reports` }] });
   if (planting || pUnrep.length) secs.push({ title: "植栽", tone: "warn",
-    rows: [...(planting ? [{ t: planting, url: `${OS}/planting` }] : []),
-      ...pUnrep.map((t) => ({ t, url: `${OS}/planting` }))] });
+    rows: [...(planting ? [{ c: ["作業日の選択", "清川", "", planting] as Row["c"], url: `${OS}/planting` }] : []),
+      ...pUnrep.map((t) => ({ c: ["完了報告", "清川", "", t] as Row["c"], url: `${OS}/planting` }))] });
   if (est.length) secs.push({ title: "見積を取る時期（概算のまま実施年が近い）", tone: "info",
-    rows: est.map((e) => ({ t: `${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`,
+    rows: est.map((e) => ({ c: [e.label, e.prop, `${e.due}年`, `いまの見込み ¥${e.amount.toLocaleString()}`],
       url: `${OS}/properties?tab=ren` })) });
   if (wty.length) secs.push({ title: "保証の期限が近い（不調がないか点検・あれば保証で修理）", tone: "info",
-    rows: wty.map((w) => ({ t: `${w.label}（${w.until}まで）`, url: `${OS}/maintenance?tab=ren` })) });
+    rows: wty.map((w) => ({ c: [w.label, "", `${w.until}まで`, "保証期限"], url: `${OS}/maintenance?tab=ren` })) });
   if (un.length) secs.push({ title: "ジョブに紐付かなかったメール", tone: "info",
-    rows: un.map((u) => ({ t: `${u.from}「${u.subject}」`, url: `${OS}/maintenance?tab=hist` })) });
+    rows: un.map((u) => ({ c: [`「${u.subject}」`, "", "", u.from], url: `${OS}/maintenance?tab=hist` })) });
 
   const SCREEN = "https://os.yah.homes/maintenance";
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
   for (const sec of secs) {
     L.push(`■ ${sec.title}`);
-    sec.rows.forEach((r2) => L.push(`　・${r2.t}`));
+    sec.rows.forEach((r2) => L.push(`　・${r2.c.filter(Boolean).join("／")}`));
     L.push("");
   }
   if (total === 0) L.push("✓ 全て正常です（期日・ハートビート・突合・保証・受信箱、すべて異常なし）", "");
@@ -193,17 +194,31 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
 
   const escH = (v: string) => v.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
   const toneColor = { bad: "#c0392b", warn: "#b07d10", info: "#556" };
+  const toneBg = { bad: "#fbeeec", warn: "#faf4e4", info: "#eef0f4" };
+  const td = 'style="padding:7px 10px;border-bottom:1px solid #eceae6;font-size:12.5px;color:#333;vertical-align:top"';
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f2;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1c1c1c">
-  <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px">
+  <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e2e2de;border-radius:10px;padding:26px 30px">
     <p style="margin:0 0 4px;font-size:15px;font-weight:700">yah.OS 外部委託の点検結果</p>
-    <p style="margin:0 0 18px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}</p>
-    ${total === 0 ? `<p style="margin:0;font-size:13px;color:#1e7d3e;background:#eef7f0;border:1px solid #cfe8d6;border-radius:7px;padding:10px 14px">✓ 全て正常です——期日・ハートビート・突合・保証・受信箱、すべて異常なし</p>` : ""}
-    ${secs.map((sec) => `
-    <p style="margin:16px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;color:${toneColor[sec.tone]}">■ ${escH(sec.title)}</p>
-    <ul style="margin:0;padding-left:1.2em">
-      ${sec.rows.map((r2) => `<li style="font-size:13px;line-height:1.9;color:#333">${r2.url
-        ? `<a href="${r2.url}" style="color:#1a4f9c;text-decoration:none">${escH(r2.t)} →</a>` : escH(r2.t)}</li>`).join("")}
-    </ul>`).join("")}
+    <p style="margin:0 0 16px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}</p>
+    ${total === 0 ? `<p style="margin:0;font-size:13px;color:#1e7d3e;background:#eef7f0;border:1px solid #cfe8d6;border-radius:7px;padding:10px 14px">✓ 全て正常です——期日・ハートビート・突合・保証・受信箱、すべて異常なし</p>` : `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em">対象</th>
+        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:12%">施設</th>
+        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:16%">期日</th>
+        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:34%">状況</th>
+      </tr></thead>
+      <tbody>
+      ${secs.map((sec) => `
+        <tr><td colspan="4" style="padding:12px 10px 5px;font-size:11.5px;font-weight:700;letter-spacing:.05em;color:${toneColor[sec.tone]};background:${toneBg[sec.tone]};border-radius:4px">■ ${escH(sec.title)}</td></tr>
+        ${sec.rows.map((r2) => `<tr>
+          <td ${td}>${r2.url ? `<a href="${r2.url}" style="color:#1a4f9c;text-decoration:none;font-weight:600">${escH(r2.c[0])} →</a>` : `<b>${escH(r2.c[0])}</b>`}</td>
+          <td ${td}>${escH(r2.c[1] || "—")}</td>
+          <td ${td}>${escH(r2.c[2] || "—")}</td>
+          <td ${td}>${escH(r2.c[3] || "")}</td>
+        </tr>`).join("")}`).join("")}
+      </tbody>
+    </table>`}
     <p style="margin:24px 0 0"><a href="${SCREEN}" style="display:inline-block;background:#1c1c1c;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px">yah.OS で確認する</a></p>
   </div>
 </body></html>`;
