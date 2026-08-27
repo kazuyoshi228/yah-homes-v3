@@ -15,8 +15,10 @@ import * as financeRoute from "./routes/finance.route.js";
 import * as analyticsRoute from "./routes/analytics.route.js";
 import * as contractsRoute from "./routes/contracts.route.js";
 import * as opsRoute from "./routes/ops.route.js";
+import * as aiRoute from "./routes/ai.route.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");   // AI質問窓（spec_ai_ask_20260827）
 const REGION = "asia-northeast1";
 /* localhost は手元で確認するとき用（5000 は macOS の ControlCenter が使っているので 5050 も許す） */
 const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app",
@@ -51,7 +53,8 @@ const all = async (col: string) =>
 export const agencyApi = onRequest(
   /* minInstances: 1 … コールドスタート殺し（P4・2026-08-24 発注者承認）。
      常時1台ぶんの待機費用（月数百円〜千円台）がかかる */
-  { region: REGION, secrets: [AGENCY_MAILER_KEY], maxInstances: 5, minInstances: 1 },
+  /* timeoutSeconds: AIの道具ループは60秒を超えることがある */
+  { region: REGION, secrets: [AGENCY_MAILER_KEY, ANTHROPIC_API_KEY], maxInstances: 5, minInstances: 1, timeoutSeconds: 300 },
   async (req, res) => {
     const origin = String(req.headers.origin ?? "");
     if (ALLOW_ORIGIN.includes(origin)) {
@@ -71,7 +74,7 @@ export const agencyApi = onRequest(
       /* 振り分けは各 route ファイルへ（S4）。api.ts は認証とCORSだけを持つ。
          どの route も拾わなければ 400 */
       const ctx = { db, email, all };
-      for (const r of [propsRoute, financeRoute, analyticsRoute, contractsRoute, opsRoute]) {
+      for (const r of [propsRoute, financeRoute, analyticsRoute, contractsRoute, opsRoute, aiRoute]) {
         if (await r.handle(action, req, res, ctx)) return;
       }
       res.status(400).json({ ok: false, error: `不明な操作: ${action}` });
