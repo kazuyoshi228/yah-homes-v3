@@ -84,7 +84,10 @@ export function enrichSchedules(
     let nextDueMonth: string | null = null;
     let nextDueFrom: "job" | "anchor" | "month" | null = null;
 
-    if (lastDone && everyMonths > 0) {
+    if (everyMonths === 0 && lastDone) {
+      /* 単発で実績がある＝終わった作業。次回は無い（過ぎた起点年の月を「次回」と出していた・2026-08-27） */
+      nextDueMonth = null; nextDueFrom = null;
+    } else if (lastDone && everyMonths > 0) {
       /* ① 実績がある: 前回＋周期。実施月が決まっていればその月に丸める */
       const [y, m] = lastDone.split("-").map(Number);
       if (y) {
@@ -92,6 +95,14 @@ export function enrichSchedules(
         let yy = d.getUTCFullYear(), mm = d.getUTCMonth() + 1;
         if (months.length) mm = months.reduce((a, b) =>
           Math.abs(b - mm) < Math.abs(a - mm) ? b : a, months[0]);
+        /* 周期を後から変えると、算出した次回が過去になることがある（外構清掃を年2回→四半期に変更した例）。
+           過ぎた月を「次回」と言い続けないよう、今月以降になるまで周期を送る（2026-08-27 発注者指摘） */
+        while (yy * 12 + mm < now.getFullYear() * 12 + now.getMonth() + 1) {
+          const d2 = new Date(Date.UTC(yy, mm - 1 + everyMonths, 1));
+          yy = d2.getUTCFullYear(); mm = d2.getUTCMonth() + 1;
+          if (months.length) mm = months.reduce((a, b) =>
+            Math.abs(b - mm) < Math.abs(a - mm) ? b : a, months[0]);
+        }
         nextDueMonth = fmt(yy, mm); nextDueFrom = "job";
       }
     } else if (anchor) {
