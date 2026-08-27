@@ -13,14 +13,15 @@ import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
 import { estimatesDue, warrantyDue } from "./alerts.js";
 
-export type HealthCheck = { card: string; name: string; ok: boolean; detail: string };
+/* goto: 消し込む場所への深リンク（今日ボード・点検メールの行から1クリックで直行する・2026-08-27） */
+export type HealthCheck = { card: string; name: string; ok: boolean; detail: string; goto?: string };
 
 export async function healthSummary() {
   const db = agencyDb();
   const now = new Date();
   const checks: HealthCheck[] = [];
-  const add = (card: string, name: string, ok: boolean, detail = "") =>
-    checks.push({ card, name, ok, detail });
+  const add = (card: string, name: string, ok: boolean, detail = "", goto?: string) =>
+    checks.push({ card, name, ok, detail, ...(goto ? { goto } : {}) });
 
   const [props, plan, overdue, est, conSnap, cvrSnap, schedSnap, eqSnap, jobSnap, asmSnap] =
     await Promise.all([
@@ -43,36 +44,36 @@ export async function healthSummary() {
     if (!r.audit?.total) continue;
     add("物件", `${r.label ?? r.id}: 監査`, r.audit.warn.length === 0,
       r.audit.warn.length ? r.audit.warn.map((w) => `${w.name}(${w.detail})`).join(" / ")
-        : `${r.audit.ok}/${r.audit.total}`);
+        : `${r.audit.ok}/${r.audit.total}`, `/properties?prop=${r.id}`);
   }
 
   /* 物件×固定費: 積立が年割りで足りているか（棟ごと） */
   for (const p of plan.byProp) {
     add("固定費", `${p.propLabel}: 積立 vs 年割り`, p.gap >= 0,
-      `${p.gap >= 0 ? "+" : ""}${p.gap.toLocaleString()}円/年`);
+      `${p.gap >= 0 ? "+" : ""}${p.gap.toLocaleString()}円/年`, "/maintenance?tab=ren");
   }
-  add("物件", "耐用年数の欠測", plan.total.noLifespan === 0, `${plan.total.noLifespan}件`);
+  add("物件", "耐用年数の欠測", plan.total.noLifespan === 0, `${plan.total.noLifespan}件`, "/maintenance?tab=ren");
 
   /* メンテナンス: 期日・見積・紐づけの整合 */
   add("メンテナンス", "期日超過のジョブ", overdue.length === 0,
-    overdue.map((o) => o.job.title).join(" / ") || "なし");
+    overdue.map((o) => o.job.title).join(" / ") || "なし", "/maintenance?tab=cal");
   const wty = await warrantyDue(now);
   add("メンテナンス", "保証の期限が近い設備", wty.length === 0,
-    wty.map((w) => `${w.label}(${w.until}まで)`).join(" / ") || "なし");
+    wty.map((w) => `${w.label}(${w.until}まで)`).join(" / ") || "なし", "/maintenance?tab=ren");
   add("メンテナンス", "見積の催促（実施年が近い概算）", est.length === 0,
-    est.map((e) => `${e.label}(${e.due})`).join(" / ") || "なし");
+    est.map((e) => `${e.label}(${e.due})`).join(" / ") || "なし", "/properties?tab=ren");
   const eqIds = new Set(eqSnap.docs.map((d) => d.id));
   const dangling = schedSnap.docs
     .filter((d) => d.data().ledgerId && !eqIds.has(String(d.data().ledgerId)))
     .map((d) => String(d.data().title ?? d.id));
   add("メンテナンス", "台帳への紐づけ切れ（schedules.ledgerId）", dangling.length === 0,
-    dangling.join(" / ") || "なし");
+    dangling.join(" / ") || "なし", "/maintenance?tab=sch");
   const schedIds = new Set(schedSnap.docs.map((d) => d.id));
   const orphanJobs = jobSnap.docs
     .filter((d) => d.data().scheduleId && !schedIds.has(String(d.data().scheduleId)))
     .map((d) => String(d.data().title ?? d.id));
   add("メンテナンス", "周期への紐づけ切れ（jobs.scheduleId）", orphanJobs.length === 0,
-    orphanJobs.join(" / ") || "なし");
+    orphanJobs.join(" / ") || "なし", "/maintenance?tab=cal");
 
   /* 契約書類: 期限と原本 */
   const today = now.toISOString().slice(0, 10);
@@ -81,9 +82,9 @@ export async function healthSummary() {
   const expired = cons.filter((c) => c.expiresAt && String(c.expiresAt) < today);
   const expiring = cons.filter((c) => c.expiresAt && String(c.expiresAt) >= today && String(c.expiresAt) <= d90);
   const noOriginal = cons.filter((c) => !c.path && !c.file);
-  add("契約書類", "期限切れ", expired.length === 0, expired.map((c) => String(c.label)).join(" / ") || "なし");
-  add("契約書類", "90日以内に期限", expiring.length === 0, expiring.map((c) => `${c.label}(${c.expiresAt})`).join(" / ") || "なし");
-  add("契約書類", "原本が未登録", noOriginal.length === 0, `${noOriginal.length}件`);
+  add("契約書類", "期限切れ", expired.length === 0, expired.map((c) => String(c.label)).join(" / ") || "なし", "/contracts");
+  add("契約書類", "90日以内に期限", expiring.length === 0, expiring.map((c) => `${c.label}(${c.expiresAt})`).join(" / ") || "なし", "/contracts");
+  add("契約書類", "原本が未登録", noOriginal.length === 0, `${noOriginal.length}件`, "/contracts?filter=%E6%9C%AA");
 
   /* 定期レポート: CVRの内部整合（閲覧÷表示＝検索→閲覧） */
   const cvrBad = cvrSnap.docs.filter((d) => {
@@ -91,7 +92,7 @@ export async function healthSummary() {
     if (x.views == null || x.impressions == null || x.searchToView == null) return false;
     return Math.abs((Number(x.views) / Number(x.impressions)) * 100 - Number(x.searchToView)) > 0.06;
   }).map((d) => d.id);
-  add("定期レポート", "CVRの検算（閲覧÷表示）", cvrBad.length === 0, cvrBad.join(" / ") || "全行一致");
+  add("定期レポート", "CVRの検算（閲覧÷表示）", cvrBad.length === 0, cvrBad.join(" / ") || "全行一致", "/reports?tab=cvr");
 
   /* 横断: AIRSTAR月次報告の稼働 ↔ Beds24の実予約（独立ソース同士の突合・2026-08-25 発注者承認）。
      報告書は運営会社の申告、beds24_state は毎朝の観測ジョブが維持する生の予約一覧——出所が別。
@@ -133,7 +134,7 @@ export async function healthSummary() {
     for (const [prop, bad] of Object.entries(byProp)) {
       const label = prop === "kiyokawa" ? "清川" : prop === "takasago" ? "高砂" : prop;
       add("定期レポート", `${label}: 稼働の突合（AIRSTAR報告 ↔ Beds24実予約）`, bad.length === 0,
-        bad.length ? bad.join(" / ") : `照合できた全月が±2泊以内（${comparable}ヶ月）`);
+        bad.length ? bad.join(" / ") : `照合できた全月が±2泊以内（${comparable}ヶ月）`, "/reports?tab=rev");
     }
   } catch {
     add("定期レポート", "Beds24との突合", false, "beds24_state が読めない");
@@ -147,16 +148,21 @@ export async function healthSummary() {
     const names = new Set(bFiles.map((f) => f.name.split("/").pop() ?? ""));
     const broken = usage.filter((u) => u.asset && !names.has(u.asset)).map((u) => `${u.scene}→${u.asset}`);
     const undecided = usage.filter((u) => !u.asset).map((u) => u.scene);
-    add("Branding", "配布リンクの実在", broken.length === 0, broken.join(" / ") || `${usage.length}件`);
-    add("Branding", "配布先が未定", undecided.length === 0, undecided.join(" / ") || "なし");
+    add("Branding", "配布リンクの実在", broken.length === 0, broken.join(" / ") || `${usage.length}件`, "/branding");
+    add("Branding", "配布先が未定", undecided.length === 0, undecided.join(" / ") || "なし", "/branding");
     /* サブブランドの位置づけ（role）が空のもの。ロゴだけ存在して定義が無い状態を晒す */
     const subs = (bDoc.subbrands ?? []) as Array<{ name: string; role: string }>;
     const noRole = subs.filter((x) => !x.role).map((x) => x.name);
     add("Branding", "サブブランドの位置づけが未定義", noRole.length === 0,
-      noRole.join(" / ") || `${subs.length}件すべて定義済み`);
+      noRole.join(" / ") || `${subs.length}件すべて定義済み`, "/branding");
   } catch {
     add("Branding", "配布リンクの実在", false, "保管庫が読めない");
   }
+
+  /* 未紐付けメール（誰宛か分からず人待ちのもの）。消し込みはメンテナンスの受信箱 */
+  const unSnap = await db.collection("unmatched").where("needsHuman", "==", true).get();
+  add("メンテナンス", "紐付かなかったメール", unSnap.empty,
+    unSnap.docs.map((d) => String(d.data().subject ?? "")).join(" / ") || "なし", "/maintenance?tab=hist");
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));

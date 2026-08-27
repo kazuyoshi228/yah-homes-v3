@@ -153,30 +153,39 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
      期日の表示は dueLabel（実施日が決まっていれば日付・なければ月） */
   const crit = overdue.filter((o) => o.level === "critical");
   const warn = overdue.filter((o) => o.level === "warn");
-  const secs: Array<{ title: string; tone: "bad" | "warn" | "info"; rows: string[] }> = [];
+  /* 各行に「消し込む場所」への深リンクを持たせる（今日ボードと同じ・2026-08-27）。
+     テキスト版は文言のみ・HTML版は行ごとリンクになる */
+  const OS = "https://os.yah.homes";
+  type Row = { t: string; url?: string };
+  const secs: Array<{ title: string; tone: "bad" | "warn" | "info"; rows: Row[] }> = [];
   if (stale.length) secs.push({ title: "自動処理が動いていない可能性（最優先）", tone: "bad",
-    rows: stale.map((s2) => `${s2.name}: ${Math.floor(s2.silentSec / 3600)}時間 音沙汰なし`) });
+    rows: stale.map((s2) => ({ t: `${s2.name}: ${Math.floor(s2.silentSec / 3600)}時間 音沙汰なし` })) });
   if (crit.length) secs.push({ title: "期日を大きく超過", tone: "bad",
-    rows: crit.map((o) => `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`) });
+    rows: crit.map((o) => ({ t: `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`,
+      url: `${OS}/maintenance?tab=cal` })) });
   if (warn.length) secs.push({ title: "期日が近い・遅れている", tone: "warn",
-    rows: warn.map((o) => `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`) });
+    rows: warn.map((o) => ({ t: `${o.job.title}（${PROP_LABEL[o.job.prop] ?? o.job.prop}・${o.dueLabel}）— ${o.reason}`,
+      url: `${OS}/maintenance?tab=cal` })) });
   if (exc.length) secs.push({ title: "人の判断待ち", tone: "warn",
-    rows: exc.map((e) => `${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`) });
-  if (cvx) secs.push({ title: "GA4定点の点検", tone: "warn", rows: [cvx] });
+    rows: exc.map((e) => ({ t: `${e.title}（${PROP_LABEL[e.prop] ?? e.prop}・${e.dueMonth}）— ${e.timeline?.at(-1)?.note ?? ""}`,
+      url: `${OS}/maintenance?tab=cal` })) });
+  if (cvx) secs.push({ title: "GA4定点の点検", tone: "warn", rows: [{ t: cvx, url: `${OS}/reports` }] });
   if (planting || pUnrep.length) secs.push({ title: "植栽", tone: "warn",
-    rows: [...(planting ? [planting] : []), ...pUnrep] });
+    rows: [...(planting ? [{ t: planting, url: `${OS}/planting` }] : []),
+      ...pUnrep.map((t) => ({ t, url: `${OS}/planting` }))] });
   if (est.length) secs.push({ title: "見積を取る時期（概算のまま実施年が近い）", tone: "info",
-    rows: est.map((e) => `${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`) });
+    rows: est.map((e) => ({ t: `${e.label}（${e.prop}・${e.due}年予定）— いまの見込み ¥${e.amount.toLocaleString()}`,
+      url: `${OS}/properties?tab=ren` })) });
   if (wty.length) secs.push({ title: "保証の期限が近い（不調がないか点検・あれば保証で修理）", tone: "info",
-    rows: wty.map((w) => `${w.label}（${w.until}まで）`) });
+    rows: wty.map((w) => ({ t: `${w.label}（${w.until}まで）`, url: `${OS}/maintenance?tab=ren` })) });
   if (un.length) secs.push({ title: "ジョブに紐付かなかったメール", tone: "info",
-    rows: un.map((u) => `${u.from}「${u.subject}」`) });
+    rows: un.map((u) => ({ t: `${u.from}「${u.subject}」`, url: `${OS}/maintenance?tab=hist` })) });
 
   const SCREEN = "https://os.yah.homes/maintenance";
   const L: string[] = ["yah.OS 外部委託の点検結果です。", ""];
   for (const sec of secs) {
     L.push(`■ ${sec.title}`);
-    sec.rows.forEach((r2) => L.push(`　・${r2}`));
+    sec.rows.forEach((r2) => L.push(`　・${r2.t}`));
     L.push("");
   }
   if (total === 0) L.push("✓ 全て正常です（期日・ハートビート・突合・保証・受信箱、すべて異常なし）", "");
@@ -193,7 +202,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     ${secs.map((sec) => `
     <p style="margin:16px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;color:${toneColor[sec.tone]}">■ ${escH(sec.title)}</p>
     <ul style="margin:0;padding-left:1.2em">
-      ${sec.rows.map((r2) => `<li style="font-size:13px;line-height:1.9;color:#333">${escH(r2)}</li>`).join("")}
+      ${sec.rows.map((r2) => `<li style="font-size:13px;line-height:1.9;color:#333">${r2.url
+        ? `<a href="${r2.url}" style="color:#1a4f9c;text-decoration:none">${escH(r2.t)} →</a>` : escH(r2.t)}</li>`).join("")}
     </ul>`).join("")}
     <p style="margin:24px 0 0"><a href="${SCREEN}" style="display:inline-block;background:#1c1c1c;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px">yah.OS で確認する</a></p>
   </div>

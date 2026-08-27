@@ -231,6 +231,27 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, token, notifyTo: String((ps.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
           return true;
         }
+        case "unmatched": {                                   // 紐付かなかったメール（受信箱・人待ちのみ）
+          const snap = await ctx.db.collection("unmatched").where("needsHuman", "==", true).get();
+          res.json({ ok: true, rows: snap.docs.map((d) => {
+            const x = d.data();
+            return { id: d.id, from: x.from, subject: x.subject, at: x.at,
+              body: String(x.body ?? "").slice(0, 800) };
+          }) });
+          return true;
+        }
+        case "unmatchedResolve": {                            // 消し込み（対応不要・人の判断として記録）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          const uid = String(req.body?.id ?? "");
+          if (!uid) { res.status(400).json({ ok: false, error: "idが空です" }); return true; }
+          await ctx.db.collection("unmatched").doc(uid).update({
+            needsHuman: false,
+            resolvedNote: String(req.body?.note ?? "対応不要"),
+            resolvedBy: ctx.email, resolvedAt: new Date().toISOString(),
+          });
+          res.json({ ok: true });
+          return true;
+        }
         case "construction": {                                // 建築カード（工事資料の台帳・2026-08-27）
           const rows = (await ctx.all("construction")) as Array<Record<string, unknown>>;
           rows.sort((a, b) => String(b.date ?? "").localeCompare(String(a.date ?? "")));
