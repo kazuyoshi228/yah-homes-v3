@@ -231,6 +231,41 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, token, notifyTo: String((ps.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
           return true;
         }
+        case "construction": {                                // 建築カード（工事資料の台帳・2026-08-27）
+          const rows = (await ctx.all("construction")) as Array<Record<string, unknown>>;
+          rows.sort((a, b) => String(b.date ?? "").localeCompare(String(a.date ?? "")));
+          res.json({ ok: true, rows });
+          return true;
+        }
+        case "constructionSave": {                            // 資料1行の登録・更新（原本の所在＝一次事実）
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          const b2 = req.body ?? {};
+          const site = String(b2.site ?? "");
+          if (!["ropponmatsu", "otemon"].includes(site)) {
+            res.status(400).json({ ok: false, error: "site は ropponmatsu / otemon" }); return true;
+          }
+          if (!b2.label) { res.status(400).json({ ok: false, error: "書類名が空です" }); return true; }
+          const doc = {
+            site, label: String(b2.label), category: String(b2.category ?? "その他"),
+            date: String(b2.date ?? ""), path: String(b2.path ?? ""), note: String(b2.note ?? ""),
+            updatedAt: new Date().toISOString(), updatedBy: ctx.email,
+          };
+          if (b2.id) await ctx.db.collection("construction").doc(String(b2.id)).set(doc, { merge: true });
+          else await ctx.db.collection("construction").add(doc);
+          res.json({ ok: true });
+          return true;
+        }
+        case "constructionDoc": {                             // 原本を一時リンクで開く（contractPdf と同型）
+          const gs2 = String(req.query.path ?? "");
+          if (!gs2.startsWith("gs://yah-homes-os-archive/")) {
+            res.status(400).json({ ok: false, error: "その置き場は開けません" }); return true;
+          }
+          const [bk2, ...rest2] = gs2.slice(5).split("/");
+          const [url2] = await getStorage().bucket(bk2).file(rest2.join("/"))
+            .getSignedUrl({ action: "read", expires: Date.now() + 10 * 60 * 1000 });
+          res.json({ ok: true, url: url2 });
+          return true;
+        }
         case "branding": {                                    // Branding カード（アセットは保管庫から毎回引く）
           const [bFiles] = await getStorage().bucket("yah-homes-os-archive")
             .getFiles({ prefix: "branding/" });
