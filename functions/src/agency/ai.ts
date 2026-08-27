@@ -107,7 +107,7 @@ const TOOLS: FunctionDeclaration[] = [
     description: "上の道具に無いデータの最後の手段。agency DB の台帳を生のまま読む（読み取り専用）。" +
       "対象: properties / items / equipment / schedules / jobs / taxes / insurance / reserves / finance / " +
       "revenue / places / utilities / recurringCosts / contracts / cvr / assumptions / scorecards / vendors / " +
-      "templates / alertLogs / unmatched / heartbeats / competitorObs（AirDNA市場定点） / cash（現金残高スナップショット） / intake（取込下書き）。" +
+      "templates / alertLogs / unmatched / heartbeats / competitorObs（AirDNA市場定点） / cash（現金残高スナップショット） / intake（取込下書き） / opsTasks（運営委託先のタスク分解と推定時間）。" +
       "集計済みの答えが欲しい時は専用道具を優先（このツールは生の行を返すだけ）。",
     parameters: {
       type: Type.OBJECT,
@@ -124,7 +124,7 @@ const TOOLS: FunctionDeclaration[] = [
 /* read_collection の許可台帳（読み取り専用・settings は通知先メール等を含むため除外） */
 const READABLE = new Set(["properties", "items", "equipment", "schedules", "jobs", "taxes", "insurance",
   "reserves", "finance", "revenue", "places", "utilities", "recurringCosts", "contracts", "cvr",
-  "assumptions", "scorecards", "vendors", "templates", "alertLogs", "unmatched", "heartbeats", "competitorObs", "cash", "intake"]);
+  "assumptions", "scorecards", "vendors", "templates", "alertLogs", "unmatched", "heartbeats", "competitorObs", "cash", "intake", "opsTasks"]);
 
 async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
   switch (name) {

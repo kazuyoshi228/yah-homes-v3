@@ -253,6 +253,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, token, notifyTo: String((ps.data() as { notifyTo?: string } | undefined)?.notifyTo ?? "") });
           return true;
         }
+        case "opsTasks": {                                    // 運営カード: 委託先タスク台帳（表示専用・推定値の正本）
+          const rows = (await ctx.all("opsTasks")) as Array<Record<string, unknown>>;
+          rows.sort((a, b) => Number(a.idx ?? 0) - Number(b.idx ?? 0));
+          res.json({ ok: true, rows });
+          return true;
+        }
         case "intake": {                                      // 取込の下書き一覧（段D・検収待ち）
           const snap = await ctx.db.collection("intake").where("status", "==", "draft").get();
           const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
