@@ -235,6 +235,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, ...(await judgmentSummary()) });
           return true;
         }
+        case "competitorObs": {                               // AirDNA定点の一覧（表示専用・正本はFirestore）
+          const rows = (await ctx.all("competitorObs")) as Array<Record<string, unknown>>;
+          rows.sort((a, b) => String(b.date ?? "").localeCompare(String(a.date ?? "")));
+          res.json({ ok: true, rows });
+          return true;
+        }
         case "health": {                                      // 全検証を1本で（A・分析の前に必ずこれ）
           res.json({ ok: true, ...(await healthSummary()) });
           return true;
