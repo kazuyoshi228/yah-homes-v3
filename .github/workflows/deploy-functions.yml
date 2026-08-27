@@ -26,6 +26,11 @@ jobs:
           npm ci
           npx tsc --noEmit -p .
           npm test    # 金額計算のテスト（loanState・facts合計・期日判定）。落ちたらデプロイしない
+      - name: ビルドSHAを焼き込む（デプロイ後の照合用・QA②）
+        working-directory: functions
+        run: |
+          echo "/* CIが生成（照合用） */" > src/agency/buildinfo.ts
+          echo "export const BUILD = \"${GITHUB_SHA}\";" >> src/agency/buildinfo.ts
       - name: agencyApi と定点の同期をデプロイ
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
@@ -34,3 +39,8 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
           npx firebase-tools deploy --project yah-homes --non-interactive --force \
             --only functions:agencyApi,functions:agencyDaily,functions:ga4TeitenSync,functions:adsTeitenSync,functions:gscSync,functions:bookingTeitenSync
+      - name: デプロイ後の照合（本番が今回のビルドで動いているか・QA②）
+        run: |
+          DEPLOYED=$(curl -fsS "https://asia-northeast1-yah-homes.cloudfunctions.net/agencyApi?action=version" | python3 -c "import json,sys; print(json.load(sys.stdin)['build'])")
+          echo "deployed=$DEPLOYED expected=$GITHUB_SHA"
+          test "$DEPLOYED" = "$GITHUB_SHA"

@@ -9,6 +9,7 @@ import { defineSecret } from "firebase-functions/params";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { agencyDb } from "./engine.js";
+import { BUILD } from "./buildinfo.js";
 
 import * as propsRoute from "./routes/props.route.js";
 import * as financeRoute from "./routes/finance.route.js";
@@ -63,6 +64,10 @@ export const agencyApi = onRequest(
       res.set("Vary", "Origin");
     }
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    /* version だけは認証前に返す（ビルドSHAのみ・データに触れない）。
+       CIがデプロイ直後に照合し、旧コードが残っていれば失敗させる（QA②） */
+    if (String(req.query.action ?? "") === "version") { res.json({ ok: true, build: BUILD }); return; }
 
     const email = await verify(req);
     if (!email) { res.status(401).json({ ok: false, error: "ログインが必要です" }); return; }
