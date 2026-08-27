@@ -6,6 +6,7 @@
  */
 import { FieldValue } from "firebase-admin/firestore";
 import { judgmentSummary } from "../judgments.js";
+import { teitenStatus } from "../teitenStatus.js";
 import { getStorage } from "firebase-admin/storage";
 import { healthSummary } from "../health.js";
 import { successionSummary } from "../succession.js";
@@ -233,6 +234,10 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "judgments": {                                   // 判定カレンダー（合格ラインと実測の突合）
           res.json({ ok: true, ...(await judgmentSummary()) });
+          return true;
+        }
+        case "teitenStatus": {                                // 定点の同期状態（いつのデータまで入っているか）
+          res.json({ ok: true, ...(await teitenStatus()) });
           return true;
         }
         case "competitorObs": {                               // AirDNA定点の一覧（表示専用・正本はFirestore）

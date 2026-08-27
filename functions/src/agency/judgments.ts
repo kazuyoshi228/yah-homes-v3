@@ -27,14 +27,18 @@ export async function judgmentSummary() {
   const today = ymd(new Date());
   const from28 = ymd(new Date(Date.now() - 28 * 864e5));
 
-  const [jSnap, bkSnap, adsSnap, gaSnap, gscSnap, gscPageSnap] = await Promise.all([
+  const [jSnap, bkSnap, adsSnap, gaSnap, gscSnap, gscPageSnap, baseDoc] = await Promise.all([
     db.collection("judgments").get(),
     db.collection("bookingDaily").where("date", ">=", from28).get(),
     db.collection("adsDaily").where("date", ">=", from28).get(),
     db.collection("ga4Daily").where("date", ">=", from28).get(),
     db.collection("gscDaily").where("date", ">=", from28).get(),
     db.collection("gscPage").where("date", ">=", from28).get(),
+    /* 合格ラインの正本は assumptions/teiten-baseline（2026-08-27 ベタ書き解消）。
+       判定ごとの threshold は各 judgment が持ち、帯の上限のような共通の値だけここから引く */
+    db.collection("assumptions").doc("teiten-baseline").get(),
   ]);
+  const base = baseDoc.data() ?? {};
 
   /* ── 実測をここで組み立てる。すべて既存の定点データから ── */
   const bk = bkSnap.docs.map((d) => d.data());
@@ -83,7 +87,12 @@ export async function judgmentSummary() {
     if (actual == null) return null;
     if (op === "gte") return actual >= th;
     if (op === "lte") return actual <= th;
-    if (op === "between33") return actual >= th && actual <= 33;   // 先付けの適正帯 28〜33%
+    /* 先付けの適正帯。上限は assumptions/teiten-baseline が正本（下限は各judgmentのthreshold） */
+    if (op === "between33") {
+      const max = Number(base.fwdRateMax);
+      if (!Number.isFinite(max)) return null;      // 基準が無ければ判定しない（勝手に決めない）
+      return actual >= th && actual <= max;
+    }
     return null;
   };
 
