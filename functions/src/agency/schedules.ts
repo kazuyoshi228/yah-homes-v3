@@ -125,4 +125,5 @@ export const SCHEDULE_FIELDS = [
   "title", "prop", "category", "everyMonths", "months", "leadDays", "vendorId",
   "budget", "active", "needsDecision", "manualOnly", "statutory", "note",
   "anchorYear",   // 起点年。次回は導出だが「いつから始まるか」は人が決める（2026-08-25）
+  "dueDate",     // 日が決まっているものだけ（YYYY-MM-DD）。消し込み帳が「あと3日」を出すために使う（2026-08-27）
 ] as const;
