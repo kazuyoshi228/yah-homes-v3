@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "test": "tsx --test src/agency/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^0.14.1",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.1",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.0"
   }
 }

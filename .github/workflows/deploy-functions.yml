@@ -25,6 +25,7 @@ jobs:
         run: |
           npm ci
           npx tsc --noEmit -p .
+          npm test    # 金額計算のテスト（loanState・facts合計・期日判定）。落ちたらデプロイしない
       - name: agencyApi と定点の同期をデプロイ
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

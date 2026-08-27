@@ -249,27 +249,37 @@ export async function findOverdue(now = new Date()): Promise<Array<{ id: string;
 
   for (const doc of snap.docs) {
     const job = doc.data() as Job & { plantingDate?: string };
-    const [y, m] = job.dueMonth.split("-").map(Number);
-    /* 期日は日付で追う（2026-08-27 発注者指示）。実施日が決まっているジョブ
-       （plantingDate / confirmedAt）はその日が期日。月単位のジョブは「月が終わるまで」は
-       超過ではない——従来は月初を期日扱いにして、月の途中で「27日超過」と誤報していた。 */
-    const exact = String(job.plantingDate ?? job.confirmedAt ?? "").slice(0, 10);
-    const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(exact);
-    const hard = hasDate ? new Date(`${exact}T23:59:59+09:00`)
-      : new Date(`${ym(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1)}-01T00:00:00+09:00`);
-    const daysHard = Math.floor((hard.getTime() - now.getTime()) / 86400000);
-    /* 確定の締切は従来どおり月初（実施月に入る前に業者と合意していてほしい） */
-    const daysConfirm = Math.floor((dueDate(y, m).getTime() - now.getTime()) / 86400000);
-    const settled = job.status === "confirmed" || job.status === "done";
-    const dueLabel = hasDate ? exact : job.dueMonth;
-
-    if (daysHard < -14) out.push({ id: doc.id, job, level: "critical", reason: `期日を${-daysHard}日超過（${job.status}）`, dueLabel });
-    else if (daysHard < 0) out.push({ id: doc.id, job, level: "warn", reason: `期日を${-daysHard}日超過（${job.status}）`, dueLabel });
-    else if (!settled && daysConfirm < 0) out.push({ id: doc.id, job, level: "warn", reason: `実施月に入って${-daysConfirm}日、まだ未確定（${job.status}）`, dueLabel });
-    else if (!settled && job.statutory && daysConfirm <= 30) out.push({ id: doc.id, job, level: "warn", reason: `法定・期日まで${daysConfirm}日で未確定`, dueLabel });
-    else if (!settled && !job.statutory && daysConfirm <= 7) out.push({ id: doc.id, job, level: "warn", reason: `期日まで${daysConfirm}日で未確定`, dueLabel });
+    const c = classifyOverdue(job, now);
+    if (c) out.push({ id: doc.id, job, ...c });
   }
   return out;
+}
+
+/**
+ * 1ジョブの期日判定（純粋関数・自動テスト対象）。
+ * 期日は日付で追う（2026-08-27 発注者指示）。実施日が決まっているジョブ
+ * （plantingDate / confirmedAt）はその日が期日。月単位のジョブは「月が終わるまで」は
+ * 超過ではない——従来は月初を期日扱いにして、月の途中で「27日超過」と誤報していた。
+ */
+export function classifyOverdue(job: Job & { plantingDate?: string }, now: Date):
+  { level: "warn" | "critical"; reason: string; dueLabel: string } | null {
+  const [y, m] = job.dueMonth.split("-").map(Number);
+  const exact = String(job.plantingDate ?? job.confirmedAt ?? "").slice(0, 10);
+  const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(exact);
+  const hard = hasDate ? new Date(`${exact}T23:59:59+09:00`)
+    : new Date(`${ym(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1)}-01T00:00:00+09:00`);
+  const daysHard = Math.floor((hard.getTime() - now.getTime()) / 86400000);
+  /* 確定の締切は従来どおり月初（実施月に入る前に業者と合意していてほしい） */
+  const daysConfirm = Math.floor((dueDate(y, m).getTime() - now.getTime()) / 86400000);
+  const settled = job.status === "confirmed" || job.status === "done";
+  const dueLabel = hasDate ? exact : job.dueMonth;
+
+  if (daysHard < -14) return { level: "critical", reason: `期日を${-daysHard}日超過（${job.status}）`, dueLabel };
+  if (daysHard < 0) return { level: "warn", reason: `期日を${-daysHard}日超過（${job.status}）`, dueLabel };
+  if (!settled && daysConfirm < 0) return { level: "warn", reason: `実施月に入って${-daysConfirm}日、まだ未確定（${job.status}）`, dueLabel };
+  if (!settled && job.statutory && daysConfirm <= 30) return { level: "warn", reason: `法定・期日まで${daysConfirm}日で未確定`, dueLabel };
+  if (!settled && !job.statutory && daysConfirm <= 7) return { level: "warn", reason: `期日まで${daysConfirm}日で未確定`, dueLabel };
+  return null;
 }
 
 /** ハートビート（原則2-2・沈黙の検知）。処理が成功したら必ず打つ */

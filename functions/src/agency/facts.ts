@@ -97,13 +97,18 @@ export async function factsSummary(q: { prop?: string; ym?: string; flow?: strin
   }
   /* 融資の返済は次段（LoanState の月次展開が要る）。黙って欠かさず、無いことを明記する */
 
-  const rows = out.filter((f) =>
+  return { ...aggregateFacts(out, q),
+    note: "融資の返済（flow=loan）は未実装。fixed は年額・opex定額は月額（periodicity 参照）" };
+}
+
+/** フィルタと集計（純粋関数・自動テスト対象）。合計はここでしか作らない */
+export function aggregateFacts(all: Fact[], q: { prop?: string; ym?: string; flow?: string }) {
+  const rows = all.filter((f) =>
     (!q.prop || f.prop === q.prop) && (!q.ym || f.ym.startsWith(q.ym)) && (!q.flow || f.flow === q.flow));
   const byFlow: Record<string, { count: number; amount: number }> = {};
   for (const f of rows) {
     (byFlow[f.flow] ??= { count: 0, amount: 0 });
     byFlow[f.flow].count++; byFlow[f.flow].amount += f.amount;
   }
-  return { rows, byFlow, total: { count: rows.length },
-    note: "融資の返済（flow=loan）は未実装。fixed は年額・opex定額は月額（periodicity 参照）" };
+  return { rows, byFlow, total: { count: rows.length } };
 }
