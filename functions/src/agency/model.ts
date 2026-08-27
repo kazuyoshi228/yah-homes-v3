@@ -6,7 +6,9 @@
  */
 
 /** 施設キー（Web SSoT の property_facts と同じ語彙を使う。正本はあちら） */
-export type PropKey = "kiyokawa" | "takasago" | "ropponmatsu" | "otemonA" | "otemonB";
+/* otemon は棟（1棟2部屋の資産側）。A/B は部屋＝収益側。建物設備・保険・税・修繕は棟に付く
+   （2026-08-25 発注者決定・2026-08-27 型に追加） */
+export type PropKey = "kiyokawa" | "takasago" | "ropponmatsu" | "otemon" | "otemonA" | "otemonB";
 
 /** 連絡チャネル。line は v2（仕様書 §9） */
 export type Channel = "email" | "phone" | "line";

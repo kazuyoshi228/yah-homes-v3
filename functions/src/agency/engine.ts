@@ -9,7 +9,8 @@
  * ここではメールを送らない（送信は dispatcher が担当）。エンジンは「いつ・何を・誰に」だけを決める。
  */
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
-import type { Job, JobStatus, Schedule } from "./model.js";
+import type { Job, JobStatus, Schedule, PropKey } from "./model.js";
+import { enrichSchedules } from "./schedules.js";
 
 export const agencyDb = () => getFirestore("agency");
 
@@ -61,46 +62,63 @@ export function upcomingMonths(
  * 起票: leadDays 以内に迫った実施月のジョブを作る。
  * 冪等キー = `${scheduleId}:${yyyy-mm}` なので、何度実行しても二重に作らない。
  */
-export async function createDueJobs(now = new Date()): Promise<{ created: string[]; skipped: number }> {
+export async function createDueJobs(now = new Date()): Promise<{ created: string[]; skipped: number; noMonth: number }> {
   const db = agencyDb();
-  const today = nowJst(now);
-  const snap = await db.collection("schedules").where("active", "==", true).get();
+  const [schedSnap, jobSnap, eqSnap, propSnap] = await Promise.all([
+    db.collection("schedules").where("active", "==", true).get(),
+    db.collection("jobs").get(),
+    db.collection("equipment").get(),
+    db.collection("properties").get(),
+  ]);
+  const withId = (s: FirebaseFirestore.QuerySnapshot) =>
+    s.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const jobs = withId(jobSnap);
+  /* 次回の出し方はカードと同じ関数を使う。以前はここに months + everyYears の独自計算があり、
+     everyMonths への移行に追随できていなかった——実施月が空のものは一度も起票されず、
+     四半期のものは年1回として扱われていた（2026-08-27 発注者指摘で発見） */
+  const views = enrichSchedules(withId(schedSnap), jobs, withId(eqSnap), withId(propSnap));
+
   const created: string[] = [];
-  let skipped = 0;
+  let skipped = 0, noMonth = 0;
 
-  for (const doc of snap.docs) {
-    const s = doc.data() as Schedule;
-    const lead = s.leadDays ?? 60;
-    for (const { y, m } of upcomingMonths(s.months, today, 4, s.everyYears, s.anchorYear)) {
-      const daysUntil = Math.floor((dueDate(y, m).getTime() - now.getTime()) / 86400000);
-      if (daysUntil > lead) continue;              // まだ早い
-      const trigger = `${doc.id}:${ym(y, m)}`;
-      const existing = await db.collection("jobs").where("trigger", "==", trigger).limit(1).get();
-      if (!existing.empty) { skipped++; continue; } // 既に起票済み
+  for (const v of views) {
+    const next = String(v.nextDueMonth ?? "");
+    const m = next.match(/^(\d{4})\/(\d{2})$/);
+    if (!m) { if (next) noMonth++; continue; }   // 「2027年」＝実施月が未定。人が決めるまで起票しない
+    const y = Number(m[1]), mm = Number(m[2]);
+    const dueYm = ym(y, mm);
+    const lead = Number(v.leadDays ?? 60);
+    const daysUntil = Math.floor((dueDate(y, mm).getTime() - now.getTime()) / 86400000);
+    if (daysUntil > lead) continue;              // まだ早い
 
-      const nowIso = new Date().toISOString();
-      const job: Job = {
-        type: "periodic",
-        title: s.title,
-        prop: s.prop,
-        vendorId: s.vendorId,
-        scheduleId: doc.id,
-        trigger,
-        status: "draft",                            // ドライラン中は人が送信する
-        dueMonth: ym(y, m),
-        statutory: s.statutory,
-        budget: s.budget,
-        manualOnly: s.manualOnly ?? false,
-        timeline: [{ at: nowIso, status: "draft", by: "system",
-          note: `周期マスタから自動起票（実施予定 ${ym(y, m)}）${s.manualOnly ? "・人が対応する作業" : ""}` }],
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-      await db.collection("jobs").add(job as unknown as Record<string, unknown>);
-      created.push(trigger);
-    }
+    /* 同じ周期・同じ月に生きているジョブがあれば作らない。trigger だけで見ると、
+       業者ポータルや手入力で作られたジョブ（trigger を持たない）と二重になる */
+    if (jobs.some((j: Record<string, unknown>) =>
+      String(j.scheduleId ?? "") === v.id && String(j.dueMonth ?? "") === dueYm &&
+      !["cancelled"].includes(String(j.status)))) { skipped++; continue; }
+
+    const nowIso = new Date().toISOString();
+    const job: Job = {
+      type: "periodic",
+      title: String(v.title ?? ""),
+      prop: v.prop as PropKey,
+      vendorId: String(v.vendorId ?? ""),
+      scheduleId: v.id,
+      trigger: `${v.id}:${dueYm}`,
+      status: "draft",
+      dueMonth: dueYm,
+      statutory: !!v.statutory,
+      budget: Number(v.budget ?? 0),
+      manualOnly: v.manualOnly === true,
+      timeline: [{ at: nowIso, status: "draft", by: "system",
+        note: `周期マスタから自動起票（実施予定 ${dueYm}）${v.manualOnly ? "・人が対応する作業" : ""}` }],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    await db.collection("jobs").add(job as unknown as Record<string, unknown>);
+    created.push(job.trigger as string);
   }
-  return { created, skipped };
+  return { created, skipped, noMonth };
 }
 
 /**
