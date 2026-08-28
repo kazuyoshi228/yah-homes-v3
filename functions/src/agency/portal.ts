@@ -14,6 +14,7 @@ import type { Response } from "express";
 import { getStorage } from "firebase-admin/storage";
 import crypto from "node:crypto";
 import { agencyDb } from "./engine.js";
+import { logger } from "firebase-functions/v2";
 import { sendNotice } from "./mailer.js";
 import { loadTemplate, fill } from "./templates.js";
 import { BEDS24_API, beds24WriteToken, BOOKING_PROP_IDS } from "../beds24Client.js";
@@ -365,7 +366,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         });
         await notify("portalSelect", notifyTo,
           vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—",
-            propLabel: task.propLabel, workLabel: task.label })).catch(() => {});
+            propLabel: task.propLabel, workLabel: task.label })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
         res.json({ ok: true, jobId: ref.id });
         return;
       }
@@ -403,7 +404,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
           }
           await notify("portalSelect", notifyTo,
             vars({ jobId: ids[0], plantingDate: jpDate(date), vendorName: vendor || "—",
-              propLabel: g.label })).catch(() => {});
+              propLabel: g.label })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
           res.json({ ok: true, jobId: ids[0], jobIds: ids });
           return;
         }
@@ -421,7 +422,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         timeline: [{ at: now, status: "confirmed", by: "vendor", note: `${vendor || "業者"} が ${date} を選択（${c.source}）` }],
       });
       await notify("portalSelect", notifyTo,
-        vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—" })).catch(() => {});
+        vars({ jobId: ref.id, plantingDate: jpDate(date), vendorName: vendor || "—" })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true, jobId: ref.id });
       return;
     }
@@ -462,7 +463,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         }, { merge: true });
       }
       await notify("portalChange", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
+        vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from), vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true, jobId });
       return;
     }
@@ -488,7 +489,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         }, { merge: true });
       }
       await notify("portalUnselect", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—") })).catch(() => {});
+        vars({ jobId, plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true });
       return;
     }
@@ -530,7 +531,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         jobId = ref.id;
       }
       await notify("portalReport", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), reportText: text, photoCount: String(photos.length) })).catch(() => {});
+        vars({ jobId, plantingDate: jpDate(date), reportText: text, photoCount: String(photos.length) })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true, jobId, photos: photos.length });
       return;
     }

@@ -4,11 +4,15 @@
  * ここは「どの設定でポータルを開くか」だけを持つ。
  */
 import { onRequest } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import { BEDS24_WRITE_REFRESH } from "../beds24Client.js";
 import { PORTALS, handlePortal, portalToken } from "./portal.js";
 
 const REGION = "asia-northeast1";
-const OPTS = { region: REGION, secrets: [BEDS24_WRITE_REFRESH], maxInstances: 2 };
+/* Gmailの委任鍵。これが無いと sendNotice が「未設定です」で落ち、日程選択の通知が飛ばない。
+   2026-08-28 まで宣言が抜けており、3ポータルの通知は一度も届いていなかった */
+const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
+const OPTS = { region: REGION, secrets: [BEDS24_WRITE_REFRESH, AGENCY_MAILER_KEY], maxInstances: 2 };
 
 /** 植栽（花屋アン・清川）。既に運用中のURLなので関数名は変えない */
 export const plantingCal = onRequest(OPTS, (req, res) => handlePortal(PORTALS.planting, req, res));
