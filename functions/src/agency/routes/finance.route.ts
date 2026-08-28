@@ -47,8 +47,8 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           return true;
         }
         case "fixedCosts": {                                  // 税金・保険・積立（毎年決まって出ていくもの）
-          const [tax, ins, res_, asm] = await Promise.all([
-            all("taxes"), all("insurance"), all("reserves"), all("assumptions")]);
+          const [tax, ins, res_, asm, propDocs] = await Promise.all([
+            all("taxes"), all("insurance"), all("reserves"), all("assumptions"), all("properties")]);
           const sumY = (rows: Array<Record<string, unknown>>, key: string) =>
             rows.reduce((a, r) => a + Number(r[key] ?? 0), 0);
           const taxes = sumY(tax as never, "amountPerYear");
@@ -59,6 +59,8 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           const perYear = taxes + premiums + reserves;
           res.json({
             ok: true, taxes: tax, insurance: ins, reserves: res_, assumptions: asm,
+            /* 棟の和名は properties が正本（P2 #8・画面の直書き表を廃止するため同梱） */
+            propLabels: Object.fromEntries(propDocs.map((p) => [String(p.id), String(p.label ?? p.id)])),
             total: {
               taxesPerYear: taxes, insurancePerYear: premiums, reservesPerYear: reserves,
               perYear, perMonth: Math.round(perYear / 12),

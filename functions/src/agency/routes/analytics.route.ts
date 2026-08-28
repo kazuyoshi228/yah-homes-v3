@@ -27,7 +27,10 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))
             .sort((a, b) => String((a as { sortKey?: string }).sortKey ?? "")
               .localeCompare(String((b as { sortKey?: string }).sortKey ?? "")));
-          res.json({ ok: true, rows });
+          /* 棟の和名は properties が正本（P2 #8） */
+          const propDocs = await ctx.all("properties");
+          res.json({ ok: true, rows,
+            propLabels: Object.fromEntries(propDocs.map((p) => [String(p.id), String(p.label ?? p.id)])) });
           return true;
         }
         case "branding": {                                    // Branding カード（アセットは保管庫から毎回引く）
