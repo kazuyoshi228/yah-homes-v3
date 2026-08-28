@@ -175,6 +175,34 @@ export async function healthSummary() {
   add("メンテナンス", "紐付かなかったメール", unSnap.empty,
     unSnap.docs.map((d) => String(d.data().subject ?? "")).join(" / ") || "なし", "/maintenance?tab=hist");
 
+  /* 台帳の整合4検査（レビューP1・2026-08-28）: 二重計上・迷子の棟・日付欠測・現金の鮮度 */
+  const propIds = new Set((props.rows as Array<{ id: string }>).map((r) => r.id));
+  const revAll = await db.collection("revenue").where("kind", "==", "monthly").get();
+  const revKeys = new Map<string, number>();
+  for (const d of revAll.docs) {
+    const r = d.data() as { prop?: string; month?: string };
+    if (!r.prop || !r.month) continue;
+    const k = `${r.prop}|${r.month}`;
+    revKeys.set(k, (revKeys.get(k) ?? 0) + 1);
+  }
+  const revDup = [...revKeys.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+  add("定期レポート", "売上の重複（同じ棟×同じ月が2行）", revDup.length === 0,
+    revDup.join(" / ") || `${revKeys.size}行すべて一意`, "/reports?tab=rev");
+  const revOrphan = [...new Set(revAll.docs.map((d) => String(d.data().prop ?? ""))
+    .filter((p) => p && !propIds.has(p)))];
+  add("定期レポート", "売上行の棟が物件台帳に無い", revOrphan.length === 0,
+    revOrphan.join(" / ") || "なし", "/reports?tab=rev");
+  const itemSnap = await db.collection("items").get();
+  const noDate = itemSnap.docs.filter((d) => !String(d.data().date ?? "")).length;
+  add("物件", "投資明細の日付欠測", noDate === 0, `${noDate}件`, "/properties?tab=inv");
+  try {
+    const cashSnap = await db.collection("cash").orderBy("__name__", "desc").limit(1).get();
+    const latest = cashSnap.docs[0]?.id ?? "";
+    const stale = !latest || latest < new Date(now.getTime() - 45 * 864e5).toISOString().slice(0, 10);
+    add("財務", "現金残高の鮮度（45日以内）", !stale,
+      latest ? `最終スナップショット ${latest}` : "未登録", "/maintenance?tab=hist");
+  } catch { add("財務", "現金残高の鮮度（45日以内）", false, "cash が読めない"); }
+
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));
   add("利回り", "前提: cap-rate", asm.has("cap-rate"), "");

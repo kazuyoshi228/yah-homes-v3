@@ -230,7 +230,8 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
         `出力は次の2部だけ・合計10行以内・Markdown記号なし:\n` +
         `【所見】全体を3行以内で。数字の傾向（前月比など）は道具で実データを確認してから書く\n` +
         `【原因の見立て】重要な警告に絞り「警告名: 原因の見立て（根拠）」を各1行。道具で裏取りできないものは書かない`,
-        [], { maxTurns: 8, maxOutputTokens: 4000 });
+        /* 朝メール所見は要約タスク＝flashで十分（1/10コスト・レビューP1） */
+        [], { maxTurns: 8, maxOutputTokens: 4000, model: "gemini-2.5-flash", purpose: "morningNote" });
       aiNote = r.answer.trim();
     } catch { /* 所見なしで送る */ }
   }
@@ -274,9 +275,13 @@ export async function testAlarm(): Promise<{ ok: boolean; detail: string }> {
     requestMailAt: new Date().toISOString(),
     timeline: [{ at: new Date().toISOString(), status: "sent", by: "system", note: "警報が鳴るかの訓練" }],
   });
-  const overdue = await findOverdue();
-  const caught = overdue.some((o) => (o.job as { id?: string }).id === ref.id || o.job.title.includes("警報テスト"));
-  await ref.delete();
+  let caught = false;
+  try {
+    const overdue = await findOverdue();
+    caught = overdue.some((o) => (o.job as { id?: string }).id === ref.id || o.job.title.includes("警報テスト"));
+  } finally {
+    await ref.delete();   // findOverdueが落ちてもテストジョブを残さない（翌日から誤警報になる・レビューP1）
+  }
   await db.collection("alarmTests").add({ at: new Date().toISOString(), caught });
   return { ok: caught, detail: caught ? "期日超過として検知された" : "検知されなかった（見張りが壊れている）" };
 }

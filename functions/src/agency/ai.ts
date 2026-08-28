@@ -107,7 +107,7 @@ const TOOLS: FunctionDeclaration[] = [
     description: "上の道具に無いデータの最後の手段。agency DB の台帳を生のまま読む（読み取り専用）。" +
       "対象: properties / items / equipment / schedules / jobs / taxes / insurance / reserves / finance / " +
       "revenue / places / utilities / recurringCosts / contracts / cvr / assumptions / scorecards / vendors / " +
-      "templates / alertLogs / unmatched / heartbeats / competitorObs（AirDNA市場定点） / cash（現金残高スナップショット） / intake（取込下書き） / opsTasks（運営委託先のタスク分解と推定時間）。" +
+      "templates / alertLogs / unmatched / heartbeats / competitorObs（AirDNA市場定点） / cash（現金残高スナップショット） / intake（取込下書き） / opsTasks（運営委託先のタスク分解と推定時間） / construction（工事資料の所在） / policies（経営方針） / mailFailures（メール処理失敗台帳）。" +
       "集計済みの答えが欲しい時は専用道具を優先（このツールは生の行を返すだけ）。",
     parameters: {
       type: Type.OBJECT,
@@ -124,7 +124,7 @@ const TOOLS: FunctionDeclaration[] = [
 /* read_collection の許可台帳（読み取り専用・settings は通知先メール等を含むため除外） */
 const READABLE = new Set(["properties", "items", "equipment", "schedules", "jobs", "taxes", "insurance",
   "reserves", "finance", "revenue", "places", "utilities", "recurringCosts", "contracts", "cvr",
-  "assumptions", "scorecards", "vendors", "templates", "alertLogs", "unmatched", "heartbeats", "competitorObs", "cash", "intake", "opsTasks"]);
+  "assumptions", "scorecards", "vendors", "templates", "alertLogs", "unmatched", "heartbeats", "competitorObs", "cash", "intake", "opsTasks", "construction", "policies", "mailFailures"]);
 
 async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
   switch (name) {
@@ -187,10 +187,18 @@ const SYSTEM = `あなたは yah.OS（宿泊事業の経営OS）の分析アシ�
 - 判断や公開などの操作はできない（読み取り専用）。求められたら「操作は画面から人が行う決まりです」と案内する`;
 
 export async function askAI(question: string, history: Array<{ role: "user" | "assistant"; content: string }>,
-  opts: { maxTurns?: number; maxOutputTokens?: number } = {}):
+  opts: { maxTurns?: number; maxOutputTokens?: number; model?: string; purpose?: string } = {}):
   Promise<{ answer: string; toolsUsed: string[] }> {
   /* Vertex AI モード: APIキー不要。実行SA（yah-homes@appspot）の IAM（roles/aiplatform.user）で認証 */
   const ai = new GoogleGenAI({ vertexai: true, project: "yah-homes", location: "global" });
+  /* 同一質問内で同じ道具×同じ引数の再実行を省く（再スキャンとトークンの節約・レビューP1） */
+  const memo = new Map<string, unknown>();
+  const runToolMemo = async (name: string, input: Record<string, unknown>) => {
+    const key = name + JSON.stringify(input ?? {});
+    if (!memo.has(key)) memo.set(key, await runTool(name, input));
+    return memo.get(key);
+  };
+  let usage = { in: 0, out: 0, calls: 0 };
   const contents: Content[] = [
     ...history.slice(-12).map((h) => ({
       role: h.role === "assistant" ? "model" : "user", parts: [{ text: h.content }] })),
@@ -199,19 +207,39 @@ export async function askAI(question: string, history: Array<{ role: "user" | "a
   const toolsUsed: string[] = [];
 
   for (let turn = 0; turn < (opts.maxTurns ?? 6); turn++) {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents,
-      config: {
-        systemInstruction: `${SYSTEM}\n\n今日: ${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
-        tools: [{ functionDeclarations: TOOLS }],
-        maxOutputTokens: opts.maxOutputTokens ?? 8000,
-      },
-    });
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    let response;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        response = await ai.models.generateContent({
+          model: opts.model ?? MODEL,
+          contents,
+          config: {
+            systemInstruction: `${SYSTEM}\n\n今日: ${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}`,
+            tools: [{ functionDeclarations: TOOLS }],
+            maxOutputTokens: opts.maxOutputTokens ?? 8000,
+          },
+        });
+        break;
+      } catch (e) {
+        /* 429/503は一度だけバックオフして再試行（レビューP1） */
+        const msg = String((e as Error).message ?? e);
+        if (attempt === 0 && /429|503|RESOURCE_EXHAUSTED|UNAVAILABLE/.test(msg)) {
+          await new Promise((r) => setTimeout(r, 4000)); continue;
+        }
+        throw e;
+      }
+    }
+    const um = response.usageMetadata;
+    usage = { in: usage.in + Number(um?.promptTokenCount ?? 0),
+      out: usage.out + Number(um?.candidatesTokenCount ?? 0), calls: usage.calls + 1 };
+    const cand = response.candidates?.[0];
+    const truncated = cand?.finishReason === "MAX_TOKENS";
+    const parts = cand?.content?.parts ?? [];
     const calls = parts.filter((p) => p.functionCall);
     if (!calls.length) {
-      const answer = parts.filter((p) => p.text).map((p) => p.text).join("\n").trim();
+      let answer = parts.filter((p) => p.text).map((p) => p.text).join("\n").trim();
+      if (truncated) answer += "\n\n（注意: 出力上限に達したため途中で終わっています）";
+      await logAiUsage(opts.purpose ?? "ask", opts.model ?? MODEL, usage);
       return { answer: answer || "（回答を生成できませんでした）", toolsUsed };
     }
     contents.push({ role: "model", parts });
@@ -220,13 +248,23 @@ export async function askAI(question: string, history: Array<{ role: "user" | "a
       const name = String(p.functionCall!.name ?? "");
       toolsUsed.push(name);
       let out: unknown;
-      try { out = await runTool(name, (p.functionCall!.args ?? {}) as Record<string, unknown>); }
+      try { out = await runToolMemo(name, (p.functionCall!.args ?? {}) as Record<string, unknown>); }
       catch (e) { out = { error: String((e as Error).message ?? e) }; }
       results.push({ functionResponse: { name, response: { result: out } } });
     }
     contents.push({ role: "user", parts: results });
   }
+  await logAiUsage(opts.purpose ?? "ask", opts.model ?? MODEL, usage);
   return { answer: "調査が長くなりすぎたため打ち切りました。質問を絞って試してください。", toolsUsed };
+}
+
+/* AI利用量の運用ログ（追記のみ・回答本文は保存しない）。コストの実測が残る（レビューP1） */
+async function logAiUsage(purpose: string, model: string, u: { in: number; out: number; calls: number }): Promise<void> {
+  try {
+    await agencyDb().collection("aiLogs").add({
+      at: new Date().toISOString(), purpose, model,
+      promptTokens: u.in, outputTokens: u.out, calls: u.calls });
+  } catch { /* ログ失敗で本処理を止めない */ }
 }
 
 /**
@@ -247,5 +285,5 @@ export async function monthlyAiReport(now = new Date()): Promise<{ answer: strin
 【今月の要判断】人が決めるべきことのリスト（期日ジョブ・見積・契約期限から。無ければ「なし」）
 
 注意: 数字は必ず道具から。取れなかった項目は「データ未着」と書く（推測で埋めない）。メール本文になるのでMarkdown記号は使わず、見出しは【】、表は「棟名: 売上¥X / 稼働Y%」形式の行で。`;
-  return askAI(prompt, [], { maxTurns: 12, maxOutputTokens: 12000 });
+  return askAI(prompt, [], { maxTurns: 12, maxOutputTokens: 12000, purpose: "monthlyReport" });
 }

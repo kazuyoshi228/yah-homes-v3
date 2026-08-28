@@ -9,7 +9,7 @@
  */
 import { google } from "googleapis";
 import { getStorage } from "firebase-admin/storage";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { agencyDb } from "./engine.js";
 import { gmailAuthFromKey } from "./mailer.js";
 import type { IncomingMail } from "./inbox.js";
@@ -54,14 +54,37 @@ export async function processIntake(mail: IncomingMail): Promise<number> {
 
       let extracted: Record<string, unknown> = { kind: "other", confidence: 0, summary: "読取り失敗", data: {} };
       try {
+        /* flashで十分（定型書類のOCR構造化・コスト約1/10）。スキーマはAPI側で強制し、
+           kind検証・confidenceクランプ・途切れ検知をコードでも行う（レビュー2026-08-28 P1: AI出力を信じすぎない） */
         const r = await ai.models.generateContent({
-          model: "gemini-2.5-pro",
+          model: "gemini-2.5-flash",
           contents: [{ role: "user", parts: [
             { inlineData: { mimeType: att.mimeType, data: b64 } },
             { text: EXTRACT_PROMPT }] }],
-          config: { responseMimeType: "application/json", maxOutputTokens: 8000 },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                kind: { type: Type.STRING, enum: ["cash", "cvr", "revenue", "journal", "airdna", "vendor", "other"] },
+                confidence: { type: Type.NUMBER },
+                summary: { type: Type.STRING },
+                data: { type: Type.OBJECT },
+              },
+              required: ["kind", "confidence", "summary", "data"],
+            },
+            maxOutputTokens: 8000,
+          },
         });
-        extracted = JSON.parse(r.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "{}");
+        const cand = r.candidates?.[0];
+        if (cand?.finishReason && cand.finishReason !== "STOP") {
+          throw new Error(`生成が完走しなかった（${cand.finishReason}）`);
+        }
+        extracted = JSON.parse(cand?.content?.parts?.map((p) => p.text ?? "").join("") ?? "{}");
+        const KINDS = new Set(["cash", "cvr", "revenue", "journal", "airdna", "vendor", "other"]);
+        if (!KINDS.has(String(extracted.kind))) extracted.kind = "other";
+        extracted.confidence = Math.min(1, Math.max(0, Number(extracted.confidence ?? 0)));
+        if (Number(extracted.confidence) < 0.7) extracted.summary = `【要目視】${String(extracted.summary ?? "")}`;
       } catch (e) {
         extracted.summary = `読取り失敗: ${String((e as Error).message).slice(0, 200)}`;
       }

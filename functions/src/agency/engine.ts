@@ -115,8 +115,15 @@ export async function createDueJobs(now = new Date()): Promise<{ created: string
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-    await db.collection("jobs").add(job as unknown as Record<string, unknown>);
-    created.push(job.trigger as string);
+    /* docID = trigger の create() で並行起票を構造的に弾く（レビュー2026-08-28 P1）。
+       agencyDaily と画面操作が同時に走っても2通目は ALREADY_EXISTS で消える */
+    try {
+      await db.collection("jobs").doc(job.trigger as string).create(job as unknown as Record<string, unknown>);
+      created.push(job.trigger as string);
+    } catch (e) {
+      if ((e as { code?: number }).code === 6) { skipped++; continue; }
+      throw e;
+    }
   }
   return { created, skipped, noMonth };
 }
@@ -141,16 +148,18 @@ export async function scheduleNext(jobId: string): Promise<string | null> {
     s.months, { y: dm === 12 ? dy + 1 : dy, m: dm === 12 ? 1 : dm + 1 }, 1, s.everyYears, s.anchorYear)[0];
   if (!next) return null;   // 周期の設定が壊れていれば黙って次回を作らない（誤った期日を置かない）
   const trigger = `${job.scheduleId}:${ym(next.y, next.m)}`;
-  const dup = await db.collection("jobs").where("trigger", "==", trigger).limit(1).get();
-  if (!dup.empty) return null;
-
   const nowIso = new Date().toISOString();
-  await db.collection("jobs").add({
-    type: "periodic", title: s.title, prop: s.prop, vendorId: s.vendorId, scheduleId: job.scheduleId,
-    trigger, status: "draft", dueMonth: ym(next.y, next.m), statutory: s.statutory, budget: s.budget,
-    timeline: [{ at: nowIso, status: "draft", by: "system", note: `前回完了により次回分を自動登録（${job.dueMonth} → ${ym(next.y, next.m)}）` }],
-    createdAt: nowIso, updatedAt: nowIso,
-  });
+  try {
+    await db.collection("jobs").doc(trigger).create({
+      type: "periodic", title: s.title, prop: s.prop, vendorId: s.vendorId, scheduleId: job.scheduleId,
+      trigger, status: "draft", dueMonth: ym(next.y, next.m), statutory: s.statutory, budget: s.budget,
+      timeline: [{ at: nowIso, status: "draft", by: "system", note: `前回完了により次回分を自動登録（${job.dueMonth} → ${ym(next.y, next.m)}）` }],
+      createdAt: nowIso, updatedAt: nowIso,
+    });
+  } catch (e) {
+    if ((e as { code?: number }).code === 6) return null;   // 既に起票済み（並行実行）
+    throw e;
+  }
   return trigger;
 }
 
@@ -211,10 +220,9 @@ export async function createWarrantyJobs(now = new Date()): Promise<number> {
   let made = 0;
   for (const w of due) {
     const trigger = `warranty:${w.id}:${w.until}`;
-    const dup = await db.collection("jobs").where("trigger", "==", trigger).limit(1).get();
-    if (!dup.empty) continue;
     const nowIso = now.toISOString();
-    await db.collection("jobs").add({
+    try {
+    await db.collection("jobs").doc(trigger).create({
       type: "internal", title: `保証期限前の点検（${w.label}・${w.until}まで）`,
       prop: w.prop, trigger, status: "draft", dueMonth: w.until,
       statutory: false, manualOnly: true,
@@ -223,6 +231,7 @@ export async function createWarrantyJobs(now = new Date()): Promise<number> {
       createdAt: nowIso, updatedAt: nowIso,
     });
     made++;
+    } catch (e) { if ((e as { code?: number }).code !== 6) throw e; }
   }
   return made;
 }

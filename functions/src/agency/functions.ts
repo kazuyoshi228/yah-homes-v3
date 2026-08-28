@@ -48,7 +48,16 @@ export const agencyDaily = onSchedule(
     const runOnce = (await flagRef.get()).data()?.runOnce === true;
     if (jstDay === 1 || runOnce) {
       await step("monthlyAiReport", async () => {
-        const r = await monthlyAiReport();
+        let r;
+        try { r = await monthlyAiReport(); }
+        catch (e) {
+          /* 生成失敗でも「失敗した」メールは届ける——沈黙が一番怖い（レビューP1） */
+          const to0 = (await notifySettings()).exceptionsTo;
+          await sendNotice({ to: to0, subject: "[yah.OS] 月次経営レポート 生成失敗",
+            body: `AIによるレポート生成に失敗しました: ${String((e as Error).message ?? e).slice(0, 300)}\n数字の正本は各カードで確認できます。再実行: settings/aiReport.runOnce=true` });
+          if (runOnce) await flagRef.set({ runOnce: false }, { merge: true });
+          return { sent: false, error: true };
+        }
         const to = (await notifySettings()).exceptionsTo;
         /* 前月ラベル: 前月1日のDateを作ってから整形する（月だけ戻すと1月に年がズレる・レビュー2026-08-28 #3） */
         const jstNow = new Date(Date.now() + 9 * 3600e3);
