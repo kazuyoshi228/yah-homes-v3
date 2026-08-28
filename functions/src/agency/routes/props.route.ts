@@ -110,6 +110,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, ...(await renewalPlan(String(req.query.prop ?? "") || undefined)) });
           return true;
         }
+        case "landScreening": {                              // 土地取得の採点基準（正本: assumptions/land-screening）
+          const doc = await db.collection("assumptions").doc("land-screening").get();
+          if (!doc.exists) { res.json({ ok: true, rubric: null }); return true; }
+          res.json({ ok: true, rubric: doc.data() });
+          return true;
+        }
         case "drawing": {                                     // 図面データ（非公開の保管庫から一時リンクで開く）
           const gs = String(req.query.path ?? "");
           if (!gs.startsWith("gs://yah-homes-os-archive/")) {
