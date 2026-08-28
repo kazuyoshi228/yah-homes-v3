@@ -203,24 +203,18 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
     <p style="margin:0 0 4px;font-size:15px;font-weight:700">yah.OS 外部委託の点検結果</p>
     <p style="margin:0 0 16px;font-size:12px;color:#888">${total ? `要対応 ${total}件` : "要対応なし"}</p>
     ${total === 0 ? `<p style="margin:0;font-size:13px;color:#1e7d3e;background:#eef7f0;border:1px solid #cfe8d6;border-radius:7px;padding:10px 14px">✓ 全て正常です——期日・ハートビート・突合・保証・受信箱、すべて異常なし</p>` : `
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em">対象</th>
-        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:12%">施設</th>
-        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:16%">期日</th>
-        <th style="text-align:left;padding:6px 10px;font-size:11px;color:#999;font-weight:500;letter-spacing:.06em;width:34%">状況</th>
-      </tr></thead>
-      <tbody>
+    <div>
       ${secs.map((sec) => `
-        <tr><td colspan="4" style="padding:12px 10px 5px;font-size:11.5px;font-weight:700;letter-spacing:.05em;color:${toneColor[sec.tone]};background:${toneBg[sec.tone]};border-radius:4px">■ ${escH(sec.title)}</td></tr>
-        ${sec.rows.map((r2) => `<tr>
-          <td ${td}>${r2.url ? `<a href="${r2.url}" style="color:#1a4f9c;text-decoration:none;font-weight:600">${escH(r2.c[0])} →</a>` : `<b>${escH(r2.c[0])}</b>`}</td>
-          <td ${td}>${escH(r2.c[1] || "—")}</td>
-          <td ${td}>${escH(r2.c[2] || "—")}</td>
-          <td ${td}>${escH(r2.c[3] || "")}</td>
-        </tr>`).join("")}`).join("")}
-      </tbody>
-    </table>`}
+        <p style="margin:14px 0 6px;padding:7px 12px;font-size:12.5px;font-weight:700;letter-spacing:.04em;color:${toneColor[sec.tone]};background:${toneBg[sec.tone]};border-radius:6px">■ ${escH(sec.title)}</p>
+        ${sec.rows.map((r2) => `
+        <div style="padding:9px 4px 10px;border-bottom:1px solid #eceae6">
+          <div style="font-size:14px;line-height:1.6">
+            ${r2.url ? `<a href="${r2.url}" style="color:#1a4f9c;text-decoration:none;font-weight:700">${escH(r2.c[0])} →</a>` : `<b>${escH(r2.c[0])}</b>`}
+            ${(r2.c[1] || r2.c[2]) ? `<span style="font-size:12px;color:#888">　${[r2.c[1], r2.c[2]].filter(Boolean).join("・")}</span>` : ""}
+          </div>
+          ${r2.c[3] ? `<div style="font-size:13px;line-height:1.7;color:#444;margin-top:2px">${escH(r2.c[3])}</div>` : ""}
+        </div>`).join("")}`).join("")}
+    </div>`}
     <p style="margin:24px 0 0"><a href="${SCREEN}" style="display:inline-block;background:#1c1c1c;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px">yah.OS で確認する</a></p>
   </div>
 </body></html>`;
