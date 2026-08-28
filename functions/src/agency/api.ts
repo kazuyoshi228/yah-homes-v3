@@ -22,6 +22,9 @@ const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
 /* localhost は手元で確認するとき用（5000 は macOS の ControlCenter が使っているので 5050 も許す） */
 const ALLOW_ORIGIN = ["https://os.yah.homes", "https://yah-os.web.app",
+  /* 固定プレビューチャンネル（deploy.sh --preview の行き先・2026-08-28）。
+     チャンネル "preview" を消して作り直すとURLが変わるので、そのときはここも直す */
+  "https://yah-os--preview-l8vxe633.web.app",
   "http://localhost:5000", "http://localhost:5050", "http://127.0.0.1:5050"];
 
 /**
