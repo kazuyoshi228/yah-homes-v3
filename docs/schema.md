@@ -31,6 +31,12 @@
 | `scorecards` | 承継採点1回 | date, dimensions[], total, horizon | 画面(saveScorecard) | 日付ごとに積む（上書きしない） |
 | `vendors` / `templates` / `settings` | 業者・定型文・設定 | — | 画面 | 外部委託まわり |
 | `alertLogs` | 警報ログ | at, items, breakdown | システム | 追記のみ |
+| `cash` | 現金残高スナップショット1回 | date, total, accounts[{name,balance}], source(原本スクショgs://) | 検収（人のクリック）のみ | 取込パイプ（段D）経由。ランウェイは導出 |
+| `intake` | 取込の下書き1件 | at, from, filename, gsPath, kind, confidence, summary, data, status(draft/accepted/rejected) | AI(draft)・人(検収/破棄) | 正本ではなく待合室。検収で各台帳へ |
+| `construction` | 工事資料1行 | site(ropponmatsu/otemon), label, category, date, path(gs://), note | 画面(constructionSave) | 建築カードの正本。竣工後はitems/設備台帳へ |
+| `competitorObs` | AirDNA市場定点1回 | date, market, filters, adrUsd, occupancyPct, activeListings, listingsYoYPct ほか | 半年定点（コピペ→構造化投入） | 条件固定（中央区・Beds3-9）が生命線 |
+| `opsTasks` | 運営タスク1行 | scenario(airstar/inhouse), label, freq, hoursMin/Max または category/window/assignees | 人の判断 | 運営カードの正本（委託の分解と内製座組） |
+| `policies` | 経営方針1件 | kind, title, policy, items[], decidedAt | 人の判断のみ | 事業承継カード方針タブの正本（出口設計・再調達価値等） |
 
 ## 導出レイヤ（保存しない）
 
@@ -45,3 +51,8 @@
 ## バックアップ
 
 Firestore標準のスケジュールバックアップ（日次・保持7日）を agency / default / chat の3DBに設定済み（2026-08-25）。
+
+## 機械ゲート（スキーマ外の守り・2026-08-27整備）
+
+金額テスト17本＋期日判定テスト（CI・落ちればデプロイ中止）／スモーク全カード（実ブラウザ・JSエラー0）／
+デプロイ後のビルドSHA照合／金額焼き込みラチェット／フォント下限0.72rem。一覧の正本: yah-os/CLAUDE.md
