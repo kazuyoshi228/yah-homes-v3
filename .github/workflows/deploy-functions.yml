@@ -38,7 +38,7 @@ jobs:
           echo "$FIREBASE_SA" > /tmp/sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
           npx firebase-tools deploy --project yah-homes --non-interactive --force \
-            --only functions:agencyApi,functions:agencyDaily,functions:agencyGmailPush,functions:ga4TeitenSync,functions:adsTeitenSync,functions:gscSync,functions:bookingTeitenSync
+            --only functions:agencyApi,functions:agencyDaily,functions:agencyGmailPush,functions:plantingCal,functions:exteriorCal,functions:kaitekiCal,functions:ga4TeitenSync,functions:adsTeitenSync,functions:gscSync,functions:bookingTeitenSync
       - name: デプロイ後の照合（本番が今回のビルドで動いているか・QA②）
         run: |
           DEPLOYED=$(curl -fsS "https://asia-northeast1-yah-homes.cloudfunctions.net/agencyApi?action=version" | python3 -c "import json,sys; print(json.load(sys.stdin)['build'])")
