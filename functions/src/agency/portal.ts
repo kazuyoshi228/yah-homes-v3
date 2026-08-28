@@ -334,6 +334,9 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
     if (!(await rateOk(db, c))) { res.status(429).json({ ok: false, error: "しばらく待ってから送ってください" }); return; }
     const now = new Date().toISOString();
     const vars = (o: Record<string, string>) => ({ propLabel: c.propLabel, workLabel: c.workLabel, ...o });
+    /* まとまりで立てたジョブは、通知の宛名も群の名前にする（「清川」だけだと高砂が抜けたように読める）。
+       群はジョブ自身の portalGroup から引く——画面が group を送らなくても正しくなる（2026-08-28） */
+    const labelOf = (g?: string) => c.groups?.find((x) => x.key === g)?.label ?? c.propLabel;
 
     if (body.action === "select") {
       const date = String(body.date ?? "");
@@ -447,7 +450,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       }
       const ref = db.collection("jobs").doc(jobId);
       const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;
-        timeline?: unknown[]; portalBatch?: string; title?: string };
+        timeline?: unknown[]; portalBatch?: string; title?: string; portalGroup?: string };
       if (j.source !== c.source || j.status !== "confirmed") {
         res.status(409).json({ ok: false, error: "この日は変更できません（報告済みか、こちらで確定済み）" }); return;
       }
@@ -463,7 +466,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         }, { merge: true });
       }
       await notify("portalChange", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from), vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
+        vars({ jobId, plantingDate: jpDate(date), beforeDate: jpDate(from),
+          propLabel: labelOf(j.portalGroup), vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true, jobId });
       return;
     }
@@ -477,7 +481,7 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       if (!jobId) { res.status(404).json({ ok: false, error: "この日は選択されていません" }); return; }
       const ref = db.collection("jobs").doc(jobId);
       const j = (await ref.get()).data() as { status?: string; source?: string; vendorName?: string;
-        timeline?: unknown[]; portalBatch?: string };
+        timeline?: unknown[]; portalBatch?: string; portalGroup?: string };
       if (j.source !== c.source || j.status !== "confirmed") {
         res.status(409).json({ ok: false, error: "この日は取り消せません（報告済みか、こちらで確定済み）" }); return;
       }
@@ -489,7 +493,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         }, { merge: true });
       }
       await notify("portalUnselect", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
+        vars({ jobId, plantingDate: jpDate(date), propLabel: labelOf(j.portalGroup),
+          vendorName: String(j.vendorName ?? "—") })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true });
       return;
     }
@@ -510,9 +515,11 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
       }
       const ev = { at: now, status: "done", by: "vendor", note: `業者報告: ${text}` };
       let jobId = (await takenDates(db, c, String(body.group ?? "") || undefined)).get(date);
+      let group: string | undefined;
       if (jobId) {
         const ref = db.collection("jobs").doc(jobId);
-        const j0 = (await ref.get()).data() as { portalBatch?: string };
+        const j0 = (await ref.get()).data() as { portalBatch?: string; portalGroup?: string };
+        group = j0.portalGroup;
         /* まとまりで立てたジョブは兄弟もいっしょに done にする（片方だけ残らない） */
         const sibs = j0.portalBatch ? await batchJobs(db, j0.portalBatch) : [];
         for (const d of (sibs.length ? sibs : [await ref.get()])) {
@@ -531,7 +538,8 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
         jobId = ref.id;
       }
       await notify("portalReport", notifyTo,
-        vars({ jobId, plantingDate: jpDate(date), reportText: text, photoCount: String(photos.length) })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
+        vars({ jobId, plantingDate: jpDate(date), propLabel: labelOf(group),
+          reportText: text, photoCount: String(photos.length) })).catch((e) => logger.error("portal/notify 失敗", { portal: c.id, error: String(e) }));
       res.json({ ok: true, jobId, photos: photos.length });
       return;
     }
