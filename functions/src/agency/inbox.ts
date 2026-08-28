@@ -57,10 +57,25 @@ export interface IncomingMail {
 }
 
 /** historyId 以降の新着を取り出す */
-export async function fetchNew(sinceHistoryId: string): Promise<IncomingMail[]> {
+export async function fetchNew(sinceHistoryId: string): Promise<{ mails: IncomingMail[]; newHistoryId: string }> {
   const g = gmail();
-  const h = await g.users.history.list({ userId: "me", startHistoryId: sinceHistoryId, historyTypes: ["messageAdded"] });
-  const ids = [...new Set((h.data.history ?? []).flatMap((x) => (x.messagesAdded ?? []).map((m) => m.message?.id)).filter(Boolean))] as string[];
+  /* ページネーション対応（レビュー2026-08-28: 1ページ超の履歴を黙って捨てていた）。
+     historyId はここでは書かない——書くのは呼び出し元が全件処理を終えた後の1回だけ（二重ライター解消） */
+  const idSet = new Set<string>();
+  let newHistoryId = sinceHistoryId;
+  let pageToken: string | undefined = undefined;
+  do {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const h: { data: { history?: Array<{ messagesAdded?: Array<{ message?: { id?: string | null } }> }>;
+      historyId?: string | null; nextPageToken?: string | null } } =
+      await g.users.history.list({ userId: "me", startHistoryId: sinceHistoryId,
+        historyTypes: ["messageAdded"], pageToken });
+    for (const x of h.data.history ?? [])
+      for (const m of x.messagesAdded ?? []) if (m.message?.id) idSet.add(m.message.id);
+    if (h.data.historyId) newHistoryId = String(h.data.historyId);
+    pageToken = h.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  const ids = [...idSet];
 
   const out: IncomingMail[] = [];
   for (const id of ids) {
@@ -78,11 +93,8 @@ export async function fetchNew(sinceHistoryId: string): Promise<IncomingMail[]> 
       attachments: parts.filter((p) => p.filename && p.body?.attachmentId)
         .map((p) => ({ filename: p.filename!, attachmentId: p.body!.attachmentId!, mimeType: p.mimeType ?? "" })),
     });
-    if (h.data.historyId) {
-      await agencyDb().collection("settings").doc("gmail").set({ historyId: String(h.data.historyId) }, { merge: true });
-    }
   }
-  return out;
+  return { mails: out, newHistoryId };
 }
 
 /** ジョブへの紐付け。確信が持てないときは null を返す（推測しない） */
@@ -130,17 +142,26 @@ export async function detectHumanTakeover(jobId: string, threadId: string): Prom
 }
 
 /** 受信を記録する（append-only）。紐付かないものは unmatched に積んで人へ回す */
-export async function record(mail: IncomingMail, jobId: string | null): Promise<void> {
+export async function record(mail: IncomingMail, jobId: string | null): Promise<boolean> {
+  /* 冪等化（レビュー2026-08-28 #2）: docID = gmailId の create() で二重記録を弾く。
+     false（＝既に記録済み）を返したら、呼び出し元は handleReply を呼ばない——
+     Pub/Sub の at-least-once 再配信で業者へ確認メールが二重送信されるのを防ぐ本丸 */
   const db = agencyDb();
   const doc = {
     at: mail.receivedAt, direction: "in" as const, by: "vendor" as const,
     subject: mail.subject, body: mail.body, gmailId: mail.gmailId, threadId: mail.threadId,
     attachments: mail.attachments.map((a) => a.filename),
   };
-  if (jobId) {
-    await db.collection("jobs").doc(jobId).collection("messages").add(doc);
-    await db.collection("jobs").doc(jobId).update({ updatedAt: new Date().toISOString(), threadId: mail.threadId });
-  } else {
-    await db.collection("unmatched").add({ ...doc, from: mail.from, needsHuman: true });
+  try {
+    if (jobId) {
+      await db.collection("jobs").doc(jobId).collection("messages").doc(mail.gmailId).create(doc);
+      await db.collection("jobs").doc(jobId).update({ updatedAt: new Date().toISOString(), threadId: mail.threadId });
+    } else {
+      await db.collection("unmatched").doc(mail.gmailId).create({ ...doc, from: mail.from, needsHuman: true });
+    }
+    return true;
+  } catch (e) {
+    if ((e as { code?: number }).code === 6) return false;   // ALREADY_EXISTS = 再配信
+    throw e;
   }
 }

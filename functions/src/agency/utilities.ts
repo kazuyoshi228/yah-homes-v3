@@ -34,7 +34,15 @@ export async function utilitySummary() {
   const book = await placeBook();
   /* 回線などの契約者情報。パスワードは持たない（管理ツール側・2026-08-26） */
   const acctSnap = await db.collection("serviceAccounts").get();
-  const accounts = acctSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }));
+  /* パスワード類は一覧に載せない（レビュー2026-08-28 #6: 平文がブラウザとsessionStorageに残っていた）。
+     見る時だけ serviceAccountSecret（都度取得・キャッシュ不可）で1件返す */
+  const SECRET = /pass|pwd|pin|secret|暗証/i;
+  const accounts = acctSnap.docs.map((d) => {
+    const o: Record<string, unknown> = { id: d.id };
+    for (const [k, v] of Object.entries(d.data())) if (!SECRET.test(k)) o[k] = v;
+    o.hasSecret = Object.keys(d.data()).some((k) => SECRET.test(k));
+    return o;
+  });
 
   const months = [...new Set(rows.map((r) => r.month))].sort();
   const places = [...new Set(rows.map((r) => r.place))];

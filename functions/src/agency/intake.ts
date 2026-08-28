@@ -66,7 +66,8 @@ export async function processIntake(mail: IncomingMail): Promise<number> {
         extracted.summary = `読取り失敗: ${String((e as Error).message).slice(0, 200)}`;
       }
 
-      await db.collection("intake").add({
+      /* docID = gmailId-連番 の create() で再配信の二重下書きを弾く（冪等・レビュー2026-08-28） */
+      await db.collection("intake").doc(`${mail.gmailId}-${n}`).create({
         at: mail.receivedAt, from: mail.from, subject: mail.subject,
         filename: att.filename, mimeType: att.mimeType, gsPath: `gs://${BUCKET}/${path}`,
         kind: String(extracted.kind ?? "other"),
@@ -77,7 +78,8 @@ export async function processIntake(mail: IncomingMail): Promise<number> {
       });
       n++;
     } catch (e) {
-      await db.collection("intake").add({
+      if ((e as { code?: number }).code === 6) { n++; continue; }   // ALREADY_EXISTS = 再配信・処理済み
+      await db.collection("intake").doc(`${mail.gmailId}-${n}-err`).set({
         at: mail.receivedAt, from: mail.from, subject: mail.subject,
         filename: att.filename, kind: "other", confidence: 0, data: {},
         summary: `取込失敗: ${String((e as Error).message).slice(0, 200)}`,
@@ -92,11 +94,19 @@ export async function processIntake(mail: IncomingMail): Promise<number> {
 export async function acceptIntake(id: string, email: string): Promise<{ wrote: string }> {
   const db = agencyDb();
   const ref = db.collection("intake").doc(id);
-  const doc = (await ref.get()).data();
-  if (!doc) throw new Error("取込が見つかりません");
-  if (doc.status !== "draft") throw new Error("既に処理済みです");
+  /* 二重検収の防止（レビュー2026-08-28 #8）: draft→accepting をトランザクションで先取りする。
+     ダブルクリックや再送は2回目がここで止まる（vendorsのadd()が二重登録になるのを防ぐ） */
+  const doc = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.data();
+    if (!d) throw new Error("取込が見つかりません");
+    if (d.status !== "draft") throw new Error("既に処理済みです");
+    tx.update(ref, { status: "accepting" });
+    return d;
+  });
 
   let wrote = "";
+  try {
   if (doc.kind === "cash") {
     const d = doc.data as { date?: string; total?: number; accounts?: Array<{ name: string; balance: number }> };
     const date = String(d.date ?? doc.at.slice(0, 10));
@@ -122,6 +132,10 @@ export async function acceptIntake(id: string, email: string): Promise<{ wrote: 
     wrote = `vendors/${ids.join(",")}`;
   } else {
     throw new Error(`この種類（${doc.kind}）の検収はまだ対応していません（順次拡大）`);
+  }
+  } catch (e) {
+    await ref.update({ status: "draft" });   // 失敗したら draft に戻す（accepting のまま行方不明にしない）
+    throw e;
   }
   await ref.update({ status: "accepted", acceptedBy: email, acceptedAt: new Date().toISOString(), wrote });
   return { wrote };

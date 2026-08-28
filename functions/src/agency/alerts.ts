@@ -239,10 +239,11 @@ export async function sendDailyAlert(now = new Date()): Promise<{ sent: boolean;
   /* 点検メールは「起きた事実の通知」——autoSendゲート（業者へのAI発信の停止弁）を通らない。
      ゲートに掛けると下書きに眠って誰にも届かない（2026-08-25 植栽の通知で発覚・同日修正） */
   const bodyText = aiNote ? `yah.OS 外部委託の点検結果です。\n\n${aiNote}\n\n` + L.slice(2).join("\n") : L.join("\n");
-  const htmlWithNote = aiNote
-    ? html.replace('<table style="width:100%;border-collapse:collapse">',
-        `<div style="background:#f4f6fa;border:1px solid #dde3ee;border-radius:8px;padding:12px 16px;margin:0 0 16px;font-size:12.5px;line-height:1.9;color:#334;white-space:pre-wrap">${escH(aiNote)}</div><table style="width:100%;border-collapse:collapse">`)
-    : html;
+  const NOTE_ANCHOR = '</p>';   // ヘッダ（要対応N件の行）の直後＝最初の</p>
+  const noteHtml = `<div style="background:#f4f6fa;border:1px solid #dde3ee;border-radius:8px;padding:12px 16px;margin:0 0 16px;font-size:12.5px;line-height:1.9;color:#334;white-space:pre-wrap">${escH(aiNote)}</div>`;
+  const htmlWithNote = aiNote ? html.replace(NOTE_ANCHOR, NOTE_ANCHOR + noteHtml) : html;
+  /* 挿入の空振りを二度と黙らせない（2026-08-28 レビュー#1: アンカー不一致で所見が一度も届いていなかった） */
+  if (aiNote && !htmlWithNote.includes("f4f6fa")) throw new Error("AI所見のHTML挿入に失敗（アンカー不一致）");
   await sendNotice({
     to,
     subject: total === 0 ? "[yah.OS] 点検 異常なし"

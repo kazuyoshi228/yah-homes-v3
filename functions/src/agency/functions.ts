@@ -50,8 +50,10 @@ export const agencyDaily = onSchedule(
       await step("monthlyAiReport", async () => {
         const r = await monthlyAiReport();
         const to = (await notifySettings()).exceptionsTo;
-        const ym = new Date(Date.now() + 9 * 3600e3);
-        const label = `${ym.getUTCFullYear()}-${String(ym.getUTCMonth() === 0 ? 12 : ym.getUTCMonth()).padStart(2, "0")}`;
+        /* 前月ラベル: 前月1日のDateを作ってから整形する（月だけ戻すと1月に年がズレる・レビュー2026-08-28 #3） */
+        const jstNow = new Date(Date.now() + 9 * 3600e3);
+        const prev = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth() - 1, 1));
+        const label = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
         await sendNotice({
           to, subject: `[yah.OS] 月次経営レポート ${label}`,
           body: r.answer + `\n\n（参照: ${[...new Set(r.toolsUsed)].join("・")}／このレポートはAIが台帳から毎回導出しています。数字の正本は各カード）`,
@@ -81,14 +83,13 @@ export const agencyGmailPush = onMessagePublished(
     const since = String((await ref.get()).data()?.historyId ?? "");
     if (!since) { logger.warn("agency/gmailPush: historyId 未登録のため見送り"); return; }
 
-    let mails;
+    let mails, newHistoryId;
     try {
-      mails = await fetchNew(since);
+      ({ mails, newHistoryId } = await fetchNew(since));
     } catch (e) {
       logger.error("agency/gmailPush: 取得失敗", e);
       return;                                        // historyId は進めない（取りこぼしを防ぐ）
     }
-    const newHistoryId = String((event.data.message.json as { historyId?: number })?.historyId ?? since);
 
     for (const mail of mails) {
       try {
@@ -100,7 +101,8 @@ export const agencyGmailPush = onMessagePublished(
         }
         const m = await matchJob(mail);
         const jobId = m?.jobId ?? null;
-        await record(mail, jobId);
+        const fresh = await record(mail, jobId);
+        if (!fresh) { logger.info(`agency/gmailPush: ${mail.gmailId} は記録済み（再配信）——読解をスキップ`); continue; }
         if (!jobId) continue;                        // 紐付かないものは unmatched に積まれ、翌朝のアラートに出る
         if (await detectHumanTakeover(jobId, mail.threadId)) {
           logger.info(`agency/gmailPush: ${jobId} は人が対応中のためAIは動かない`);
@@ -109,10 +111,21 @@ export const agencyGmailPush = onMessagePublished(
         const r = await handleReply(jobId, mail.body);
         logger.info(`agency/gmailPush: ${jobId} → ${r.action}`, r);
       } catch (e) {
+        /* 失敗は台帳に残してから前へ進む（レビュー2026-08-28 #1: 黙って握りつぶすとメールが恒久消失していた）。
+           mailFailures は health の「紐付かなかったメール」と同様に人へ露出させる */
         logger.error(`agency/gmailPush: ${mail.gmailId} の処理に失敗`, e);
+        await db.collection("mailFailures").doc(mail.gmailId).set({
+          at: mail.receivedAt, from: mail.from, subject: mail.subject,
+          error: String((e as Error).message ?? e).slice(0, 500),
+          needsHuman: true, failedAt: new Date().toISOString(),
+        }, { merge: true });
       }
     }
-    await ref.set({ historyId: newHistoryId }, { merge: true });
+    /* historyId は単調増加のみ（並行配信で古い値が新しい値を巻き戻さないように） */
+    await db.runTransaction(async (tx) => {
+      const cur = String((await tx.get(ref)).data()?.historyId ?? "0");
+      if (BigInt(newHistoryId) > BigInt(cur)) tx.set(ref, { historyId: newHistoryId }, { merge: true });
+    });
     await beat("gmailPush", 8 * 24 * 3600);          // 受信は不定期。8日沈黙したら watch 切れを疑う
   },
 );

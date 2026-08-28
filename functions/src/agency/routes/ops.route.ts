@@ -292,6 +292,24 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, url: url3 });
           return true;
         }
+        case "serviceAccountSecret": {                        // 契約者情報の秘匿項目を1件だけ都度返す（キャッシュ禁止）
+          const said = String(req.query.id ?? "");
+          const sd2 = (await ctx.db.collection("serviceAccounts").doc(said).get()).data();
+          if (!sd2) { res.status(404).json({ ok: false, error: "見つかりません" }); return true; }
+          const SEC = /pass|pwd|pin|secret|暗証/i;
+          const secrets: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(sd2)) if (SEC.test(k)) secrets[k] = v;
+          res.set("Cache-Control", "no-store");
+          res.json({ ok: true, secrets });
+          return true;
+        }
+        case "unmatchedResolveFailure": {                     // 受信失敗メールの消し込み
+          if (req.method !== "POST") { res.status(405).json({ ok: false }); return true; }
+          await ctx.db.collection("mailFailures").doc(String(req.body?.id ?? "")).update({
+            needsHuman: false, resolvedBy: ctx.email, resolvedAt: new Date().toISOString() });
+          res.json({ ok: true });
+          return true;
+        }
         case "unmatched": {                                   // 紐付かなかったメール（受信箱・人待ちのみ）
           const snap = await ctx.db.collection("unmatched").where("needsHuman", "==", true).get();
           res.json({ ok: true, rows: snap.docs.map((d) => {

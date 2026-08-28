@@ -260,12 +260,18 @@ export async function handlePortal(c: PortalConfig, req: Request, res: Response)
   try {
     const db = agencyDb();
     const t = String(req.query.t ?? (req.body as { t?: string } | undefined)?.t ?? "");
+    const slug = String(req.query.s ?? (req.body as { s?: string } | undefined)?.s ?? "");
     const st = await db.collection("settings").doc(c.id).get();
-    const sd = (st.data() ?? {}) as { token?: string; notifyTo?: string; notes?: string;
+    const sd = (st.data() ?? {}) as { token?: string; slug?: string; notifyTo?: string; notes?: string;
       showGroups?: string[]; tasks?: unknown[]; deadlineDays?: number };
     const token = String(sd.token ?? "");
     const notifyTo = String(sd.notifyTo ?? "") || c.notifyFallback;
-    if (!token || !t || t !== token) { res.status(404).send("not found"); return; }
+    /* 認可はスラッグ（業者の短縮URL＝不変）優先。トークン（?t=）は後方互換で残すが、
+       git/URLに露出した鍵はローテーション済みで旧値は死んでいる（レビュー2026-08-28 #5）。
+       業者に渡したURLは一切変わらない——変わるのは内部の鍵だけ */
+    const bySlug = !!sd.slug && !!slug && slug === sd.slug;
+    const byToken = !!token && !!t && t === token;
+    if (!bySlug && !byToken) { res.status(404).send("not found"); return; }
 
     /* 対象の棟。許可リストに無い値は既定へ落とす（勝手な棟を触らせない） */
     const wanted = String(req.query.prop ?? (req.body as { prop?: string } | undefined)?.prop ?? "");

@@ -30,12 +30,17 @@ export type Fact = {
 
 export async function factsSummary(q: { prop?: string; ym?: string; flow?: string }) {
   const db = agencyDb();
-  const [itemsSnap, eqSnap, taxSnap, insSnap, resSnap, rev, util] = await Promise.all([
+  const [itemsSnap, eqSnap, taxSnap, insSnap, resSnap, rev, util, propSnap] = await Promise.all([
     db.collection("items").get(),
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("taxes").get(), db.collection("insurance").get(), db.collection("reserves").get(),
     revenueSummary(120), utilitySummary(),
+    db.collection("properties").get(),
   ]);
+  /* invest/add の分類基準は棟ごとの addSince（properties が正本・2026-08-28）。
+     従前の「2026年開始なら add」という年直書きは2027年以降を全て誤分類する時限爆弾だった。
+     addSince 未設定の棟（建設中）は全て invest 扱い＝安全側 */
+  const addSince = Object.fromEntries(propSnap.docs.map((d) => [d.id, String(d.data().addSince ?? "9999-12-31")]));
   /* place→prop の対応表は台帳から組む。コードに表を持たない（拠点が増えても直さない） */
   const place2prop = Object.fromEntries(
     (await placeBook()).map((b) => [b.place, b.prop ?? ""]).filter(([, v]) => v));
@@ -49,7 +54,7 @@ export async function factsSummary(q: { prop?: string; ym?: string; flow?: strin
     push({
       prop: String(x.prop), ym,
       amount: Number(x.amount ?? 0),
-      flow: ym.startsWith("2026") ? "add" : "invest",
+      flow: String(x.date ?? "") >= (addSince[String(x.prop)] ?? "9999-12-31") ? "add" : "invest",
       group: kind === "supply" ? "備品" : kind === "construction" ? "工事" : String(x.cat ?? "取得費用"),
       label: String(x.item ?? x.label ?? d.id), periodicity: "once",
       ...(x.txNo ? { txNo: String(x.txNo) } : {}), docPath: `items/${d.id}`,
@@ -61,7 +66,7 @@ export async function factsSummary(q: { prop?: string; ym?: string; flow?: strin
     push({
       prop: String(e.prop), ym,
       amount: Number(e.amount ?? e.price ?? 0),
-      flow: e.futureCost === true ? "future" : ym.startsWith("2026") ? "add" : "invest",
+      flow: e.futureCost === true ? "future" : ym !== "" && ym >= (addSince[String(e.prop)] ?? "9999-12-31").slice(0, 7) ? "add" : "invest",
       group: String(e.group ?? "設備"),
       label: String(e.model ?? e.category ?? d.id), periodicity: "once",
       ...(e.txNo ? { txNo: String(e.txNo) } : {}), docPath: `equipment/${d.id}`,

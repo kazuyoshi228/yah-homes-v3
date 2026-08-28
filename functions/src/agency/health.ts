@@ -165,6 +165,11 @@ export async function healthSummary() {
     inSnap.docs.map((d) => `${d.data().kind}: ${String(d.data().summary ?? d.data().filename ?? "")}`).join(" / ") || "なし",
     "/maintenance?tab=hist");
 
+  /* 受信処理に失敗したメール（記録して前進した分・レビュー2026-08-28）。放置させない */
+  const mfSnap = await db.collection("mailFailures").where("needsHuman", "==", true).get();
+  add("メンテナンス", "受信処理に失敗したメール", mfSnap.empty,
+    mfSnap.docs.map((d) => String(d.data().subject ?? d.id)).join(" / ") || "なし", "/maintenance?tab=hist");
+
   /* 未紐付けメール（誰宛か分からず人待ちのもの）。消し込みはメンテナンスの受信箱 */
   const unSnap = await db.collection("unmatched").where("needsHuman", "==", true).get();
   add("メンテナンス", "紐付かなかったメール", unSnap.empty,
