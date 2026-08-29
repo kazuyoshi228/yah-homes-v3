@@ -47,8 +47,15 @@ export async function healthSummary() {
         : `${r.audit.ok}/${r.audit.total}`, `/properties?prop=${r.id}`);
   }
 
-  /* 物件×固定費: 積立が年割りで足りているか（棟ごと） */
+  /* 物件×固定費: 積立が年割りで足りているか（棟ごと）。
+     稼働していない棟（準備中・見送り）は対象外——開業前に積立を立てないのは正常で、
+     警告として出すと消しようのない宿題になる（2026-08-29 発注者判断）。
+     status が未設定の棟は従来どおり検査する（黙って隠さない） */
+  const statusOf = new Map((props.rows as Array<{ id: string; status?: string }>)
+    .map((r) => [r.id, String(r.status ?? "")]));
   for (const p of plan.byProp) {
+    const st = statusOf.get(p.prop) ?? "";
+    if (st === "準備中" || st === "見送り") continue;
     add("固定費", `${p.propLabel}: 積立 vs 年割り`, p.gap >= 0,
       `${p.gap >= 0 ? "+" : ""}${p.gap.toLocaleString()}円/年`, "/maintenance?tab=ren");
   }
