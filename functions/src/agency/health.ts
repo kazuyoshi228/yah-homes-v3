@@ -147,9 +147,7 @@ export async function healthSummary() {
     const [bFiles] = await getStorage().bucket("yah-homes-os-archive").getFiles({ prefix: "branding/" });
     const names = new Set(bFiles.map((f) => f.name.split("/").pop() ?? ""));
     const broken = usage.filter((u) => u.asset && !names.has(u.asset)).map((u) => `${u.scene}→${u.asset}`);
-    const undecided = usage.filter((u) => !u.asset).map((u) => u.scene);
     add("Branding", "配布リンクの実在", broken.length === 0, broken.join(" / ") || `${usage.length}件`, "/branding");
-    add("Branding", "配布先が未定", undecided.length === 0, undecided.join(" / ") || "なし", "/branding");
     /* サブブランドの位置づけ（role）が空のもの。ロゴだけ存在して定義が無い状態を晒す */
     const subs = (bDoc.subbrands ?? []) as Array<{ name: string; role: string }>;
     const noRole = subs.filter((x) => !x.role).map((x) => x.name);
@@ -194,13 +192,9 @@ export async function healthSummary() {
     revOrphan.join(" / ") || "なし", "/reports?tab=rev");
   /* 「投資明細の日付欠測」は取り下げた（2026-08-29）。取得時の明細は date を持たない設計で、
      欠測ではなく正常——27件を毎日警告する誤報だった（facts.ts の addSince 判定を参照） */
-  /* 現金残高の鮮度。docIDが日付（YYYY-MM-DD）なので文字列の最大値が最新。
-     件数が少ないので全件取って比較する（orderBy("__name__") は予約フィールド名としてエラーになる） */
-  const cashSnap = await db.collection("cash").get();
-  const latestCash = cashSnap.docs.map((d) => d.id).sort().at(-1) ?? "";
-  const cashLimit = new Date(now.getTime() - 45 * 864e5).toISOString().slice(0, 10);
-  add("財務", "現金残高が45日以内に記録されているか", !!latestCash && latestCash >= cashLimit,
-    latestCash ? `最後の記録 ${latestCash}` : "まだ一度も記録がありません", "/maintenance?tab=hist");
+  /* 「現金残高の鮮度」「Brandingの配布先が未定」は検査から外した（2026-08-29 発注者「タスク不要」）。
+     現金カードが未着工で消しようがなく、配布先は急ぐ判断ではないため。
+     必要になったらこの位置に戻す（実装は git 履歴 3c4fb66 にある） */
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));
