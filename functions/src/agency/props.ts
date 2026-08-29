@@ -85,7 +85,16 @@ export async function propertySummary() {
   const per = (s: FirebaseFirestore.QuerySnapshot, prop: string, key: string) =>
     s.docs.filter((d) => d.data().prop === prop).reduce((a, d) => a + Number(d.data()[key] ?? 0), 0);
 
-  const rows = snap.docs.map((d) => {
+  /* 保有物件だけを返す。検討中・見送りの物件は棟ではないので、この一覧に混ぜない
+     （2026-08-29 発注者指示「検討中の物件は保有物件に一切反映されなくてよい」）。
+     記録そのものは properties に残す——見送りの理由と採点は次の検討で再利用する */
+  const HELD = new Set(["稼働中", "準備中"]);
+  const heldDocs = snap.docs.filter((d) => {
+    const st = String((d.data() as Record<string, unknown>).status ?? "");
+    return st === "" || HELD.has(st);
+  });
+
+  const rows = heldDocs.map((d) => {
     const p = d.data() as Record<string, unknown>;
     const r = rev.byProp.find((x) => x.prop === d.id);
     const supplies = itemsOf(d.id, "supply");
