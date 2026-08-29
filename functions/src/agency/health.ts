@@ -12,6 +12,7 @@ import { agencyDb, findOverdue } from "./engine.js";
 import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
 import { estimatesDue, warrantyDue } from "./alerts.js";
+import { DOCUMENTED } from "./schemadoc.js";
 
 /* goto: 消し込む場所への深リンク（今日ボード・点検メールの行から1クリックで直行する・2026-08-27） */
 export type HealthCheck = { card: string; name: string; ok: boolean; detail: string; goto?: string };
@@ -206,6 +207,28 @@ export async function healthSummary() {
   /* 「現金残高の鮮度」「Brandingの配布先が未定」は検査から外した（2026-08-29 発注者「タスク不要」）。
      現金カードが未着工で消しようがなく、配布先は急ぐ判断ではないため。
      必要になったらこの位置に戻す（実装は git 履歴 3c4fb66 にある） */
+
+  /* schema.md と実データのズレ（2026-08-29）。台帳に増えたフィールドが文書に無ければ出す。
+     「スキーマを変えたら schema.md も直す」という人の約束を、機械で見張る。
+     多いコレクションだけを対象にし、各20行を標本にする（全件走査はしない） */
+  try {
+    const SAMPLE = ["properties", "items", "equipment", "schedules", "jobs", "contracts",
+      "revenue", "utilities", "cash", "intake", "construction", "policies", "opsTasks"];
+    const undoc: string[] = [];
+    for (const col of SAMPLE) {
+      const known = new Set(DOCUMENTED[col] ?? []);
+      if (!known.size) continue;
+      const snap = await db.collection(col).limit(20).get();
+      const seen = new Set<string>();
+      for (const d of snap.docs) for (const k of Object.keys(d.data())) seen.add(k);
+      /* 共通の運用フィールドは文書に書かない約束なので除く */
+      const extra = [...seen].filter((k) => !known.has(k) &&
+        !["updatedAt", "createdAt", "at", "by", "note", "notes", "source", "id"].includes(k));
+      if (extra.length) undoc.push(`${col}: ${extra.join(",")}`);
+    }
+    add("SSoTマップ", "schema.md に無いフィールドが台帳にある", undoc.length === 0,
+      undoc.join(" / ") || `${SAMPLE.length}コレクションすべて文書どおり`, "/ssot");
+  } catch { /* 読めない日は出さない */ }
 
   /* AIの自己点検の結果（前日ぶん）。回答の中身は採点しない——道具の引き先だけを見る */
   try {

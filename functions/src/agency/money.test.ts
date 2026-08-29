@@ -10,6 +10,8 @@ import { loanState, past12Months, monthsBetween, type Loan } from "./finance.js"
 import { classifyOverdue } from "./engine.js";
 import { aggregateFacts, type Fact } from "./facts.js";
 import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
+import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
+import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
 
 /* ── loanState ─────────────────────────────────────────── */
@@ -208,4 +210,26 @@ test("AI自己点検: 1件でも落ちたら全体を不合格にする", () => 
 test("AI自己点検: 質問は3件だけに保つ（増やすとコストと実行時間が伸びる）", () => {
   assert.ok(PROBES.length <= 3, `質問が${PROBES.length}件に増えている`);
   assert.ok(PROBES.every((p) => p.expectTools.length > 0));
+});
+
+
+/* schema.md（文書）と schemadoc.ts（生成物）のズレ検知（2026-08-29）。
+   schema.md を直して再生成を忘れると、health の検査が古い文書で回ってしまう */
+test("schema.md と schemadoc.ts が一致している", async () => {
+  const fs = await import("node:fs");
+  const path = new URL("../../../docs/schema.md", import.meta.url).pathname;
+  const fresh = parseSchemaMd(fs.readFileSync(path, "utf8"));
+  const keys = Object.keys(fresh).sort();
+  assert.deepEqual(keys, Object.keys(DOCUMENTED).sort(),
+    "コレクションがズレている。npx tsx tools/gen-schema-doc.ts で作り直すこと");
+  for (const k of keys) {
+    assert.deepEqual([...fresh[k]].sort(), [...DOCUMENTED[k]].sort(),
+      `${k} のフィールドがズレている。npx tsx tools/gen-schema-doc.ts で作り直すこと`);
+  }
+});
+
+test("schema.md のフィールド抽出（かっこ・スラッシュ・配列を落とす）", () => {
+  assert.deepEqual(parseFieldCell("kind(supply/construction), prop, actual{amount,ym}, timeline[]"),
+    ["kind", "prop", "actual", "timeline"]);
+  assert.deepEqual(parseFieldCell("item/label, amount, …"), ["item", "label", "amount"]);
 });

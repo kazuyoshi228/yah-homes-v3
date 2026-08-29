@@ -1,0 +1,42 @@
+/**
+ * schema.md から生成（2026-08-29）。**手で編集しない。**
+ * schema.md を直したら: npx tsx tools/gen-schema-doc.ts で作り直す。
+ * ズレたまま放置すると money.test の「schema.md と一致するか」で落ちる。
+ */
+export const DOCUMENTED: Record<string, string[]> = {
+  alertLogs: ["at", "breakdown", "items"],
+  assumptions: ["factor", "label", "note", "updatedAt", "value"],
+  cash: ["accounts", "date", "source", "total"],
+  competitorObs: ["activeListings", "adrUsd", "date", "filters", "market", "occupancyPct"],
+  construction: ["category", "date", "label", "note", "path", "site"],
+  contracts: ["autoRenew", "category", "counterparty", "expiresAt", "feeSchedule", "label", "notes", "noticeDays", "path", "prop", "signedAt", "status"],
+  cvr: ["bookedNights", "checkins", "imprRate", "impressions", "label", "occupancy", "overallCvr", "prop", "searchToView", "sortKey", "source", "type", "viewToBook", "views"],
+  endpoint: [],
+  equipment: ["alternatives", "amount", "breakdown", "category", "date", "effectiveYearsOverride", "estimate", "estimateObtained", "futureCost", "group", "history", "installedAt", "lifespanYears", "maker", "model", "noFactor", "noRenewal", "price", "prop", "spec", "txNo", "workOrder"],
+  facts: [],
+  finance: ["firstPaymentMonth", "lender", "method", "months", "principal", "rate"],
+  fixedCosts: [],
+  health: [],
+  insurance: ["building", "pdf", "plan", "premiumPerYear", "product", "prop", "startDate", "status"],
+  intake: ["at", "confidence", "data", "filename", "from", "gsPath", "kind", "status", "summary"],
+  items: ["amount", "date", "idx", "item", "kind", "label", "offLedger", "phase", "prop", "splitOk", "txNo", "vendor"],
+  jobs: ["actual", "dueMonth", "ledgerWrittenBack", "prop", "scheduleId", "status", "statutory", "timeline", "title", "trigger", "type"],
+  loans: [],
+  monthly: [],
+  opsTasks: ["assignees", "freq", "hoursMin", "label", "scenario", "window"],
+  places: ["label", "lodging", "note", "prop"],
+  policies: ["decidedAt", "items", "kind", "policy", "title"],
+  properties: ["acquisitionPrice", "address", "area", "buildingConfirmation", "built", "drawings", "interior", "label", "lifespanCapYears", "requiredDocs", "status", "usageFactor"],
+  recurringCosts: ["place", "recurring", "type", "unitPrice", "units"],
+  renewalPlan: [],
+  reserves: ["amountPerMonth", "amountPerYear", "prop", "type"],
+  revenue: ["adr", "expenses", "month", "occ", "payout", "pdf", "prop", "revenue"],
+  schedules: ["active", "anchorYear", "budget", "category", "everyYears", "leadDays", "ledgerId", "manualOnly", "months", "needsDecision", "prop", "title", "vendorId"],
+  scorecards: ["date", "dimensions", "horizon", "total"],
+  settings: [],
+  taxes: ["amountPerYear", "prop", "type", "year"],
+  templates: [],
+  utilities: ["amount", "date", "month", "place", "type"],
+  vendors: [],
+  yields: [],
+};
