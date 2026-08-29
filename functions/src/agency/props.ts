@@ -212,10 +212,14 @@ export async function propertySummary() {
       { name: "group未宣言", ok: strayGroups.length === 0, detail: strayGroups.join(",") },
       { name: "二重計上", ok: dupWarnings.length === 0,
         detail: dupWarnings.map((w) => w.txNo).join(",") },
-      ...[lineage(supplies as never, "血統:備品"),
-          lineage(construction as never, "血統:工事"),
-          lineage(eqRows, "血統:台帳")].map((l) => ({
-        name: l.label, ok: l.withTx === l.total, detail: `${l.withTx}/${l.total}` })),
+      /* 文言は「何をすれば消えるか」が分かる形にする（2026-08-29 発注者「わかりづらい」）。
+         中身は同じ＝出典（取引番号 txNo）が付いていない行の検出 */
+      ...[lineage(supplies as never, "出典なし: 備品"),
+          lineage(construction as never, "出典なし: 工事"),
+          lineage(eqRows, "出典なし: 設備台帳")].map((l) => ({
+        name: l.label, ok: l.withTx === l.total,
+        detail: l.withTx === l.total ? `${l.total}件すべてに取引番号あり`
+          : `${l.total - l.withTx}件に取引番号なし（全${l.total}件）` })),
     ];
     const audit = { ok: auditChecks.filter((c) => c.ok).length,
       warn: auditChecks.filter((c) => !c.ok), total: auditChecks.length };

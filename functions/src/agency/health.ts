@@ -192,16 +192,15 @@ export async function healthSummary() {
     .filter((p) => p && !propIds.has(p)))];
   add("定期レポート", "売上行の棟が物件台帳に無い", revOrphan.length === 0,
     revOrphan.join(" / ") || "なし", "/reports?tab=rev");
-  const itemSnap = await db.collection("items").get();
-  const noDate = itemSnap.docs.filter((d) => !String(d.data().date ?? "")).length;
-  add("物件", "投資明細の日付欠測", noDate === 0, `${noDate}件`, "/properties?tab=inv");
-  try {
-    const cashSnap = await db.collection("cash").orderBy("__name__", "desc").limit(1).get();
-    const latest = cashSnap.docs[0]?.id ?? "";
-    const stale = !latest || latest < new Date(now.getTime() - 45 * 864e5).toISOString().slice(0, 10);
-    add("財務", "現金残高の鮮度（45日以内）", !stale,
-      latest ? `最終スナップショット ${latest}` : "未登録", "/maintenance?tab=hist");
-  } catch { add("財務", "現金残高の鮮度（45日以内）", false, "cash が読めない"); }
+  /* 「投資明細の日付欠測」は取り下げた（2026-08-29）。取得時の明細は date を持たない設計で、
+     欠測ではなく正常——27件を毎日警告する誤報だった（facts.ts の addSince 判定を参照） */
+  /* 現金残高の鮮度。docIDが日付（YYYY-MM-DD）なので文字列の最大値が最新。
+     件数が少ないので全件取って比較する（orderBy("__name__") は予約フィールド名としてエラーになる） */
+  const cashSnap = await db.collection("cash").get();
+  const latestCash = cashSnap.docs.map((d) => d.id).sort().at(-1) ?? "";
+  const cashLimit = new Date(now.getTime() - 45 * 864e5).toISOString().slice(0, 10);
+  add("財務", "現金残高が45日以内に記録されているか", !!latestCash && latestCash >= cashLimit,
+    latestCash ? `最後の記録 ${latestCash}` : "まだ一度も記録がありません", "/maintenance?tab=hist");
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));
