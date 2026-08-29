@@ -38,10 +38,16 @@ export async function healthSummary() {
   const ovDoc = await db.collection("settings").doc("dots").get();
   const overrides = (ovDoc.data()?.cards ?? {}) as Record<string, { state: string; by: string; at: string }>;
 
-  /* 物件: 各棟の監査（血統・二重計上・group未宣言） */
+  /* 物件: 各棟の監査（出典・二重計上・group未宣言）。
+     稼働していない棟（準備中・見送り）は対象外——積立の検査と同じ理由で、
+     開業前の棟に台帳の整備を毎日促しても消せない（2026-08-29 発注者判断） */
+  const propStatus = new Map((props.rows as Array<{ id: string; status?: string }>)
+    .map((r) => [r.id, String(r.status ?? "")]));
   for (const r of props.rows as Array<{ id: string; label?: string;
       audit?: { ok: number; total: number; warn: Array<{ name: string; detail: string }> } }>) {
     if (!r.audit?.total) continue;
+    const st0 = propStatus.get(r.id) ?? "";
+    if (st0 === "準備中" || st0 === "見送り") continue;
     add("物件", `${r.label ?? r.id}: 監査`, r.audit.warn.length === 0,
       r.audit.warn.length ? r.audit.warn.map((w) => `${w.name}(${w.detail})`).join(" / ")
         : `${r.audit.ok}/${r.audit.total}`, `/properties?prop=${r.id}`);
@@ -51,10 +57,8 @@ export async function healthSummary() {
      稼働していない棟（準備中・見送り）は対象外——開業前に積立を立てないのは正常で、
      警告として出すと消しようのない宿題になる（2026-08-29 発注者判断）。
      status が未設定の棟は従来どおり検査する（黙って隠さない） */
-  const statusOf = new Map((props.rows as Array<{ id: string; status?: string }>)
-    .map((r) => [r.id, String(r.status ?? "")]));
   for (const p of plan.byProp) {
-    const st = statusOf.get(p.prop) ?? "";
+    const st = propStatus.get(p.prop) ?? "";
     if (st === "準備中" || st === "見送り") continue;
     add("固定費", `${p.propLabel}: 積立 vs 年割り`, p.gap >= 0,
       `${p.gap >= 0 ? "+" : ""}${p.gap.toLocaleString()}円/年`, "/maintenance?tab=ren");
