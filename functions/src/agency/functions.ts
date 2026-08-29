@@ -19,6 +19,7 @@ import { notifySettings } from "./settings.js";
 import { sendNotice } from "./mailer.js";
 import { monthlyAiReport } from "./ai.js";
 import { sendDailyAlert, testAlarm } from "./alerts.js";
+import { aiSelfCheck } from "./aicheck.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
@@ -46,6 +47,9 @@ export const agencyDaily = onSchedule(
     await step("sendRequests", () => sendRequests());
     await step("gmailWatch", () => startWatch());   // 有効期限7日。毎日貼り直して切れないようにする
     await step("dailyAlert", () => sendDailyAlert());
+    /* AIの自己点検（2026-08-29）。決まった質問で「期待した道具を引いたか」だけを見る。
+       落ちると heartbeat が打たれず、翌日の点検メール・今日ボードに沈黙として出る */
+    await step("aiSelfCheck", () => aiSelfCheck());
     /* 月次経営レポート（段E）: 毎月1日のJSTに送る。手動再実行は settings/aiReport.runOnce=true を置く
        （実行後に自動で消す・認証配管を増やさないための運用スイッチ） */
     const jstDay = new Date(Date.now() + 9 * 3600e3).getUTCDate();

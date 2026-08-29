@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { loanState, past12Months, monthsBetween, type Loan } from "./finance.js";
 import { classifyOverdue } from "./engine.js";
 import { aggregateFacts, type Fact } from "./facts.js";
+import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import type { Job } from "./model.js";
 
 /* ── loanState ─────────────────────────────────────────── */
@@ -174,4 +175,37 @@ test("facts合計: prop / ym（前方一致）/ flow のフィルタ", () => {
   assert.equal(aggregateFacts(FACTS, { ym: "2026-08" }).total.count, 3);
   assert.equal(aggregateFacts(FACTS, { ym: "2026" }).total.count, 4);
   assert.equal(aggregateFacts(FACTS, { prop: "kiyokawa", flow: "opex" }).byFlow.opex.amount, 30_000);
+});
+
+
+/* AIの自己点検の判定（2026-08-29）。実機の誤答——health を見ずに
+   list_overdue_jobs だけで「タスクはありません」と答えた——を落とせることを確かめる */
+test("AI自己点検: 期待した道具を引いていなければ落ちる", () => {
+  const p = { question: "今日やることを教えて", expectTools: ["get_health"] };
+  const ng = judgeProbe(p, ["list_overdue_jobs"], "対応が必要なタスクはありません。");
+  assert.equal(ng.ok, false);
+  assert.match(ng.why, /期待した道具/);
+  const ok = judgeProbe(p, ["get_health", "list_overdue_jobs"], "契約書の原本が6件未登録です。");
+  assert.equal(ok.ok, true);
+});
+
+test("AI自己点検: 道具は合っていても回答が空なら落ちる", () => {
+  const p = { question: "先月の売上はいくらでしたか", expectTools: ["get_revenue", "get_monthly"] };
+  const r = judgeProbe(p, ["get_monthly"], "   ");
+  assert.equal(r.ok, false);
+  assert.equal(r.why, "回答が空");
+});
+
+test("AI自己点検: 1件でも落ちたら全体を不合格にする", () => {
+  const good = { question: "a", toolsUsed: ["get_health"], answerLen: 10, ok: true, why: "OK" };
+  const bad = { question: "b", toolsUsed: [], answerLen: 0, ok: false, why: "回答が空" };
+  assert.equal(summarizeProbes([good, good]).ok, true);
+  const s2 = summarizeProbes([good, bad]);
+  assert.equal(s2.ok, false);
+  assert.equal(s2.ng.length, 1);
+});
+
+test("AI自己点検: 質問は3件だけに保つ（増やすとコストと実行時間が伸びる）", () => {
+  assert.ok(PROBES.length <= 3, `質問が${PROBES.length}件に増えている`);
+  assert.ok(PROBES.every((p) => p.expectTools.length > 0));
 });

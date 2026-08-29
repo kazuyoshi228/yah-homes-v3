@@ -207,6 +207,17 @@ export async function healthSummary() {
      現金カードが未着工で消しようがなく、配布先は急ぐ判断ではないため。
      必要になったらこの位置に戻す（実装は git 履歴 3c4fb66 にある） */
 
+  /* AIの自己点検の結果（前日ぶん）。回答の中身は採点しない——道具の引き先だけを見る */
+  try {
+    const acSnap = await db.collection("aiChecks").get();
+    const latestAc = acSnap.docs.map((d) => d.id).sort().at(-1) ?? "";
+    const ac = latestAc ? acSnap.docs.find((d) => d.id === latestAc)?.data() : null;
+    if (ac) {
+      add("SSoTマップ", "AIの自己点検", ac.ok === true,
+        ac.ok === true ? `${latestAc} 合格` : `${latestAc}: ${(ac.ng ?? []).join(" / ")}`, "/?view=health");
+    }
+  } catch { /* 記録が無い日は出さない（毎朝の step 側で沈黙として検知される） */ }
+
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));
   add("利回り", "前提: cap-rate", asm.has("cap-rate"), "");
