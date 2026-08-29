@@ -22,15 +22,20 @@ import { sendDailyAlert, testAlarm } from "./alerts.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
+/** 月次バッチの沈黙しきい値（32日）。日次の26時間を当てると毎月ほぼ全期間で警報が鳴る */
+const MONTHLY_SEC = 32 * 24 * 3600;
 
 /** 毎朝の自動運転。どれか1つが落ちても残りは走らせる（一蓮托生にしない） */
 export const agencyDaily = onSchedule(
   { schedule: "0 7 * * *", timeZone: "Asia/Tokyo", region: REGION, secrets: [AGENCY_MAILER_KEY], timeoutSeconds: 540 },
   async () => {
-    const step = async (name: string, fn: () => Promise<unknown>) => {
+    /* 沈黙とみなすまでの猶予。日次は26時間、月次は32日——月に1度しか走らないものに
+       日次の物差しを当てると、実行の翌々日から月末までずっと「要対応」が点灯し続ける。
+       本物の異常と見分けがつかなくなるため分けた（2026-08-28 発注者指摘） */
+    const step = async (name: string, fn: () => Promise<unknown>, expectEverySec = 26 * 3600) => {
       try {
         const r = await fn();
-        await beat(name, 26 * 3600);          // 日次なので26時間で「沈黙」とみなす
+        await beat(name, expectEverySec);
         logger.info(`agency/${name}`, r);
       } catch (e) {
         logger.error(`agency/${name} 失敗`, e);   // 失敗はハートビートを更新しない = 翌朝アラートで露見する
@@ -70,7 +75,7 @@ export const agencyDaily = onSchedule(
         });
         if (runOnce) await flagRef.set({ runOnce: false }, { merge: true });
         return { sent: true, tools: r.toolsUsed.length };
-      });
+      }, MONTHLY_SEC);
     }
     /* 月初だけ、警報そのものが生きているかを試す（原則2-5・鳴らない警報は有害） */
     if (new Date().getDate() === 1) {
