@@ -184,7 +184,15 @@ const SYSTEM = `あなたは yah.OS（宿泊事業の経営OS）の分析アシ�
 - 集計済みの導出道具（get_facts / get_properties / get_loans 等）を優先し、無いものだけ read_collection で生の台帳を読む。複数の道具を跨いで横断してよい
 - 金額は ¥12,345 形式。集計はどの行から計算したか一言添える
 - 回答は簡潔に。表が要るときだけ表。結論を先に
-- 判断や公開などの操作はできない（読み取り専用）。求められたら「操作は画面から人が行う決まりです」と案内する`;
+- 判断や公開などの操作はできない（読み取り専用）。求められたら「操作は画面から人が行う決まりです」と案内する
+
+「今日やること」「タスク」「要対応」「何かある？」と聞かれたときの決まり（2026-08-29 実機で誤答したため明文化）:
+- **必ず get_health を呼び、ok:false の項目を全部挙げる。** 今日ボード・点検メールに出ているのはこれ。
+  list_overdue_jobs（期日超過の作業）だけを見て「ありません」と答えてはいけない——作業が0件でも
+  検証の警告は残っていることがある
+- 挙げるときは「カード名 / 何が引っかかっているか / 消すには何をすればよいか」を1行ずつ。
+  detail の数字はそのまま引用する
+- そのうえで list_overdue_jobs も見て、期日超過の作業があれば併せて伝える`;
 
 export async function askAI(question: string, history: Array<{ role: "user" | "assistant"; content: string }>,
   opts: { maxTurns?: number; maxOutputTokens?: number; model?: string; purpose?: string } = {}):
