@@ -3019,6 +3019,41 @@ export const beds24DailyObserver = onSchedule(
       const pct = (n: number, d: number) => `${Math.round((n / d) * 1000) / 10}%`;
       const fwdRate = Math.round((fwdTotal / 730) * 1000) / 10; // 分母=365日×2棟（databook: 204泊≈28%と整合）
 
+      /* 3ヶ月の稼働率（当月＋翌2ヶ月・2026-08-30 発注者指示）。
+         先付け残高は「合計何泊あるか」しか見えないので、月ごとの埋まり具合を並べる。
+         分子=有効予約の実泊数（キャンセル・オーナー/工事/テストは除外＝既存の active/isGuest）、
+         分母=その月の日数×棟数。当月は過ぎた日も含むため「実績＋予約」の混合になる。 */
+      const monthNights: Array<{ ym: string; label: string; days: number; 清川: number; 高砂: number }> = [];
+      {
+        const [ty, tm] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
+        for (let i = 0; i < 3; i++) {
+          const d = new Date(Date.UTC(ty, tm - 1 + i, 1));
+          const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+          monthNights.push({
+            ym: `${y}-${String(m).padStart(2, "0")}`,
+            label: `${m}月`,
+            days: new Date(Date.UTC(y, m, 0)).getUTCDate(),
+            清川: 0, 高砂: 0,
+          });
+        }
+        const idx = new Map(monthNights.map((x, i) => [x.ym, i]));
+        for (const b of bookings) {
+          if (!active(b) || !isGuest(b)) continue;
+          const prop = TEITEN_PROPS[b.propertyId] as "清川" | "高砂";
+          // 宿泊日は arrival 〜 departure-1。1泊ずつ月に割り振る（月をまたぐ滞在に対応）
+          for (let t = Date.parse(b.arrival); t < Date.parse(b.departure); t += 86400000) {
+            const i = idx.get(new Date(t).toISOString().slice(0, 7));
+            if (i !== undefined) monthNights[i][prop] += 1;
+          }
+        }
+      }
+      // 稼働率は整数％で読む（2026-08-30 発注者指示。小数は先付け率など他指標のみ）
+      const pctInt = (n: number, d: number) => `${Math.round((n / d) * 100)}%`;
+      const occLines = monthNights.map((m) => {
+        const used = m.清川 + m.高砂, cap = m.days * 2;
+        return `${m.label}: ${pctInt(used, cap)} （清川 ${pctInt(m.清川, m.days)} / 高砂 ${pctInt(m.高砂, m.days)}・${used}/${cap}泊）`;
+      });
+
       const tally = (list: string[], prop: string) => {
         const rows = list.filter((l) => l.startsWith(prop));
         return { g: rows.length, n: rows.reduce((s2, l) => s2 + (Number(l.match(/〜(\d+)泊/)?.[1]) || 0), 0) };
@@ -3097,6 +3132,7 @@ export const beds24DailyObserver = onSchedule(
           `先付け 清川 : ${fwd.清川}泊 (${pct(fwd.清川, 365)})`,
           `先付け 高砂 : ${fwd.高砂}泊 (${pct(fwd.高砂, 365)})`,
           `先付け 合計 : ${fwdTotal}泊 (${fwdRate}%)`, ``,
+          `【3ヶ月の稼働率（当月＋翌2ヶ月）】`, ...occLines.map((l) => `  ${l}`), ``,
           `新規予約 ${events.new.length}件:`, ...events.new.map((l) => `  + ${l}`), ``,
           `キャンセル ${events.cancelled.length}件:`, ...events.cancelled.map((l) => `  - ${l}`), ``,
           ...(events.deleted.length ? [`物理削除 ${events.deleted.length}件（テスト予約の削除等・差引済み）:`, ...events.deleted.map((l) => `  - ${l}`), ``] : []),
@@ -3140,6 +3176,8 @@ export const beds24DailyObserver = onSchedule(
           blocks: [
             // 新規の明細を最上段に（先頭カードの「n件」の中身がすぐ見えるように）
             ...(events.new.length ? [{ title: "新規予約の明細", body: esc(events.new.map((l) => `+ ${l}`).join("\n")) }] : []),
+            // 月ごとの埋まり具合（先付け残高の内訳として読む）
+            { title: "3ヶ月の稼働率（当月＋翌2ヶ月）", body: esc(occLines.join("\n")) },
             ...(notes.length ? [{ title: "⚠ 特記", body: esc(notes.join("\n")) }] : []),
             ...(events.cancelled.length ? [{ title: `キャンセル ${events.cancelled.length}件`, body: esc(events.cancelled.map((l) => `- ${l}`).join("\n")) }] : []),
             ...(events.changed.length ? [{ title: `変更 ${events.changed.length}件`, body: esc(events.changed.map((l) => `* ${l}`).join("\n")) }] : []),
