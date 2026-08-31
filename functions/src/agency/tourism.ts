@@ -13,10 +13,14 @@
 import { agencyDb } from "./engine.js";
 
 const API = "https://api.e-stat.go.jp/rest/3.0/app/json";
-/* 既定の統計表ID（settings/tourism で上書き可＝表の改定時にデプロイ不要で差し替えられる） */
+/* 既定の統計表ID（settings/tourism で上書き可＝表の改定時にデプロイ不要で差し替えられる）。
+   実査（2026-08-30）: 宿泊旅行統計のe-Stat DB（API対応）は全32表が2016年で止まっており、
+   現行月次はExcel公表のみ＝**stayはAPIで自動化できない**。stay は取込パイプ（観光庁公表資料の
+   スクショ→AI読取→検収）で手動投入する。entry は「総括 港別 入国外国人」（毎月更新・実測済み） */
 const DEFAULT_SOURCES = {
-  stay:  { statsDataId: "0003317699", label: "宿泊旅行統計調査 参考第1表（月次・施設所在地別・国籍別 外国人延べ宿泊者数）", pick: ["福岡県"], catTotal: "総数" },
-  entry: { statsDataId: "0003287583", label: "出入国管理統計（月次・港別 入国外国人）", pick: ["福岡空港", "博多港"], catTotal: "総数" },
+  stay:  { statsDataId: "", label: "宿泊旅行統計調査（観光庁・手動投入）", pick: ["福岡県"], catTotal: "総数" },
+  entry: { statsDataId: "0003449064", label: "出入国管理統計 総括 港別 入国外国人（福岡空港＋博多）",
+    pick: ["福岡県_福岡（空港）", "福岡県_博多"], catTotal: "総数" },
 } as const;
 
 type ClassItem = { "@code": string; "@name": string };
@@ -96,6 +100,7 @@ export async function fetchTourismStats(): Promise<{ skipped?: string; written: 
   const sinceYm = since.toISOString().slice(0, 7);
   for (const metric of ["stay", "entry"] as const) {
     const src = { ...DEFAULT_SOURCES[metric], ...((st[metric] ?? {}) as object) };
+    if (!src.statsDataId) continue;   // APIで取れない系統（stay）は手動投入＝ここでは触らない
     const byMonth = await fetchMetric(appId, metric, src);
     for (const [month, value] of Object.entries(byMonth)) {
       if (month < sinceYm) continue;
