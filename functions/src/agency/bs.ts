@@ -36,6 +36,8 @@ export async function balanceSheet(asOf = new Date()) {
     db.collection("bsAdjustments").get(),
   ]);
 
+  const num = (v: unknown) => Number(v ?? 0) || 0;
+
   /* ---- 負債（主体別） ---- */
   const sides: Record<"corp" | "personal", BsSide> = {
     corp: { entity: "corp", label: "ボンファイア株式会社", liabilities: [], liabilityTotal: 0, conditionsUnknown: 0 },
@@ -50,10 +52,16 @@ export async function balanceSheet(asOf = new Date()) {
     }
     const amount = liabilityAmount(d as never, derived);
     if (!amount) continue;
+    /* 明細の1行に返済のしかたを添える。条件が未登録でも、分かっている範囲は出す
+       （毎月返済額・利息のみ、など。2026-08-31 発注者から条件が届いたため） */
+    const monthly = num(d.monthlyPayment);
+    const how = d.repayment === "interest-only" ? "利息のみ"
+      : monthly ? `毎月 ¥${monthly.toLocaleString()}` : "";
+    const note = [d.conditionsUnknown ? "条件一部未登録（申告額）" : String(d.repayment ?? ""), how]
+      .filter(Boolean).join("・");
     sides[entity].liabilities.push({
       label: String(d.tabLabel ?? d.lender ?? doc.id),
-      amount,
-      note: d.conditionsUnknown ? "条件未登録（申告額）" : String(d.repayment ?? ""),
+      amount, note,
       docPath: `finance/${doc.id}`,
     });
     sides[entity].liabilityTotal += amount;
@@ -62,7 +70,6 @@ export async function balanceSheet(asOf = new Date()) {
   for (const s of Object.values(sides)) s.liabilities.sort((a, b) => b.amount - a.amount);
 
   /* ---- 資産（法人のみ台帳がある） ---- */
-  const num = (v: unknown) => Number(v ?? 0) || 0;
   const propRows: Array<Record<string, unknown>> = propSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
   const invest = itemSnap.docs.reduce((a, d) => a + num(d.data().amount), 0);
   const equip = eqSnap.docs.reduce((a, d) => a + (d.data().futureCost === true ? 0 : num(d.data().amount)), 0);
