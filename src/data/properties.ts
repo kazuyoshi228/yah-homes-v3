@@ -41,7 +41,7 @@ export const GALLERIES: Record<Property["key"], string[]> = {
   kiyokawa: [
     "kiyokawa-gallery-001_b1729543", "kiyokawa-gallery-002_d04b5450", "kiyokawa-gallery-003_e2973555",
     "kiyokawa-gallery-004_fe56d8c0", "kiyokawa-gallery-005_f20ac271", "kiyokawa-gallery-006_7dcf2f06",
-    "kiyokawa-gallery-007_e2bf5d66", "kiyokawa-gallery-008_a94fdbe4", "kiyokawa-gallery-009_95d58f6b",
+    "kiyokawa-gallery-022_49b3c5ac", "kiyokawa-gallery-023_9e419977", "kiyokawa-gallery-009_95d58f6b",
     "kiyokawa-gallery-010_15b7a418", "kiyokawa-gallery-011_087fe50b", "kiyokawa-gallery-012_8fc39b9d",
     "kiyokawa-gallery-013_80c7f1fe", "kiyokawa-gallery-014_f4377d6b", "kiyokawa-gallery-015_074fba82",
     "kiyokawa-gallery-016_e6cdefd2", "kiyokawa-gallery-017_debd39e3", "kiyokawa-gallery-018_75834ded",
