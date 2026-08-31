@@ -37,6 +37,7 @@
 | `competitorObs` | AirDNA市場定点1回 | date, market, filters, adrUsd, occupancyPct, activeListings, listingsYoYPct ほか | 半年定点（コピペ→構造化投入） | 条件固定（中央区・Beds3-9）が生命線 |
 | `opsTasks` | 運営タスク1行 | scenario(airstar/inhouse), label, freq, hoursMin/Max または category/window/assignees | 人の判断 | 運営カードの正本（委託の分解と内製座組） |
 | `tourismStats` | 月次インバウンド定点1行 | month, metric(stay/entry), value, fetchedAt | システム（e-Stat毎月5日）・検収（FCVB等の手入力） | docID=metric-month で冪等。spec_tourism_stats_20260830 |
+| `bsAdjustments` | BSの未計上項目1件 | kind="asset", entity, label, amount, prop, reason | 人の判断のみ | 建設中の建物など台帳にまだ無い資産。**既定では合計に入れない**——BSカードのスイッチで足す |
 | `policies` | 経営方針1件 | kind, title, policy, items[], decidedAt | 人の判断のみ | 事業承継カード方針タブの正本（出口設計・再調達価値等） |
 
 ## 導出レイヤ（保存しない）

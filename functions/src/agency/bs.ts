@@ -27,12 +27,13 @@ export function liabilityAmount(
 
 export async function balanceSheet(asOf = new Date()) {
   const db = agencyDb();
-  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap] = await Promise.all([
+  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap, adjSnap] = await Promise.all([
     db.collection("finance").where("kind", "==", "loan").get(),
     db.collection("properties").get(),
     db.collection("items").get(),
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("cash").get(),
+    db.collection("bsAdjustments").get(),
   ]);
 
   /* ---- 負債（主体別） ---- */
@@ -74,8 +75,18 @@ export async function balanceSheet(asOf = new Date()) {
   if (latestCash) assets.push({ label: "現金", amount: latestCash.total, note: `${latestCash.id} 時点`, docPath: `cash/${latestCash.id}` });
   const assetTotal = assets.reduce((a, x) => a + x.amount, 0);
 
+  /* 未計上の資産（建設中の建物など・人の宣言）。既定では合計に入れない——
+     画面のスイッチで足せるようにするための「候補」として返す（2026-08-30 発注者指示） */
+  const unbooked: BsLine[] = adjSnap.docs
+    .filter((d) => String(d.data().kind ?? "asset") === "asset")
+    .map((d) => ({ label: String(d.data().label ?? d.id), amount: num(d.data().amount),
+      note: String(d.data().reason ?? ""), docPath: `bsAdjustments/${d.id}` }))
+    .filter((x) => x.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+
   return {
     asOf: asOf.toISOString().slice(0, 10),
+    unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
     sides: [sides.corp, sides.personal],
     assets, assetTotal,
     /* 純資産は法人のみ。個人は資産が台帳に無いので出さない（出すと嘘になる） */
