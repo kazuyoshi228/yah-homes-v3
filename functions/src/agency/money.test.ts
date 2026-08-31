@@ -12,6 +12,7 @@ import { aggregateFacts, type Fact } from "./facts.js";
 import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
 import { parseTimeName, yoy } from "./tourism.js";
+import { liabilityAmount } from "./bs.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
@@ -269,4 +270,15 @@ test("観光定点: 前年同月比（前年ゼロ・欠測はnull）", () => {
   assert.equal(yoy(90, 100), -10);
   assert.equal(yoy(100, 0), null);
   assert.equal(yoy(100, undefined), null);
+});
+
+
+/* BS: 条件が登録されていない借入の計上（2026-08-30） */
+test("BS: 条件未登録なら申告額をそのまま使う（返済表の残債は使わない）", () => {
+  assert.equal(liabilityAmount({ conditionsUnknown: true, amountReported: 85000000 }, 999), 85000000);
+  assert.equal(liabilityAmount({ conditionsUnknown: true, amountReported: 0, principal: 30000000 }, null), 30000000);
+});
+test("BS: 条件が登録済みなら返済表から導いた残債を使う", () => {
+  assert.equal(liabilityAmount({ principal: 50000000 }, 41234567), 41234567);
+  assert.equal(liabilityAmount({ principal: 50000000 }, null), 50000000);   // 導出できない時は当初額
 });

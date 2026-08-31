@@ -14,7 +14,7 @@ export const DOCUMENTED: Record<string, string[]> = {
   endpoint: [],
   equipment: ["alternatives", "amount", "breakdown", "category", "date", "effectiveYearsOverride", "estimate", "estimateObtained", "futureCost", "group", "history", "installedAt", "lifespanYears", "maker", "model", "noFactor", "noRenewal", "price", "prop", "spec", "txNo", "workOrder"],
   facts: [],
-  finance: ["firstPaymentMonth", "lender", "method", "months", "principal", "rate"],
+  finance: ["amountReported", "borrower", "conditionsUnknown", "entity", "firstPaymentMonth", "lender", "method", "months", "principal", "rate"],
   fixedCosts: [],
   health: [],
   insurance: ["building", "pdf", "plan", "premiumPerYear", "product", "prop", "startDate", "status"],

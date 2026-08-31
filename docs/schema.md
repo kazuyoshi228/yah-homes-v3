@@ -20,7 +20,7 @@
 | `taxes` | 税1行 | prop, type, amountPerYear, year | スクリプト | |
 | `insurance` | 保険1行 | prop, product, plan, premiumPerYear, building, startDate, status, pdf | スクリプト | |
 | `reserves` | 積立1行 | prop, type, amountPerMonth, amountPerYear | スクリプト | 妥当性はrenewalPlanが毎回判定 |
-| `finance` | 借入1本 | kind="loan", lender, principal, rate, months, firstPaymentMonth, method, schedule… | スクリプト | 返済表はloanState()で導出 |
+| `finance` | 借入1本 | kind="loan", entity(corp/personal), borrower, lender, principal, amountReported, conditionsUnknown, rate, months, firstPaymentMonth, method, schedule… | スクリプト | 返済表はloanState()で導出。**entityで法人（ボンファイア）と個人（山田一慶）を分ける——混ぜない**。条件未登録の借入は amountReported（申告額）を使う |
 | `revenue` | 月次報告1行 | kind="monthly", prop, month, revenue, expenses, payout, occ, adr, pdf | スクリプト | AIRSTAR報告書が原本 |
 | `places` | 拠点の台帳 | label, lodging(宿泊事業か), prop, note | 人 | **「その拠点は宿泊事業か」の唯一の正本**。無い拠点は宿泊事業とみなす |
 | `utilities` | 光熱費仕訳1行 | kind="utility", date, month, place(日本語名), type, amount | スクリプト | place→propの対応は places 台帳 |
