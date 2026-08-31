@@ -20,6 +20,7 @@ import { sendNotice } from "./mailer.js";
 import { monthlyAiReport } from "./ai.js";
 import { sendDailyAlert, testAlarm } from "./alerts.js";
 import { aiSelfCheck } from "./aicheck.js";
+import { weeklyReport } from "./weekly.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
 const REGION = "asia-northeast1";
@@ -47,6 +48,16 @@ export const agencyDaily = onSchedule(
     await step("sendRequests", () => sendRequests());
     await step("gmailWatch", () => startWatch());   // 有効期限7日。毎日貼り直して切れないようにする
     await step("dailyAlert", () => sendDailyAlert());
+    /* 週報（月曜のみ・spec_auto_improvement 第2弾）。朝の点検メールとは別便にせず、
+       同じ配管（sendNotice）で1通。失敗しても他のstepは走る */
+    if (new Date(Date.now() + 9 * 3600e3).getUTCDay() === 1) {
+      await step("weeklyReport", async () => {
+        const body = await weeklyReport();
+        const to = (await notifySettings()).exceptionsTo;
+        await sendNotice({ to, subject: "[yah.OS] 週報 — AIと自動化", body });
+        return { sent: true };
+      }, MONTHLY_SEC / 4);   // 週次の沈黙しきい値（約8日）
+    }
     /* AIの自己点検（2026-08-29）。決まった質問で「期待した道具を引いたか」だけを見る。
        落ちると heartbeat が打たれず、翌日の点検メール・今日ボードに沈黙として出る */
     await step("aiSelfCheck", () => aiSelfCheck());

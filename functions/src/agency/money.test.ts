@@ -11,6 +11,7 @@ import { classifyOverdue } from "./engine.js";
 import { aggregateFacts, type Fact } from "./facts.js";
 import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
+import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
 
@@ -232,4 +233,24 @@ test("schema.md のフィールド抽出（かっこ・スラッシュ・配列�
   assert.deepEqual(parseFieldCell("kind(supply/construction), prop, actual{amount,ym}, timeline[]"),
     ["kind", "prop", "actual", "timeline"]);
   assert.deepEqual(parseFieldCell("item/label, amount, …"), ["item", "label", "amount"]);
+});
+
+
+/* 週報の集計（2026-08-31）。実測ログの形をそのまま流し、単価の掛け算と集約を検算 */
+test("週報: aiLogsの集計と概算費用", () => {
+  const r = aggregateAiWeek([
+    { purpose: "morningNote", model: "gemini-2.5-flash", promptTokens: 1255, outputTokens: 99, calls: 1 },
+    { purpose: "morningNote", model: "gemini-2.5-flash", promptTokens: 1245, outputTokens: 101, calls: 1 },
+    { purpose: "ask", model: "gemini-2.5-pro", promptTokens: 2035, outputTokens: 15, calls: 1 },
+  ]);
+  assert.equal(r.lines.length, 2);                       // purpose×modelで2グループ
+  assert.ok(r.lines.some((l) => l.includes("morningNote") && l.includes("2回")));
+  /* flash: (2500*0.3 + 200*2.5)/1e6 ≒ $0.00125 / pro: (2035*1.25 + 15*10)/1e6 ≒ $0.00269 */
+  assert.ok(r.totalUsd > 0.003 && r.totalUsd < 0.005, `totalUsd=${r.totalUsd}`);
+});
+
+test("週報: 未知モデルは単価0で落ちない", () => {
+  const r = aggregateAiWeek([{ purpose: "x", model: "unknown", promptTokens: 100, outputTokens: 10 }]);
+  assert.equal(r.totalUsd, 0);
+  assert.equal(r.lines.length, 1);
 });
