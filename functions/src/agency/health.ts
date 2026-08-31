@@ -208,26 +208,40 @@ export async function healthSummary() {
      現金カードが未着工で消しようがなく、配布先は急ぐ判断ではないため。
      必要になったらこの位置に戻す（実装は git 履歴 3c4fb66 にある） */
 
-  /* schema.md と実データのズレ（2026-08-29）。台帳に増えたフィールドが文書に無ければ出す。
-     「スキーマを変えたら schema.md も直す」という人の約束を、機械で見張る。
-     多いコレクションだけを対象にし、各20行を標本にする（全件走査はしない） */
+  /* schema.md と実データのズレ（2026-08-29／2026-08-30 ラチェット化）。
+     schema.md の欄は「**主な**フィールド」で全列挙の約束ではないため、
+     「載っていない＝ズレ」とすると昔からある正常なフィールドが大量に出る（初日に実害）。
+     そこで金額・型検査と同じラチェット方式にする: いま在るものを基準線として settings に記録し、
+     **その後に増えたものだけ**を警告する。基準線が無ければ黙って作る（初回は警告しない） */
   try {
     const SAMPLE = ["properties", "items", "equipment", "schedules", "jobs", "contracts",
       "revenue", "utilities", "cash", "intake", "construction", "policies", "opsTasks"];
-    const undoc: string[] = [];
+    const baseRef = db.collection("settings").doc("schemaBaseline");
+    const baseline = (await baseRef.get()).data() ?? {};
+    const seeded = baseline.seededAt != null;
+    const known0 = (baseline.fields ?? {}) as Record<string, string[]>;
+    const OPS = ["updatedAt", "createdAt", "at", "by", "note", "notes", "source", "id"];
+    const fresh: string[] = [];
+    const nowFields: Record<string, string[]> = {};
     for (const col of SAMPLE) {
-      const known = new Set(DOCUMENTED[col] ?? []);
-      if (!known.size) continue;
+      const doc = new Set(DOCUMENTED[col] ?? []);
+      if (!doc.size) continue;
       const snap = await db.collection(col).limit(20).get();
       const seen = new Set<string>();
       for (const d of snap.docs) for (const k of Object.keys(d.data())) seen.add(k);
-      /* 共通の運用フィールドは文書に書かない約束なので除く */
-      const extra = [...seen].filter((k) => !known.has(k) &&
-        !["updatedAt", "createdAt", "at", "by", "note", "notes", "source", "id"].includes(k));
-      if (extra.length) undoc.push(`${col}: ${extra.join(",")}`);
+      const extra = [...seen].filter((k) => !doc.has(k) && !OPS.includes(k)).sort();
+      nowFields[col] = extra;
+      if (!seeded) continue;
+      const before = new Set(known0[col] ?? []);
+      const added = extra.filter((k) => !before.has(k));
+      if (added.length) fresh.push(`${col}: ${added.join(",")}`);
     }
-    add("SSoTマップ", "schema.md に無いフィールドが台帳にある", undoc.length === 0,
-      undoc.join(" / ") || `${SAMPLE.length}コレクションすべて文書どおり`, "/ssot");
+    if (!seeded) {
+      await baseRef.set({ seededAt: new Date().toISOString(), fields: nowFields }, { merge: true });
+    } else {
+      add("SSoTマップ", "schema.md に書かれないまま増えたフィールド", fresh.length === 0,
+        fresh.join(" / ") || "新しく増えたものはなし", "/ssot");
+    }
   } catch { /* 読めない日は出さない */ }
 
   /* 観光定点の鮮度（spec_tourism_stats_20260830）。統計は約2ヶ月遅れなので3ヶ月で警告 */
