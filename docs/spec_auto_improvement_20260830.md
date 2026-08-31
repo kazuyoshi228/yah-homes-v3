@@ -70,11 +70,23 @@ AIはデプロイ権限を持たない（今と同じ・CIだけが持つ）。
 **第1段はキー登録ゼロで開始できる。** 実装PRの実行役は、レビューの提案品質を見てから
 Claude Code か Gemini CLI かを決める（第2段で判断）。
 
+## 認証（2026-08-31 構築・疎通確認済み）
+
+**静的なAPIキーは使わない。** Anthropic の ID連携（Workload Identity Federation）を設定し、
+GitHub Actions の本人証明を数分で失効する短命トークンに交換する。Secrets への登録はゼロ。
+
+- 連携ルール: `fdrl_01Mez1KLb6LKgQ13rGmEegoz`（発行者 github-actions・組織 `1aa736bd-4c51-4007-88c3-3b3e77937aad`）
+- サービスアカウント: `yah-os-actions`（`svac_014m34RJJKhv2ZAzocn2xbxR`）・ワークスペース Default（`wrkspc_01HhAfY51yC7NeYGkxDo9JkB`）・スコープ workspace:developer
+- 件名パターンは **数値ID埋め込み形式**: `repo:kazuyoshi228@47837716/yah-os@1338565023:*`
+  （GitHubのsubは `owner@id/repo@id` 形式で来る。名前だけの `repo:owner/repo:*` では match_subject_prefix で拒否される——2026-08-31 実測でハマった点）
+- 追加クレーム: repository / repository_owner / repository_owner_id の完全一致
+- 疎通: `.github/workflows/anthropic-wif-test.yml`（workflow_dispatch・診断用に常備）で access_token 発行を確認済み
+- ワークフロー側の要件: `permissions: id-token: write` のみ
+
 ## 必要な準備（発注者の作業）
 
-1. 第1段: **なし**
-2. 第2段（実装PRを解禁するとき）: Anthropic APIキーを GitHub Secrets（`ANTHROPIC_API_KEY`）に登録
-3. 費用感: 第1段は月数百円以内（Gemini flash＋Actions実行費）。第2段込みで月数千円以内
+1. **完了**（ID連携を2026-08-31に設定済み・上記）。クレジット残高 $18.05 あり、チャージも不要
+2. 費用感: 第1段は月数百円以内（Gemini flash＋Actions実行費）。第2段込みでも従量制——使わない月は0円
 
 ## 検収（1ヶ月後）
 
