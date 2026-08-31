@@ -7,6 +7,7 @@ export const DOCUMENTED: Record<string, string[]> = {
   alertLogs: ["at", "breakdown", "items"],
   assumptions: ["factor", "label", "note", "updatedAt", "value"],
   bsAdjustments: ["amount", "entity", "excluded", "group", "label", "prop", "reason"],
+  buildPayments: ["amount", "date", "kind", "paid", "prop"],
   cash: ["accounts", "date", "source", "total"],
   competitorObs: ["activeListings", "adrUsd", "date", "filters", "market", "occupancyPct"],
   construction: ["category", "date", "label", "note", "path", "site"],

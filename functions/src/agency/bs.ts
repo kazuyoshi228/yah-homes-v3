@@ -27,13 +27,14 @@ export function liabilityAmount(
 
 export async function balanceSheet(asOf = new Date()) {
   const db = agencyDb();
-  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap, adjSnap] = await Promise.all([
+  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap, adjSnap, bpSnap] = await Promise.all([
     db.collection("finance").where("kind", "==", "loan").get(),
     db.collection("properties").get(),
     db.collection("items").get(),
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("cash").get(),
     db.collection("bsAdjustments").get(),
+    db.collection("buildPayments").get(),
   ]);
 
   const num = (v: unknown) => Number(v ?? 0) || 0;
@@ -89,19 +90,53 @@ export async function balanceSheet(asOf = new Date()) {
        「法人の物件−法人の負債」そのもので、法人を展開している画面に足すと二重計上になる
        （連結でいう投資と資本の相殺消去）。理由を画面に出すため、消さずに返す */
   const adj = adjSnap.docs
-    .filter((d) => String(d.data().kind ?? "asset") === "asset")
+    .filter((d) => String(d.data().kind ?? "asset") === "asset" && d.data().superseded !== true)
     .map((d) => ({ label: String(d.data().label ?? d.id), amount: num(d.data().amount),
       note: String(d.data().reason ?? ""), docPath: `bsAdjustments/${d.id}`,
       group: String(d.data().group ?? "unbooked"), excluded: d.data().excluded === true }))
     .filter((x) => x.amount > 0)
     .sort((a, b) => b.amount - a.amount);
-  const unbooked: BsLine[] = adj.filter((x) => x.group === "unbooked" && !x.excluded);
+  /* 建設中の建物は**支払予定表（buildPayments）から導く**（2026-08-31 発注者提供）。
+     資産＝契約総額（建物＋家具）／負債＝まだ払っていない分。**対で載せる**ので、
+     純資産に効くのは「すでに払った分」だけ——これが正しい姿。
+     資産だけ足すと未払分まで純資産が膨らみ、負債だけ足すと逆に沈む。
+     支払済みの判定は paid フラグ（人が確認したもの）。日付だけで自動判定しない——
+     予定日に必ず払われる保証はないため */
+  const payRows = bpSnap.docs.map((d) => d.data() as Record<string, unknown>);
+  const propLabel = new Map(propSnap.docs.map((d) => [d.id, String(d.data().label ?? d.id)]));
+  const byProp = new Map<string, { total: number; unpaid: number }>();
+  for (const r of payRows) {
+    const k = String(r.prop ?? "");
+    const cur = byProp.get(k) ?? { total: 0, unpaid: 0 };
+    cur.total += num(r.amount);
+    if (r.paid !== true) cur.unpaid += num(r.amount);
+    byProp.set(k, cur);
+  }
+  const unbooked: BsLine[] = [...byProp.entries()]
+    .filter(([, v]) => v.total > 0)
+    .map(([k, v]) => ({ label: `${propLabel.get(k) ?? k} 建物・家具（建設中）`, amount: v.total,
+      note: `契約総額。支払済み ¥${(v.total - v.unpaid).toLocaleString()}`, docPath: "buildPayments" }))
+    .sort((a, b) => b.amount - a.amount);
+  const unbookedLiabilities: BsLine[] = [...byProp.entries()]
+    .filter(([, v]) => v.unpaid > 0)
+    .map(([k, v]) => ({ label: `${propLabel.get(k) ?? k} 工事の未払金`, amount: v.unpaid,
+      note: "支払予定表の未払分", docPath: "buildPayments" }))
+    .sort((a, b) => b.amount - a.amount);
+  /* 直近の支払予定（資金繰りの手がかり。BSの合計には効かない） */
+  const upcoming = payRows
+    .filter((r) => r.paid !== true)
+    .map((r) => ({ date: String(r.date ?? ""), prop: propLabel.get(String(r.prop ?? "")) ?? String(r.prop ?? ""),
+      kind: String(r.kind ?? ""), amount: num(r.amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
   const personalAssets: BsLine[] = adj.filter((x) => x.group === "personal" && !x.excluded);
   const excludedAssets = adj.filter((x) => x.excluded);
 
   return {
     asOf: asOf.toISOString().slice(0, 10),
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
+    unbookedLiabilities,
+    unbookedLiabilityTotal: unbookedLiabilities.reduce((a, x) => a + x.amount, 0),
+    upcoming,
     personalAssets, personalAssetTotal: personalAssets.reduce((a, x) => a + x.amount, 0),
     excludedAssets,
     sides: [sides.corp, sides.personal],
