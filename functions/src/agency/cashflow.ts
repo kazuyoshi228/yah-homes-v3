@@ -14,9 +14,11 @@ import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
 
 export type CfMonth = {
-  month: string; opening: number; income: number; outgo: number; net: number; closing: number;
+  month: string; opening: number; income: number; funding: number; outgo: number;
+  net: number; closing: number;
   detail: { loans: number; fixed: number; utilities: number; build: number };
   builds: Array<{ label: string; amount: number }>;
+  fundings: Array<{ source: string; amount: number }>;
 };
 
 /** 月を1つ進める（純関数・テスト対象） */
@@ -31,6 +33,10 @@ export function projectCashflow(input: {
   monthlyIncome: number; fixedPerMonth: number; utilitiesPerMonth: number;
   loanOutgoByMonth: Record<string, number>;
   buildByMonth: Record<string, Array<{ label: string; amount: number }>>;
+  /* 工事のための資金調達（外から入る分だけ）。手元資金からの充当は入れない——
+     すでに期首残高に含まれているので、足すと二重に数えることになる */
+  fundingByMonth?: Record<string, Array<{ source: string; amount: number }>>;
+  withFunding?: boolean;
 }): CfMonth[] {
   const out: CfMonth[] = [];
   let bal = input.opening ?? 0;
@@ -39,12 +45,15 @@ export function projectCashflow(input: {
     const loans = input.loanOutgoByMonth[ym] ?? 0;
     const builds = input.buildByMonth[ym] ?? [];
     const build = builds.reduce((a, b) => a + b.amount, 0);
+    const fundings = input.withFunding === false ? [] : (input.fundingByMonth?.[ym] ?? []);
+    const funding = fundings.reduce((a, b) => a + b.amount, 0);
     const outgo = loans + input.fixedPerMonth + input.utilitiesPerMonth + build;
-    const net = input.monthlyIncome - outgo;
+    const net = input.monthlyIncome + funding - outgo;
     const opening = bal;
     bal = bal + net;
-    out.push({ month: ym, opening, income: input.monthlyIncome, outgo, net, closing: bal,
-      detail: { loans, fixed: input.fixedPerMonth, utilities: input.utilitiesPerMonth, build }, builds });
+    out.push({ month: ym, opening, income: input.monthlyIncome, funding, outgo, net, closing: bal,
+      detail: { loans, fixed: input.fixedPerMonth, utilities: input.utilitiesPerMonth, build },
+      builds, fundings });
     ym = nextMonth(ym);
   }
   return out;
@@ -56,7 +65,7 @@ export function firstShortage(rows: CfMonth[], hasOpening: boolean): string | nu
   return rows.find((r) => r.closing < 0)?.month ?? null;
 }
 
-export async function cashflow(months = 12, asOf = new Date()) {
+export async function cashflow(months = 12, asOf = new Date(), withFunding = true) {
   const db = agencyDb();
   const [finSnap, revSnap, taxSnap, insSnap, resSnap, utilSnap, bpSnap, cfDoc, propSnap] =
     await Promise.all([
@@ -112,6 +121,8 @@ export async function cashflow(months = 12, asOf = new Date()) {
   /* 工事の支払予定（未払のみ） */
   const propLabel = new Map(propSnap.docs.map((d) => [d.id, String(d.data().label ?? d.id)]));
   const buildByMonth: Record<string, Array<{ label: string; amount: number }>> = {};
+  const fundingByMonth: Record<string, Array<{ source: string; amount: number }>> = {};
+  const fundingTotals: Record<string, number> = {};
   for (const d of bpSnap.docs) {
     const b = d.data() as Record<string, unknown>;
     if (b.paid === true) continue;
@@ -119,12 +130,18 @@ export async function cashflow(months = 12, asOf = new Date()) {
     if (!m) continue;
     (buildByMonth[m] ??= []).push({
       label: `${propLabel.get(String(b.prop ?? "")) ?? b.prop} ${b.kind}`, amount: num(b.amount) });
+    for (const f of (b.funding ?? []) as Array<Record<string, unknown>>) {
+      const src = String(f.source ?? "");
+      fundingTotals[src] = (fundingTotals[src] ?? 0) + num(f.amount);
+      if (f.inflow === false) continue;          // 手元資金からの充当は入金に数えない
+      (fundingByMonth[m] ??= []).push({ source: src, amount: num(f.amount) });
+    }
   }
 
   const openingRaw = cfDoc.data()?.opening;
   const opening = openingRaw == null ? null : num(openingRaw);
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth });
+    fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth, fundingByMonth, withFunding });
 
   return {
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
@@ -134,5 +151,7 @@ export async function cashflow(months = 12, asOf = new Date()) {
       utilitiesBasis: uRecent.length ? `${uRecent[0]}〜${uRecent.at(-1)} の平均` : "実績なし" },
     shortage: firstShortage(rows, opening != null),
     buildUnpaidTotal: Object.values(buildByMonth).flat().reduce((a, b) => a + b.amount, 0),
+    fundingTotals, withFunding,
+    fundingInflowTotal: Object.values(fundingByMonth).flat().reduce((a, b) => a + b.amount, 0),
   };
 }

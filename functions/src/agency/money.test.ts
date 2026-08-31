@@ -305,3 +305,17 @@ test("資金繰り: 期首残高が無ければショート判定をしない（
     monthlyIncome: 0, fixedPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {}, buildByMonth: {} });
   assert.equal(firstShortage(rows, false), null);
 });
+
+
+test("資金繰り: 調達を入れると同じ月の支払いを相殺する（手元資金は入金に数えない）", () => {
+  const base = { startMonth: "2026-11", months: 1, opening: 0, monthlyIncome: 0,
+    fixedPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {},
+    buildByMonth: { "2026-11": [{ label: "大手門 中間金", amount: 25000000 }] },
+    fundingByMonth: { "2026-11": [{ source: "ウィズダム", amount: 14000000 },
+      { source: "晴信", amount: 10000000 }] } };
+  const withF = projectCashflow({ ...base, withFunding: true });
+  assert.equal(withF[0].funding, 24000000);
+  assert.equal(withF[0].net, -1000000);          // 自己資金100万ぶんだけ手元から出る
+  const without = projectCashflow({ ...base, withFunding: false });
+  assert.equal(without[0].net, -25000000);       // 調達を切ると支払い全額が沈む
+});

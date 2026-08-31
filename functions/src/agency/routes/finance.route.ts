@@ -49,7 +49,7 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           return true;
         }
         case "cashflow": {                                     // 資金繰り予測（12ヶ月・毎回導出）
-          res.json({ ok: true, ...(await cashflow()) });
+          res.json({ ok: true, ...(await cashflow(12, new Date(), req.query.funding !== "0")) });
           return true;
         }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
