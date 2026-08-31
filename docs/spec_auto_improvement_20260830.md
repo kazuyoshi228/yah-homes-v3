@@ -2,7 +2,12 @@
 
 - 起票: 発注者「システムを自動で定期的に改善されていくように。Human-in-the-Loopの仕組みも入れて」
   「PCで指示でよい」→ 初期3本の構成に「いいね」
-- 状態: **仕様承認待ち。実装はこの文書の承認後**
+- 状態: **3本すべて実装・稼働開始（2026-08-31）**
+  - ① 自動の家事: `yah-os/.github/workflows/auto-chore.yml`（毎朝5時JST）。Actions上で実走確認済み
+  - ② 週報: `yah.homes-v2/functions/src/agency/weekly.ts`（月曜の朝メール）。CI緑・次の月曜から
+  - ③ 週次レビュー: `yah-os/.github/workflows/weekly-review.yml`（月曜5:30 JST）。実走で95,276tokの差分を審査し「指摘0件」——初回から起票乱発しない抑制が効いていることを確認
+  - **変更（仕様からの逸脱・記録）**: ③の実行役は Gemini → Claude（ID連携がGitHub側に完成し、
+    レビュー対象と同じ場所でキーレスに動くため）。費用実測: 1回 ≒ $0.5・月 ≒ $2
 - 実行基盤: **GitHub Actions 上の Claude Code**（Firebaseは使わない——指示の入口をPCにしたため
   台帳・橋渡しが不要になった。指示書=GitHub Issue）
 
