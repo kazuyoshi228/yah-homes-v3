@@ -230,6 +230,15 @@ export async function healthSummary() {
       undoc.join(" / ") || `${SAMPLE.length}コレクションすべて文書どおり`, "/ssot");
   } catch { /* 読めない日は出さない */ }
 
+  /* 観光定点の鮮度（spec_tourism_stats_20260830）。統計は約2ヶ月遅れなので3ヶ月で警告 */
+  try {
+    const tSnap = await db.collection("tourismStats").get();
+    const latestT = tSnap.docs.map((d) => String(d.data().month ?? "")).sort().at(-1) ?? "";
+    const tLimit = new Date(now.getTime() - 92 * 864e5).toISOString().slice(0, 7);
+    add("観光客数の推移", "観光定点の鮮度（3ヶ月以内）", !!latestT && latestT >= tLimit,
+      latestT ? `最新 ${latestT}` : "未取得（settings/tourism.appId に e-Stat の appId を設定）", "/tourism");
+  } catch { /* 読めない日は出さない */ }
+
   /* AIの自己点検の結果（前日ぶん）。回答の中身は採点しない——道具の引き先だけを見る */
   try {
     const acSnap = await db.collection("aiChecks").get();

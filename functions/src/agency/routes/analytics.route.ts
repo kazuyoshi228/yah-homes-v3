@@ -22,6 +22,22 @@ export type Ctx = {
 export async function handle(action: string, req: any, res: any, ctx: Ctx): Promise<boolean> {
   const { db, email } = ctx;
   switch (action) {
+        case "tourism": {                                     // 観光客数の推移（月次インバウンド定点）
+          const [tSnap, revSnap2] = await Promise.all([
+            db.collection("tourismStats").get(),
+            db.collection("revenue").where("kind", "==", "monthly").get(),
+          ]);
+          const rows = tSnap.docs.map((d) => d.data())
+            .sort((a, b) => String(a.month).localeCompare(String(b.month)));
+          const occ = revSnap2.docs.map((d) => {
+            const r = d.data() as { prop: string; month: string; occ?: number };
+            return { prop: r.prop, month: r.month, occ: r.occ ?? null };
+          });
+          const propDocs2 = await ctx.all("properties");
+          res.json({ ok: true, rows, occ,
+            propLabels: Object.fromEntries(propDocs2.map((p) => [String(p.id), String(p.label ?? p.id)])) });
+          return true;
+        }
         case "cvr": {                                         // AirBnB CVR定点観測（定期レポート）
           const snap = await db.collection("cvr").get();
           const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }))

@@ -36,6 +36,7 @@ export const DOCUMENTED: Record<string, string[]> = {
   settings: [],
   taxes: ["amountPerYear", "prop", "type", "year"],
   templates: [],
+  tourismStats: ["fetchedAt", "metric", "month", "value"],
   utilities: ["amount", "date", "month", "place", "type"],
   vendors: [],
   yields: [],

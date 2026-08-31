@@ -36,6 +36,7 @@
 | `construction` | 工事資料1行 | site(ropponmatsu/otemon), label, category, date, path(gs://), note | 画面(constructionSave) | 建築カードの正本。竣工後はitems/設備台帳へ |
 | `competitorObs` | AirDNA市場定点1回 | date, market, filters, adrUsd, occupancyPct, activeListings, listingsYoYPct ほか | 半年定点（コピペ→構造化投入） | 条件固定（中央区・Beds3-9）が生命線 |
 | `opsTasks` | 運営タスク1行 | scenario(airstar/inhouse), label, freq, hoursMin/Max または category/window/assignees | 人の判断 | 運営カードの正本（委託の分解と内製座組） |
+| `tourismStats` | 月次インバウンド定点1行 | month, metric(stay/entry), value, fetchedAt | システム（e-Stat毎月5日）・検収（FCVB等の手入力） | docID=metric-month で冪等。spec_tourism_stats_20260830 |
 | `policies` | 経営方針1件 | kind, title, policy, items[], decidedAt | 人の判断のみ | 事業承継カード方針タブの正本（出口設計・再調達価値等） |
 
 ## 導出レイヤ（保存しない）

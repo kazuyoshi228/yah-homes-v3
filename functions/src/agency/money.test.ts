@@ -11,6 +11,7 @@ import { classifyOverdue } from "./engine.js";
 import { aggregateFacts, type Fact } from "./facts.js";
 import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
+import { parseTimeName, yoy } from "./tourism.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
@@ -253,4 +254,19 @@ test("週報: 未知モデルは単価0で落ちない", () => {
   const r = aggregateAiWeek([{ purpose: "x", model: "unknown", promptTokens: 100, outputTokens: 10 }]);
   assert.equal(r.totalUsd, 0);
   assert.equal(r.lines.length, 1);
+});
+
+
+/* 観光定点（spec_tourism_stats_20260830）の純関数 */
+test("観光定点: e-Statの時間名の解釈（月だけ拾い、年計・四半期は捨てる）", () => {
+  assert.equal(parseTimeName("2026年4月"), "2026-04");
+  assert.equal(parseTimeName("2026年12月"), "2026-12");
+  assert.equal(parseTimeName("2026年"), null);
+  assert.equal(parseTimeName("2026年1〜3月"), null);
+});
+test("観光定点: 前年同月比（前年ゼロ・欠測はnull）", () => {
+  assert.equal(yoy(120, 100), 20);
+  assert.equal(yoy(90, 100), -10);
+  assert.equal(yoy(100, 0), null);
+  assert.equal(yoy(100, undefined), null);
 });

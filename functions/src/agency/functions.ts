@@ -20,6 +20,7 @@ import { sendNotice } from "./mailer.js";
 import { monthlyAiReport } from "./ai.js";
 import { sendDailyAlert, testAlarm } from "./alerts.js";
 import { aiSelfCheck } from "./aicheck.js";
+import { fetchTourismStats } from "./tourism.js";
 import { weeklyReport } from "./weekly.js";
 
 const AGENCY_MAILER_KEY = defineSecret("AGENCY_MAILER_KEY");
@@ -58,6 +59,19 @@ export const agencyDaily = onSchedule(
         return { sent: true };
       }, MONTHLY_SEC / 4);   // 週次の沈黙しきい値（約8日）
     }
+    /* 観光客数の月次定点（spec_tourism_stats_20260830）。統計の発表は約2ヶ月遅れなので
+       毎月5日に直近をまとめて取り直す（冪等）。手動再実行は settings/tourism.runOnce=true */
+    const tRef = agencyDb().collection("settings").doc("tourism");
+    const tRunOnce = (await tRef.get()).data()?.runOnce === true;
+    const jstDay5 = new Date(Date.now() + 9 * 3600e3).getUTCDate() === 5;
+    if (jstDay5 || tRunOnce) {
+      await step("tourismStats", async () => {
+        const r = await fetchTourismStats();
+        if (tRunOnce) await tRef.set({ runOnce: false }, { merge: true });
+        return r;
+      }, MONTHLY_SEC);
+    }
+
     /* AIの自己点検（2026-08-29）。決まった質問で「期待した道具を引いたか」だけを見る。
        落ちると heartbeat が打たれず、翌日の点検メール・今日ボードに沈黙として出る */
     await step("aiSelfCheck", () => aiSelfCheck());
