@@ -75,18 +75,28 @@ export async function balanceSheet(asOf = new Date()) {
   if (latestCash) assets.push({ label: "現金", amount: latestCash.total, note: `${latestCash.id} 時点`, docPath: `cash/${latestCash.id}` });
   const assetTotal = assets.reduce((a, x) => a + x.amount, 0);
 
-  /* 未計上の資産（建設中の建物など・人の宣言）。既定では合計に入れない——
-     画面のスイッチで足せるようにするための「候補」として返す（2026-08-30 発注者指示） */
-  const unbooked: BsLine[] = adjSnap.docs
+  /* bsAdjustments（人の宣言）。既定では合計に入れず、画面のスイッチで足す「候補」として返す。
+     group=unbooked … 建設中で台帳にまだ無い建物
+     group=personal … 個人の資産（法人の外にあるもの）
+     excluded=true  … **計上してはいけない**もの。自社株がこれ——その価値は
+       「法人の物件−法人の負債」そのもので、法人を展開している画面に足すと二重計上になる
+       （連結でいう投資と資本の相殺消去）。理由を画面に出すため、消さずに返す */
+  const adj = adjSnap.docs
     .filter((d) => String(d.data().kind ?? "asset") === "asset")
     .map((d) => ({ label: String(d.data().label ?? d.id), amount: num(d.data().amount),
-      note: String(d.data().reason ?? ""), docPath: `bsAdjustments/${d.id}` }))
+      note: String(d.data().reason ?? ""), docPath: `bsAdjustments/${d.id}`,
+      group: String(d.data().group ?? "unbooked"), excluded: d.data().excluded === true }))
     .filter((x) => x.amount > 0)
     .sort((a, b) => b.amount - a.amount);
+  const unbooked: BsLine[] = adj.filter((x) => x.group === "unbooked" && !x.excluded);
+  const personalAssets: BsLine[] = adj.filter((x) => x.group === "personal" && !x.excluded);
+  const excludedAssets = adj.filter((x) => x.excluded);
 
   return {
     asOf: asOf.toISOString().slice(0, 10),
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
+    personalAssets, personalAssetTotal: personalAssets.reduce((a, x) => a + x.amount, 0),
+    excludedAssets,
     sides: [sides.corp, sides.personal],
     assets, assetTotal,
     /* 純資産は法人のみ。個人は資産が台帳に無いので出さない（出すと嘘になる） */
