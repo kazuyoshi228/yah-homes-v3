@@ -13,6 +13,7 @@ import { propertySummary } from "./props.js";
 import { renewalPlan } from "./lifecycle.js";
 import { estimatesDue, warrantyDue } from "./alerts.js";
 import { DOCUMENTED } from "./schemadoc.js";
+import { cashflow } from "./cashflow.js";
 
 /* goto: 消し込む場所への深リンク（今日ボード・点検メールの行から1クリックで直行する・2026-08-27） */
 export type HealthCheck = { card: string; name: string; ok: boolean; detail: string; goto?: string };
@@ -263,6 +264,19 @@ export async function healthSummary() {
         ac.ok === true ? `${latestAc} 合格` : `${latestAc}: ${(ac.ng ?? []).join(" / ")}`, "/?view=health");
     }
   } catch { /* 記録が無い日は出さない（毎朝の step 側で沈黙として検知される） */ }
+
+  /* 資金繰り: 12ヶ月のうちに残高がマイナスになる月があれば警告（2026-08-31）。
+     期首残高が未宣言のときは判定できない——その旨を出す（黙って通さない） */
+  try {
+    const cf = await cashflow(12, now);
+    if (cf.opening == null) {
+      add("資金繰り", "期首の現金残高が未登録", false,
+        "settings/cashflow.opening に残高を入れると、いつ足りなくなるかが出せます", "/cashflow");
+    } else {
+      add("資金繰り", "12ヶ月の資金ショート", cf.shortage == null,
+        cf.shortage ? `${cf.shortage} に残高がマイナスになる見込み` : "12ヶ月とも残高はプラス", "/cashflow");
+    }
+  } catch { /* 読めない日は出さない */ }
 
   /* 前提の存在（係数が消えていたらフォールバックで動くが、気づけるように） */
   const asm = new Set(asmSnap.docs.map((d) => d.id));

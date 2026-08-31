@@ -39,6 +39,7 @@
 | `tourismStats` | 月次インバウンド定点1行 | month, metric(stay/entry), value, fetchedAt | システム（e-Stat毎月5日）・検収（FCVB等の手入力） | docID=metric-month で冪等。spec_tourism_stats_20260830 |
 | `bsAdjustments` | BSの調整項目1件 | kind="asset", entity, group(unbooked/personal), label, amount, prop, excluded, reason | 人の判断のみ | 台帳に無い資産の宣言。group=unbooked は建設中の建物、personal は個人資産。**excluded=true は計上してはいけないもの**（自社株＝法人を展開する画面では二重計上）。既定では合計に入れずスイッチで足す |
 | `buildPayments` | 工事の支払予定1行 | prop, date, kind(契約/着工/中間金/引き渡し/家具類), amount, paid | 人の判断（支払済みの確認） | 建設中の建物・家具の支払予定表。BSは資産＝契約総額・負債＝未払分を**対で**出す。paid は人が確認して立てる（日付だけで自動に落とさない） |
+| `settings/cashflow` | 資金繰りの前提 | opening（期首の現金残高）, openingAt（いつ時点か） | 人の判断のみ | 台帳から導けない唯一の一次事実。無いと「いつ足りなくなるか」が出せない |
 | `policies` | 経営方針1件 | kind, title, policy, items[], decidedAt | 人の判断のみ | 事業承継カード方針タブの正本（出口設計・再調達価値等） |
 
 ## 導出レイヤ（保存しない）

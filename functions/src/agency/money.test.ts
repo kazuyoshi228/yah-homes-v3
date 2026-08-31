@@ -13,6 +13,7 @@ import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
 import { parseTimeName, yoy } from "./tourism.js";
 import { liabilityAmount } from "./bs.js";
+import { projectCashflow, nextMonth, firstShortage } from "./cashflow.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
@@ -281,4 +282,26 @@ test("BS: 条件未登録なら申告額をそのまま使う（返済表の残�
 test("BS: 条件が登録済みなら返済表から導いた残債を使う", () => {
   assert.equal(liabilityAmount({ principal: 50000000 }, 41234567), 41234567);
   assert.equal(liabilityAmount({ principal: 50000000 }, null), 50000000);   // 導出できない時は当初額
+});
+
+
+/* 資金繰り予測（2026-08-31）。日付をまたぐ計算と、ショート月の検知 */
+test("資金繰り: 月送り（年またぎ）", () => {
+  assert.equal(nextMonth("2026-11"), "2026-12");
+  assert.equal(nextMonth("2026-12"), "2027-01");
+});
+test("資金繰り: 残高の積み上がりと工事支払いの反映", () => {
+  const rows = projectCashflow({ startMonth: "2026-09", months: 3, opening: 1000000,
+    monthlyIncome: 1000000, fixedPerMonth: 100000, utilitiesPerMonth: 70000,
+    loanOutgoByMonth: { "2026-09": 500000, "2026-10": 500000, "2026-11": 500000 },
+    buildByMonth: { "2026-11": [{ label: "六本松 引き渡し", amount: 12000000 }] } });
+  assert.equal(rows[0].closing, 1330000);          // 100万＋(100万−67万)
+  assert.equal(rows[2].detail.build, 12000000);
+  assert.ok(rows[2].closing < 0);                  // 工事支払いで沈む
+  assert.equal(firstShortage(rows, true), "2026-11");
+});
+test("資金繰り: 期首残高が無ければショート判定をしない（勝手に断定しない）", () => {
+  const rows = projectCashflow({ startMonth: "2026-09", months: 2, opening: null,
+    monthlyIncome: 0, fixedPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {}, buildByMonth: {} });
+  assert.equal(firstShortage(rows, false), null);
 });

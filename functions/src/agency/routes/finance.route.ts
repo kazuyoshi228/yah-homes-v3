@@ -7,6 +7,7 @@
 import { getStorage } from "firebase-admin/storage";
 import { loanSummary } from "../finance.js";
 import { balanceSheet } from "../bs.js";
+import { cashflow } from "../cashflow.js";
 import { revenueSummary } from "../revenue.js";
 import { utilitySummary } from "../utilities.js";
 import { monthlySummary } from "../monthly.js";
@@ -45,6 +46,10 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "monthly": {                                     // 月次のまとめ（各カードの合流点）
           res.json({ ok: true, ...(await monthlySummary()) });
+          return true;
+        }
+        case "cashflow": {                                     // 資金繰り予測（12ヶ月・毎回導出）
+          res.json({ ok: true, ...(await cashflow()) });
           return true;
         }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産

@@ -9,6 +9,7 @@ export const DOCUMENTED: Record<string, string[]> = {
   bsAdjustments: ["amount", "entity", "excluded", "group", "label", "prop", "reason"],
   buildPayments: ["amount", "date", "kind", "paid", "prop"],
   cash: ["accounts", "date", "source", "total"],
+  cashflow: [],
   competitorObs: ["activeListings", "adrUsd", "date", "filters", "market", "occupancyPct"],
   construction: ["category", "date", "label", "note", "path", "site"],
   contracts: ["autoRenew", "category", "counterparty", "expiresAt", "feeSchedule", "label", "notes", "noticeDays", "path", "prop", "signedAt", "status"],
