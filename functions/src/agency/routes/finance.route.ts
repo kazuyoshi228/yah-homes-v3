@@ -6,7 +6,7 @@
  */
 import { getStorage } from "firebase-admin/storage";
 import { agencyDb } from "../engine.js";
-import { loanSummary } from "../finance.js";
+import { loanSummary, loanState, type Loan } from "../finance.js";
 import { balanceSheet } from "../bs.js";
 import { cashflow } from "../cashflow.js";
 import { revenueSummary } from "../revenue.js";
@@ -67,10 +67,11 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "personal": {                                     // 個人の財務（山田一慶）— 資産・配当・借入
           const db2 = agencyDb();
-          const [as, ds, fin2, bsAdj, inc] = await Promise.all([
+          const [as, ds, fin2, finCorp, bsAdj, inc] = await Promise.all([
             db2.collection("personalAssets").get(),
             db2.collection("personalDistributions").get(),
             db2.collection("finance").where("entity", "==", "personal").get(),
+            db2.collection("finance").where("kind", "==", "loan").get(),
             db2.collection("bsAdjustments").where("entity", "==", "personal").get(),
             db2.collection("assumptions").doc("personal-income").get(),
           ]);
@@ -80,6 +81,21 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             assets: as.docs.map(m).sort((x, y) => Number(y.value ?? 0) - Number(x.value ?? 0)),
             distributions: ds.docs.map(m).sort((x, y) => Number(y.annual ?? 0) - Number(x.annual ?? 0)),
             loans: fin2.docs.map(m),
+            /* 法人の借入も並べて見せる。ただし**正本は finance**——ここでは
+               返済表を毎回引き直して残債を出すだけで、金額は持たない（2026-09-02） */
+            corpLoans: finCorp.docs
+              .filter((d) => String(d.data().entity ?? "corp") === "corp")
+              .map((d) => {
+                const l = { id: d.id, ...(d.data() as object) } as Loan;
+                let balance = Number((d.data() as { principal?: number }).principal ?? 0);
+                let monthly = Number((d.data() as { monthlyPayment?: number }).monthlyPayment ?? 0);
+                try { const st = loanState(l, new Date()); balance = st.balance; monthly = st.monthlyTotal; }
+                catch { /* 条件が未登録なら申告額のまま */ }
+                return { id: d.id, lender: String((d.data() as { lender?: string }).lender ?? d.id),
+                  prop: String((d.data() as { prop?: string }).prop ?? ""),
+                  repayment: String((d.data() as { repayment?: string }).repayment ?? ""),
+                  balance, monthly };
+              }).sort((x, y) => y.balance - x.balance),
             adjustments: bsAdj.docs.map(m),
             income: inc.exists ? { id: inc.id, ...(inc.data() as Record<string, unknown>) } : null });
           return true;
