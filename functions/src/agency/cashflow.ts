@@ -498,11 +498,16 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      （買い手はその物件から得られる収益を見るため）。還元利回りは assumptions/cap-rate */
   const valuation = yearly.map((a) => {
     const x = a as unknown as Record<string, number | string>;
-    const noi = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2);
+    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2);
+    /* 途中から始まる年（初年）は12ヶ月に換算してから還元する。
+       4ヶ月ぶんのNOIをそのまま割ると、不動産価値が3分の1に出てしまう（2026-09-01 発注者指摘） */
+    const m = Number(x.months) || 12;
+    const noi = m < 12 ? Math.round((raw * 12) / m) : raw;
     const asset = capRate > 0 ? Math.round(noi / capRate) : 0;
     const cash = Number(x.closingAfterTax ?? x.closing);
     const equity = asset + cash + Number(x.investBalance ?? 0) - Number(x.loanBalance ?? 0);
-    return { year: String(x.year), noi: Math.round(noi), capRate, asset, cash,
+    return { year: String(x.year), noi: Math.round(noi), noiRaw: Math.round(raw),
+      annualized: m < 12, months: m, capRate, asset, cash,
       investBalance: Number(x.investBalance ?? 0), loanBalance: Number(x.loanBalance ?? 0), equity };
   });
 
