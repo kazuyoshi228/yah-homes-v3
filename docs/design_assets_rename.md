@@ -1,7 +1,8 @@
 # 静的アセットのパス改名 `/manus-storage/` → `/assets/`（設計書）
 
 - 起票: 2026-09-01（発注者指摘「なんでManus?」）
-- 状態: **ドラフト＝未承認・未着工**。着手前に「7. 未決事項」の回答が必要
+- 状態: **承認済み・実施待ち**（2026-09-01 発注者回答: パス=/assets/ 可・旧301恒久残置 可）。
+  実施タイミングは§7-2参照。2026-09-01 に実コード・本番Firestoreと突き合わせて精査済み（§9）
 - 規模: 実装0.5日（＋検証）。デプロイは1回
 
 ## 1. 背景・目的
@@ -48,6 +49,7 @@
 | 設定 | `firebase.json`（`/manus-storage/**` の1年 immutable キャッシュ） | ヘッダのパターン |
 | PWA | `public/manifest.json` | アイコン |
 | ツール | `scripts/gen-image-variants.mjs` | 画像バリアント生成の出力先 |
+| ドキュメント | `docs/brand/brand-reference.md`・`docs/design_firebase_hosting.md` | パスの記述。実害はないが同時に更新する |
 
 ## 4. リスク（最重要）— 外に出ているURLは消せない
 
@@ -81,13 +83,20 @@
    - キャッシュヘッダの `source` を `/assets/**` に変更（1年 immutable は維持）
    - `redirects` に旧パスの301を追加（§4）
 4. 検証（§6）
-5. デプロイ（hosting＋functions）。**functions も同時に出す**（メールの画像URLが変わるため）
+5. デプロイ（hosting＋functions）。**functions も同時に出す**（メールの画像URLが変わるため）。
+   - `MAIL_PROP`（棟の写真URL）の使用先: 予約確定メール（buildConfirmationMail/For）・キャンセルメール・
+     前日/当日の guestLifecycleMailer・管理画面の再送・mail-preview。index.ts 一枚岩のため
+     `--only functions` でまとめて出すのが安全（選択デプロイだと新旧URLが混在する。301があるので
+     実害はないが、揃えておく）
+   - ⚠ CI併走注意: functions/ に触れる main への push は agency 系 CI のデプロイを起動する
+     （2026-08-25 S3運用）。push→CI とローカルデプロイの二重実行に注意し、push はデプロイ完了後に行う
 
 ## 6. 検証計画
 
 | 項目 | 方法 | 合格条件 |
 |---|---|---|
-| 参照漏れ | `grep -rn "manus-storage" src/ functions/src/ scripts/ public/*.json` | ヒット0（`firebase.json` の redirects 行を除く） |
+| 参照漏れ | 拡張子指定なしの全ファイル grep（src/ functions/src/ scripts/ public/ firebase.json） | ヒット0（`firebase.json` の redirects 行と docs/ の履歴記述を除く） |
+| **Firestoreデータ内** | mail_templates・internal_mails 等を全docスキャン（property_facts は 2026-09-01 実測ゼロ確認済み） | 見つけたら /assets/ に更新（301があるため見逃しても動作は壊れない＝非ブロッカー） |
 | ビルド | `BOOK_PREVIEW=1 npm run build` | 177ページ・エラーなし |
 | 画像の実在 | `dist` 内の `/assets/` 参照をすべて抽出し、実ファイルの存在を突合するスクリプト | 欠損0 |
 | 実行時 | `scripts/smoke-dist.mjs` | 全ページJSエラー0 |
@@ -97,13 +106,23 @@
 
 ## 7. 未決事項（着工前に回答が必要）
 
-1. **パス名**: `/assets/` でよいか（§2の比較参照）
-2. **実施タイミング**: 146箇所の一括置換のため、他の作業と重なると衝突しやすい。
-   他スレッドの作業が落ち着いたタイミングで実施したい（希望日はあるか）
-3. **旧301の扱い**: 恒久的に残す方針でよいか（推奨。消すと過去メール・SNSが壊れる）
+1. ~~パス名~~ → **`/assets/` で確定**（2026-09-01 発注者回答）
+2. **実施タイミング**: 推奨は「**他スレッドが動いていない朝イチに単独実施**」（実働30〜60分・1セッション完結）。
+   理由: src/ と functions/src/index.ts を広く触る一括置換のため、並行スレッドとの衝突リスクが
+   この作業の実質唯一のリスク。ユーザー影響は301が守るため時間帯は自由。
+   事前条件: `git status` クリーン（他スレッドの未コミットなし）・pull 済み
+3. ~~旧301の扱い~~ → **恒久残置で確定**（2026-09-01 発注者回答）
 
-## 8. やらないこと
+## 8. やらないこと（変更なし）
 
 - ファイル名の変更（ハッシュ付きの現行名を維持）
 - 画像の再エンコード・最適化（別件）
 - Firebase Storage への移設（Hosting配信のまま。storage.rules は触らない）
+
+## 9. 精査記録（2026-09-01・実データとの突き合わせ）
+
+- 参照インベントリ: 拡張子指定なしの全ファイル grep で再走査 → §3 の一覧に漏れなし
+  （css/svg/html/xml/sh 等にヒットなし）。docs 2件のみ追加
+- 本番 Firestore property_facts（chatInfo 100行含む・全棟＋meta）: `manus-storage` への参照 **0件** を実測確認
+- mail_templates / internal_mails: 認証都合で未走査 → 実装時の検証項目へ（§6）。301により非ブロッカー
+- MAIL_PROP の使用関数を実コードから特定し、functions デプロイ方針と CI 併走注意を§5に追記
