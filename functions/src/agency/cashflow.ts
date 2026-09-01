@@ -148,14 +148,20 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   for (const d of bpSnap.docs) {
     const b = d.data() as Record<string, unknown>;
     if (b.paid === true) continue;
-    const m = String(b.date ?? "").slice(0, 7);
-    if (!m) continue;
+    const raw = String(b.date ?? "").slice(0, 7);
+    if (!raw) continue;
+    /* 期日を過ぎてもまだ払っていない分は、初月に繰り上げて必ず数える。
+       窓の外（過去月）に落ちると、未払いなのに予測から消えてしまう
+       （2026-09-01 発覚: 大手門着工¥20,000,000が8/31期日で消えていた） */
+    const overdue = raw < startMonth;
+    const m = overdue ? startMonth : raw;
     (buildByMonth[m] ??= []).push({
-      label: `${propLabel.get(String(b.prop ?? "")) ?? b.prop} ${b.kind}`, amount: num(b.amount) });
+      label: `${propLabel.get(String(b.prop ?? "")) ?? b.prop} ${b.kind}`
+        + (overdue ? `（${raw} 期日・未払い）` : ""), amount: num(b.amount) });
     for (const f of (b.funding ?? []) as Array<Record<string, unknown>>) {
       const src = String(f.source ?? "");
       fundingTotals[src] = (fundingTotals[src] ?? 0) + num(f.amount);
-      if (f.inflow === false) continue;          // 手元資金からの充当は入金に数えない
+      if (f.inflow === false) continue;          // 手元資金・入金済みは将来の入金に数えない
       (fundingByMonth[m] ??= []).push({ source: src, amount: num(f.amount) });
     }
   }

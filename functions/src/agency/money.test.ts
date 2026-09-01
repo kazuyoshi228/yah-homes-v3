@@ -342,3 +342,17 @@ test("資金繰り: 修繕積立金は固定費と別の列で引かれる", () 
   assert.equal(r.detail.reserves, 100000);
   assert.equal(r.outgo, 220818);                  // 合計は分ける前と同じ
 });
+
+
+/* 期日を過ぎた未払いが窓の外に落ちない（2026-09-01 実害あり）。
+   大手門着工¥20,000,000が8/31期日で、9月始まりの予測から消えていた */
+test("資金繰り: 期日超過の未払いは初月に繰り上げて必ず数える", () => {
+  const [r] = projectCashflow({ startMonth: "2026-09", months: 1, opening: 24037860,
+    monthlyIncome: 0, fixedPerMonth: 0, reservesPerMonth: 0, utilitiesPerMonth: 0,
+    loanOutgoByMonth: {},
+    buildByMonth: { "2026-09": [
+      { label: "大手門 着工（2026-08 期日・未払い）", amount: 20000000 },
+      { label: "六本松 中間金", amount: 16000000 }] } });
+  assert.equal(r.detail.build, 36000000);
+  assert.equal(r.closing, 24037860 - 36000000);
+});
