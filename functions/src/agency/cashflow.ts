@@ -16,7 +16,7 @@ import { loanState, type Loan } from "./finance.js";
 export type CfMonth = {
   month: string; opening: number; income: number; incomeProjected: number; funding: number; outgo: number;
   net: number; closing: number;
-  detail: { loans: number; fixed: number; utilities: number; build: number };
+  detail: { loans: number; fixed: number; reserves: number; utilities: number; build: number };
   builds: Array<{ label: string; amount: number }>;
   fundings: Array<{ source: string; amount: number }>;
   projections: Array<{ prop: string; amount: number }>;
@@ -31,7 +31,7 @@ export function nextMonth(ym: string): string {
 /** 12ヶ月ぶんを積む（純関数・テスト対象）。opening が null なら残高は出さず増減だけ返す */
 export function projectCashflow(input: {
   startMonth: string; months: number; opening: number | null;
-  monthlyIncome: number; fixedPerMonth: number; utilitiesPerMonth: number;
+  monthlyIncome: number; fixedPerMonth: number; reservesPerMonth: number; utilitiesPerMonth: number;
   loanOutgoByMonth: Record<string, number>;
   buildByMonth: Record<string, Array<{ label: string; amount: number }>>;
   /* 工事のための資金調達（外から入る分だけ）。手元資金からの充当は入れない——
@@ -53,12 +53,13 @@ export function projectCashflow(input: {
     const funding = fundings.reduce((a, b) => a + b.amount, 0);
     const projections = input.projectedIncomeByMonth?.[ym] ?? [];
     const incomeProjected = projections.reduce((a, b) => a + b.amount, 0);
-    const outgo = loans + input.fixedPerMonth + input.utilitiesPerMonth + build;
+    const outgo = loans + input.fixedPerMonth + input.reservesPerMonth + input.utilitiesPerMonth + build;
     const net = input.monthlyIncome + incomeProjected + funding - outgo;
     const opening = bal;
     bal = bal + net;
     out.push({ month: ym, opening, income: input.monthlyIncome, incomeProjected, funding, outgo, net, closing: bal,
-      detail: { loans, fixed: input.fixedPerMonth, utilities: input.utilitiesPerMonth, build },
+      detail: { loans, fixed: input.fixedPerMonth, reserves: input.reservesPerMonth,
+        utilities: input.utilitiesPerMonth, build },
       builds, fundings, projections });
     ym = nextMonth(ym);
   }
@@ -101,10 +102,14 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? Math.round(recent.reduce((a, m) => a + byMonth[m], 0) / recent.length) : 0;
 
   /* 出金: 固定費（年額÷12）・光熱費（直近6ヶ月平均） */
-  const yearly = taxSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0)
-    + insSnap.docs.reduce((a, d) => a + num(d.data().premiumPerYear), 0)
-    + resSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0);
-  const fixedPerMonth = Math.round(yearly / 12);
+  /* 固定費と修繕積立金は列を分ける（2026-09-01 発注者指示）。
+     積立は「将来の修繕に備えて取り分けるお金」で、税や保険とは性格が違う——
+     混ぜると、削れない支出と自分で決めた支出の区別がつかなくなる */
+  const fixedYearly = taxSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0)
+    + insSnap.docs.reduce((a, d) => a + num(d.data().premiumPerYear), 0);
+  const reservesYearly = resSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0);
+  const fixedPerMonth = Math.round(fixedYearly / 12);
+  const reservesPerMonth = Math.round(reservesYearly / 12);
   const uByMonth: Record<string, number> = {};
   for (const d of utilSnap.docs) {
     const u = d.data() as { month?: string; amount?: number };
@@ -203,7 +208,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     account: a, label: bankLabel[a], points: balances[a],
     latest: balances[a].at(-1) ?? null })).sort((x, y) => (y.latest?.balance ?? 0) - (x.latest?.balance ?? 0));
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth, fundingByMonth, withFunding,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth,
+    fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
   return {
@@ -211,7 +217,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     opening, openingFrom,
     openingAt: String(cfDoc.data()?.openingAt ?? latestCash?.id ?? ""),
     accounts, openingAccounts,
-    assumptions: { monthlyIncome, fixedPerMonth, utilitiesPerMonth,
+    assumptions: { monthlyIncome, fixedPerMonth, reservesPerMonth, utilitiesPerMonth,
+      fixedBasis: "固定資産税・保険の年額÷12", reservesBasis: "修繕積立金の年額÷12",
       incomeBasis: recent.length ? `${recent[0]}〜${recent.at(-1)} の手取り平均` : "実績なし",
       utilitiesBasis: uRecent.length ? `${uRecent[0]}〜${uRecent.at(-1)} の平均` : "実績なし" },
     shortage: firstShortage(rows, opening != null),

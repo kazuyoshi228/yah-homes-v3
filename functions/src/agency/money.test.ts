@@ -292,7 +292,7 @@ test("資金繰り: 月送り（年またぎ）", () => {
 });
 test("資金繰り: 残高の積み上がりと工事支払いの反映", () => {
   const rows = projectCashflow({ startMonth: "2026-09", months: 3, opening: 1000000,
-    monthlyIncome: 1000000, fixedPerMonth: 100000, utilitiesPerMonth: 70000,
+    monthlyIncome: 1000000, fixedPerMonth: 100000, reservesPerMonth: 0, utilitiesPerMonth: 70000,
     loanOutgoByMonth: { "2026-09": 500000, "2026-10": 500000, "2026-11": 500000 },
     buildByMonth: { "2026-11": [{ label: "六本松 引き渡し", amount: 12000000 }] } });
   assert.equal(rows[0].closing, 1330000);          // 100万＋(100万−67万)
@@ -302,14 +302,14 @@ test("資金繰り: 残高の積み上がりと工事支払いの反映", () => 
 });
 test("資金繰り: 期首残高が無ければショート判定をしない（勝手に断定しない）", () => {
   const rows = projectCashflow({ startMonth: "2026-09", months: 2, opening: null,
-    monthlyIncome: 0, fixedPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {}, buildByMonth: {} });
+    monthlyIncome: 0, fixedPerMonth: 0, reservesPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {}, buildByMonth: {} });
   assert.equal(firstShortage(rows, false), null);
 });
 
 
 test("資金繰り: 調達を入れると同じ月の支払いを相殺する（手元資金は入金に数えない）", () => {
   const base = { startMonth: "2026-11", months: 1, opening: 0, monthlyIncome: 0,
-    fixedPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {},
+    fixedPerMonth: 0, reservesPerMonth: 0, utilitiesPerMonth: 0, loanOutgoByMonth: {},
     buildByMonth: { "2026-11": [{ label: "大手門 中間金", amount: 25000000 }] },
     fundingByMonth: { "2026-11": [{ source: "ウィズダム", amount: 14000000 },
       { source: "晴信", amount: 10000000 }] } };
@@ -323,7 +323,7 @@ test("資金繰り: 調達を入れると同じ月の支払いを相殺する（
 
 test("資金繰り: 稼働予定の入金は開始月から乗り、実績とは別に持つ", () => {
   const rows = projectCashflow({ startMonth: "2027-01", months: 3, opening: 0,
-    monthlyIncome: 1000000, fixedPerMonth: 0, utilitiesPerMonth: 0,
+    monthlyIncome: 1000000, fixedPerMonth: 0, reservesPerMonth: 0, utilitiesPerMonth: 0,
     loanOutgoByMonth: {}, buildByMonth: {},
     projectedIncomeByMonth: { "2027-02": [{ prop: "ropponmatsu", amount: 751188 }],
       "2027-03": [{ prop: "ropponmatsu", amount: 724460 }] } });
@@ -331,4 +331,14 @@ test("資金繰り: 稼働予定の入金は開始月から乗り、実績とは
   assert.equal(rows[1].incomeProjected, 751188);
   assert.equal(rows[1].income, 1000000);             // 実績ぶんは混ぜない
   assert.equal(rows[1].net, 1751188);
+});
+
+
+test("資金繰り: 修繕積立金は固定費と別の列で引かれる", () => {
+  const [r] = projectCashflow({ startMonth: "2026-09", months: 1, opening: 0, monthlyIncome: 0,
+    fixedPerMonth: 51302, reservesPerMonth: 100000, utilitiesPerMonth: 69516,
+    loanOutgoByMonth: {}, buildByMonth: {} });
+  assert.equal(r.detail.fixed, 51302);
+  assert.equal(r.detail.reserves, 100000);
+  assert.equal(r.outgo, 220818);                  // 合計は分ける前と同じ
 });
