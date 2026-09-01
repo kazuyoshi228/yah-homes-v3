@@ -398,9 +398,19 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      売上・固定費・光熱費は今の水準を横に置くだけ——物価の上昇も、大規模修繕も、
      次の物件も含まない。だから「借入をこのまま返せるか」を見るための表であって、
      事業計画ではない（画面にもそう書く） */
+  /* 追加融資を「取る計画」と決めたので（2026-09-01 発注者決定・settings/cashflow.scenario.planned）、
+     年次と企業価値はその前提で積む。12ヶ月の表は両方を切り替えて比べられるようにしてある */
+  const planIncludesScenario = scenario != null && cfDoc.data()?.scenario?.planned === true;
+  const fundingLong = planIncludesScenario && scenario
+    ? { ...fundingByMonth,
+        [scenario.month]: [...(fundingByMonth[scenario.month] ?? []),
+          { source: scenario.source || scenario.label, amount: scenario.amount }] }
+    : fundingByMonth;
   const rowsLong = projectCashflow({ startMonth, months: LONG, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, overheadByMonth, loanOutgoByMonth, buildByMonth,
-    fundingByMonth, withFunding, projectedIncomeByMonth });
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth,
+    reservesByMonth, overheadByMonth,
+    loanOutgoByMonth: planIncludesScenario ? loanOutgoAlt : loanOutgoByMonth, buildByMonth,
+    fundingByMonth: fundingLong, withFunding, projectedIncomeByMonth });
   /* 法人税（assumptions/corporate-tax・人の判断）。
      課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
      ——そのぶん税額は多めに出る（資金繰りを見る目的では安全側）。
@@ -494,9 +504,11 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       /* その年末の借入残高。返済が進むほど純資産が増える */
       loanBalance: (() => {
         const at = new Date(Number(year), 11, 31);
-        return Math.round(loans.reduce((acc, l) => {
+        const base = loans.reduce((acc, l) => {
           try { return acc + loanState(l, at).balance; } catch { return acc; }
-        }, 0));
+        }, 0);
+        if (!planIncludesScenario || !scenario?.loan) return Math.round(base);
+        try { return Math.round(base + loanState(scenario.loan, at).balance); } catch { return Math.round(base); }
       })(),
       /* 減価償却は現金が出ないので残高には効かない。課税所得を下げるためだけに使う */
       depreciation: Math.round(rs.reduce((a, r) => a + (depByMonth[r.month] ?? 0), 0)),
@@ -605,7 +617,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   };
 
   return {
-    scenario, rowsAlt, yearly, valuation, valuationBasis, social,
+    scenario, rowsAlt, yearly, valuation, valuationBasis, social, planIncludesScenario,
     reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal,
       need: { ledgerPerYear: repairNeed.ledgerPerYear, placeholderPerYear: repairNeed.placeholderPerYear,
         totalPerYear: repairNeed.ledgerPerYear + repairNeed.placeholderPerYear,
