@@ -141,10 +141,13 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? Math.round(uRecent.reduce((a, m) => a + uByMonth[m], 0) / uRecent.length) : 0;
 
   /* 借入: 月ごとに返済表を引き直す（据置・利息のみ・完済も正しく効く） */
+  /* 年次の表のために、月ごとの前提は30年ぶん作っておく（2026-09-01 発注者指示）。
+     12ヶ月の表は同じ表から先頭だけを見るので、数字は必ず一致する */
+  const LONG = 360;
   const loans = finSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) } as Loan));
   const loanOutgoByMonth: Record<string, number> = {};
   let ym = startMonth;
-  for (let i = 0; i < months; i++) {
+  for (let i = 0; i < LONG; i++) {
     const at = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 15);
     loanOutgoByMonth[ym] = loans.reduce((a, l) => {
       try { return a + loanState(l, at).monthlyTotal; } catch { return a; }
@@ -192,7 +195,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     const basis = payoutByPropMonth[String(pj.basis ?? "")] ?? {};
     const from = String(pj.from ?? "");
     let m = startMonth;
-    for (let i = 0; i < months; i++) {
+    for (let i = 0; i < LONG; i++) {
       if (m >= from) {
         /* 同じ暦月（MM）の実績を新しい順に探す。無ければその棟の平均で埋める */
         const mm = m.slice(5);
@@ -254,7 +257,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const roomFactorByMonth: Record<string, number> = {};
   {
     let m = startMonth;
-    for (let i = 0; i < months; i++) {
+    for (let i = 0; i < LONG; i++) {
       const added = projections
         .filter((pj) => m >= String(pj.from ?? ""))
         .reduce((a, pj) => a + Math.max(1, num(pj.units) || 1), 0);
@@ -281,7 +284,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const loanOutgoAlt: Record<string, number> = { ...loanOutgoByMonth };
   if (scenario?.loan) {
     let m = startMonth;
-    for (let i = 0; i < months; i++) {
+    for (let i = 0; i < LONG; i++) {
       const at = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 15);
       try { loanOutgoAlt[m] = (loanOutgoAlt[m] ?? 0) + loanState(scenario.loan, at).monthlyTotal; } catch { /* 条件が足りなければ足さない */ }
       m = nextMonth(m);
@@ -302,8 +305,37 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
         { source: scenario.source || scenario.label, amount: scenario.amount }] },
     withFunding, projectedIncomeByMonth }) : null;
 
+  /* 年次の表。月次と同じ前提で30年ぶん積み、暦年で束ねる。
+     売上・固定費・光熱費は今の水準を横に置くだけ——物価の上昇も、大規模修繕も、
+     次の物件も含まない。だから「借入をこのまま返せるか」を見るための表であって、
+     事業計画ではない（画面にもそう書く） */
+  const rowsLong = projectCashflow({ startMonth, months: LONG, opening, monthlyIncome,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
+    fundingByMonth, withFunding, projectedIncomeByMonth });
+  const yearsSet = [...new Set(rowsLong.map((r) => r.month.slice(0, 4)))];
+  const yearly = yearsSet.map((year) => {
+    const rs = rowsLong.filter((r) => r.month.startsWith(year));
+    const add = (f: (r: typeof rs[number]) => number) => rs.reduce((a, r) => a + f(r), 0);
+    return {
+      year, months: rs.length,
+      partial: rs.length < 12,          // 初年と最終年は途中から/途中まで
+      opening: rs[0].opening, closing: rs.at(-1)!.closing,
+      income: add((r) => r.income + r.incomeProjected),
+      funding: add((r) => r.funding),
+      loans: add((r) => r.detail.loans),
+      fixed: add((r) => r.detail.fixed),
+      utilities: add((r) => r.detail.utilities),
+      reserves: add((r) => r.detail.reserves),
+      build: add((r) => r.detail.build),
+      net: add((r) => r.net),
+      /* その年でいちばん薄い月。年末だけ見ていると、途中の谷を見落とす */
+      worst: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).month,
+      worstClosing: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).closing,
+    };
+  });
+
   return {
-    scenario, rowsAlt,
+    scenario, rowsAlt, yearly,
     shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
     belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
