@@ -13,7 +13,7 @@ import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
 import { parseTimeName, yoy } from "./tourism.js";
 import { liabilityAmount } from "./bs.js";
-import { projectCashflow, nextMonth, firstShortage } from "./cashflow.js";
+import { projectCashflow, nextMonth, firstShortage, belowFloor } from "./cashflow.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
 import type { Job } from "./model.js";
@@ -355,4 +355,16 @@ test("資金繰り: 期日超過の未払いは初月に繰り上げて必ず数
       { label: "六本松 中間金", amount: 16000000 }] } });
   assert.equal(r.detail.build, 36000000);
   assert.equal(r.closing, 24037860 - 36000000);
+});
+
+
+test("資金繰り: 手元の下限を割る月を、ショートより手前で拾う", () => {
+  const rows = projectCashflow({ startMonth: "2026-09", months: 3, opening: 24037860,
+    monthlyIncome: 0, fixedPerMonth: 0, reservesPerMonth: 0, utilitiesPerMonth: 0,
+    loanOutgoByMonth: {},
+    buildByMonth: { "2026-09": [{ label: "大手門 着工", amount: 21500000 }] } });
+  assert.equal(firstShortage(rows, true), null);              // マイナスにはならない
+  assert.deepEqual(belowFloor(rows, true, 5000000), ["2026-09", "2026-10", "2026-11"]);
+  assert.deepEqual(belowFloor(rows, false, 5000000), []);     // 期首未設定なら判定しない
+  assert.deepEqual(belowFloor(rows, true, 0), []);            // 下限未設定なら判定しない
 });

@@ -72,6 +72,12 @@ export function firstShortage(rows: CfMonth[], hasOpening: boolean): string | nu
   return rows.find((r) => r.closing < 0)?.month ?? null;
 }
 
+/** 手元の下限を割る月（純関数・テスト対象）。ショートより手前で気づくための線 */
+export function belowFloor(rows: CfMonth[], hasOpening: boolean, floor: number): string[] {
+  if (!hasOpening || !floor) return [];
+  return rows.filter((r) => r.closing < floor).map((r) => r.month);
+}
+
 export async function cashflow(months = 12, asOf = new Date(), withFunding = true) {
   const db = agencyDb();
   const [finSnap, revSnap, taxSnap, insSnap, resSnap, utilSnap, bpSnap, cfDoc, propSnap,
@@ -201,6 +207,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     .map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }))
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
   const latestCash = cashDocs.at(-1) ?? null;
+  /* 手元の下限（人が決める線）。ショートしてからでは遅いので、その手前で警告する */
+  const floor = num(cfDoc.data()?.floor);
   const openingRaw = cfDoc.data()?.opening ?? (latestCash ? latestCash.total : null);
   const opening = openingRaw == null ? null : num(openingRaw);
   const openingFrom = cfDoc.data()?.opening != null ? "手入力（settings/cashflow.opening）"
@@ -247,6 +255,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       incomeBasis: recent.length ? `${recent[0]}〜${recent.at(-1)} の手取り平均` : "実績なし",
       utilitiesBasis: uRecent.length ? `${uRecent[0]}〜${uRecent.at(-1)} の平均` : "実績なし" },
     shortage: firstShortage(rows, opening != null),
+    floor, belowFloor: belowFloor(rows, opening != null, floor),
+    floorNote: String(cfDoc.data()?.floorNote ?? ""),
     buildUnpaidTotal: Object.values(buildByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingTotals, withFunding,
     projectionNotes: projections.map((pj) => ({ prop: String(pj.prop ?? ""), from: String(pj.from ?? ""),

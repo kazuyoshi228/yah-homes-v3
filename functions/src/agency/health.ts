@@ -275,6 +275,11 @@ export async function healthSummary() {
     } else {
       add("資金繰り", "12ヶ月の資金ショート", cf.shortage == null,
         cf.shortage ? `${cf.shortage} に残高がマイナスになる見込み` : "12ヶ月とも残高はプラス", "/cashflow");
+      /* ショートしてからでは遅い。手元の下限を割る月を先に出す */
+      if (cf.floor) {
+        add("資金繰り", `手元の下限（¥${cf.floor.toLocaleString()}）を割る月`, cf.belowFloor.length === 0,
+          cf.belowFloor.length ? cf.belowFloor.join(" / ") : "12ヶ月とも下限を上回る", "/cashflow");
+      }
     }
   } catch { /* 読めない日は出さない */ }
 
