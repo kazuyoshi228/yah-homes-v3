@@ -561,6 +561,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      不動産の収益還元価値（NOI ÷ 還元利回り）＋ 現金 ＋ 投資信託 − 借入残高。
      NOIは「売上 − 固定費 − 光熱費 − 長期修繕の年割り」——減価償却・支払利息・役員報酬・法人税は引かない
      （買い手はその物件から得られる収益を見るため）。還元利回りは assumptions/cap-rate */
+  const inflationRate = Number(vaDoc.data()?.inflationRate ?? 0);
+  const baseYear = Number(String(startMonth).slice(0, 4));
   const valuation = yearly.map((a) => {
     const x = a as unknown as Record<string, number | string>;
     const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2)
@@ -571,10 +573,17 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     const noi = m < 12 ? Math.round((raw * 12) / m) : raw;
     const asset = capRate > 0 ? Math.round(noi / capRate) : 0;
     const cash = Number(x.closingAfterTax ?? x.closing);
-    const equity = asset + cash + Number(x.investBalance ?? 0) - Number(x.loanBalance ?? 0);
+    const other = cash + Number(x.investBalance ?? 0) - Number(x.loanBalance ?? 0);
+    /* インフレを見込む場合。NOIの純額を、最初の年から毎年◯%ずつ伸ばす簡便法。
+       現金や借入はそのまま——効くのは不動産の価値だけ（2026-09-01 発注者指示） */
+    const n = Number(x.year) - baseYear;
+    const noiInf = Math.round(noi * Math.pow(1 + inflationRate, Math.max(0, n)));
+    const assetInf = capRate > 0 ? Math.round(noiInf / capRate) : 0;
     return { year: String(x.year), noi: Math.round(noi), noiRaw: Math.round(raw),
       annualized: m < 12, months: m, capRate, asset, cash,
-      investBalance: Number(x.investBalance ?? 0), loanBalance: Number(x.loanBalance ?? 0), equity };
+      investBalance: Number(x.investBalance ?? 0), loanBalance: Number(x.loanBalance ?? 0),
+      equity: asset + other, noiInflated: noiInf, assetInflated: assetInf,
+      equityInflated: assetInf + other };
   });
 
   /* 社会貢献と節税（assumptions/social-contribution・人の方針）。
@@ -614,6 +623,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     noiExcludes: (vaDoc.data()?.noiExcludes ?? []) as string[],
     caveats: (vaDoc.data()?.caveats ?? []) as string[],
     note: String(vaDoc.data()?.note ?? ""),
+    inflationRate,
+    inflationNote: String(vaDoc.data()?.inflationNote ?? ""),
   };
 
   return {
