@@ -6,10 +6,10 @@ export interface Property {
   airbnbUrl: string;
   bookingUrl: string;
   beds24PropId: string;
-  exterior: string; // /manus-storage/...
+  exterior: string; // /assets/...
 }
 
-const IMG = "/manus-storage";
+const IMG = "/assets";
 
 /** Airbnb 評価の取得日（更新時はこの日付と rating/reviewCount を揃えて更新する）
  *  取得方法: Airbnb リスティングページの embedded JSON（guestSatisfactionOverall / reviewCount）

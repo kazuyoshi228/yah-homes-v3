@@ -5,7 +5,7 @@ import { readdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import sharp from "sharp";
 
-const DIR = new URL("../public/manus-storage/", import.meta.url).pathname;
+const DIR = new URL("../public/assets/", import.meta.url).pathname;
 
 const targets = readdirSync(DIR).filter(
   (f) =>

@@ -22,12 +22,12 @@ export const BASE_URL = "https://yah.homes";
 const SSOT = await getPropertyFacts();
 export const OPERATOR_PHONE = SSOT.meta.operatorPhone;
 export const OPERATOR_PHONE_TEL = "+81" + OPERATOR_PHONE.replace(/-/g, "").slice(1);
-export const OG_IMAGE = `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`;
+export const OG_IMAGE = `${BASE_URL}/assets/kiyokawa-exterior_18a3409b.webp`;
 /* 共有カードの画像。物件ページは自分の棟の外観を出す
    （既定のままだと、高砂のURLをLINEに貼っても清川の写真が出る）。 */
 export const OG_IMAGE_BY_PAGE: Partial<Record<PageKey, string>> = {
-  kiyokawa: `${BASE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp`,
-  takasago: `${BASE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp`,
+  kiyokawa: `${BASE_URL}/assets/kiyokawa-exterior_18a3409b.webp`,
+  takasago: `${BASE_URL}/assets/takasago-exterior_d4f7ccff.webp`,
 };
 
 // 運営会社（ユーザー確認済み 2026-07-16 登記情報）— GEO: AIが「運営会社は?」に正しく答えるための一次情報
@@ -72,7 +72,7 @@ export function organizationJsonLd(): Record<string, unknown> {
     },
     identifier: { "@type": "PropertyValue", name: "Japan Corporate Number", value: OPERATOR.corporateNumber },
     url: BASE_URL,
-    logo: `${BASE_URL}/manus-storage/logo_yah_2dbf971f.svg`,
+    logo: `${BASE_URL}/assets/logo_yah_2dbf971f.svg`,
     sameAs: [
       "https://www.instagram.com/yah.homes/",
       PROPERTIES.kiyokawa.airbnbUrl,

@@ -12,17 +12,17 @@ interface Props {
 const { lang } = Astro.props;
 const ui = uiStrings[lang];
 
-const HERO_IMAGE = "/manus-storage/booking-hero-017_adbd7c1b.webp";
-const HERO_IMAGE_768 = "/manus-storage/booking-hero-768_afd7a389.webp";
-const HERO_IMAGE_1280 = "/manus-storage/booking-hero-1280_8d4eba34.webp";
+const HERO_IMAGE = "/assets/booking-hero-017_adbd7c1b.webp";
+const HERO_IMAGE_768 = "/assets/booking-hero-768_afd7a389.webp";
+const HERO_IMAGE_1280 = "/assets/booking-hero-1280_8d4eba34.webp";
 
 /** LCP対策: このコンポーネントを使うページが <head> で先行preloadするためのヒーロー定義。
  *  imagesrcset / imagesizes は下の <img> と完全一致させること（不一致だと二重ダウンロードになる）。
  *  ※ export はモジュールスコープに巻き上げられ frontmatter の const を参照できないため、リテラルで記述。 */
 export const BK_HERO_PRELOAD = {
-  href: "/manus-storage/booking-hero-017_adbd7c1b.webp",
+  href: "/assets/booking-hero-017_adbd7c1b.webp",
   imagesrcset:
-    "/manus-storage/booking-hero-768_afd7a389.webp 768w, /manus-storage/booking-hero-1280_8d4eba34.webp 1280w, /manus-storage/booking-hero-017_adbd7c1b.webp 1920w",
+    "/assets/booking-hero-768_afd7a389.webp 768w, /assets/booking-hero-1280_8d4eba34.webp 1280w, /assets/booking-hero-017_adbd7c1b.webp 1920w",
   imagesizes: "(max-width: 768px) 768px, (max-width: 1280px) 1280px, 1920px",
 };
 

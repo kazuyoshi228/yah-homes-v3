@@ -67,7 +67,7 @@ Functions/Firestore を**デプロイ**するには、事前に以下が必要�
     "headers": [
       { "source": "/_astro/**",       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
       { "source": "/fonts/**",        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-      { "source": "/manus-storage/**","headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+      { "source": "/assets/**","headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
     ]
   }
 }
@@ -75,7 +75,7 @@ Functions/Firestore を**デプロイ**するには、事前に以下が必要�
 
 補足：
 - **Functions/Firestore セクションは作らない**（静的のみ）。将来 `contact` を足す時に `functions` を追記する。
-- `/_astro/**`（フィンガープリント付き）・`/fonts/**`（安定）・`/manus-storage/**`（ファイル名にハッシュ有り）は immutable キャッシュで安全。HTML はデフォルト（短期）で、再デプロイ時に更新される。
+- `/_astro/**`（フィンガープリント付き）・`/fonts/**`（安定）・`/assets/**`（ファイル名にハッシュ有り）は immutable キャッシュで安全。HTML はデフォルト（短期）で、再デプロイ時に更新される。
 - `redirects` の宛先は末尾スラッシュ付き（`trailingSlash: true` と整合）。
 
 ---

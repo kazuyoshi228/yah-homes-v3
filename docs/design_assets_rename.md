@@ -1,8 +1,9 @@
 # 静的アセットのパス改名 `/manus-storage/` → `/assets/`（設計書）
 
 - 起票: 2026-09-01（発注者指摘「なんでManus?」）
-- 状態: **承認済み・実施待ち**（2026-09-01 発注者回答: パス=/assets/ 可・旧301恒久残置 可）。
-  実施タイミングは§7-2参照。2026-09-01 に実コード・本番Firestoreと突き合わせて精査済み（§9）
+- 状態: **実施済み（2026-09-02・hosting反映済み）**。残タスク1件: メール系 functions のデプロイ
+  （並行スレッドが functions/src/agency/ を作業中のため保留。恒久301によりメール画像は旧URLのまま
+  正常表示されるので実害なし。あちらのコミット後に `firebase deploy --only functions` を実施する）
 - 規模: 実装0.5日（＋検証）。デプロイは1回
 
 ## 1. 背景・目的
@@ -126,3 +127,15 @@
 - 本番 Firestore property_facts（chatInfo 100行含む・全棟＋meta）: `manus-storage` への参照 **0件** を実測確認
 - mail_templates / internal_mails: 認証都合で未走査 → 実装時の検証項目へ（§6）。301により非ブロッカー
 - MAIL_PROP の使用関数を実コードから特定し、functions デプロイ方針と CI 併走注意を§5に追記
+
+## 10. 実施記録（2026-09-02）
+
+- 置換 21ファイル / 154箇所・`git mv` 248ファイル・検証（全ファイルgrep 0／build 177p／dist突合 欠損0／smoke 176p JSエラー0）
+- **障害と修正**: 初回デプロイ後、旧URLが404（約2分間）。原因は redirects の書式ミス —
+  `source: "/manus-storage/**"` の `**` は destination の `:splat` にキャプチャされない。
+  `source: "/manus-storage/:path*" → destination: "/assets/:path*"` に修正して復旧。
+  デプロイ直後の旧URL実測（§6の検証項目）が機能して即検出できた
+- 副産物: manifest.json のアイコン5件が**改名前から404だった既存バグ**と判明（該当PNGは存在しない）。
+  実在する favicon-192.png / apple-touch-icon.png の2件に修正
+- 発見: guides 記事（magazine リポジトリのフィード経由）本文に旧絶対URLが20記事分ある。
+  301で動作は保たれる。正本修正はリポ跨ぎのため発注者判断待ち（勝手に触らない）

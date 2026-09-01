@@ -28,13 +28,13 @@ const SHOW_HERO_SEARCH = BOOK_PREVIEW;
 // 本番は /book/ 未公開のため従来どおり2つ表示。P1公開時に扱いを再判断する。
 const SHOW_HERO_AIRBNB = !BOOK_PREVIEW;
 
-const HERO_IMAGE = "/manus-storage/hero-dining-006-opt_1d801c69.webp";
-const HERO_IMAGE_768 = "/manus-storage/hero-dining-768_41dc6825.webp";
+const HERO_IMAGE = "/assets/hero-dining-006-opt_1d801c69.webp";
+const HERO_IMAGE_768 = "/assets/hero-dining-768_41dc6825.webp";
 
 /** LCP対策: ホームの <head> で先行preloadするためのヒーロー定義（下の <img> と完全一致） */
 export const HOME_HERO_PRELOAD = {
-  href: "/manus-storage/hero-dining-006-opt_1d801c69.webp",
-  imagesrcset: "/manus-storage/hero-dining-768_41dc6825.webp 768w, /manus-storage/hero-dining-006-opt_1d801c69.webp 1440w",
+  href: "/assets/hero-dining-006-opt_1d801c69.webp",
+  imagesrcset: "/assets/hero-dining-768_41dc6825.webp 768w, /assets/hero-dining-006-opt_1d801c69.webp 1440w",
   imagesizes: "(max-width: 768px) 768px, 1440px",
 };
 ---

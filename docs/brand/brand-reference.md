@@ -99,7 +99,7 @@ os.yah.homes（認証必須の社内画面）のみ。ガイドラインの実�
 ## ロゴ
 
 - インラインSVG実装: `src/components/LogoYah.astro`（Navbar/Footer 共通パス）
-- ファイル: `public/manus-storage/logo_yah_2dbf971f.svg`・`logo_yah_CMYK_cifo_0ad89aa7.svg`（タグライン付き）
+- ファイル: `public/assets/logo_yah_2dbf971f.svg`・`logo_yah_CMYK_cifo_0ad89aa7.svg`（タグライン付き）
 - 余白: ロゴ高さAに対し四方 1/5A 以上を確保
 - 最小サイズ（Digital）: Primary 20px / タグライン付き 31〜34px
 - Don'ts: 変形・回転・アウトライン化・エフェクト・色変更・グラデーション・透過変更・字体変更・要素の位置/サイズ変更 すべて禁止

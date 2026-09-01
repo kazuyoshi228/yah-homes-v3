@@ -3869,9 +3869,9 @@ async function ssotProp(prop: string): Promise<{
 /* メールに載せる棟の写真だけを持つ。名前・住所・地図・名簿フォーム・マニュアルURLは
    SSoT（property_facts）か施設キーから決まるため、ここには置かない。 */
 const MAIL_PROP = {
-  kiyokawa: { image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp` },
-  takasago: { image: `${SITE_URL}/manus-storage/takasago-exterior_d4f7ccff.webp` },
-  test: { image: `${SITE_URL}/manus-storage/kiyokawa-exterior_18a3409b.webp` },
+  kiyokawa: { image: `${SITE_URL}/assets/kiyokawa-exterior_18a3409b.webp` },
+  takasago: { image: `${SITE_URL}/assets/takasago-exterior_d4f7ccff.webp` },
+  test: { image: `${SITE_URL}/assets/kiyokawa-exterior_18a3409b.webp` },
 } as Record<string, { image: string }>;
 
 

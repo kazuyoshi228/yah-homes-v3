@@ -23,11 +23,11 @@ const breadcrumb = breadcrumbJsonLd([
 ]);
 ---
 
-<SiteLayout lang={lang} path="/properties/takasago" title={meta.title} description={meta.description} ogImage={meta.ogImage} jsonLd={[meta.jsonLd, breadcrumb].filter((x): x is Record<string, unknown> => !!x)} preloadImage={{ href: "/manus-storage/takasago-gallery-009_f3ff9cef.webp", imagesrcset: "/manus-storage/takasago-gallery-009_f3ff9cef-480.webp 480w, /manus-storage/takasago-gallery-009_f3ff9cef-768.webp 768w, /manus-storage/takasago-gallery-009_f3ff9cef.webp 1280w", imagesizes: "100vw" }}>
+<SiteLayout lang={lang} path="/properties/takasago" title={meta.title} description={meta.description} ogImage={meta.ogImage} jsonLd={[meta.jsonLd, breadcrumb].filter((x): x is Record<string, unknown> => !!x)} preloadImage={{ href: "/assets/takasago-gallery-009_f3ff9cef.webp", imagesrcset: "/assets/takasago-gallery-009_f3ff9cef-480.webp 480w, /assets/takasago-gallery-009_f3ff9cef-768.webp 768w, /assets/takasago-gallery-009_f3ff9cef.webp 1280w", imagesizes: "100vw" }}>
   <PropertyDetail
     lang={lang}
     propertyKey="takasago"
     data={takasagoData[lang]}
-    heroImage="/manus-storage/takasago-gallery-009_f3ff9cef.webp"
+    heroImage="/assets/takasago-gallery-009_f3ff9cef.webp"
   />
 </SiteLayout>

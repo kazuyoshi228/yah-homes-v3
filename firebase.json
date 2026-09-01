@@ -9,6 +9,11 @@
     ],
     "redirects": [
       {
+        "source": "/manus-storage/:path*",
+        "destination": "/assets/:path*",
+        "type": 301
+      },
+      {
         "source": "/booking",
         "destination": "/properties",
         "type": 301
@@ -117,7 +122,7 @@
         ]
       },
       {
-        "source": "/manus-storage/**",
+        "source": "/assets/**",
         "headers": [
           {
             "key": "Cache-Control",

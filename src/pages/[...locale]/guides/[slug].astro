@@ -25,16 +25,16 @@ export async function getStaticPaths() {
 }
 
 // ── CWV対策: 画像の実寸をビルド時に読み取る（CLS=レイアウトずれの根絶） ──
-// 本文画像は public/manus-storage/ にローカル実体があるため、WebPヘッダから width/height を取得して
+// 本文画像は public/assets/ にローカル実体があるため、WebPヘッダから width/height を取得して
 // <img> に焼き込む。GSCモバイル「改善が必要」31件の主因（寸法なし・lazyなし）への対処（2026-07 実測）。
 const imgSizeCache = new Map<string, { w: number; h: number } | null>();
 function localImageSize(src: string): { w: number; h: number } | null {
-  const m = src.match(/^(?:https?:\/\/yah\.homes)?\/manus-storage\/([^?#"]+)/);
+  const m = src.match(/^(?:https?:\/\/yah\.homes)?\/assets\/([^?#"]+)/);
   if (!m) return null;
   if (imgSizeCache.has(m[1])) return imgSizeCache.get(m[1])!;
   let out: { w: number; h: number } | null = null;
   try {
-    const p = path.resolve(process.cwd(), "public/manus-storage", decodeURIComponent(m[1]));
+    const p = path.resolve(process.cwd(), "public/assets", decodeURIComponent(m[1]));
     if (existsSync(p)) {
       const b = readFileSync(p);
       if (b.length > 30 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP") {
@@ -84,7 +84,7 @@ if (bookingTargets.length) {
 }
 
 bodyHtml = bodyHtml.replace(/href="(\/[^"#]*)(#[^"]*)?"/g, (_m, p: string, hash: string | undefined) => {
-  if (p.startsWith("/manus-storage")) return `href="${p}${hash ?? ""}"`;
+  if (p.startsWith("/assets")) return `href="${p}${hash ?? ""}"`;
   return `href="${localizedPath(lang, p)}${hash ?? ""}"`;
 });
 // 手渡し見出し規約: 「## → 見出し」は矢印アイコン付き（magazine と同一仕様）
@@ -171,7 +171,7 @@ const faqJsonLd =
 const heroDim = guide.thumbnailUrl ? localImageSize(guide.thumbnailUrl) : null;
 const heroVariants: string[] = [];
 if (guide.thumbnailUrl) {
-  const m = guide.thumbnailUrl.match(/^(?:https?:\/\/yah\.homes)?(\/manus-storage\/.+)\.webp$/);
+  const m = guide.thumbnailUrl.match(/^(?:https?:\/\/yah\.homes)?(\/assets\/.+)\.webp$/);
   if (m) {
     for (const wpx of [480, 768]) {
       const rel = `${m[1]}-${wpx}.webp`;
