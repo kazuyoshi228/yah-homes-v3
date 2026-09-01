@@ -328,9 +328,12 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   /* 減価償却（定額法）。取得価額 ÷ 耐用年数 を、事業供用の月から月割りで積む。
      現金は出ないので資金繰りの残高には効かない——効くのは課税所得だけ */
   const depAssets = depSnap.docs.map((d) => {
-    const a = d.data() as { cost?: number; years?: number; startMonth?: string; label?: string; prop?: string };
+    const a = d.data() as { cost?: number; years?: number; startMonth?: string; label?: string;
+      prop?: string; immediate?: boolean };
     return { label: String(a.label ?? d.id), prop: String(a.prop ?? ""),
-      cost: num(a.cost), years: Math.max(1, num(a.years) || 1), startMonth: String(a.startMonth ?? "") };
+      cost: num(a.cost), years: Math.max(1, num(a.years) || 1), startMonth: String(a.startMonth ?? ""),
+      /* 少額減価償却資産（30万円未満）は供用した年に全額が損金になる。月割りしない */
+      immediate: a.immediate === true };
   }).filter((a) => a.cost > 0 && a.startMonth);
   /* 月ごとの償却額。耐用年数を過ぎたら止める */
   const depByMonth: Record<string, number> = {};
@@ -339,6 +342,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     for (let i = 0; i < LONG; i++) {
       depByMonth[m] = depAssets.reduce((acc, a) => {
         if (m < a.startMonth) return acc;
+        if (a.immediate) return acc + (m === a.startMonth ? a.cost : 0);
         const elapsed = monthsBetweenYm(a.startMonth, m);
         if (elapsed >= a.years * 12) return acc;
         return acc + a.cost / a.years / 12;
@@ -403,7 +407,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     tax: { rate: taxRate, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
-        startMonth: a.startMonth, perYear: Math.round(a.cost / a.years) })) },
+        startMonth: a.startMonth, immediate: a.immediate,
+        perYear: a.immediate ? a.cost : Math.round(a.cost / a.years) })) },
     shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
     belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
