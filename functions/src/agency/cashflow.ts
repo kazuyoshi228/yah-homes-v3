@@ -272,7 +272,21 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     label: String(sc.label ?? "追加融資あり"), month: String(sc.month ?? ""),
     amount: num(sc.amount), source: String(sc.source ?? ""), date: String(sc.date ?? ""),
     note: String(sc.note ?? ""),
+    /* 返済条件（既存の福岡銀行¥50,000,000と同等・人の宣言）。
+       実在の借入ではないので finance には入れず、この見立ての中だけで返済を積む */
+    loan: (sc.loan ?? null) as Loan | null,
   } : null;
+
+  /* 追加融資を受けたときの返済。既存の返済に上乗せする */
+  const loanOutgoAlt: Record<string, number> = { ...loanOutgoByMonth };
+  if (scenario?.loan) {
+    let m = startMonth;
+    for (let i = 0; i < months; i++) {
+      const at = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 15);
+      try { loanOutgoAlt[m] = (loanOutgoAlt[m] ?? 0) + loanState(scenario.loan, at).monthlyTotal; } catch { /* 条件が足りなければ足さない */ }
+      m = nextMonth(m);
+    }
+  }
 
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
@@ -281,7 +295,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
 
   /* 追加融資ありの見立て。調達の月に1件足すだけで、他の前提は本体とまったく同じ */
   const rowsAlt = scenario ? projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth,
+    loanOutgoByMonth: loanOutgoAlt, buildByMonth,
     fundingByMonth: { ...fundingByMonth,
       [scenario.month]: [...(fundingByMonth[scenario.month] ?? []),
         { source: scenario.source || scenario.label, amount: scenario.amount }] },
