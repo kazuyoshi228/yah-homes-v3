@@ -107,7 +107,15 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      混ぜると、削れない支出と自分で決めた支出の区別がつかなくなる */
   const fixedYearly = taxSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0)
     + insSnap.docs.reduce((a, d) => a + num(d.data().premiumPerYear), 0);
-  const reservesYearly = resSnap.docs.reduce((a, d) => a + num(d.data().amountPerYear), 0);
+  /* 積立は cashOutflow=false なら出金に数えない（2026-09-01 発注者判断A）。
+     福岡銀行内の投資信託へ移すだけで、現金が投資信託に姿を変えるだけ＝法人の資産は減らない。
+     ただし投資信託はすぐ現金化できるとは限らないので、現金とは分けて資産に出す */
+  const reservesYearly = resSnap.docs
+    .filter((d) => d.data().cashOutflow !== false)
+    .reduce((a, d) => a + num(d.data().amountPerYear), 0);
+  const reservesInvested = resSnap.docs
+    .filter((d) => d.data().cashOutflow === false)
+    .reduce((a, d) => a + num(d.data().amountPerYear), 0);
   const fixedPerMonth = Math.round(fixedYearly / 12);
   const reservesPerMonth = Math.round(reservesYearly / 12);
   const uByMonth: Record<string, number> = {};
@@ -196,17 +204,26 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   /* 口座ごとの残高の推移（銀行タブ用）。account ごとに日付順 */
   const balances: Record<string, Array<{ date: string; balance: number }>> = {};
   const bankLabel: Record<string, string> = {};
+  /* 現金（cash）と、すぐ現金化できるとは限らない資産（investment）を分ける */
+  const bankKind: Record<string, string> = {};
   for (const d of bankSnap.docs) {
     const b = d.data() as Record<string, unknown>;
     const a = String(b.account ?? "");
     if (!a || String(b.entity ?? "corp") !== "corp") continue;   // 法人の口座だけを見る
+    bankKind[a] = String(b.kind ?? "cash");
     bankLabel[a] = String(b.label ?? a);
     (balances[a] ??= []).push({ date: String(b.date ?? ""), balance: num(b.balance) });
   }
   for (const a of Object.keys(balances)) balances[a].sort((x, y) => x.date.localeCompare(y.date));
   const accounts = Object.keys(balances).map((a) => ({
-    account: a, label: bankLabel[a], points: balances[a],
+    account: a, label: bankLabel[a], kind: bankKind[a] ?? "cash", points: balances[a],
     latest: balances[a].at(-1) ?? null })).sort((x, y) => (y.latest?.balance ?? 0) - (x.latest?.balance ?? 0));
+  /* 投資信託への積立額は台帳（reserves の cashOutflow=false）から出す。画面に金額を焼き込まない */
+  const investedMonthly = Math.round(reservesInvested / 12);
+  const accountsOut = accounts.map((a) => a.kind === "investment"
+    ? { ...a, monthly: investedMonthly } : a);
+  const investmentTotal = accounts.filter((a) => a.kind === "investment")
+    .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding,
@@ -216,9 +233,11 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
     opening, openingFrom,
     openingAt: String(cfDoc.data()?.openingAt ?? latestCash?.id ?? ""),
-    accounts, openingAccounts,
+    accounts: accountsOut, openingAccounts, investmentTotal,
     assumptions: { monthlyIncome, fixedPerMonth, reservesPerMonth, utilitiesPerMonth,
-      fixedBasis: "固定資産税・保険の年額÷12", reservesBasis: "修繕積立金の年額÷12",
+      fixedBasis: "固定資産税・保険の年額÷12",
+      reservesBasis: reservesYearly ? "修繕積立金の年額÷12" : "投資信託への積立のため出金に数えない",
+      investedPerMonth: Math.round(reservesInvested / 12),
       incomeBasis: recent.length ? `${recent[0]}〜${recent.at(-1)} の手取り平均` : "実績なし",
       utilitiesBasis: uRecent.length ? `${uRecent[0]}〜${uRecent.at(-1)} の平均` : "実績なし" },
     shortage: firstShortage(rows, opening != null),
