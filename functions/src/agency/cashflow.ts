@@ -73,7 +73,8 @@ export function firstShortage(rows: CfMonth[], hasOpening: boolean): string | nu
 
 export async function cashflow(months = 12, asOf = new Date(), withFunding = true) {
   const db = agencyDb();
-  const [finSnap, revSnap, taxSnap, insSnap, resSnap, utilSnap, bpSnap, cfDoc, propSnap] =
+  const [finSnap, revSnap, taxSnap, insSnap, resSnap, utilSnap, bpSnap, cfDoc, propSnap,
+    cashSnap, bankSnap] =
     await Promise.all([
       db.collection("finance").where("kind", "==", "loan").get(),
       db.collection("revenue").where("kind", "==", "monthly").get(),
@@ -81,6 +82,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       db.collection("utilities").get(), db.collection("buildPayments").get(),
       db.collection("settings").doc("cashflow").get(),
       db.collection("properties").get(),
+      db.collection("cash").get(),
+      db.collection("bankBalances").get(),
     ]);
   const num = (v: unknown) => Number(v ?? 0) || 0;
   const jst = new Date(asOf.getTime() + 9 * 3600e3);
@@ -172,15 +175,42 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     }
   }
 
-  const openingRaw = cfDoc.data()?.opening;
+  /* 期首残高は現金台帳（cash）の最新スナップショットを使う。
+     人が settings/cashflow.opening を置いていればそちらが勝つ（手で上書きしたいとき用） */
+  const cashDocs: Array<Record<string, unknown>> = cashSnap.docs
+    .filter((d) => d.data().superseded !== true)
+    .map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const latestCash = cashDocs.at(-1) ?? null;
+  const openingRaw = cfDoc.data()?.opening ?? (latestCash ? latestCash.total : null);
   const opening = openingRaw == null ? null : num(openingRaw);
+  const openingFrom = cfDoc.data()?.opening != null ? "手入力（settings/cashflow.opening）"
+    : latestCash ? `現金台帳 ${String(latestCash.id)} 時点` : "";
+  const openingAccounts = ((latestCash?.accounts ?? []) as Array<Record<string, unknown>>)
+    .map((a) => ({ name: String(a.name ?? ""), balance: num(a.balance), asOf: String(a.asOf ?? "") }));
+  /* 口座ごとの残高の推移（銀行タブ用）。account ごとに日付順 */
+  const balances: Record<string, Array<{ date: string; balance: number }>> = {};
+  const bankLabel: Record<string, string> = {};
+  for (const d of bankSnap.docs) {
+    const b = d.data() as Record<string, unknown>;
+    const a = String(b.account ?? "");
+    if (!a || String(b.entity ?? "corp") !== "corp") continue;   // 法人の口座だけを見る
+    bankLabel[a] = String(b.label ?? a);
+    (balances[a] ??= []).push({ date: String(b.date ?? ""), balance: num(b.balance) });
+  }
+  for (const a of Object.keys(balances)) balances[a].sort((x, y) => x.date.localeCompare(y.date));
+  const accounts = Object.keys(balances).map((a) => ({
+    account: a, label: bankLabel[a], points: balances[a],
+    latest: balances[a].at(-1) ?? null })).sort((x, y) => (y.latest?.balance ?? 0) - (x.latest?.balance ?? 0));
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth, fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
   return {
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
-    opening, openingAt: String(cfDoc.data()?.openingAt ?? ""),
+    opening, openingFrom,
+    openingAt: String(cfDoc.data()?.openingAt ?? latestCash?.id ?? ""),
+    accounts, openingAccounts,
     assumptions: { monthlyIncome, fixedPerMonth, utilitiesPerMonth,
       incomeBasis: recent.length ? `${recent[0]}〜${recent.at(-1)} の手取り平均` : "実績なし",
       utilitiesBasis: uRecent.length ? `${uRecent[0]}〜${uRecent.at(-1)} の平均` : "実績なし" },
