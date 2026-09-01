@@ -192,8 +192,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
         const mm = m.slice(5);
         const hit = Object.keys(basis).filter((k) => k.slice(5) === mm).sort().at(-1);
         const vals = Object.values(basis);
-        const amount = hit ? basis[hit]
+        const one = hit ? basis[hit]
           : vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+        /* units = 稼働する部屋数。大手門は2部屋なので basis（高砂1部屋）の2倍（2026-09-01 発注者指示） */
+        const amount = one * Math.max(1, num(pj.units) || 1);
         if (amount) (projectedIncomeByMonth[m] ??= []).push({ prop: String(pj.prop ?? ""), amount });
       }
       m = nextMonth(m);
@@ -260,6 +262,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     buildUnpaidTotal: Object.values(buildByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingTotals, withFunding,
     projectionNotes: projections.map((pj) => ({ prop: String(pj.prop ?? ""), from: String(pj.from ?? ""),
+      units: Math.max(1, num(pj.units) || 1),
       basis: String(pj.basis ?? ""), note: String(pj.note ?? "") })),
     projectedTotal: Object.values(projectedIncomeByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingInflowTotal: Object.values(fundingByMonth).flat().reduce((a, b) => a + b.amount, 0),
