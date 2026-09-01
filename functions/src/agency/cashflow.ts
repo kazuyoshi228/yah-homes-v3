@@ -263,7 +263,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -271,6 +271,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("assumptions").doc("reserve-plan").get(),
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("assumptions").doc("cap-rate").get(),
+    db.collection("assumptions").doc("repair-placeholder").get(),
     renewalPlan(),
   ]);
   /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
@@ -283,6 +284,23 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     repairByYear[String(t.year)] = (repairByYear[String(t.year)] ?? 0) + num(t.amount);
   }
   const capRate = Number(capDoc.data()?.value ?? capDoc.data()?.rate ?? 0);
+  /* 長期修繕の必要額（年割り）。台帳に載っている棟ぶん＋まだ設備が登録されていない棟の仮置き。
+     仮置きは「積立がいくら要るか」の目安だけに使い、資金繰りの支出には入れない
+     ——いつ出るか分からないものを現金の予測に混ぜない（2026-09-01 発注者指示） */
+  const byProp = (plan.byProp ?? []) as Array<{ prop: string; perYear: number }>;
+  const basisProp = String(phDoc.data()?.basisProp ?? "");
+  const basisRooms = Math.max(1, num(phDoc.data()?.basisRooms) || 1);
+  const basisPerRoom = (byProp.find((x) => x.prop === basisProp)?.perYear ?? 0) / basisRooms;
+  const placeholders = ((phDoc.data()?.applyTo ?? []) as Array<Record<string, unknown>>).map((x) => ({
+    prop: String(x.prop ?? ""), rooms: Math.max(0, num(x.rooms)),
+    perYear: Math.round(basisPerRoom * Math.max(0, num(x.rooms))),
+  }));
+  const repairNeed = {
+    ledgerPerYear: Math.round(num(plan.total?.perYear)),
+    placeholderPerYear: placeholders.reduce((a, x) => a + x.perYear, 0),
+    basisProp, basisPerRoom: Math.round(basisPerRoom), placeholders,
+    get totalPerYear() { return this.ledgerPerYear + this.placeholderPerYear; },
+  };
   /* 部屋数の推移。いまの稼働部屋数（settings/cashflow.baseRooms・既定2）を起点に、
      稼働予定の棟が入るたび units ぶん増やす。固定費と光熱費はこの比で増やす
      ——1部屋あたりの負担は今の実績から割り出す（2026-09-01 発注者指示） */
@@ -513,7 +531,11 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
 
   return {
     scenario, rowsAlt, yearly, valuation,
-    reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal },
+    reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal,
+      need: { ledgerPerYear: repairNeed.ledgerPerYear, placeholderPerYear: repairNeed.placeholderPerYear,
+        totalPerYear: repairNeed.ledgerPerYear + repairNeed.placeholderPerYear,
+        basisProp: repairNeed.basisProp, basisPerRoom: repairNeed.basisPerRoom,
+        placeholders: repairNeed.placeholders } },
     owner: birth ? { name: ownerName, birthDate: birth } : null,
     officerComp: { schedule: ocSchedule, employerBurdenRate: ocBurden - 1,
       perMonth: officerByMonth[startMonth] ?? 0 },
