@@ -65,6 +65,25 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, company: "ボンファイア株式会社", rows, assets });
           return true;
         }
+        case "personal": {                                     // 個人の財務（山田一慶）— 資産・配当・借入
+          const db2 = agencyDb();
+          const [as, ds, fin2, bsAdj, inc] = await Promise.all([
+            db2.collection("personalAssets").get(),
+            db2.collection("personalDistributions").get(),
+            db2.collection("finance").where("entity", "==", "personal").get(),
+            db2.collection("bsAdjustments").where("entity", "==", "personal").get(),
+            db2.collection("assumptions").doc("personal-income").get(),
+          ]);
+          const m = (d: FirebaseFirestore.QueryDocumentSnapshot): Record<string, unknown> =>
+            ({ id: d.id, ...(d.data() as Record<string, unknown>) });
+          res.json({ ok: true, owner: "山田 一慶",
+            assets: as.docs.map(m).sort((x, y) => Number(y.value ?? 0) - Number(x.value ?? 0)),
+            distributions: ds.docs.map(m).sort((x, y) => Number(y.annual ?? 0) - Number(x.annual ?? 0)),
+            loans: fin2.docs.map(m),
+            adjustments: bsAdj.docs.map(m),
+            income: inc.exists ? { id: inc.id, ...(inc.data() as Record<string, unknown>) } : null });
+          return true;
+        }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
           res.json({ ok: true, ...(await balanceSheet()) });
           return true;
