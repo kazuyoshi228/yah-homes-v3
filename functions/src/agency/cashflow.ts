@@ -264,12 +264,33 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     }
   }
 
+  /* 「もし追加融資を受けたら」の見立て（settings/cashflow.scenario・人の宣言）。
+     実績でも確定でもないので本体の予測とは別に持ち、画面のボタンで切り替える。
+     返済条件が未定のため返済は含めない——含めないことを画面に明記する */
+  const sc = (cfDoc.data()?.scenario ?? null) as Record<string, unknown> | null;
+  const scenario = sc && num(sc.amount) ? {
+    label: String(sc.label ?? "追加融資あり"), month: String(sc.month ?? ""),
+    amount: num(sc.amount), source: String(sc.source ?? ""), date: String(sc.date ?? ""),
+    note: String(sc.note ?? ""),
+  } : null;
+
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
+  /* 追加融資ありの見立て。調達の月に1件足すだけで、他の前提は本体とまったく同じ */
+  const rowsAlt = scenario ? projectCashflow({ startMonth, months, opening, monthlyIncome,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
+    fundingByMonth: { ...fundingByMonth,
+      [scenario.month]: [...(fundingByMonth[scenario.month] ?? []),
+        { source: scenario.source || scenario.label, amount: scenario.amount }] },
+    withFunding, projectedIncomeByMonth }) : null;
+
   return {
+    scenario, rowsAlt,
+    shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
+    belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
     opening, openingFrom,
     openingAt: String(cfDoc.data()?.openingAt ?? latestCash?.id ?? ""),
