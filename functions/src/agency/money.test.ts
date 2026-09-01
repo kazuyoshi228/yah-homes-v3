@@ -319,3 +319,16 @@ test("資金繰り: 調達を入れると同じ月の支払いを相殺する（
   const without = projectCashflow({ ...base, withFunding: false });
   assert.equal(without[0].net, -25000000);       // 調達を切ると支払い全額が沈む
 });
+
+
+test("資金繰り: 稼働予定の入金は開始月から乗り、実績とは別に持つ", () => {
+  const rows = projectCashflow({ startMonth: "2027-01", months: 3, opening: 0,
+    monthlyIncome: 1000000, fixedPerMonth: 0, utilitiesPerMonth: 0,
+    loanOutgoByMonth: {}, buildByMonth: {},
+    projectedIncomeByMonth: { "2027-02": [{ prop: "ropponmatsu", amount: 751188 }],
+      "2027-03": [{ prop: "ropponmatsu", amount: 724460 }] } });
+  assert.equal(rows[0].incomeProjected, 0);          // 開始前は乗らない
+  assert.equal(rows[1].incomeProjected, 751188);
+  assert.equal(rows[1].income, 1000000);             // 実績ぶんは混ぜない
+  assert.equal(rows[1].net, 1751188);
+});

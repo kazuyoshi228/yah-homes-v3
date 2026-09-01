@@ -14,11 +14,12 @@ import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
 
 export type CfMonth = {
-  month: string; opening: number; income: number; funding: number; outgo: number;
+  month: string; opening: number; income: number; incomeProjected: number; funding: number; outgo: number;
   net: number; closing: number;
   detail: { loans: number; fixed: number; utilities: number; build: number };
   builds: Array<{ label: string; amount: number }>;
   fundings: Array<{ source: string; amount: number }>;
+  projections: Array<{ prop: string; amount: number }>;
 };
 
 /** 月を1つ進める（純関数・テスト対象） */
@@ -37,6 +38,9 @@ export function projectCashflow(input: {
      すでに期首残高に含まれているので、足すと二重に数えることになる */
   fundingByMonth?: Record<string, Array<{ source: string; amount: number }>>;
   withFunding?: boolean;
+  /* 稼働予定の棟の入金（人の宣言に基づく見込み）。実績とは分けて持つ——
+     見込みと実績を1つの数字に混ぜると、後から「どこまでが事実か」が分からなくなる */
+  projectedIncomeByMonth?: Record<string, Array<{ prop: string; amount: number }>>;
 }): CfMonth[] {
   const out: CfMonth[] = [];
   let bal = input.opening ?? 0;
@@ -47,13 +51,15 @@ export function projectCashflow(input: {
     const build = builds.reduce((a, b) => a + b.amount, 0);
     const fundings = input.withFunding === false ? [] : (input.fundingByMonth?.[ym] ?? []);
     const funding = fundings.reduce((a, b) => a + b.amount, 0);
+    const projections = input.projectedIncomeByMonth?.[ym] ?? [];
+    const incomeProjected = projections.reduce((a, b) => a + b.amount, 0);
     const outgo = loans + input.fixedPerMonth + input.utilitiesPerMonth + build;
-    const net = input.monthlyIncome + funding - outgo;
+    const net = input.monthlyIncome + incomeProjected + funding - outgo;
     const opening = bal;
     bal = bal + net;
-    out.push({ month: ym, opening, income: input.monthlyIncome, funding, outgo, net, closing: bal,
+    out.push({ month: ym, opening, income: input.monthlyIncome, incomeProjected, funding, outgo, net, closing: bal,
       detail: { loans, fixed: input.fixedPerMonth, utilities: input.utilitiesPerMonth, build },
-      builds, fundings });
+      builds, fundings, projections });
     ym = nextMonth(ym);
   }
   return out;
@@ -138,10 +144,39 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     }
   }
 
+  /* 稼働予定の棟（settings/cashflow.projections・人の宣言）。
+     basis の棟の「同じ暦月の手取り実績」をそのまま当てる＝カーブも金額も同じ */
+  const payoutByPropMonth: Record<string, Record<string, number>> = {};
+  for (const d of revSnap.docs) {
+    const r = d.data() as { prop?: string; month?: string; payout?: number };
+    if (!r.prop || !r.month) continue;
+    (payoutByPropMonth[r.prop] ??= {})[r.month] = num(r.payout);
+  }
+  const projectedIncomeByMonth: Record<string, Array<{ prop: string; amount: number }>> = {};
+  const projections = (cfDoc.data()?.projections ?? []) as Array<Record<string, unknown>>;
+  for (const pj of projections) {
+    const basis = payoutByPropMonth[String(pj.basis ?? "")] ?? {};
+    const from = String(pj.from ?? "");
+    let m = startMonth;
+    for (let i = 0; i < months; i++) {
+      if (m >= from) {
+        /* 同じ暦月（MM）の実績を新しい順に探す。無ければその棟の平均で埋める */
+        const mm = m.slice(5);
+        const hit = Object.keys(basis).filter((k) => k.slice(5) === mm).sort().at(-1);
+        const vals = Object.values(basis);
+        const amount = hit ? basis[hit]
+          : vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+        if (amount) (projectedIncomeByMonth[m] ??= []).push({ prop: String(pj.prop ?? ""), amount });
+      }
+      m = nextMonth(m);
+    }
+  }
+
   const openingRaw = cfDoc.data()?.opening;
   const opening = openingRaw == null ? null : num(openingRaw);
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth, fundingByMonth, withFunding });
+    fixedPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth, fundingByMonth, withFunding,
+    projectedIncomeByMonth });
 
   return {
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
@@ -152,6 +187,9 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     shortage: firstShortage(rows, opening != null),
     buildUnpaidTotal: Object.values(buildByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingTotals, withFunding,
+    projectionNotes: projections.map((pj) => ({ prop: String(pj.prop ?? ""), from: String(pj.from ?? ""),
+      basis: String(pj.basis ?? ""), note: String(pj.note ?? "") })),
+    projectedTotal: Object.values(projectedIncomeByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingInflowTotal: Object.values(fundingByMonth).flat().reduce((a, b) => a + b.amount, 0),
   };
 }
