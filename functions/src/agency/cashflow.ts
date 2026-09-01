@@ -266,7 +266,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, ohDoc, ctDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, sdDoc, vaDoc, ohDoc, ctDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -276,6 +276,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("assumptions").doc("cap-rate").get(),
     db.collection("assumptions").doc("repair-placeholder").get(),
     db.collection("assumptions").doc("social-contribution").get(),
+    db.collection("assumptions").doc("strategy-doc").get(),
     db.collection("assumptions").doc("valuation").get(),
     db.collection("assumptions").doc("overhead").get(),
     db.collection("assumptions").doc("consumption-tax").get(),
@@ -672,6 +673,9 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
 
   return {
     scenario, rowsAlt, yearly, valuation, valuationBasis, social, planIncludesScenario,
+    /* 戦略提案書へのリンク（assumptions/strategy-doc）。本文は外部のアーティファクト側にあり、
+       ここが持つのは所在と目次だけ——本文を写して二重管理にしない */
+    strategyDoc: sdDoc.exists ? { id: sdDoc.id, ...(sdDoc.data() as Record<string, unknown>) } : null,
     reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal,
       need: { ledgerPerYear: repairNeed.ledgerPerYear, placeholderPerYear: repairNeed.placeholderPerYear,
         totalPerYear: repairNeed.ledgerPerYear + repairNeed.placeholderPerYear,
