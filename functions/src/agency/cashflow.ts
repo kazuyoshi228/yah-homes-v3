@@ -321,7 +321,32 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
      ——そのぶん税額は多めに出る（資金繰りを見る目的では安全側）。
      繰越欠損金を先に充当し、納付は決算の翌年に起きるものとして現金から引く */
-  const taxDoc = await db.collection("assumptions").doc("corporate-tax").get();
+  const [taxDoc, depSnap] = await Promise.all([
+    db.collection("assumptions").doc("corporate-tax").get(),
+    db.collection("depreciation").get(),
+  ]);
+  /* 減価償却（定額法）。取得価額 ÷ 耐用年数 を、事業供用の月から月割りで積む。
+     現金は出ないので資金繰りの残高には効かない——効くのは課税所得だけ */
+  const depAssets = depSnap.docs.map((d) => {
+    const a = d.data() as { cost?: number; years?: number; startMonth?: string; label?: string; prop?: string };
+    return { label: String(a.label ?? d.id), prop: String(a.prop ?? ""),
+      cost: num(a.cost), years: Math.max(1, num(a.years) || 1), startMonth: String(a.startMonth ?? "") };
+  }).filter((a) => a.cost > 0 && a.startMonth);
+  /* 月ごとの償却額。耐用年数を過ぎたら止める */
+  const depByMonth: Record<string, number> = {};
+  {
+    let m = startMonth;
+    for (let i = 0; i < LONG; i++) {
+      depByMonth[m] = depAssets.reduce((acc, a) => {
+        if (m < a.startMonth) return acc;
+        const elapsed = monthsBetweenYm(a.startMonth, m);
+        if (elapsed >= a.years * 12) return acc;
+        return acc + a.cost / a.years / 12;
+      }, 0);
+      m = nextMonth(m);
+    }
+  }
+
   const taxRate = Number(taxDoc.data()?.rate ?? 0);
   const payDelay = Math.max(0, num(taxDoc.data()?.payDelayYears) || 0);
   let lossLeft = num(taxDoc.data()?.lossCarryforward);
@@ -344,6 +369,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       build: add((r) => r.detail.build),
       net: add((r) => r.net),
       interest: rs.reduce((a, r) => a + (loanInterestByMonth[r.month] ?? 0), 0),
+      /* 減価償却は現金が出ないので残高には効かない。課税所得を下げるためだけに使う */
+      depreciation: Math.round(rs.reduce((a, r) => a + (depByMonth[r.month] ?? 0), 0)),
       /* その年でいちばん薄い月。年末だけ見ていると、途中の谷を見落とす */
       worst: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).month,
       worstClosing: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).closing,
@@ -353,7 +380,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   /* 税額を年ごとに出す。繰越欠損金は古い年から順に食う */
   const taxed: Array<{ tax: number; closing: number }> = [];
   for (const a of yearly) {
-    const pretax = a.income - a.fixed - a.utilities - a.interest;
+    const pretax = a.income - a.fixed - a.utilities - a.interest - a.depreciation;
     const used = pretax > 0 ? Math.min(lossLeft, pretax) : 0;
     lossLeft -= used;
     const taxable = Math.max(0, pretax - used);
@@ -374,7 +401,9 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   return {
     scenario, rowsAlt, yearly,
     tax: { rate: taxRate, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
-      note: String(taxDoc.data()?.note ?? "") },
+      note: String(taxDoc.data()?.note ?? ""),
+      assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
+        startMonth: a.startMonth, perYear: Math.round(a.cost / a.years) })) },
     shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
     belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
@@ -399,4 +428,9 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     projectedTotal: Object.values(projectedIncomeByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingInflowTotal: Object.values(fundingByMonth).flat().reduce((a, b) => a + b.amount, 0),
   };
+}
+
+/** yyyy-mm どうしの月差（a から b まで。b が前なら負） */
+function monthsBetweenYm(a: string, b: string): number {
+  return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
 }
