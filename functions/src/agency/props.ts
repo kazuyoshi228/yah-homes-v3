@@ -287,5 +287,14 @@ export async function propertySummary() {
     };
   }).sort((a, b) => (b.netYield ?? -1) - (a.netYield ?? -1));
 
-  return { rows, utilNote: "光熱費・通信費は棟別に分かれていないため、稼働棟数で割った概算" };
+  /* 検討中・見送りの物件。棟の一覧（rows）には混ぜないが、土地の取得カードが
+     「ふるいの場」として使うので別配列で返す——台帳に居るのにどの画面にも出ない状態を作らない
+     （2026-09-01 発覚: 神屋町の検討記録が rows から外れた結果、土地の取得カードにも届いていなかった）。
+     導出はせず、台帳の中身をそのまま渡す */
+  const candidates = snap.docs
+    .filter((d) => !heldDocs.includes(d))
+    .map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+
+  return { rows, candidates,
+    utilNote: "光熱費・通信費は棟別に分かれていないため、稼働棟数で割った概算" };
 }
