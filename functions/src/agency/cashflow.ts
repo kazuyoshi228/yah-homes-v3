@@ -553,8 +553,12 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   let paidSoFar = 0;
   for (let i = 0; i < yearly.length; i++) {
     const due = i - payDelay >= 0 ? taxed[i - payDelay].tax : 0;
+    const openingAfterTax = taxed[i].closing - (yearly[i] as unknown as { net: number }).net - paidSoFar;
     paidSoFar += due;
-    Object.assign(yearly[i], { taxPaid: due, closingAfterTax: taxed[i].closing - paidSoFar });
+    /* 年次の表は納税後で通す（2026-09-01 発注者指示）。
+       月次の増減は納税前なので、その年に納めた税を引いて年の増減とする */
+    Object.assign(yearly[i], { taxPaid: due, closingAfterTax: taxed[i].closing - paidSoFar,
+      openingAfterTax, netAfterTax: (yearly[i] as unknown as { net: number }).net - due });
   }
 
   /* 企業価値（2026-09-01 発注者指示）。
