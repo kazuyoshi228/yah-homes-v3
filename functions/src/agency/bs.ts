@@ -27,13 +27,14 @@ export function liabilityAmount(
 
 export async function balanceSheet(asOf = new Date()) {
   const db = agencyDb();
-  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap, adjSnap, bpSnap] = await Promise.all([
+  const [finSnap, propSnap, itemSnap, eqSnap, cashSnap, adjSnap, paSnap, bpSnap] = await Promise.all([
     db.collection("finance").where("kind", "==", "loan").get(),
     db.collection("properties").get(),
     db.collection("items").get(),
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("cash").get(),
     db.collection("bsAdjustments").get(),
+    db.collection("personalAssets").get(),
     db.collection("buildPayments").get(),
   ]);
 
@@ -96,6 +97,16 @@ export async function balanceSheet(asOf = new Date()) {
       group: String(d.data().group ?? "unbooked"), excluded: d.data().excluded === true }))
     .filter((x) => x.amount > 0)
     .sort((a, b) => b.amount - a.amount);
+  /* 個人の投資信託は personalAssets（銘柄ごとの一次事実）が正本。
+     ここで合計を作る——BS側に金額を持たせると二重になり、実際に食い違った
+     （2026-09-02: bsAdjustments に ¥174,431,999、明細の合計は ¥172,022,799）。
+     銘柄を1本売れば合計は自動で変わる */
+  const paTotal = paSnap.docs.reduce((a, d) => a + num(d.data().value), 0);
+  if (paTotal > 0) {
+    adj.unshift({ label: "投資信託（個人）", amount: paTotal,
+      note: `personalAssets ${paSnap.size}銘柄の合計。個人の財務カードが正本`,
+      docPath: "personalAssets", group: "personal", excluded: false });
+  }
   /* 建設中の建物は**支払予定表（buildPayments）から導く**（2026-08-31 発注者提供）。
      資産＝契約総額（建物＋家具）／負債＝まだ払っていない分。**対で載せる**ので、
      純資産に効くのは「すでに払った分」だけ——これが正しい姿。
