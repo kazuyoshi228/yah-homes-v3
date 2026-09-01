@@ -41,6 +41,10 @@ export function projectCashflow(input: {
   /* 稼働予定の棟の入金（人の宣言に基づく見込み）。実績とは分けて持つ——
      見込みと実績を1つの数字に混ぜると、後から「どこまでが事実か」が分からなくなる */
   projectedIncomeByMonth?: Record<string, Array<{ prop: string; amount: number }>>;
+  /* 稼働する部屋数の倍率（月→倍率）。固定費と光熱費は部屋数に比例して増える——
+     いまは2部屋、六本松が入って3部屋、大手門2部屋が入って5部屋（2026-09-01 発注者指示）。
+     未指定の月は 1（＝いまの部屋数のまま） */
+  roomFactorByMonth?: Record<string, number>;
 }): CfMonth[] {
   const out: CfMonth[] = [];
   let bal = input.opening ?? 0;
@@ -53,13 +57,15 @@ export function projectCashflow(input: {
     const funding = fundings.reduce((a, b) => a + b.amount, 0);
     const projections = input.projectedIncomeByMonth?.[ym] ?? [];
     const incomeProjected = projections.reduce((a, b) => a + b.amount, 0);
-    const outgo = loans + input.fixedPerMonth + input.reservesPerMonth + input.utilitiesPerMonth + build;
+    const rf = input.roomFactorByMonth?.[ym] ?? 1;
+    const fixed = Math.round(input.fixedPerMonth * rf);
+    const utilities = Math.round(input.utilitiesPerMonth * rf);
+    const outgo = loans + fixed + input.reservesPerMonth + utilities + build;
     const net = input.monthlyIncome + incomeProjected + funding - outgo;
     const opening = bal;
     bal = bal + net;
     out.push({ month: ym, opening, income: input.monthlyIncome, incomeProjected, funding, outgo, net, closing: bal,
-      detail: { loans, fixed: input.fixedPerMonth, reserves: input.reservesPerMonth,
-        utilities: input.utilitiesPerMonth, build },
+      detail: { loans, fixed, reserves: input.reservesPerMonth, utilities, build },
       builds, fundings, projections });
     ym = nextMonth(ym);
   }
@@ -240,8 +246,26 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
+  /* 部屋数の推移。いまの稼働部屋数（settings/cashflow.baseRooms・既定2）を起点に、
+     稼働予定の棟が入るたび units ぶん増やす。固定費と光熱費はこの比で増やす
+     ——1部屋あたりの負担は今の実績から割り出す（2026-09-01 発注者指示） */
+  const baseRooms = Math.max(1, num(cfDoc.data()?.baseRooms) || 2);
+  const roomsByMonth: Record<string, number> = {};
+  const roomFactorByMonth: Record<string, number> = {};
+  {
+    let m = startMonth;
+    for (let i = 0; i < months; i++) {
+      const added = projections
+        .filter((pj) => m >= String(pj.from ?? ""))
+        .reduce((a, pj) => a + Math.max(1, num(pj.units) || 1), 0);
+      roomsByMonth[m] = baseRooms + added;
+      roomFactorByMonth[m] = roomsByMonth[m] / baseRooms;
+      m = nextMonth(m);
+    }
+  }
+
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
@@ -261,6 +285,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     floorNote: String(cfDoc.data()?.floorNote ?? ""),
     buildUnpaidTotal: Object.values(buildByMonth).flat().reduce((a, b) => a + b.amount, 0),
     fundingTotals, withFunding,
+    baseRooms, roomsByMonth,
     projectionNotes: projections.map((pj) => ({ prop: String(pj.prop ?? ""), from: String(pj.from ?? ""),
       units: Math.max(1, num(pj.units) || 1),
       basis: String(pj.basis ?? ""), note: String(pj.note ?? "") })),

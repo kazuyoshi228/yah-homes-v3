@@ -368,3 +368,18 @@ test("資金繰り: 手元の下限を割る月を、ショートより手前で
   assert.deepEqual(belowFloor(rows, false, 5000000), []);     // 期首未設定なら判定しない
   assert.deepEqual(belowFloor(rows, true, 0), []);            // 下限未設定なら判定しない
 });
+
+test("資金繰り: 部屋数が増えた月から固定費と光熱費が比例して増える", () => {
+  const rows = projectCashflow({ startMonth: "2026-09", months: 3, opening: 0,
+    monthlyIncome: 0, fixedPerMonth: 100000, reservesPerMonth: 0, utilitiesPerMonth: 70000,
+    loanOutgoByMonth: {}, buildByMonth: {},
+    /* 2部屋 → 3部屋 → 5部屋 */
+    roomFactorByMonth: { "2026-10": 3 / 2, "2026-11": 5 / 2 } });
+  assert.equal(rows[0].detail.fixed, 100000);      // 倍率の指定が無い月はそのまま
+  assert.equal(rows[0].detail.utilities, 70000);
+  assert.equal(rows[1].detail.fixed, 150000);
+  assert.equal(rows[1].detail.utilities, 105000);
+  assert.equal(rows[2].detail.fixed, 250000);
+  assert.equal(rows[2].detail.utilities, 175000);
+  assert.equal(rows[2].outgo, 425000);             // 増えたぶんは出金の合計にも効く
+});
