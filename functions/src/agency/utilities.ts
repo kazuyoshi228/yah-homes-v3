@@ -15,9 +15,14 @@ export interface UtilityEntry {
 
 export async function utilitySummary() {
   const db = agencyDb();
-  const [snap, recSnap] = await Promise.all([
+  const [snap, recSnap, billSnap] = await Promise.all([
     db.collection("utilities").where("kind", "==", "utility").get(),
     db.collection("recurringCosts").where("recurring", "==", true).get(),
+    /* 供給元の請求明細。仕訳帳（utilities）は支払の記録で、費目が混ざることがある
+       （西部ガスの請求はガス＋電気のセットだが、仕訳では全額ガスに計上されていた）。
+       金額が正確なのはこちらなので、棟別・費目別を見るときは請求明細を使う。
+       ただし同じ費用なので、月あたりの費用は**どちらか一方だけ**を数える（2026-09-01） */
+    db.collection("utilityBills").get(),
   ]);
   const rows = snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as object) } as UtilityEntry))
@@ -58,10 +63,45 @@ export async function utilitySummary() {
     };
   });
 
+  /* 請求明細（棟別・費目別・請求月）。棟ごとにまとめて返し、画面は棟を選んで見る */
+  type Bill = { prop: string; billMonth: string; type: string; plan?: string;
+    amount: number; supplier?: string; source?: string };
+  const bills = billSnap.docs.map((d) => d.data() as Bill)
+    .filter((b) => b.billMonth && b.amount != null)
+    .sort((a, b) => a.billMonth.localeCompare(b.billMonth));
+  const billProps = [...new Set(bills.map((b) => b.prop))];
+  const billTypes = [...new Set(bills.map((b) => b.type))];
+  const billsByProp = billProps.map((prop) => {
+    const rs = bills.filter((b) => b.prop === prop);
+    const ms = [...new Set(rs.map((b) => b.billMonth))].sort();
+    const t = rs.reduce((a, b) => a + b.amount, 0);
+    return {
+      prop,
+      supplier: rs[0]?.supplier ?? "",
+      from: ms[0] ?? "", to: ms.at(-1) ?? "", months: ms.length,
+      total: t, perMonth: ms.length ? Math.round(t / ms.length) : 0,
+      byType: billTypes.map((type) => {
+        const ts = rs.filter((b) => b.type === type);
+        const tm = [...new Set(ts.map((b) => b.billMonth))].length;
+        const sub = ts.reduce((a, b) => a + b.amount, 0);
+        return { type, plan: ts[0]?.plan ?? "", total: sub, months: tm,
+          perMonth: tm ? Math.round(sub / tm) : 0 };
+      }).filter((x) => x.total > 0),
+      /* 月ごとの内訳。画面はこれをそのまま並べる（合計は保存せず毎回作る） */
+      byMonth: ms.map((month) => {
+        const mr = rs.filter((b) => b.billMonth === month);
+        return { month, total: mr.reduce((a, b) => a + b.amount, 0),
+          byType: Object.fromEntries(billTypes.map((t2) =>
+            [t2, mr.filter((b) => b.type === t2).reduce((a, b) => a + b.amount, 0)])) };
+      }),
+    };
+  });
+
   const recurringPerMonth = recurring.reduce((a, r) => a + r.amountPerMonth, 0);
   const total = sum(rows);
   return {
     rows, byMonth, places, types, recurring, recurringPerMonth, placeBook: book, accounts,
+    bills: { byProp: billsByProp, types: billTypes },
     byPlace: places.map((place) => {
       const rs = rows.filter((r) => r.place === place);
       const ms = [...new Set(rs.map((r) => r.month))].length;
