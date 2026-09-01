@@ -67,12 +67,13 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "personal": {                                     // 個人の財務（山田一慶）— 資産・配当・借入
           const db2 = agencyDb();
-          const [as, ds, fin2, bsAdj, inc] = await Promise.all([
+          const [as, ds, fin2, bsAdj, inc, nwl] = await Promise.all([
             db2.collection("personalAssets").get(),
             db2.collection("personalDistributions").get(),
             db2.collection("finance").where("entity", "==", "personal").get(),
             db2.collection("bsAdjustments").where("entity", "==", "personal").get(),
             db2.collection("assumptions").doc("personal-income").get(),
+            db2.collection("assumptions").doc("nomura-web-loan").get(),
           ]);
           const m = (d: FirebaseFirestore.QueryDocumentSnapshot): Record<string, unknown> =>
             ({ id: d.id, ...(d.data() as Record<string, unknown>) });
@@ -81,7 +82,9 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             distributions: ds.docs.map(m).sort((x, y) => Number(y.annual ?? 0) - Number(x.annual ?? 0)),
             loans: fin2.docs.map(m),
             adjustments: bsAdj.docs.map(m),
-            income: inc.exists ? { id: inc.id, ...(inc.data() as Record<string, unknown>) } : null });
+            income: inc.exists ? { id: inc.id, ...(inc.data() as Record<string, unknown>) } : null,
+            /* 証券担保ローンの条件（金利・掛目・強制売却の基準）。正本は商品概要PDF */
+            nomuraTerms: nwl.exists ? { id: nwl.id, ...(nwl.data() as Record<string, unknown>) } : null });
           return true;
         }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
