@@ -18,7 +18,7 @@ export type CfMonth = {
   month: string; opening: number; income: number; incomeProjected: number; funding: number; outgo: number;
   net: number; closing: number;
   detail: { loans: number; fixed: number; reserves: number; utilities: number; build: number;
-    officer: number };
+    officer: number; overhead: number };
   builds: Array<{ label: string; amount: number }>;
   fundings: Array<{ source: string; amount: number }>;
   projections: Array<{ prop: string; amount: number }>;
@@ -52,6 +52,8 @@ export function projectCashflow(input: {
   officerByMonth?: Record<string, number>;
   /* 修繕積立（現金→投資信託の振替）。現金は減るが法人の資産は減らない */
   reservesByMonth?: Record<string, number>;
+  /* 会社維持経費（棟に紐づかない運営費）。現金が出て、経費にもなる */
+  overheadByMonth?: Record<string, number>;
 }): CfMonth[] {
   const out: CfMonth[] = [];
   let bal = input.opening ?? 0;
@@ -69,12 +71,13 @@ export function projectCashflow(input: {
     const utilities = Math.round(input.utilitiesPerMonth * rf);
     const officer = input.officerByMonth?.[ym] ?? 0;
     const reserves = input.reservesByMonth?.[ym] ?? input.reservesPerMonth;
-    const outgo = loans + fixed + reserves + utilities + build + officer;
+    const overhead = input.overheadByMonth?.[ym] ?? 0;
+    const outgo = loans + fixed + reserves + utilities + build + officer + overhead;
     const net = input.monthlyIncome + incomeProjected + funding - outgo;
     const opening = bal;
     bal = bal + net;
     out.push({ month: ym, opening, income: input.monthlyIncome, incomeProjected, funding, outgo, net, closing: bal,
-      detail: { loans, fixed, reserves, utilities, build, officer },
+      detail: { loans, fixed, reserves, utilities, build, officer, overhead },
       builds, fundings, projections });
     ym = nextMonth(ym);
   }
@@ -263,7 +266,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, ohDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -274,10 +277,15 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("assumptions").doc("repair-placeholder").get(),
     db.collection("assumptions").doc("social-contribution").get(),
     db.collection("assumptions").doc("valuation").get(),
+    db.collection("assumptions").doc("overhead").get(),
     renewalPlan(),
   ]);
   /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
   const eqCount = eqSnap2.docs.filter((d) => Number(d.data().price ?? 0) > 0).length;
+  /* 会社維持経費の予定（開始月ごとに年額が変わる） */
+  const ohSchedule = ((ohDoc.data()?.schedule ?? []) as Array<Record<string, unknown>>)
+    .map((x) => ({ from: String(x.from ?? ""), annual: num(x.annual) }))
+    .filter((x) => x.from).sort((a, b) => a.from.localeCompare(b.from));
   /* 修繕積立: 1部屋あたり月◯円を投資信託へ振り替える。現金は減るが法人の資産は減らない */
   const reservePerRoom = num(rpDoc.data()?.perRoomPerMonth);
   /* 長期修繕: 更新計画のタイムライン（年→金額）。まず投資信託から充てる */
@@ -310,6 +318,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const roomsByMonth: Record<string, number> = {};
   /* 積立は部屋数に比例する（部屋あたり月◯円） */
   const reservesByMonth: Record<string, number> = {};
+  /* 会社維持経費（オフィス・備品・交通費など。棟に紐づかない会社の運営費） */
+  const overheadByMonth: Record<string, number> = {};
   const roomFactorByMonth: Record<string, number> = {};
   {
     let m = startMonth;
@@ -320,6 +330,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       roomsByMonth[m] = baseRooms + added;
       roomFactorByMonth[m] = roomsByMonth[m] / baseRooms;
       reservesByMonth[m] = reservePerRoom * roomsByMonth[m];
+      {
+        const hit = [...ohSchedule].reverse().find((x) => m >= x.from);
+        overheadByMonth[m] = hit ? Math.round(hit.annual / 12) : 0;
+      }
       m = nextMonth(m);
     }
   }
@@ -367,14 +381,14 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const birth = String(ownerDoc.data()?.birthDate ?? "");
   const ownerName = String(ownerDoc.data()?.name ?? "");
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, overheadByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
   /* 追加融資ありの見立て。調達の月に1件足すだけで、他の前提は本体とまったく同じ */
   const rowsAlt = scenario ? projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth,
-    officerByMonth, reservesByMonth, loanOutgoByMonth: loanOutgoAlt, buildByMonth,
+    officerByMonth, reservesByMonth, overheadByMonth, loanOutgoByMonth: loanOutgoAlt, buildByMonth,
     fundingByMonth: { ...fundingByMonth,
       [scenario.month]: [...(fundingByMonth[scenario.month] ?? []),
         { source: scenario.source || scenario.label, amount: scenario.amount }] },
@@ -385,7 +399,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      次の物件も含まない。だから「借入をこのまま返せるか」を見るための表であって、
      事業計画ではない（画面にもそう書く） */
   const rowsLong = projectCashflow({ startMonth, months: LONG, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, overheadByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding, projectedIncomeByMonth });
   /* 法人税（assumptions/corporate-tax・人の判断）。
      課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
@@ -474,6 +488,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       net: add((r) => r.net),
       interest: rs.reduce((a, r) => a + (loanInterestByMonth[r.month] ?? 0), 0),
       officer: add((r) => r.detail.officer),
+      overhead: add((r) => r.detail.overhead),
       reserves2: add((r) => r.detail.reserves),          // 投資信託への積立（現金→投信）
       repair: repairByYear[year] ?? 0,                    // 長期修繕（更新計画のタイムライン）
       /* その年末の借入残高。返済が進むほど純資産が増える */
@@ -494,7 +509,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   /* 税額を年ごとに出す。繰越欠損金は古い年から順に食う */
   const taxed: Array<{ tax: number; closing: number }> = [];
   for (const a of yearly) {
-    const pretax = a.income - a.fixed - a.utilities - a.interest - a.depreciation - a.officer;
+    const pretax = a.income - a.fixed - a.utilities - a.interest - a.depreciation - a.officer - a.overhead;
     const used = pretax > 0 ? Math.min(lossLeft, pretax) : 0;
     lossLeft -= used;
     const taxable = Math.max(0, pretax - used);
@@ -536,7 +551,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      （買い手はその物件から得られる収益を見るため）。還元利回りは assumptions/cap-rate */
   const valuation = yearly.map((a) => {
     const x = a as unknown as Record<string, number | string>;
-    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2);
+    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2)
+      - Number(x.overhead);
     /* 途中から始まる年（初年）は12ヶ月に換算してから還元する。
        4ヶ月ぶんのNOIをそのまま割ると、不動産価値が3分の1に出てしまう（2026-09-01 発注者指摘） */
     const m = Number(x.months) || 12;
@@ -598,6 +614,9 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     owner: birth ? { name: ownerName, birthDate: birth } : null,
     officerComp: { schedule: ocSchedule, employerBurdenRate: ocBurden - 1,
       perMonth: officerByMonth[startMonth] ?? 0 },
+    overhead: { schedule: ohSchedule, perMonth: overheadByMonth[startMonth] ?? 0,
+      includes: (ohDoc.data()?.includes ?? []) as string[],
+      note: String(ohDoc.data()?.note ?? "") },
     tax: { rate: taxRate, brackets, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
