@@ -401,7 +401,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       immediate: a.immediate === true,
       /* 定率法は「期首の帳簿価額 × 償却率」。年を追うごとに償却額が減る */
       rate: Number((a as { rate?: number }).rate ?? 0),
-      bookValue: Number((a as { bookValue?: number }).bookValue ?? 0) };
+      bookValue: Number((a as { bookValue?: number }).bookValue ?? 0),
+      /* 人に確認待ちの項目。画面はこれを読んで出す——文章に書き込むと確認後も残る */
+      pending: String((a as { pendingConfirmation?: string }).pendingConfirmation ?? ""),
+      confirmWith: String((a as { confirmWith?: string }).confirmWith ?? "") };
   }).filter((a) => a.cost > 0 && a.startMonth);
   /* 月ごとの償却額。耐用年数を過ぎたら止める */
   const depByMonth: Record<string, number> = {};
@@ -576,6 +579,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
         startMonth: a.startMonth, immediate: a.immediate, rate: a.rate,
+        pending: a.pending, confirmWith: a.confirmWith,
         perYear: a.immediate ? a.cost
           : a.rate > 0 ? Math.round(a.bookValue * a.rate)
           : Math.round(a.cost / a.years) })),
