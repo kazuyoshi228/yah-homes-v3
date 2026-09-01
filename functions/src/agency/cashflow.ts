@@ -321,10 +321,14 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
      ——そのぶん税額は多めに出る（資金繰りを見る目的では安全側）。
      繰越欠損金を先に充当し、納付は決算の翌年に起きるものとして現金から引く */
-  const [taxDoc, depSnap] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
+    db.collection("settings").doc("owner").get(),
   ]);
+  /* 年次の表に「その年に何歳か」を出す。30年の表は人生の時間割でもある（2026-09-01 発注者指示） */
+  const birth = String(ownerDoc.data()?.birthDate ?? "");
+  const ownerName = String(ownerDoc.data()?.name ?? "");
   /* 減価償却（定額法）。取得価額 ÷ 耐用年数 を、事業供用の月から月割りで積む。
      現金は出ないので資金繰りの残高には効かない——効くのは課税所得だけ */
   const depAssets = depSnap.docs.map((d) => {
@@ -360,8 +364,12 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const yearly = yearsSet.map((year) => {
     const rs = rowsLong.filter((r) => r.month.startsWith(year));
     const add = (f: (r: typeof rs[number]) => number) => rs.reduce((a, r) => a + f(r), 0);
+    /* 暦年の年末（12/31）時点の年齢。誕生日を迎えているかで1歳変わるので、日付で見る */
+    const age = birth
+      ? Number(year) - Number(birth.slice(0, 4)) - (`${year}-12-31` >= `${year}-${birth.slice(5)}` ? 0 : 1)
+      : null;
     return {
-      year, months: rs.length,
+      year, months: rs.length, age,
       partial: rs.length < 12,          // 初年と最終年は途中から/途中まで
       opening: rs[0].opening, closing: rs.at(-1)!.closing,
       income: add((r) => r.income + r.incomeProjected),
@@ -404,6 +412,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
 
   return {
     scenario, rowsAlt, yearly,
+    owner: birth ? { name: ownerName, birthDate: birth } : null,
     tax: { rate: taxRate, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,

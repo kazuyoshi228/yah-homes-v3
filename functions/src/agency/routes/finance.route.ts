@@ -5,6 +5,7 @@
  * 本文は api.ts から移設したまま（一字も変えない方針。return; → return true; のみ機械置換）。
  */
 import { getStorage } from "firebase-admin/storage";
+import { agencyDb } from "../engine.js";
 import { loanSummary } from "../finance.js";
 import { balanceSheet } from "../bs.js";
 import { cashflow } from "../cashflow.js";
@@ -50,6 +51,18 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "cashflow": {                                     // 資金繰り予測（12ヶ月・毎回導出）
           res.json({ ok: true, ...(await cashflow(12, new Date(), req.query.funding !== "0")) });
+          return true;
+        }
+        case "financials": {                                   // 決算書【BF】— ボンファイア株式会社の申告書から
+          const [fin, dep] = await Promise.all([
+            agencyDb().collection("financials").get(),
+            agencyDb().collection("depreciation").get(),
+          ]);
+          const rows = fin.docs
+            .map((d): Record<string, unknown> => ({ id: d.id, ...(d.data() as Record<string, unknown>) }))
+            .sort((a, b) => String(a.fy ?? "").localeCompare(String(b.fy ?? "")));
+          const assets = dep.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+          res.json({ ok: true, company: "ボンファイア株式会社", rows, assets });
           return true;
         }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
