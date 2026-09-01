@@ -65,7 +65,8 @@ export async function utilitySummary() {
 
   /* 請求明細（棟別・費目別・請求月）。棟ごとにまとめて返し、画面は棟を選んで見る */
   type Bill = { prop: string; billMonth: string; type: string; plan?: string;
-    amount: number; supplier?: string; source?: string };
+    amount: number; supplier?: string; source?: string;
+    kwh?: number; dueDate?: string; paidDate?: string; tariff?: string; note?: string };
   const bills = billSnap.docs.map((d) => d.data() as Bill)
     .filter((b) => b.billMonth && b.amount != null)
     .sort((a, b) => a.billMonth.localeCompare(b.billMonth));
@@ -90,7 +91,13 @@ export async function utilitySummary() {
       /* 月ごとの内訳。画面はこれをそのまま並べる（合計は保存せず毎回作る） */
       byMonth: ms.map((month) => {
         const mr = rs.filter((b) => b.billMonth === month);
+        /* 使用量・支払日は明細に載っている棟だけ持つ（西部ガスの一覧には無い） */
+        const kwh = mr.reduce((a, b) => a + (b.kwh ?? 0), 0);
+        const withPay = mr.find((b) => b.dueDate);
         return { month, total: mr.reduce((a, b) => a + b.amount, 0),
+          kwh: kwh || null,
+          dueDate: withPay?.dueDate ?? "", paidDate: withPay?.paidDate ?? "",
+          tariff: withPay?.tariff ?? "",
           byType: Object.fromEntries(billTypes.map((t2) =>
             [t2, mr.filter((b) => b.type === t2).reduce((a, b) => a + b.amount, 0)])) };
       }),
