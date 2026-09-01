@@ -12,6 +12,7 @@
  */
 import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
+import { renewalPlan } from "./lifecycle.js";
 
 export type CfMonth = {
   month: string; opening: number; income: number; incomeProjected: number; funding: number; outgo: number;
@@ -49,6 +50,8 @@ export function projectCashflow(input: {
   /* 役員報酬（会社負担の社会保険料を含めた月あたりの現金支出）。
      現金が出るので残高に効き、経費なので課税所得も下げる */
   officerByMonth?: Record<string, number>;
+  /* 修繕積立（現金→投資信託の振替）。現金は減るが法人の資産は減らない */
+  reservesByMonth?: Record<string, number>;
 }): CfMonth[] {
   const out: CfMonth[] = [];
   let bal = input.opening ?? 0;
@@ -65,12 +68,13 @@ export function projectCashflow(input: {
     const fixed = Math.round(input.fixedPerMonth * rf);
     const utilities = Math.round(input.utilitiesPerMonth * rf);
     const officer = input.officerByMonth?.[ym] ?? 0;
-    const outgo = loans + fixed + input.reservesPerMonth + utilities + build + officer;
+    const reserves = input.reservesByMonth?.[ym] ?? input.reservesPerMonth;
+    const outgo = loans + fixed + reserves + utilities + build + officer;
     const net = input.monthlyIncome + incomeProjected + funding - outgo;
     const opening = bal;
     bal = bal + net;
     out.push({ month: ym, opening, income: input.monthlyIncome, incomeProjected, funding, outgo, net, closing: bal,
-      detail: { loans, fixed, reserves: input.reservesPerMonth, utilities, build, officer },
+      detail: { loans, fixed, reserves, utilities, build, officer },
       builds, fundings, projections });
     ym = nextMonth(ym);
   }
@@ -259,11 +263,30 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, capDoc, plan] = await Promise.all([
+    db.collection("assumptions").doc("corporate-tax").get(),
+    db.collection("depreciation").get(),
+    db.collection("settings").doc("owner").get(),
+    db.collection("assumptions").doc("officer-comp").get(),
+    db.collection("assumptions").doc("reserve-plan").get(),
+    db.collection("assumptions").doc("cap-rate").get(),
+    renewalPlan(),
+  ]);
+  /* 修繕積立: 1部屋あたり月◯円を投資信託へ振り替える。現金は減るが法人の資産は減らない */
+  const reservePerRoom = num(rpDoc.data()?.perRoomPerMonth);
+  /* 長期修繕: 更新計画のタイムライン（年→金額）。まず投資信託から充てる */
+  const repairByYear: Record<string, number> = {};
+  for (const t of (plan.timeline ?? []) as Array<{ year: number; amount: number }>) {
+    repairByYear[String(t.year)] = (repairByYear[String(t.year)] ?? 0) + num(t.amount);
+  }
+  const capRate = Number(capDoc.data()?.value ?? capDoc.data()?.rate ?? 0);
   /* 部屋数の推移。いまの稼働部屋数（settings/cashflow.baseRooms・既定2）を起点に、
      稼働予定の棟が入るたび units ぶん増やす。固定費と光熱費はこの比で増やす
      ——1部屋あたりの負担は今の実績から割り出す（2026-09-01 発注者指示） */
   const baseRooms = Math.max(1, num(cfDoc.data()?.baseRooms) || 2);
   const roomsByMonth: Record<string, number> = {};
+  /* 積立は部屋数に比例する（部屋あたり月◯円） */
+  const reservesByMonth: Record<string, number> = {};
   const roomFactorByMonth: Record<string, number> = {};
   {
     let m = startMonth;
@@ -273,6 +296,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
         .reduce((a, pj) => a + Math.max(1, num(pj.units) || 1), 0);
       roomsByMonth[m] = baseRooms + added;
       roomFactorByMonth[m] = roomsByMonth[m] / baseRooms;
+      reservesByMonth[m] = reservePerRoom * roomsByMonth[m];
       m = nextMonth(m);
     }
   }
@@ -301,12 +325,6 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     }
   }
 
-  const [taxDoc, depSnap, ownerDoc, ocDoc] = await Promise.all([
-    db.collection("assumptions").doc("corporate-tax").get(),
-    db.collection("depreciation").get(),
-    db.collection("settings").doc("owner").get(),
-    db.collection("assumptions").doc("officer-comp").get(),
-  ]);
   /* 役員報酬（assumptions/officer-comp・人の判断）。開始月ごとに年額が変わる。
      会社負担の社会保険料を上乗せした額が、毎月の現金支出になる */
   const ocBurden = 1 + Number(ocDoc.data()?.employerBurdenRate ?? 0);
@@ -326,14 +344,14 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const birth = String(ownerDoc.data()?.birthDate ?? "");
   const ownerName = String(ownerDoc.data()?.name ?? "");
   const rows = projectCashflow({ startMonth, months, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding,
     projectedIncomeByMonth });
 
   /* 追加融資ありの見立て。調達の月に1件足すだけで、他の前提は本体とまったく同じ */
   const rowsAlt = scenario ? projectCashflow({ startMonth, months, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth,
-    officerByMonth, loanOutgoByMonth: loanOutgoAlt, buildByMonth,
+    officerByMonth, reservesByMonth, loanOutgoByMonth: loanOutgoAlt, buildByMonth,
     fundingByMonth: { ...fundingByMonth,
       [scenario.month]: [...(fundingByMonth[scenario.month] ?? []),
         { source: scenario.source || scenario.label, amount: scenario.amount }] },
@@ -344,7 +362,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
      次の物件も含まない。だから「借入をこのまま返せるか」を見るための表であって、
      事業計画ではない（画面にもそう書く） */
   const rowsLong = projectCashflow({ startMonth, months: LONG, opening, monthlyIncome,
-    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, loanOutgoByMonth, buildByMonth,
+    fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, officerByMonth, reservesByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding, projectedIncomeByMonth });
   /* 法人税（assumptions/corporate-tax・人の判断）。
      課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
@@ -420,6 +438,15 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       net: add((r) => r.net),
       interest: rs.reduce((a, r) => a + (loanInterestByMonth[r.month] ?? 0), 0),
       officer: add((r) => r.detail.officer),
+      reserves2: add((r) => r.detail.reserves),          // 投資信託への積立（現金→投信）
+      repair: repairByYear[year] ?? 0,                    // 長期修繕（更新計画のタイムライン）
+      /* その年末の借入残高。返済が進むほど純資産が増える */
+      loanBalance: (() => {
+        const at = new Date(Number(year), 11, 31);
+        return Math.round(loans.reduce((acc, l) => {
+          try { return acc + loanState(l, at).balance; } catch { return acc; }
+        }, 0));
+      })(),
       /* 減価償却は現金が出ないので残高には効かない。課税所得を下げるためだけに使う */
       depreciation: Math.round(rs.reduce((a, r) => a + (depByMonth[r.month] ?? 0), 0)),
       /* その年でいちばん薄い月。年末だけ見ていると、途中の谷を見落とす */
@@ -441,6 +468,19 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     });
     taxed.push({ tax: taxOf(taxable), closing: a.closing });
   }
+  /* 投資信託の残高。いまの残高から始めて、毎年の積立を足し、長期修繕を先に充てる。
+     足りないぶんは現金から出る（cashShort）——積立が足りているかがここで見える */
+  let inv = investmentTotal;
+  for (const a of yearly as unknown as Array<Record<string, number | string>>) {
+    const add2 = Number(a.reserves2 ?? 0);
+    const rep = Number(a.repair ?? 0);
+    inv += add2;
+    const fromInv = Math.min(inv, rep);
+    inv -= fromInv;
+    Object.assign(a, { investBalance: Math.round(inv),
+      repairFromInvestment: Math.round(fromInv), repairFromCash: Math.round(rep - fromInv) });
+  }
+
   /* 納付は翌年に起きる。税引後の残高は、その年までに納めた税の累計を引いたもの */
   let paidSoFar = 0;
   for (let i = 0; i < yearly.length; i++) {
@@ -449,8 +489,23 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     Object.assign(yearly[i], { taxPaid: due, closingAfterTax: taxed[i].closing - paidSoFar });
   }
 
+  /* 企業価値（2026-09-01 発注者指示）。
+     不動産の収益還元価値（NOI ÷ 還元利回り）＋ 現金 ＋ 投資信託 − 借入残高。
+     NOIは「売上 − 固定費 − 光熱費 − 長期修繕の年割り」——減価償却・支払利息・役員報酬・法人税は引かない
+     （買い手はその物件から得られる収益を見るため）。還元利回りは assumptions/cap-rate */
+  const valuation = yearly.map((a) => {
+    const x = a as unknown as Record<string, number | string>;
+    const noi = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2);
+    const asset = capRate > 0 ? Math.round(noi / capRate) : 0;
+    const cash = Number(x.closingAfterTax ?? x.closing);
+    const equity = asset + cash + Number(x.investBalance ?? 0) - Number(x.loanBalance ?? 0);
+    return { year: String(x.year), noi: Math.round(noi), capRate, asset, cash,
+      investBalance: Number(x.investBalance ?? 0), loanBalance: Number(x.loanBalance ?? 0), equity };
+  });
+
   return {
-    scenario, rowsAlt, yearly,
+    scenario, rowsAlt, yearly, valuation,
+    reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal },
     owner: birth ? { name: ownerName, birthDate: birth } : null,
     officerComp: { schedule: ocSchedule, employerBurdenRate: ocBurden - 1,
       perMonth: officerByMonth[startMonth] ?? 0 },
