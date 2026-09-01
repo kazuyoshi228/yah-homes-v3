@@ -146,11 +146,16 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const LONG = 360;
   const loans = finSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) } as Loan));
   const loanOutgoByMonth: Record<string, number> = {};
+  /* 支払利息は経費、元金の返済は経費ではない。課税所得を出すのに利息だけを取り分ける */
+  const loanInterestByMonth: Record<string, number> = {};
   let ym = startMonth;
   for (let i = 0; i < LONG; i++) {
     const at = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 15);
     loanOutgoByMonth[ym] = loans.reduce((a, l) => {
       try { return a + loanState(l, at).monthlyTotal; } catch { return a; }
+    }, 0);
+    loanInterestByMonth[ym] = loans.reduce((a, l) => {
+      try { const st = loanState(l, at); return a + (st.monthlyTotal > 0 ? st.interestThisMonth : 0); } catch { return a; }
     }, 0);
     ym = nextMonth(ym);
   }
@@ -312,6 +317,16 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const rowsLong = projectCashflow({ startMonth, months: LONG, opening, monthlyIncome,
     fixedPerMonth, reservesPerMonth, utilitiesPerMonth, roomFactorByMonth, loanOutgoByMonth, buildByMonth,
     fundingByMonth, withFunding, projectedIncomeByMonth });
+  /* 法人税（assumptions/corporate-tax・人の判断）。
+     課税所得＝売上−固定費−光熱費−支払利息。減価償却は台帳に無いので含めない
+     ——そのぶん税額は多めに出る（資金繰りを見る目的では安全側）。
+     繰越欠損金を先に充当し、納付は決算の翌年に起きるものとして現金から引く */
+  const taxDoc = await db.collection("assumptions").doc("corporate-tax").get();
+  const taxRate = Number(taxDoc.data()?.rate ?? 0);
+  const payDelay = Math.max(0, num(taxDoc.data()?.payDelayYears) || 0);
+  let lossLeft = num(taxDoc.data()?.lossCarryforward);
+  const lossAtStart = lossLeft;
+
   const yearsSet = [...new Set(rowsLong.map((r) => r.month.slice(0, 4)))];
   const yearly = yearsSet.map((year) => {
     const rs = rowsLong.filter((r) => r.month.startsWith(year));
@@ -328,14 +343,38 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       reserves: add((r) => r.detail.reserves),
       build: add((r) => r.detail.build),
       net: add((r) => r.net),
+      interest: rs.reduce((a, r) => a + (loanInterestByMonth[r.month] ?? 0), 0),
       /* その年でいちばん薄い月。年末だけ見ていると、途中の谷を見落とす */
       worst: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).month,
       worstClosing: rs.reduce((m, r) => (r.closing < m.closing ? r : m), rs[0]).closing,
     };
   });
 
+  /* 税額を年ごとに出す。繰越欠損金は古い年から順に食う */
+  const taxed: Array<{ tax: number; closing: number }> = [];
+  for (const a of yearly) {
+    const pretax = a.income - a.fixed - a.utilities - a.interest;
+    const used = pretax > 0 ? Math.min(lossLeft, pretax) : 0;
+    lossLeft -= used;
+    const taxable = Math.max(0, pretax - used);
+    Object.assign(a, {
+      pretax, lossUsed: used, lossLeft, taxable,
+      tax: Math.round(taxable * taxRate),
+    });
+    taxed.push({ tax: Math.round(taxable * taxRate), closing: a.closing });
+  }
+  /* 納付は翌年に起きる。税引後の残高は、その年までに納めた税の累計を引いたもの */
+  let paidSoFar = 0;
+  for (let i = 0; i < yearly.length; i++) {
+    const due = i - payDelay >= 0 ? taxed[i - payDelay].tax : 0;
+    paidSoFar += due;
+    Object.assign(yearly[i], { taxPaid: due, closingAfterTax: taxed[i].closing - paidSoFar });
+  }
+
   return {
     scenario, rowsAlt, yearly,
+    tax: { rate: taxRate, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
+      note: String(taxDoc.data()?.note ?? "") },
     shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
     belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
