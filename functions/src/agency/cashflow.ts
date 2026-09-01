@@ -266,7 +266,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, ohDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, ohDoc, ctDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -278,8 +278,22 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("assumptions").doc("social-contribution").get(),
     db.collection("assumptions").doc("valuation").get(),
     db.collection("assumptions").doc("overhead").get(),
+    db.collection("assumptions").doc("consumption-tax").get(),
     renewalPlan(),
   ]);
+  /* 消費税（assumptions/consumption-tax）。手取り率は revenue 台帳の実績から毎回導出する
+     ——保存しない（SSoT）。課税売上は「総売上」であって手取りではない */
+  const ctRate = Number(ctDoc.data()?.rate ?? 0);
+  const ctOp = Number(ctDoc.data()?.operatorCostTaxable ?? 0);
+  const ctOwn = Number(ctDoc.data()?.ownCostTaxable ?? 0);
+  const ctDelay = Math.max(0, num(ctDoc.data()?.payDelayYears) || 0);
+  let revGross = 0, revPayout = 0;
+  for (const d of revSnap.docs) {
+    const r = d.data() as { revenue?: number; payout?: number };
+    revGross += num(r.revenue); revPayout += num(r.payout);
+  }
+  const payoutRatio = revGross > 0 ? revPayout / revGross : 1;
+
   /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
   const eqCount = eqSnap2.docs.filter((d) => Number(d.data().price ?? 0) > 0).length;
   /* 会社維持経費の予定（開始月ごとに年額が変わる） */
@@ -518,6 +532,27 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     };
   });
 
+  /* 消費税を年ごとに出す。課税売上＝手取り ÷ 手取り率（＝総売上）。
+     課税仕入＝運営側で引かれる費用＋自社の光熱費・維持経費・修繕＋工事の支払い。
+     固定資産税・保険・借入の利息は不課税なので入れない。
+     工事のある年は控除が大きく、還付（マイナス）になることがある（2026-09-02 発注者指示） */
+  for (const a of yearly as unknown as Array<Record<string, number | string>>) {
+    const payout = Number(a.income ?? 0);
+    const gross = payoutRatio > 0 ? payout / payoutRatio : payout;
+    const opCost = Math.max(0, gross - payout) * ctOp;
+    const ownCost = (Number(a.utilities ?? 0) + Number(a.overhead ?? 0)
+      + Number(a.repairTotal ?? a.repair ?? 0)) * ctOwn;
+    const purchase = Number(a.build ?? 0);
+    const vat = Math.round((gross - opCost - ownCost - purchase) * ctRate);
+    Object.assign(a, { grossSales: Math.round(gross), vat });
+  }
+  let vatPaid = 0;
+  for (let i = 0; i < yearly.length; i++) {
+    const src = i - ctDelay >= 0 ? (yearly[i - ctDelay] as unknown as { vat: number }).vat : 0;
+    vatPaid += src;
+    Object.assign(yearly[i], { vatPaid: src, vatPaidCum: vatPaid });
+  }
+
   /* 税額を年ごとに出す。繰越欠損金は古い年から順に食う */
   const taxed: Array<{ tax: number; closing: number }> = [];
   for (const a of yearly) {
@@ -557,8 +592,12 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     paidSoFar += due;
     /* 年次の表は納税後で通す（2026-09-01 発注者指示）。
        月次の増減は納税前なので、その年に納めた税を引いて年の増減とする */
-    Object.assign(yearly[i], { taxPaid: due, closingAfterTax: taxed[i].closing - paidSoFar,
-      openingAfterTax, netAfterTax: (yearly[i] as unknown as { net: number }).net - due });
+    const vp = (yearly[i] as unknown as { vatPaid: number }).vatPaid;
+    const vpc = (yearly[i] as unknown as { vatPaidCum: number }).vatPaidCum;
+    Object.assign(yearly[i], { taxPaid: due,
+      closingAfterTax: taxed[i].closing - paidSoFar - vpc,
+      openingAfterTax: openingAfterTax - (vpc - vp),
+      netAfterTax: (yearly[i] as unknown as { net: number }).net - due - vp });
   }
 
   /* 企業価値（2026-09-01 発注者指示）。
@@ -644,6 +683,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     overhead: { schedule: ohSchedule, perMonth: overheadByMonth[startMonth] ?? 0,
       includes: (ohDoc.data()?.includes ?? []) as string[],
       note: String(ohDoc.data()?.note ?? "") },
+    vat: { rate: ctRate, payoutRatio, payDelayYears: ctDelay,
+      note: String(ctDoc.data()?.note ?? "") },
     tax: { rate: taxRate, brackets, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
