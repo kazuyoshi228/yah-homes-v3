@@ -263,15 +263,18 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, capDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
     db.collection("assumptions").doc("officer-comp").get(),
     db.collection("assumptions").doc("reserve-plan").get(),
+    db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("assumptions").doc("cap-rate").get(),
     renewalPlan(),
   ]);
+  /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
+  const eqCount = eqSnap2.docs.filter((d) => Number(d.data().price ?? 0) > 0).length;
   /* 修繕積立: 1部屋あたり月◯円を投資信託へ振り替える。現金は減るが法人の資産は減らない */
   const reservePerRoom = num(rpDoc.data()?.perRoomPerMonth);
   /* 長期修繕: 更新計画のタイムライン（年→金額）。まず投資信託から充てる */
@@ -513,7 +516,16 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
         startMonth: a.startMonth, immediate: a.immediate,
-        perYear: a.immediate ? a.cost : Math.round(a.cost / a.years) })) },
+        perYear: a.immediate ? a.cost : Math.round(a.cost / a.years) })),
+      /* 償却台帳に載っていないものを**データから**出す。文章に書き込むと実態とずれる
+         （2026-09-01: 清川・高砂を登録したあとも「未登録」と書いた注記が残っていた） */
+      missing: {
+        props: propSnap.docs
+          .filter((d) => ["稼働中", "準備中"].includes(String(d.data().status ?? "")))
+          .filter((d) => !depAssets.some((a) => a.prop === d.id))
+          .map((d) => String(d.data().label ?? d.id)),
+        equipmentCount: eqCount,
+      } },
     shortageAlt: rowsAlt ? firstShortage(rowsAlt, opening != null) : null,
     belowFloorAlt: rowsAlt ? belowFloor(rowsAlt, opening != null, floor) : [],
     asOf: asOf.toISOString().slice(0, 10), startMonth, rows,
