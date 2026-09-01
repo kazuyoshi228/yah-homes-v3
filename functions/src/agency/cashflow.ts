@@ -263,7 +263,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -272,6 +272,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("equipment").where("kind", "==", "equipment").get(),
     db.collection("assumptions").doc("cap-rate").get(),
     db.collection("assumptions").doc("repair-placeholder").get(),
+    db.collection("assumptions").doc("social-contribution").get(),
     renewalPlan(),
   ]);
   /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
@@ -397,7 +398,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     return { label: String(a.label ?? d.id), prop: String(a.prop ?? ""),
       cost: num(a.cost), years: Math.max(1, num(a.years) || 1), startMonth: String(a.startMonth ?? ""),
       /* 少額減価償却資産（30万円未満）は供用した年に全額が損金になる。月割りしない */
-      immediate: a.immediate === true };
+      immediate: a.immediate === true,
+      /* 定率法は「期首の帳簿価額 × 償却率」。年を追うごとに償却額が減る */
+      rate: Number((a as { rate?: number }).rate ?? 0),
+      bookValue: Number((a as { bookValue?: number }).bookValue ?? 0) };
   }).filter((a) => a.cost > 0 && a.startMonth);
   /* 月ごとの償却額。耐用年数を過ぎたら止める */
   const depByMonth: Record<string, number> = {};
@@ -409,6 +413,13 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
         if (a.immediate) return acc + (m === a.startMonth ? a.cost : 0);
         const elapsed = monthsBetweenYm(a.startMonth, m);
         if (elapsed >= a.years * 12) return acc;
+        if (a.rate > 0) {
+          /* 定率法: bookValue（申告書の期末帳簿価額）を起点に、年ごとに率を掛けて減らす。
+             備忘価額1円まで落ちたら止める */
+          const yearsPassed = Math.floor(elapsed / 12);
+          const bv = a.bookValue * Math.pow(1 - a.rate, yearsPassed);
+          return acc + (bv > 1 ? (bv * a.rate) / 12 : 0);
+        }
         return acc + a.cost / a.years / 12;
       }, 0);
       m = nextMonth(m);
@@ -529,8 +540,30 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
       investBalance: Number(x.investBalance ?? 0), loanBalance: Number(x.loanBalance ?? 0), equity };
   });
 
+  /* 社会貢献と節税（assumptions/social-contribution・人の方針）。
+     税がかからない年は寄附しても税は減らない——効き始めるのは繰越欠損金を使い切ったあと。
+     寄附の目安はその年の法人税と同額（控除の上限に収まりやすい水準）。上限そのものは
+     法人税・住民税・事業税それぞれに別途あるので、実行前に税理士に確認する */
+  const socialRelief = Number(scDoc.data()?.reliefRate ?? 0);
+  const social = {
+    primary: String(scDoc.data()?.primary ?? ""),
+    reliefRate: socialRelief,
+    note: String(scDoc.data()?.note ?? ""),
+    options: ((scDoc.data()?.options ?? []) as Array<Record<string, unknown>>).map((o) => ({
+      name: String(o.name ?? ""), reliefRate: Number(o.reliefRate ?? 0),
+      fit: String(o.fit ?? ""), caution: String(o.caution ?? "") })),
+    years: yearly.map((a) => {
+      const x = a as unknown as Record<string, number | string>;
+      const tax = Number(x.tax ?? 0);
+      const give = tax;                                   // 目安＝その年の法人税と同額
+      return { year: String(x.year), tax, give,
+        relief: Math.round(give * socialRelief),
+        cost: Math.round(give * (1 - socialRelief)) };
+    }),
+  };
+
   return {
-    scenario, rowsAlt, yearly, valuation,
+    scenario, rowsAlt, yearly, valuation, social,
     reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal,
       need: { ledgerPerYear: repairNeed.ledgerPerYear, placeholderPerYear: repairNeed.placeholderPerYear,
         totalPerYear: repairNeed.ledgerPerYear + repairNeed.placeholderPerYear,
@@ -542,8 +575,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     tax: { rate: taxRate, brackets, lossCarryforward: lossAtStart, lossLeft, payDelayYears: payDelay,
       note: String(taxDoc.data()?.note ?? ""),
       assets: depAssets.map((a) => ({ label: a.label, cost: a.cost, years: a.years,
-        startMonth: a.startMonth, immediate: a.immediate,
-        perYear: a.immediate ? a.cost : Math.round(a.cost / a.years) })),
+        startMonth: a.startMonth, immediate: a.immediate, rate: a.rate,
+        perYear: a.immediate ? a.cost
+          : a.rate > 0 ? Math.round(a.bookValue * a.rate)
+          : Math.round(a.cost / a.years) })),
       /* 償却台帳に載っていないものを**データから**出す。文章に書き込むと実態とずれる
          （2026-09-01: 清川・高砂を登録したあとも「未登録」と書いた注記が残っていた） */
       missing: {
