@@ -263,7 +263,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     ? { ...a, monthly: investedMonthly } : a);
   const investmentTotal = accounts.filter((a) => a.kind === "investment")
     .reduce((t, a) => t + (a.latest?.balance ?? 0), 0);
-  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, plan] = await Promise.all([
+  const [taxDoc, depSnap, ownerDoc, ocDoc, rpDoc, eqSnap2, capDoc, phDoc, scDoc, vaDoc, plan] = await Promise.all([
     db.collection("assumptions").doc("corporate-tax").get(),
     db.collection("depreciation").get(),
     db.collection("settings").doc("owner").get(),
@@ -273,6 +273,7 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     db.collection("assumptions").doc("cap-rate").get(),
     db.collection("assumptions").doc("repair-placeholder").get(),
     db.collection("assumptions").doc("social-contribution").get(),
+    db.collection("assumptions").doc("valuation").get(),
     renewalPlan(),
   ]);
   /* 償却台帳に無い有償の設備の数（画面の注記をデータから作るために数える） */
@@ -508,11 +509,16 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   let inv = investmentTotal;
   for (const a of yearly as unknown as Array<Record<string, number | string>>) {
     const add2 = Number(a.reserves2 ?? 0);
-    const rep = Number(a.repair ?? 0);
+    /* 設備がまだ登録されていない棟のぶんは、年割りの仮置きを毎年の支出として引く
+       （2026-09-01 発注者指示）。台帳に実物が入れば仮置きは消え、実際の時期で出るようになる。
+       仮置きは時期が分からないので、資金繰りの現金には効かせない——投資信託の中だけで減らす */
+    const ph = Number(a.months) >= 12 ? repairNeed.placeholderPerYear : 0;
+    const rep = Number(a.repair ?? 0) + ph;
     inv += add2;
     const fromInv = Math.min(inv, rep);
     inv -= fromInv;
-    Object.assign(a, { investBalance: Math.round(inv),
+    Object.assign(a, { investBalance: Math.round(inv), repairPlaceholder: Math.round(ph),
+      repairTotal: Math.round(rep),
       repairFromInvestment: Math.round(fromInv), repairFromCash: Math.round(rep - fromInv) });
   }
 
@@ -555,6 +561,12 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     options: ((scDoc.data()?.options ?? []) as Array<Record<string, unknown>>).map((o) => ({
       name: String(o.name ?? ""), reliefRate: Number(o.reliefRate ?? 0),
       fit: String(o.fit ?? ""), caution: String(o.caution ?? "") })),
+    /* 寄附先の候補（人が調べて置いた判断。画面はこれを読むだけ） */
+    candidates: ((scDoc.data()?.candidates ?? []) as Array<Record<string, unknown>>).map((x) => ({
+      name: String(x.name ?? ""), url: String(x.url ?? ""), fields: String(x.fields ?? ""),
+      fit: String(x.fit ?? ""), why: String(x.why ?? "") })),
+    excluded: String(scDoc.data()?.excluded ?? ""),
+    candidatesNote: String(scDoc.data()?.candidatesNote ?? ""),
     years: yearly.map((a) => {
       const x = a as unknown as Record<string, number | string>;
       const tax = Number(x.tax ?? 0);
@@ -565,8 +577,19 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
     }),
   };
 
+  /* 企業価値の算出方法そのものも人の判断なので台帳に置く（2026-09-01 発注者指示）。
+     画面は式も注意書きもここから読む——コードや文章に書き込まない */
+  const valuationBasis = {
+    method: String(vaDoc.data()?.method ?? ""),
+    formula: String(vaDoc.data()?.formula ?? ""),
+    noiIncludes: (vaDoc.data()?.noiIncludes ?? []) as string[],
+    noiExcludes: (vaDoc.data()?.noiExcludes ?? []) as string[],
+    caveats: (vaDoc.data()?.caveats ?? []) as string[],
+    note: String(vaDoc.data()?.note ?? ""),
+  };
+
   return {
-    scenario, rowsAlt, yearly, valuation, social,
+    scenario, rowsAlt, yearly, valuation, valuationBasis, social,
     reservePlan: { perRoomPerMonth: reservePerRoom, investmentNow: investmentTotal,
       need: { ledgerPerYear: repairNeed.ledgerPerYear, placeholderPerYear: repairNeed.placeholderPerYear,
         totalPerYear: repairNeed.ledgerPerYear + repairNeed.placeholderPerYear,
