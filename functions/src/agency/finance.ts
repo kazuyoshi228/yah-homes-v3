@@ -45,6 +45,7 @@ export interface LoanState {
   remainingCount: number;
   progress: number;               // 返済の進み具合（%）
   notStarted?: boolean;           // 返済開始前
+  conditionsUnknown?: boolean;    // 返済条件が未登録（残高は申告のまま・進捗は出せない）
   graceUntil?: string;            // 据置中（この月から元金の返済が始まる）
 }
 
@@ -54,6 +55,18 @@ export interface LoanState {
  */
 export function loanState(loan: Loan, asOf = new Date()): LoanState {
   const ym = `${asOf.getFullYear()}-${String(asOf.getMonth() + 1).padStart(2, "0")}`;
+
+  /* 返済条件が登録されていない借入。ここで例外を投げると、1本の登録漏れで
+     カード全体が真っ白になる（2026-09-02 実際に本番が落ちた）。
+     推測で埋めず「申告残高のまま・進捗は不明」として返し、画面には出す。 */
+  if (!loan.firstPaymentMonth) {
+    const principal = Number(loan.principal ?? 0);
+    return {
+      loan, paidCount: 0, paidPrincipal: 0, balance: principal,
+      interestThisMonth: 0, monthlyTotal: 0,
+      remainingCount: 0, progress: 0, conditionsUnknown: true,
+    };
+  }
 
   /* まだ返済が始まっていない借入。月々の負担に足すと資金繰りを重く見誤るので0で返す
      （残債は満額のまま＝借りている事実は消さない）。 */
@@ -146,9 +159,12 @@ export function past12Months(loan: Loan, asOf = new Date()): number {
 /** 全借入の一覧＋合計。複数本になっても同じ物差しで並ぶ */
 export async function loanSummary(asOf = new Date()) {
   const snap = await agencyDb().collection("finance").where("kind", "==", "loan").get();
+  /* このカードは【法人の借入】の表。個人の借入は「個人の財務」カードが正本なので混ぜない
+     ——主体を混ぜると合計も加重平均利率も意味を失う（2026-09-02） */
   const rows = snap.docs
+    .filter((d) => String((d.data() as { entity?: string }).entity ?? "corp") === "corp")
     .map((d) => loanState({ id: d.id, ...(d.data() as object) } as Loan, asOf))
-    .sort((a, b) => a.loan.firstPaymentMonth.localeCompare(b.loan.firstPaymentMonth));
+    .sort((a, b) => String(a.loan.firstPaymentMonth ?? "").localeCompare(String(b.loan.firstPaymentMonth ?? "")));
   const sum = (f: (r: LoanState) => number) => rows.reduce((a, r) => a + f(r), 0);
   /* 加重平均利率: 残債の大きい借入ほど効くので、残債で重み付けする（単純平均だと実感とずれる） */
   const bal = sum((r) => r.balance);
