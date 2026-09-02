@@ -101,6 +101,8 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const [finSnap, revSnap, taxSnap, insSnap, resSnap, utilSnap, bpSnap, cfDoc, propSnap,
     cashSnap, bankSnap] =
     await Promise.all([
+      /* 法人の資金繰りなので【法人の借入だけ】。個人の借入は主体が違うので混ぜない
+         （フィルタは取得後に entity で行う——複合インデックスを増やさないため） */
       db.collection("finance").where("kind", "==", "loan").get(),
       db.collection("revenue").where("kind", "==", "monthly").get(),
       db.collection("taxes").get(), db.collection("insurance").get(), db.collection("reserves").get(),
@@ -156,7 +158,11 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   /* 年次の表のために、月ごとの前提は30年ぶん作っておく（2026-09-01 発注者指示）。
      12ヶ月の表は同じ表から先頭だけを見るので、数字は必ず一致する */
   const LONG = 360;
-  const loans = finSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) } as Loan));
+  /* 【法人の借入だけ】を使う。個人の借入（entity: personal）は主体が違うので混ぜない
+     ——混ぜると法人の借入残高もDSCRも過大になる（2026-09-02 実際に残債が¥80,000,000 多く出た） */
+  const loans = finSnap.docs
+    .filter((d) => String((d.data() as { entity?: string }).entity ?? "corp") === "corp")
+    .map((d) => ({ id: d.id, ...(d.data() as object) } as Loan));
   const loanOutgoByMonth: Record<string, number> = {};
   /* 支払利息は経費、元金の返済は経費ではない。課税所得を出すのに利息だけを取り分ける */
   const loanInterestByMonth: Record<string, number> = {};
