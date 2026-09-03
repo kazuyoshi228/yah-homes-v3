@@ -61,7 +61,8 @@ step "6. VIEW を作る"
 # 注釈を落として文ごとに分け、1本ずつ流す
 #   ——まとめて流すと、途中で失敗したとき何が作れたか分からなくなる
 SQLFILE="$(dirname "$0")/bq-views.sql"
-grep -v '^\s*--' "$SQLFILE" | tr '\n' ' ' | tr ';' '\n' > /tmp/bq-views-split.txt
+# シェルの tr で切ると注釈や改行の扱いで文が途中で切れる（2026-09-03 実際に起きた）
+python3 "$(dirname "$0")/bq-split-sql.py" "$SQLFILE" > /tmp/bq-views-split.txt
 while IFS= read -r Q; do
   case "$Q" in *CREATE*) ;; *) continue ;; esac
   NAME=$(printf '%s' "$Q" | grep -oE 'VIEW `[^`]+`' | head -1)
