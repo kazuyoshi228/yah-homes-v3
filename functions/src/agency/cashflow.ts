@@ -562,9 +562,17 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   }
 
   /* 税額を年ごとに出す。繰越欠損金は古い年から順に食う */
+  /* 消費税は、その年に実際に納付した額（vatPaid）を課税所得から引く
+     （2026-09-03 発注者指示「消費税は支払うで入れて」）。
+     現金の出方と課税所得の動きが一致するので、資金繰りを見る目的では分かりやすい。
+     【暫定】税抜経理なら消費税は損益に乗らず、乗るのは控除対象外消費税だけ。
+     経理方式が確定していないので、いまは「払った額を引く」で置いている。
+     assumptions/consumption-tax.accountingMethod が正本。税理士の確認が要る。 */
   const taxed: Array<{ tax: number; closing: number }> = [];
   for (const a of yearly) {
-    const pretax = a.income - a.fixed - a.utilities - a.interest - a.depreciation - a.officer - a.overhead;
+    const vatPaidY = Number((a as unknown as { vatPaid?: number }).vatPaid ?? 0);
+    const pretax = a.income - a.fixed - a.utilities - a.interest - a.depreciation
+      - a.officer - a.overhead - vatPaidY;
     const used = pretax > 0 ? Math.min(lossLeft, pretax) : 0;
     lossLeft -= used;
     const taxable = Math.max(0, pretax - used);
