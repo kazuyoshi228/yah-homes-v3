@@ -23,13 +23,11 @@
 #         --member="serviceAccount:$SA" --role="$R"
 #     done
 #
-#   権限を足すまでこのワークフローは失敗する。schedule はコメントアウトしてある——
-#   権限が付いたら外して有効にすること。
+#   → 2026-09-04 に4ロールとも付与済み。schedule を有効にした。
 name: bq-sync
 on:
-  # ↓ SA に権限を足したら、この2行のコメントを外す（上の注記を参照）
-  # schedule:
-  #   - cron: "0 18 * * *"    # UTC 18:00 = JST 翌 03:00
+  schedule:
+    - cron: "0 18 * * *"      # UTC 18:00 = JST 翌 03:00
   workflow_dispatch:           # 手でも回せる
 concurrency:
   group: bq-sync
