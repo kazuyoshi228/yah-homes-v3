@@ -13,6 +13,11 @@ DATASET="agency"
 REGION="asia-northeast1"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
+# 出す台帳。--collection-ids を渡さないと all_kinds に1つへまとまってしまい、
+# BigQuery が「どのテーブルか」を決められない（2026-09-03 実際に起きた）。
+# 空のコレクションは export が作らないので、ここに書いてあっても害はない。
+COLLECTIONS="assumptions,bankBalances,bsAdjustments,buildPayments,cash,construction,contracts,depreciation,equipment,finance,financials,insurance,items,jobs,judgments,landComps,personalAssets,personalDistributions,places,policies,properties,recurringCosts,reserves,revenue,schedules,scorecards,settings,taxes,tourismStats,utilities,utilityBills,vendors,adsDaily,bookingDaily,cvr,ga4Daily,gscDaily,gscPage,gscQuery,competitorObs,opsTasks"
+
 step() { echo; echo "── $* ──"; }
 
 step "0. 権限の確認"
@@ -37,14 +42,14 @@ bq --project_id="$PROJECT" --location="$REGION" show -d "$DATASET" >/dev/null 2>
 
 step "4. Firestore からエクスポート（数分かかる）"
 gcloud firestore export "${BUCKET}/${STAMP}" \
-  --database="$DB" --project="$PROJECT"
+  --database="$DB" --project="$PROJECT" --collection-ids="$COLLECTIONS"
 
 step "5. BigQuery へ読み込む"
 # エクスポートされたコレクションを、書き出し先から自動で拾う
-COLLECTIONS=$(gcloud storage ls "${BUCKET}/${STAMP}/all_namespaces/" \
-  | sed 's#.*/kind_##; s#/$##' | grep -v '^$' || true)
-echo "見つかったコレクション:"; echo "$COLLECTIONS" | tr '\n' ' '; echo
-for C in $COLLECTIONS; do
+FOUND=$(gcloud storage ls "${BUCKET}/${STAMP}/all_namespaces/" \
+  | sed 's#.*/kind_##; s#/$##' | grep -v '^$' | grep -v all_kinds || true)
+echo "見つかったコレクション: $(echo "$FOUND" | grep -c . ) 件"
+for C in $FOUND; do
   META="${BUCKET}/${STAMP}/all_namespaces/kind_${C}/all_namespaces_kind_${C}.export_metadata"
   echo "  読み込み: $C"
   bq --project_id="$PROJECT" --location="$REGION" load --replace --quiet \
@@ -52,9 +57,18 @@ for C in $COLLECTIONS; do
 done
 
 step "6. VIEW を作る"
-# 式の正本は functions/src/agency/derive.ts。ここはその写し
-bq --project_id="$PROJECT" --location="$REGION" query --use_legacy_sql=false \
-   < "$(dirname "$0")/bq-views.sql"
+# 式の正本は functions/src/agency/derive.ts。ここはその写し。
+# 注釈を落として文ごとに分け、1本ずつ流す
+#   ——まとめて流すと、途中で失敗したとき何が作れたか分からなくなる
+SQLFILE="$(dirname "$0")/bq-views.sql"
+grep -v '^\s*--' "$SQLFILE" | tr '\n' ' ' | tr ';' '\n' > /tmp/bq-views-split.txt
+while IFS= read -r Q; do
+  case "$Q" in *CREATE*) ;; *) continue ;; esac
+  NAME=$(printf '%s' "$Q" | grep -oE 'VIEW `[^`]+`' | head -1)
+  echo "  作成: ${NAME:-（不明）}"
+  bq --project_id="$PROJECT" --location="$REGION" query --use_legacy_sql=false --quiet "$Q" \
+    || echo "    → 失敗。元のテーブルが揃っているか確認してください"
+done < /tmp/bq-views-split.txt
 
 step "確認"
 bq --project_id="$PROJECT" --location="$REGION" query --use_legacy_sql=false --format=pretty \
