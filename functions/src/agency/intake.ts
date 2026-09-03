@@ -7,7 +7,10 @@
  * 流れ: Gmail添付 → 保管庫(gs://…/intake/) → Gemini読取（種類判定＋構造化）→ intake台帳(draft)
  *      → OSの受信箱で検収 → 種類ごとの正本へ（cash 等）。原本パスは正本の行に残る（リネージ）。
  */
-import { google } from "googleapis";
+// Gmail だけを使うので Gmail 専用パッケージにする（2026-09-03）。
+// googleapis 全部入りは 209MB あり、Cloud Build が毎回それを取得・展開するため
+// Functions のデプロイが目に見えて遅くなっていた。@googleapis/gmail は 1.1MB。
+import { gmail as gmailApi } from "@googleapis/gmail";
 import { getStorage } from "firebase-admin/storage";
 import { GoogleGenAI, Type } from "@google/genai";
 import { agencyDb } from "./engine.js";
@@ -35,7 +38,7 @@ const EXTRACT_PROMPT = `これは宿泊事業の経営OSへ取り込む書類の
 
 /** 添付を保管庫へ移し、Geminiで読取り、intake(draft) に積む */
 export async function processIntake(mail: IncomingMail): Promise<number> {
-  const gmail = google.gmail({ version: "v1", auth: gmailAuthFromKey(process.env.AGENCY_MAILER_KEY ?? "") as never });
+  const gmail = gmailApi({ version: "v1", auth: gmailAuthFromKey(process.env.AGENCY_MAILER_KEY ?? "") as never });
   const ai = new GoogleGenAI({ vertexai: true, project: "yah-homes", location: "global" });
   const db = agencyDb();
   const ym = mail.receivedAt.slice(0, 7);

@@ -9,11 +9,14 @@
  *   2. 無ければ From の一致 × 直近30日のジョブ（1件に絞れるときだけ）
  *   3. 絞れなければ「未紐付け」として記録し、人へ回す（推測で結び付けない）
  */
-import { google } from "googleapis";
+// Gmail だけを使うので Gmail 専用パッケージにする（2026-09-03）。
+// googleapis 全部入りは 209MB あり、Cloud Build が毎回それを取得・展開するため
+// Functions のデプロイが目に見えて遅くなっていた。@googleapis/gmail は 1.1MB。
+import { gmail as gmailApi } from "@googleapis/gmail";
 import { agencyDb } from "./engine.js";
 import { gmailAuthFromKey, AI_ADDRESS } from "./mailer.js";
 
-const gmail = () => google.gmail({ version: "v1", auth: gmailAuthFromKey(process.env.AGENCY_MAILER_KEY ?? "") as never });
+const gmail = () => gmailApi({ version: "v1", auth: gmailAuthFromKey(process.env.AGENCY_MAILER_KEY ?? "") as never });
 
 /** watch の登録（有効期限は7日なので、日次で貼り直す） */
 export async function startWatch(): Promise<{ historyId: string; expiration: string }> {

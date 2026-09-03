@@ -9,7 +9,10 @@
  *  - キルスイッチ = autoSend を false に戻すだけで即・下書きモード
  *  - 鍵ファイルは持たない（Functions の実行SAに委任させる）
  */
-import { google } from "googleapis";
+// Gmail だけを使うので Gmail 専用パッケージにする（2026-09-03）。
+// googleapis 全部入りは 209MB あり、Cloud Build が毎回それを取得・展開するため
+// Functions のデプロイが目に見えて遅くなっていた。@googleapis/gmail は 1.1MB。
+import { gmail as gmailApi } from "@googleapis/gmail";
 import { JWT } from "google-auth-library";
 import { dispatchSettings, notifySettings } from "./settings.js";
 
@@ -26,7 +29,7 @@ const SCOPES = [
 /* Gmailの認証だけは Workspace のドメイン全体委任が要る（Firestoreの権限とは別物）。
    委任を登録したのは agency-mailer SA なので、その鍵を Secret Manager から受け取る。
    鍵はコード・リポジトリに置かない（環境変数 AGENCY_MAILER_KEY で注入）。 */
-let cachedGmail: ReturnType<typeof google.gmail> | null = null;
+let cachedGmail: ReturnType<typeof gmailApi> | null = null;
 export function gmailAuthFromKey(keyJson: string) {
   const key = JSON.parse(keyJson) as { client_email: string; private_key: string };
   return new JWT({ email: key.client_email, key: key.private_key, scopes: SCOPES, subject: AI_ADDRESS });
@@ -35,7 +38,7 @@ async function gmailClient() {
   if (cachedGmail) return cachedGmail;
   const keyJson = process.env.AGENCY_MAILER_KEY;
   if (!keyJson) throw new Error("AGENCY_MAILER_KEY が未設定です（Gmailの委任鍵・Secret Manager から注入する）");
-  cachedGmail = google.gmail({ version: "v1", auth: gmailAuthFromKey(keyJson) as never });
+  cachedGmail = gmailApi({ version: "v1", auth: gmailAuthFromKey(keyJson) as never });
   return cachedGmail;
 }
 
