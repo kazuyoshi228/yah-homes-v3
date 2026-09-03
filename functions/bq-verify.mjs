@@ -8,7 +8,8 @@
  * あわせて【同期の鮮度】も見る。エクスポートが止まっても画面は出てしまうので、
  * 古い数字を分析に使う事故が起きうる（2026-09-02 融資カードが落ちても画面が出た件と同じ形）。
  *
- * 使い方: node tools/bq-verify.mjs
+ * 使い方: cd functions && node bq-verify.mjs
+ * （firebase-admin が functions/node_modules にあるため、ここに置く）
  * 前提: gcloud auth login 済み・bq が使えること・GOOGLE_APPLICATION_CREDENTIALS
  */
 import { execFileSync } from "node:child_process";
@@ -44,8 +45,8 @@ if (bad) console.log(`  → ${MAX_AGE_HOURS}時間を超えています。エク
 /* ── 2. 数字の一致 ── アプリの式（derive.ts）と BigQuery を突き合わせる */
 console.log("\n── アプリと BigQuery の突き合わせ ──");
 admin.initializeApp({ projectId: PROJECT });
-const { propertyNoi } = await import("../functions/lib/agency/derive.js");
-const propsMod = await import("../functions/lib/agency/props.js");
+const { propertyNoi } = await import("./lib/agency/derive.js");
+const propsMod = await import("./lib/agency/props.js");
 const propsFn = Object.values(propsMod).find((f) => typeof f === "function");
 const app = await propsFn();
 const appRows = (app.rows ?? app.props ?? []).filter((r) => r.noi != null);

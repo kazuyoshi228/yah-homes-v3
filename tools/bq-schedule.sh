@@ -46,7 +46,7 @@ cat <<EOS
 ── どちらにしても、必ず入れること ──
 
   同期が止まったら気づけるように、週1回これを流す:
-    cd $REPO && node tools/bq-verify.mjs
+    cd $REPO && cd functions && node bq-verify.mjs
 
   36時間を超えて古ければ落ちる。壊れても画面は出てしまうので、
   古い数字を分析に使う事故はこれで止める。
