@@ -615,8 +615,10 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const baseYear = Number(String(startMonth).slice(0, 4));
   const valuation = yearly.map((a) => {
     const x = a as unknown as Record<string, number | string>;
-    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.reserves2)
-      - Number(x.overhead);
+    /* NOIの定義は assumptions/noi-definition が正本（2026-09-02 発注者決定）。
+       修繕積立は【引かない】——将来の修繕に備えて取り分けるお金で、その年の費用ではない。
+       買い手も自分の積立方針で決めるため、収益還元の分子には入れないのが実務。 */
+    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.overhead);
     /* 途中から始まる年（初年）は12ヶ月に換算してから還元する。
        4ヶ月ぶんのNOIをそのまま割ると、不動産価値が3分の1に出てしまう（2026-09-01 発注者指摘） */
     const m = Number(x.months) || 12;
