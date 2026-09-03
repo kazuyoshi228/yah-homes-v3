@@ -87,6 +87,33 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
             nomuraTerms: nwl.exists ? { id: nwl.id, ...(nwl.data() as Record<string, unknown>) } : null });
           return true;
         }
+        case "landComps": {                                   // 不動産DB — 市場の取引事例と公示地価
+          /* 相場のデータ。自社の物件（properties）とは別物なので混ぜない——
+             あちらは「持っているもの」、こちらは「外で起きていること」。
+             成約（mlit）と鑑定（kouji）と売出（freins）も別物なので source で必ず分ける。
+             集計はここでせず、そのまま返す——画面で条件を変えて何度も引き直すため。 */
+          const db3 = agencyDb();
+          const [comps, props3] = await Promise.all([
+            db3.collection("landComps").get(),
+            db3.collection("properties").get(),
+          ]);
+          const own = props3.docs
+            .filter((d) => (d.data() as { kind?: string }).kind === "property")
+            .map((d) => {
+              const x = d.data() as Record<string, unknown>;
+              const area = Number(x.landArea ?? 0);
+              const paid = Number(x.purchasePrice ?? 0);
+              return {
+                id: d.id, label: String(x.label ?? d.id),
+                landArea: area, purchasePrice: paid,
+                /* 取得の㎡単価。保存せず毎回割る（SSoT） */
+                unitPrice: area ? Math.round(paid / area) : null,
+                access: String(x.access ?? ""), status: String(x.status ?? ""),
+              };
+            });
+          res.json({ ok: true, comps: comps.docs.map((d) => ({ id: d.id, ...(d.data() as object) })), own });
+          return true;
+        }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
           res.json({ ok: true, ...(await balanceSheet()) });
           return true;
