@@ -31,6 +31,18 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) && n !== 0 ? n : null;
 };
 
+/* 申請が済むまでの仮置きに使う語。Secret Manager は空の値を許さないため、
+   「未設定」を空文字では表せない。ここに挙げた語が入っているあいだは、取得しない。
+   実在のキーと衝突しないよう、意味のある英単語だけを並べる（2026-09-03） */
+const PLACEHOLDERS = ["pending", "todo", "unset", "none", "dummy", "placeholder", "changeme", "xxx", "-"];
+
+/** 本物のキーか。空・短すぎる・仮置きの語、のいずれでもないこと */
+function isRealKey(v: string | undefined): boolean {
+  const k = String(v ?? "").trim();
+  if (k.length < 16) return false;                       // 発行されるキーは十分に長い
+  return !PLACEHOLDERS.includes(k.toLowerCase());
+}
+
 /** いま取り込むべき四半期。公表は2四半期ほど遅れるので、余裕をみて4期ぶん見る */
 function recentQuarters(now: Date, back = 4): string[] {
   const out: string[] = [];
@@ -53,10 +65,14 @@ export const landCompsSync = onSchedule(
     const key = REINFOLIB_API_KEY.value();
     const log = db.collection("syncLogs").doc(`landComps-${new Date().toISOString().slice(0, 10)}`);
 
-    if (!key) {
-      /* キーが未設定でも落とさない。申請中のあいだ、毎回エラー通知が飛ぶのを避ける */
-      await log.set({ at: new Date().toISOString(), ok: false,
-        note: "REINFOLIB_API_KEY が未設定。不動産情報ライブラリの利用申請が済んだら Secret Manager に登録する" });
+    if (!isRealKey(key)) {
+      /* キーがまだ本物でなくても落とさない。申請中のあいだ、毎回エラー通知が飛ぶのを避ける。
+         【空だけを見てはいけない】——Secret Manager は空の値を許さないので、申請中は
+         "pending" のような仮の値が入る。それを素通りさせると実際にAPIを叩いて落ちる
+         （2026-09-03 別スレッドからの指摘で判明）。 */
+      await log.set({ at: new Date().toISOString(), ok: false, keyState: key ? "placeholder" : "empty",
+        note: "REINFOLIB_API_KEY がまだ本物ではない。不動産情報ライブラリの利用申請が済んだら、"
+          + "firebase functions:secrets:set REINFOLIB_API_KEY で本物に差し替える" });
       return;
     }
 
