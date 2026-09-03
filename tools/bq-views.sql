@@ -9,7 +9,17 @@
 -- 1行に連結したとき以降が全部コメントになる（2026-09-03 実際に起きた）。
 -- 数値は SAFE_CAST で明示的に直す。Datastore backup 経由だと型が揺れるため。
 
-CREATE OR REPLACE VIEW `yah-homes.agency.v_property_noi` AS
+-- 【NOIそのものはVIEWにしない】（2026-09-03）
+-- 光熱費が SQL では正しく再現できないため。実装は
+--   util.byPlace.filter(isLodging).reduce(perMonth) / 稼働棟数 * 12
+-- ——宿泊用の拠点の月額を全部足して、稼働中の棟数で均等割りしている。
+-- isLodging は places 台帳の判定、稼働棟数は properties の状態に依存する。
+-- SQLで書き直すと判定を二重に持つことになり、それこそが避けたい形なので置かない。
+--
+-- ここが出すのは【SQLで完全に再現できる部分だけ】。
+-- NOI は derive.ts が唯一の出どころで、このVIEWの値と突き合わせて検証する
+-- （tools/bq-verify.sh）。
+CREATE OR REPLACE VIEW `yah-homes.agency.v_property_revenue` AS
 WITH rev AS (
   SELECT prop,
          COUNT(*) AS months,
@@ -41,22 +51,13 @@ res AS (
   FROM `yah-homes.agency.reserves` GROUP BY prop
 )
 SELECT
-  own.prop,
-  own.label,
-  rev.months,
+  own.prop, own.label, rev.months,
   rev.stay_payout_y,
   own.other_income_y,
   COALESCE(tax.tax_y, 0) AS tax_y,
   COALESCE(ins.ins_y, 0) AS ins_y,
   COALESCE(res.reserve_y, 0) AS reserve_y,
-  own.price,
-  ROUND(rev.stay_payout_y + own.other_income_y
-        - COALESCE(tax.tax_y, 0) - COALESCE(ins.ins_y, 0)) AS noi,
-  ROUND(rev.stay_payout_y + own.other_income_y
-        - COALESCE(tax.tax_y, 0) - COALESCE(ins.ins_y, 0)
-        - COALESCE(res.reserve_y, 0)) AS noi_after_reserve,
-  ROUND(SAFE_DIVIDE(rev.stay_payout_y + own.other_income_y
-        - COALESCE(tax.tax_y, 0) - COALESCE(ins.ins_y, 0), own.price) * 100, 2) AS net_yield_pct
+  own.price
 FROM own
 JOIN rev ON rev.prop = own.prop
 LEFT JOIN tax ON tax.prop = own.prop
