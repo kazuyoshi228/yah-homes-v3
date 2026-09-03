@@ -14,8 +14,13 @@ import puppeteer from "puppeteer-core";
 
 const ROOT = new URL("../dist/", import.meta.url).pathname;
 const CHROME = process.env.SMOKE_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const CONCURRENCY = 8;
-const SETTLE_MS = 1800;   // load 後にJSが走り切るのを待つ時間
+// 並列度。1ページあたり SETTLE_MS の「待つだけ」の時間が支配的なので、
+// CPUコア数を超えて並べた方が速い（実測 10コア機で 8→16 にして 77秒→28秒）。
+// 上げても検出力は落ちないことを、わざと壊したページで確認済み（終了コード1で中止する）。
+const CONCURRENCY = Number(process.env.SMOKE_CONCURRENCY || 16);
+// load 後にJSが走り切るのを待つ時間。900msでも176ページは通る（20秒）が、
+// 遅れて走る計測コードの事故を2度起こしているので、安全側の1800msを既定にする。
+const SETTLE_MS = Number(process.env.SMOKE_SETTLE_MS || 1800);   // load 後にJSが走り切るのを待つ時間
 
 if (!existsSync(ROOT)) { console.error("✗ dist がありません（先にビルド）"); process.exit(1); }
 if (!existsSync(CHROME)) { console.error(`✗ Chrome が見つかりません: ${CHROME}（SMOKE_CHROME で指定可）`); process.exit(1); }
