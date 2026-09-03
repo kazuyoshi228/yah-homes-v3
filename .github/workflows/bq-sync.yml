@@ -1,0 +1,57 @@
+# agency DB を BigQuery へ日次で同期する（2026-09-03 発注者承認・design_agency_db_review_20260903.md D案）
+#
+# なぜ: 定期実行が無く、手で回した日の状態で止まっていた。2026-09-03 の実測で
+#       finance が12件中10件・landComps が1555件中100件しか入っておらず、
+#       欠けていた2本（¥93,031,628 と ¥3,000,000）が家族ファンドでいちばん効く借入だった。
+#       止まっても画面は出るのがいちばん危ないので、結果を catalog/_sync に残し
+#       health（?action=health）が鮮度を見る。
+#
+# 対象は agency DB のみ。(default) DB・chat 系には触れない（Firebaseプロジェクトは eSIM事業と共有）
+#
+# ★実行の前に、SA に権限を足す必要がある（2026-09-03 時点で不足）。
+#   firebase-deployer@yah-homes.iam.gserviceaccount.com が持っているのは
+#   firebase.admin / run.admin / cloudscheduler.admin などで、
+#   BigQuery も Firestore の export も入っていない。
+#   発注者が次を実行する（課金・IAM操作はAIが行わない・CLAUDE.md 共通ルール）:
+#
+#     SA=firebase-deployer@yah-homes.iam.gserviceaccount.com
+#     for R in roles/datastore.importExportAdmin \
+#              roles/bigquery.dataEditor \
+#              roles/bigquery.jobUser \
+#              roles/storage.objectAdmin ; do
+#       gcloud projects add-iam-policy-binding yah-homes \
+#         --member="serviceAccount:$SA" --role="$R"
+#     done
+#
+#   権限を足すまでこのワークフローは失敗する。schedule はコメントアウトしてある——
+#   権限が付いたら外して有効にすること。
+name: bq-sync
+on:
+  # ↓ SA に権限を足したら、この2行のコメントを外す（上の注記を参照）
+  # schedule:
+  #   - cron: "0 18 * * *"    # UTC 18:00 = JST 翌 03:00
+  workflow_dispatch:           # 手でも回せる
+concurrency:
+  group: bq-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: 依存を入れる
+        working-directory: functions
+        run: npm ci
+      - name: 同期して件数を突き合わせる
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
+          ./tools/bq-sync.sh

@@ -37,6 +37,25 @@ export async function healthSummary() {
     ]);
   /* 手動の上書き（人の判断＝保存してよい・Firestoreが正本）。色は上書きが勝つが、
      検証結果は捨てない——ツールチップに残す */
+  /* BigQuery の同期が止まっていないか（2026-09-03 発注者承認・design_agency_db_review D案）。
+     2026-09-03 の実測で finance が12件中10件・landComps が1555件中100件しか入っておらず、
+     欠けていた2本が家族ファンドでいちばん効く借入だった。止まっても画面は出るのが危ない */
+  const syncDoc = await db.collection("catalog").doc("_sync").get();
+  const sync = syncDoc.data() as { syncedAt?: string; ok?: boolean; mismatched?: number } | undefined;
+  const SYNC_STALE_HOURS = 36;   /* 日次のはずなので、1日半で警告 */
+  if (!sync?.syncedAt) {
+    add("cashflow", "BigQuery の同期", false,
+      "catalog/_sync が無い。tools/bq-sync.sh を一度も走らせていないか、記録に失敗している");
+  } else {
+    const hours = (now.getTime() - new Date(sync.syncedAt).getTime()) / 3_600_000;
+    const fresh = hours <= SYNC_STALE_HOURS;
+    add("cashflow", "BigQuery の同期", fresh && sync.ok === true,
+      fresh
+        ? (sync.ok ? `${Math.round(hours)}時間前に同期・全テーブル一致`
+                   : `件数が ${sync.mismatched} テーブルで不一致。分析に使わないこと`)
+        : `${Math.round(hours / 24)}日前から止まっている（${sync.syncedAt.slice(0, 16)}）。古い数字が返る`);
+  }
+
   const ovDoc = await db.collection("settings").doc("dots").get();
   const overrides = (ovDoc.data()?.cards ?? {}) as Record<string, { state: string; by: string; at: string }>;
 
