@@ -20,13 +20,23 @@
 -- NOI は derive.ts が唯一の出どころで、このVIEWの値と突き合わせて検証する
 -- （tools/bq-verify.sh）。
 CREATE OR REPLACE VIEW `yah-homes.agency.v_property_revenue` AS
-WITH rev AS (
-  SELECT prop,
+WITH recent AS (
+  -- アプリは revenueSummary(12) で【直近12ヶ月だけ】を見る。全期間で平均すると
+  -- 実績の長い棟が古い月に引きずられる（2026-09-03 清川で ¥580,743 ずれた）。
+  -- 「直近12ヶ月」は月の一覧の末尾12——棟ごとではなく全体の月で切るのも実装と同じ。
+  SELECT month FROM (
+    SELECT DISTINCT month FROM `yah-homes.agency.revenue` WHERE kind = 'monthly'
+    ORDER BY month DESC LIMIT 12
+  )
+),
+rev AS (
+  SELECT r.prop,
          COUNT(*) AS months,
-         ROUND(SUM(SAFE_CAST(payout AS FLOAT64)) / COUNT(*) * 12) AS stay_payout_y
-  FROM `yah-homes.agency.revenue`
-  WHERE kind = 'monthly'
-  GROUP BY prop
+         ROUND(SUM(SAFE_CAST(r.payout AS FLOAT64)) / COUNT(*) * 12) AS stay_payout_y
+  FROM `yah-homes.agency.revenue` r
+  JOIN recent ON recent.month = r.month
+  WHERE r.kind = 'monthly'
+  GROUP BY r.prop
 ),
 own AS (
   SELECT __key__.name AS prop,
