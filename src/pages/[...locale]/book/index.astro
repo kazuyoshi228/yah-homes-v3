@@ -75,6 +75,7 @@ const HOUSES = [
     name: "yah.homes kiyokawa",
     area: { en: "Kiyokawa · 8 min to Tenjin", ja: "清川・天神まで車で8分", ko: "기요카와・텐진까지 차로 8분", zh: "清川・開車8分鐘到天神", th: "คิโยคาวะ・8 นาทีถึงเทนจิน" }[lang],
     capacity: facts.kiyokawa.capacity,
+    freeCancelDays: facts.kiyokawa.freeCancelDays,
     image: PROPERTIES.kiyokawa.exterior,
     detail: localizedPath(lang, "/properties/kiyokawa"),
   },
@@ -83,6 +84,7 @@ const HOUSES = [
     name: "yah.homes takasago",
     area: { en: "Takasago · walk to Tenjin", ja: "高砂・天神徒歩圏", ko: "다카사고・텐진 도보권", zh: "高砂・步行可達天神", th: "ทาคาซาโกะ・เดินถึงเทนจิน" }[lang],
     capacity: facts.takasago.capacity,
+    freeCancelDays: facts.takasago.freeCancelDays,
     image: PROPERTIES.takasago.exterior,
     detail: localizedPath(lang, "/properties/takasago"),
   },
@@ -94,6 +96,7 @@ const HOUSES = [
     name: "yah.homes test1（検証用・実際には泊まれません）",
     area: { en: "Test property for end-to-end verification", ja: "動作検証用の物件です。ご予約はできません。", ko: "동작 검증용 숙소입니다.", zh: "測試用房源，無法實際入住。", th: "ที่พักสำหรับทดสอบระบบ" }[lang],
     capacity: 7,
+    freeCancelDays: 8,
     image: PROPERTIES.kiyokawa.exterior,
     detail: localizedPath(lang, "/properties/kiyokawa"),
   }] : []),
@@ -171,9 +174,14 @@ for (let i = 0; i <= 13; i++) {
 const noteTemplate = t.totalNote(-1, -2).replace("-1", "{n}").replace("-2", "{g}");
 // 1人1泊あたりの表記テンプレ（{v} に金額）。関数はクライアントへ渡せないので文字列化する。
 const perGuestNightTemplate = t.perGuestNight("{v}");
+// 無料キャンセル期限の表記テンプレ（{d} に日付）。日付の算出式は決済ページ(checkout.astro)
+// と同一にする。両画面で違う日を出すと、その場で信用を失う。
+const freeCancelUntilTemplate = t.freeCancelUntil("{d}");
 
 const strings = {
   perGuestNightTemplate,
+  freeCancelUntilTemplate,
+  notChargedYet: t.notChargedYet,
   selectDates: t.selectDates,
   selectCheckout: t.selectCheckout,
   searching: t.searching,
@@ -320,7 +328,7 @@ const strings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity })) }}>
+<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity, freeCancelDays: h.freeCancelDays })) }}>
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -594,6 +602,13 @@ const strings = {
     track("availability_result_viewed", {
       prop: house.key, checkin: state.checkin, nights, guests: state.guests, total: p.total, currency: "JPY",
     });
+    // 無料キャンセル期限。SSoT(property_facts) と算出式を決済ページに合わせる。
+    // N日前の 00:00 JST = (N+1)日前の 23:59 JST。表記は後者に揃える（実質同じ期限）
+    const fcDays = house.freeCancelDays ?? 8;
+    const fcStr = state.checkin
+      ? new Date(Date.parse(`${state.checkin}T00:00:00+09:00`) - fcDays * 86400000 + 9 * 3600000)
+          .toISOString().slice(0, 10)
+      : "";
     box.innerHTML = `
       <p class="bk-quote-label">${strings.totalLabel}</p>
       ${rack > p.total ? `<p class="bk-quote-rack"><s>${yen(rack)}</s>　<span class="bk-quote-disc">${strings.discountApplied}</span></p>` : ""}
@@ -605,6 +620,12 @@ const strings = {
       <p class="bk-quote-note">${strings.noteTemplate.replace("{n}", nights).replace("{g}", state.guests)}</p>
       <p class="bk-quote-note">${strings.noExtra}</p>
       <p class="bk-quote-direct">${strings.directNote}</p>
+      ${fcStr
+        ? `<ul class="bk-quote-assure">
+             <li>${strings.freeCancelUntilTemplate.replace("{d}", fmtDate(fcStr))}</li>
+             <li>${strings.notChargedYet}</li>
+           </ul>`
+        : ""}
       <a class="bk-cta" href="${href}">${strings.proceed}</a>`;
     track("official_value_viewed", { screen: "availability_result", prop: house.key, checkin: state.checkin });
     // Meta ViewQuote（カスタム）: 日程・人数・価格まで確認した高意向者。
@@ -1167,6 +1188,28 @@ const strings = {
   }
   /* 1人1泊あたり。総額の直下に置き、総額より小さく・注記より大きい中間の重みにする
      （グループの幹事が比較するのはこの単位。ホテル1室単価と並べて判断される） */
+  /* 金額の直後に置く安心材料。innerHTML で注入するため :global が要る */
+  .bk-quote :global(.bk-quote-assure) {
+    list-style: none;
+    margin: 0.7rem 0 0.9rem;
+    padding: 0.7rem 0 0;
+    border-top: 1px solid #eeeeee;
+    font-size: 0.82rem;
+    color: #444444;
+  }
+  .bk-quote :global(.bk-quote-assure li) {
+    position: relative;
+    padding-left: 1.15rem;
+    line-height: 1.65;
+  }
+  .bk-quote :global(.bk-quote-assure li + li) { margin-top: 0.25rem; }
+  .bk-quote :global(.bk-quote-assure li)::before {
+    content: "\2713";
+    position: absolute;
+    left: 0;
+    color: #1a7f37;
+    font-weight: 700;
+  }
   .bk-quote :global(.bk-quote-pgn) {
     font-size: 0.95rem;
     font-weight: 500;

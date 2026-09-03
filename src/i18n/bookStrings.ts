@@ -36,6 +36,8 @@ export interface BookStrings {
   perGuestNight: (v: string) => string;
   approx: string;
   freeCancelUntil: (date: string) => string;
+  /** 料金ボックス用。金額の直後で「押しても課金されない」ことを伝える */
+  notChargedYet: string;
   proceed: string;
   capacityMax: (n: number) => string;
   errorFetch: string;
@@ -87,6 +89,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     perGuestNight: (v) => `${v} per guest, per night`,
     approx: "approx.",
     freeCancelUntil: (d) => `Free cancellation until ${d}`,
+    notChargedYet: "You won't be charged yet",
     proceed: "Book now",
     capacityMax: (n) => `Up to ${n} guests`,
     errorFetch: "Could not load availability. Please try again shortly.",
@@ -132,6 +135,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     perGuestNight: (v) => `1人1泊あたり ${v}`,
     approx: "約",
     freeCancelUntil: (d) => `${d} まで無料キャンセル`,
+    notChargedYet: "このボタンではまだ課金されません",
     proceed: "予約する",
     capacityMax: (n) => `最大${n}名`,
     errorFetch: "空室情報を取得できませんでした。時間をおいてお試しください。",
@@ -177,6 +181,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     perGuestNight: (v) => `1인 1박당 ${v}`,
     approx: "약",
     freeCancelUntil: (d) => `${d}까지 무료 취소`,
+    notChargedYet: "아직 결제되지 않습니다",
     proceed: "예약하기",
     capacityMax: (n) => `최대 ${n}명`,
     errorFetch: "빈방 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -222,6 +227,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     perGuestNight: (v) => `每人每晚 ${v}`,
     approx: "約",
     freeCancelUntil: (d) => `${d} 前可免費取消`,
+    notChargedYet: "點擊後尚不會扣款",
     proceed: "立即預訂",
     capacityMax: (n) => `最多 ${n} 人`,
     errorFetch: "無法取得空房資訊，請稍後再試。",
@@ -267,6 +273,7 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     perGuestNight: (v) => `${v} ต่อคนต่อคืน`,
     approx: "ประมาณ",
     freeCancelUntil: (d) => `ยกเลิกฟรีถึง ${d}`,
+    notChargedYet: "ยังไม่มีการเรียกเก็บเงิน",
     proceed: "จองเลย",
     capacityMax: (n) => `สูงสุด ${n} ท่าน`,
     errorFetch: "ไม่สามารถโหลดข้อมูลห้องว่างได้ กรุณาลองใหม่อีกครั้ง",
