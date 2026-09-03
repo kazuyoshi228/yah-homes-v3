@@ -18,10 +18,24 @@ export default defineConfig({
   // 翻訳データ駆動で全言語を静的生成する。Astro組み込みi18nの物理フォルダ方式は使わない。
   integrations: [
     sitemap({
-      // 管理画面（/admin/*）・thankyou・入室案内（/how-to/* = 宿泊者専用）はインデックス対象外。
+      // noindex のページは sitemap にも載せない。載せると Google に「登録して」と言いながら
+      // ページ側で「登録するな」と言う矛盾になり、GSCの「登録されていないページ」を無意味に
+      // 膨らませて、本当に直すべき問題がその中に埋もれる（2026-09-03 実測: 21件が該当）。
+      //
+      //   admin      管理画面
+      //   thankyou   薄いページ
+      //   partners   サイト内リンクなしの限定公開
+      //   how-to     入室案内（宿泊者専用）
+      //   inquiry    問い合わせ状況
+      //   book       予約エンジン（/book・/book/checkout・/book/complete）※2026-09-03 追加
+      //   account    マイページ ※2026-09-03 追加
+      //   operators  運営メニュー ※2026-09-03 追加
+      //
+      // パス先頭で判定する（page.includes だと /guides/how-to-book のような
+      // 記事スラッグまで巻き込むため）。言語接頭辞 /ja/ /zh/ 等を許容する。
       filter: (page) =>
-        !page.includes("/admin") && !page.includes("/thankyou") &&
-        !page.includes("/partners") && !page.includes("/how-to") && !page.includes("/inquiry"),
+        !/^\/(?:[a-z]{2}\/)?(?:admin|thankyou|partners|how-to|inquiry|book|account|operators)(?:\/|$)/
+          .test(new URL(page).pathname),
     }),
   ],
   vite: {
