@@ -307,10 +307,14 @@ const pageJsonLd = [jsonLd, breadcrumb].filter(Boolean); // faqJsonLd は本文�
         )
       }
 
-      <!-- handoff: Airbnb直行CTA（全記事共通・HEROと同じ赤ピル部品。テンプレート一括変更 2026-07-25） -->
+      <!-- 記事末尾のCTA。labels を渡すと直販（/book）へ、渡さないと Airbnb 直行になる部品。
+           2026-07-25 に全記事を Airbnb 直行へ一括変更したまま、直販公開後も末尾だけ残っていた。
+           記事は自然検索の主な着地先なので、ここからOTAへ送るのをやめる（2026-09-03）。
+           Airbnb は消えず、部品側で「レビューの確認先」として別行に出る。 -->
       <section class="gd-handoff">
         <h2 class="gd-h2">{lang === "ja" ? "福岡・都心の一棟貸しなら" : "Stay with yah.homes"}</h2>
-        <InlineBookingCta lang={lang} ctaLocation="article_footer" showRating onLight align="center" />
+        <InlineBookingCta lang={lang} ctaLocation="article_footer" showRating onLight align="center"
+                          labels={MIDCTA_LABELS[lang]} />
       </section>
 
       {/* 関連ガイドは各記事の本文が持つ（ハブ&スポークで意図的にキュレーション済み）。

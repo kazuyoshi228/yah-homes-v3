@@ -210,6 +210,13 @@ const htmlLang = HREFLANG[lang];
           });
         } else if (href === "#booking") {
           gtag("event", "click_booking_calendar", { property: property, page_path: path });
+        } else if (a.host === location.host && /^\/(?:[a-z]{2}\/)?book\/?$/.test(a.pathname)) {
+          // 直販の予約ページへの遷移。HEROからAirbnbボタンを外して以降（2026-09-02）、
+          // サイト上の主要な行動がこれになったが、計測対象に入っていなかった。
+          // pathname の完全一致で見るので /book/checkout（フロー内の遷移）は拾わない。
+          gtag("event", "click_book_direct", { property: property, page_path: path, cta_location: ctaLocation });
+          // 直販の見込み客は Lead。OTAへの流出は OutboundBookingClick で別管理しているので混ざらない。
+          window.fbq && fbq("track", "Lead", { property_id: property, cta_location: ctaLocation });
         } else if (href.indexOf("instagram.com") > -1) {
           gtag("event", "click_instagram", { page_path: path });
         } else if (href.indexOf("prtimes.jp") > -1) {
