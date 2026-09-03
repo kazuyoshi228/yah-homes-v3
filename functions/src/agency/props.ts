@@ -9,6 +9,7 @@
  * 借入はこの画面では扱わない（融資カードの領分・2026-08-19 発注者指示）。
  */
 import { getStorage } from "firebase-admin/storage";
+import { propertyNoi, netYield } from "./derive.js";
 import { agencyDb } from "./engine.js";
 import { lodgingFilter } from "./places.js";
 import { revenueSummary } from "./revenue.js";
@@ -111,10 +112,8 @@ export async function propertySummary() {
     const ins = per(insSnap, d.id, "premiumPerYear");
     const res = per(resSnap, d.id, "amountPerYear");
     const utilities = r ? utilPerYear : 0;
-    /* 棟別NOI ＝ 宿泊の手取り ＋ 宿泊以外の収入 − 光熱費 − 固定資産税 − 保険。
-       修繕積立（res）は【引かない】——assumptions/noi-definition が正本（2026-09-02 発注者決定）。
-       会社維持経費は棟に紐づかないので、ここには入れない（全社NOIで引く）。 */
-    const noi = r || other ? stayPayout + other - utilities - tax - ins : null;
+    /* 式は derive.ts が正本。ここで書き直さない（2026-09-02） */
+    const noi = r || other ? propertyNoi({ stayPayout, otherIncome: other, utilities, tax, insurance: ins }) : null;
 
     /* 二重計上の検知。同じ仕訳（取引No）が複数の置き場に現れたら警告する。
        エアスター・toolbox・カーテンFIXで実際に3回起きた失敗を、構造で防ぐ（2026-08-24）。

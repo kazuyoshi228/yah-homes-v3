@@ -11,6 +11,7 @@
  * 「たぶん増える」は入れない。**実績と契約だけで組む**——楽観を混ぜると警報が鳴らなくなる
  */
 import { agencyDb } from "./engine.js";
+import { companyNoi, annualize, capValue } from "./derive.js";
 import { loanState, type Loan } from "./finance.js";
 import { renewalPlan } from "./lifecycle.js";
 
@@ -615,15 +616,14 @@ export async function cashflow(months = 12, asOf = new Date(), withFunding = tru
   const baseYear = Number(String(startMonth).slice(0, 4));
   const valuation = yearly.map((a) => {
     const x = a as unknown as Record<string, number | string>;
-    /* NOIの定義は assumptions/noi-definition が正本（2026-09-02 発注者決定）。
-       修繕積立は【引かない】——将来の修繕に備えて取り分けるお金で、その年の費用ではない。
-       買い手も自分の積立方針で決めるため、収益還元の分子には入れないのが実務。 */
-    const raw = Number(x.income) - Number(x.fixed) - Number(x.utilities) - Number(x.overhead);
+    /* 式は derive.ts が正本。ここで書き直さない（2026-09-02） */
+    const raw = companyNoi({ income: Number(x.income), fixed: Number(x.fixed),
+      utilities: Number(x.utilities), overhead: Number(x.overhead) });
     /* 途中から始まる年（初年）は12ヶ月に換算してから還元する。
        4ヶ月ぶんのNOIをそのまま割ると、不動産価値が3分の1に出てしまう（2026-09-01 発注者指摘） */
     const m = Number(x.months) || 12;
-    const noi = m < 12 ? Math.round((raw * 12) / m) : raw;
-    const asset = capRate > 0 ? Math.round(noi / capRate) : 0;
+    const noi = annualize(raw, m);
+    const asset = capValue(noi, capRate);
     const cash = Number(x.closingAfterTax ?? x.closing);
     const other = cash + Number(x.investBalance ?? 0) - Number(x.loanBalance ?? 0);
     /* インフレを見込む場合。NOIの純額を、最初の年から毎年◯%ずつ伸ばす簡便法。

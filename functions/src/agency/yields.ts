@@ -10,6 +10,7 @@
  * 修繕積立を引くかどうかで見え方が変わるので、両方返す。
  */
 import { agencyDb } from "./engine.js";
+import { propertyNoi, noiAfterReserve } from "./derive.js";
 import { lodgingFilter } from "./places.js";
 import { revenueSummary } from "./revenue.js";
 import { utilitySummary } from "./utilities.js";
@@ -46,16 +47,20 @@ export async function yieldSummary() {
     const tax = per(taxSnap, p.prop, "amountPerYear");
     const ins = per(insSnap, p.prop, "premiumPerYear");
     const res = per(resSnap, p.prop, "amountPerYear");
-    const noi = payoutY - utilPerYear - tax - ins - res;
+    /* 宿泊以外の収入（高砂のオフィス相当）。運営会社の報告には載らないので別に足す */
+    const other = Number(doc?.otherIncomePerMonth ?? 0) * 12;
+    /* 式は derive.ts が正本。修繕積立は引かない（2026-09-02 発注者決定）。
+       ここは従来 res を引いており、宿泊以外の収入も入れていなかった——両方そろえた */
+    const noi = propertyNoi({ stayPayout: payoutY, otherIncome: other, utilities: utilPerYear, tax, insurance: ins });
     const pct = (n: number) => (price ? Math.round((n / price) * 10000) / 100 : null);
     return {
       prop: p.prop, label: p.label, months: p.months, price,
       priceBasis: invTotal ? "総投資額" : "取得価額",
       acquisitionPrice: Number(doc?.acquisitionPrice ?? 0),
       revenueY, payoutY, utilities: utilPerYear, tax, insurance: ins, reserve: res,
-      noi, noiExReserve: noi + res,
+      noi, noiAfterReserve: noiAfterReserve(noi, res),
       gross: pct(revenueY), payoutYield: pct(payoutY),
-      net: pct(noi), netExReserve: pct(noi + res),
+      net: pct(noi), netAfterReserve: pct(noiAfterReserve(noi, res)),
       occ: p.occ, adr: p.adr,
     };
   }).sort((a, b) => (b.net ?? 0) - (a.net ?? 0));
