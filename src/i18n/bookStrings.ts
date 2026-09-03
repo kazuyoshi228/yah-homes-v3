@@ -38,6 +38,13 @@ export interface BookStrings {
   freeCancelUntil: (date: string) => string;
   /** 料金ボックス用。金額の直後で「押しても課金されない」ことを伝える */
   notChargedYet: string;
+  /** 満室で行き止まりになった人に、空きが出たら知らせる導線 */
+  alert: {
+    title: string; lead: (d: string, g: number) => string;
+    placeholder: string; submit: string;
+    sending: string; done: string; fail: string; invalid: string;
+    privacy: string;
+  };
   proceed: string;
   capacityMax: (n: number) => string;
   errorFetch: string;
@@ -90,6 +97,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     approx: "approx.",
     freeCancelUntil: (d) => `Free cancellation until ${d}`,
     notChargedYet: "You won't be charged yet",
+    alert: {
+      title: "Get notified if these dates open up",
+      lead: (d, g) => `We'll email you once if ${d} for ${g} guests becomes available.`,
+      placeholder: "your@email.com", submit: "Notify me",
+      sending: "Sending…", done: "Thanks — we'll email you if these dates open up.",
+      fail: "Could not send. Please try again later.", invalid: "Please check your email address.",
+      privacy: 'One email only. See our <a href="{privacyHref}">privacy policy</a> for how we handle it.',
+    },
     proceed: "Book now",
     capacityMax: (n) => `Up to ${n} guests`,
     errorFetch: "Could not load availability. Please try again shortly.",
@@ -136,6 +151,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     approx: "約",
     freeCancelUntil: (d) => `${d} まで無料キャンセル`,
     notChargedYet: "このボタンではまだ課金されません",
+    alert: {
+      title: "空きが出たらお知らせします",
+      lead: (d, g) => `${d}・${g}名の空室が出た場合に、1回だけメールでお知らせします。`,
+      placeholder: "your@email.com", submit: "通知を受け取る",
+      sending: "送信中…", done: "ご登録ありがとうございます。空きが出ましたらお知らせします。",
+      fail: "送信できませんでした。時間をおいてお試しください。", invalid: "メールアドレスをご確認ください。",
+      privacy: '配信はこの1通のみです。取り扱いは<a href="{privacyHref}">プライバシーポリシー</a>をご覧ください。',
+    },
     proceed: "予約する",
     capacityMax: (n) => `最大${n}名`,
     errorFetch: "空室情報を取得できませんでした。時間をおいてお試しください。",
@@ -182,6 +205,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     approx: "약",
     freeCancelUntil: (d) => `${d}까지 무료 취소`,
     notChargedYet: "아직 결제되지 않습니다",
+    alert: {
+      title: "빈방이 생기면 알려드립니다",
+      lead: (d, g) => `${d}・${g}명의 빈방이 생기면 한 번만 메일로 알려드립니다.`,
+      placeholder: "your@email.com", submit: "알림 받기",
+      sending: "전송 중…", done: "등록해 주셔서 감사합니다. 빈방이 생기면 알려드리겠습니다.",
+      fail: "전송하지 못했습니다. 잠시 후 다시 시도해 주세요.", invalid: "이메일 주소를 확인해 주세요.",
+      privacy: '메일은 이 1통뿐입니다. 취급은 <a href="{privacyHref}">개인정보 처리방침</a>을 참고해 주세요.',
+    },
     proceed: "예약하기",
     capacityMax: (n) => `최대 ${n}명`,
     errorFetch: "빈방 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -228,6 +259,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     approx: "約",
     freeCancelUntil: (d) => `${d} 前可免費取消`,
     notChargedYet: "點擊後尚不會扣款",
+    alert: {
+      title: "有空房時通知您",
+      lead: (d, g) => `若 ${d}・${g}人 出現空房，我們會以電子郵件通知您一次。`,
+      placeholder: "your@email.com", submit: "接收通知",
+      sending: "傳送中…", done: "已完成登錄。出現空房時我們會通知您。",
+      fail: "無法傳送，請稍後再試。", invalid: "請確認您的電子郵件地址。",
+      privacy: '僅會寄送這一封。資料處理方式請見<a href="{privacyHref}">私隱政策</a>。',
+    },
     proceed: "立即預訂",
     capacityMax: (n) => `最多 ${n} 人`,
     errorFetch: "無法取得空房資訊，請稍後再試。",
@@ -274,6 +313,14 @@ export const BOOK_STRINGS: Record<Locale, BookStrings> = {
     approx: "ประมาณ",
     freeCancelUntil: (d) => `ยกเลิกฟรีถึง ${d}`,
     notChargedYet: "ยังไม่มีการเรียกเก็บเงิน",
+    alert: {
+      title: "แจ้งเตือนเมื่อมีห้องว่าง",
+      lead: (d, g) => `หาก ${d}・${g} คน มีห้องว่าง เราจะแจ้งท่านทางอีเมลหนึ่งครั้ง`,
+      placeholder: "your@email.com", submit: "รับการแจ้งเตือน",
+      sending: "กำลังส่ง…", done: "ลงทะเบียนเรียบร้อย เราจะแจ้งท่านเมื่อมีห้องว่าง",
+      fail: "ส่งไม่สำเร็จ กรุณาลองใหม่ภายหลัง", invalid: "กรุณาตรวจสอบอีเมลของท่าน",
+      privacy: 'ส่งเพียงฉบับเดียว ดูการจัดการข้อมูลได้ที่<a href="{privacyHref}">นโยบายความเป็นส่วนตัว</a>',
+    },
     proceed: "จองเลย",
     capacityMax: (n) => `สูงสุด ${n} ท่าน`,
     errorFetch: "ไม่สามารถโหลดข้อมูลห้องว่างได้ กรุณาลองใหม่อีกครั้ง",

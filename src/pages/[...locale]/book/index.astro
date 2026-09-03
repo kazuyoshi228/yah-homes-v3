@@ -156,6 +156,8 @@ const HOST_COPY = {
         ctx: "วันที่คุณกำลังดู" },
 }[lang];
 const CONTACT_ENDPOINT = ENDPOINTS.contact;
+const ALERT_ENDPOINT = ENDPOINTS.alertSignup;
+const PRIVACY_HREF = localizedPath(lang, "/legal/privacy");
 
 const MAX_CAP = Math.max(...HOUSES.map((h) => h.capacity));
 /* 未登録通貨で「¥52,000 → ≈$52,000」と出す事故の芽を断つ。無ければ換算表示なし */
@@ -180,6 +182,7 @@ const freeCancelUntilTemplate = t.freeCancelUntil("{d}");
 
 const strings = {
   perGuestNightTemplate,
+  alert: { ...t.alert, leadTemplate: t.alert.lead("{d}", -1), privacy: t.alert.privacy.replace("{privacyHref}", PRIVACY_HREF) },
   freeCancelUntilTemplate,
   notChargedYet: t.notChargedYet,
   selectDates: t.selectDates,
@@ -328,7 +331,7 @@ const strings = {
   </section>
 </SiteLayout>
 
-<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity, freeCancelDays: h.freeCancelDays })) }}>
+<script define:vars={{ AVAIL_ENDPOINT, PROPS_PARAM, CONTACT_ENDPOINT, ALERT_ENDPOINT, CHECKOUT_PATH, lang, HOST_COPY, strings, HOUSES: HOUSES.map((h) => ({ key: h.key, capacity: h.capacity, freeCancelDays: h.freeCancelDays })) }}>
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -552,6 +555,71 @@ const strings = {
     box.querySelector("[data-retry]")?.addEventListener("click", () => { settledQuoteKey = null; loadQuotes(true); });
   }
 
+  /* ── 空室アラート（docs/spec_availability_alert_202609.md）──
+     満室で行き止まりになる人が月188人いる。代替日の提案は3.2%しか選ばれないので、
+     ここで「空いたら知らせる」を受け取り、断るしかない需要をリードとして残す。
+     取得するのはメールアドレスと希望条件のみ。氏名・電話は取らない。 */
+  function alertFormHtml(house, nights) {
+    if (!state.checkin || !state.checkout) return "";
+    // 人数(-1)を先に差し替える。日付を先に入れると、日付表記に "-1" が含まれる
+    // ロケールで人数の置換が日付側に当たってしまう。
+    const lead = strings.alert.leadTemplate
+      .replace("-1", state.guests)
+      .replace("{d}", `${fmtDate(state.checkin)} 〜 ${fmtDate(state.checkout)}`);
+    return `
+      <div class="bk-alert" data-alert="${house.key}">
+        <p class="bk-alert-title">${strings.alert.title}</p>
+        <div class="bk-alert-row">
+          <input type="email" class="bk-alert-input" data-alert-email placeholder="${strings.alert.placeholder}"
+                 maxlength="320" autocomplete="email" inputmode="email" />
+          <button type="button" class="bk-alert-btn" data-alert-send>${strings.alert.submit}</button>
+        </div>
+        <p class="bk-alert-lead">${lead}</p>
+        <p class="bk-alert-privacy">${strings.alert.privacy}</p>
+        <p class="bk-alert-status" data-alert-status></p>
+      </div>`;
+  }
+
+  function bindAlertForm(house) {
+    const wrap = document.querySelector(`[data-alert="${house.key}"]`);
+    if (!wrap) return;
+    const input = wrap.querySelector("[data-alert-email]");
+    const btn = wrap.querySelector("[data-alert-send]");
+    const status = wrap.querySelector("[data-alert-status]");
+    btn.addEventListener("click", async () => {
+      const email = (input.value || "").trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { status.textContent = strings.alert.invalid; return; }
+      btn.disabled = true;
+      status.textContent = strings.alert.sending;
+      try {
+        const r = await fetch(ALERT_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email, prop: house.key, checkin: state.checkin, checkout: state.checkout,
+            guests: state.guests, lang,
+          }),
+        });
+        const j = await r.json();
+        if (j.ok) {
+          status.textContent = strings.alert.done;
+          wrap.querySelector(".bk-alert-row").hidden = true;
+          // 直販の見込み客。具体的な宿泊日は送らない（個人の旅行計画になりうる）
+          window.gtag?.("event", "alert_signup", {
+            prop: house.key, nights, guests: state.guests, lang,
+          });
+          window.fbq?.("track", "Lead", { property_id: house.key, content_name: "availability_alert" });
+        } else {
+          status.textContent = strings.alert.fail;
+          btn.disabled = false;
+        }
+      } catch {
+        status.textContent = strings.alert.fail;
+        btn.disabled = false;
+      }
+    });
+  }
+
   function renderQuote(house, p, nights, byId) {
     const box = document.querySelector(`[data-quote="${house.key}"]`);
     if (!box) return;
@@ -582,9 +650,11 @@ const strings = {
         return;
       }
       box.innerHTML = `<p class="bk-quote-out">${strings.recovery.soldOutTitle}</p>
-        <p class="bk-quote-hint" data-recovery="${house.key}">…</p>`;
+        <p class="bk-quote-hint" data-recovery="${house.key}">…</p>
+        ${alertFormHtml(house, nights)}`;
       const other = HOUSES.find((h) => h.key !== house.key);
       renderRecovery(house, nights, other ? byId[other.key] : null);
+      bindAlertForm(house);
       return;
     }
     const fx = strings.fxCode === "JPY" ? "" :
@@ -1189,6 +1259,27 @@ const strings = {
   /* 1人1泊あたり。総額の直下に置き、総額より小さく・注記より大きい中間の重みにする
      （グループの幹事が比較するのはこの単位。ホテル1室単価と並べて判断される） */
   /* 金額の直後に置く安心材料。innerHTML で注入するため :global が要る */
+  /* 空室アラート。満室のときだけ出る。料金ボックスと同じく innerHTML 注入なので :global */
+  .bk-quote :global(.bk-alert) {
+    margin: 0.9rem 0 0;
+    padding: 0.9rem 0 0;
+    border-top: 1px solid #eeeeee;
+  }
+  .bk-quote :global(.bk-alert-title) { font-size: 0.9rem; font-weight: 600; color: #111111; margin: 0 0 0.55rem; }
+  .bk-quote :global(.bk-alert-row) { display: flex; gap: 0.4rem; }
+  .bk-quote :global(.bk-alert-input) {
+    flex: 1 1 auto; min-width: 0; padding: 0.55rem 0.7rem;
+    border: 1px solid #d5d5d5; border-radius: 4px; font-size: 0.9rem; color: #111111;
+  }
+  .bk-quote :global(.bk-alert-btn) {
+    flex: 0 0 auto; padding: 0.55rem 0.9rem; border: 1px solid #111111; border-radius: 4px;
+    background: #111111; color: #ffffff; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
+  }
+  .bk-quote :global(.bk-alert-btn:disabled) { opacity: 0.4; cursor: not-allowed; }
+  .bk-quote :global(.bk-alert-lead) { font-size: 0.76rem; color: #666666; line-height: 1.6; margin: 0.5rem 0 0; }
+  .bk-quote :global(.bk-alert-privacy) { font-size: 0.72rem; color: #888888; line-height: 1.6; margin: 0.35rem 0 0; }
+  .bk-quote :global(.bk-alert-privacy a) { color: #666666; }
+  .bk-quote :global(.bk-alert-status) { font-size: 0.8rem; color: #1a7f37; margin: 0.45rem 0 0; }
   .bk-quote :global(.bk-quote-assure) {
     list-style: none;
     margin: 0.7rem 0 0.9rem;

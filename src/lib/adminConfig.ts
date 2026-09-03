@@ -27,6 +27,8 @@ export const ENDPOINTS = {
   messagesApi: `${FN}/messagesApi`,
   // 公開系（予約・問い合わせ・パートナー）。ページ側での FN 直書きを禁止
   contact: `${FN}/contact`,
+  // 満室で行き止まりになった人からメールを受ける（docs/spec_availability_alert_202609.md）
+  alertSignup: `${FN}/alertSignup`,
   partnersApply: `${FN}/partnersApply`,
   bookingApi: `${FN}/bookingApi`,
   bookCreate: `${FN}/bookCreate`,
