@@ -12,7 +12,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import Stripe from "stripe";
 import { defineSecret } from "firebase-functions/params";
-import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
 import { logger } from "firebase-functions/v2";
 import type { MailKind } from "./mail-l10n.js";
 import { CONTACT_L10N, LIFECYCLE_L10N, MAIL_FIELDS, MAIL_L10N, CANCEL_L10N } from "./mail-l10n.js";
@@ -940,7 +940,8 @@ export const bookingApi = onRequest(
 // 自動で返金はしない（金銭の自動実行はオーナー判断を挟む・v5 §8-1の思想）。
 export const beds24CancelWatcher = onSchedule(
   { schedule: "0 9 * * *", timeZone: "Asia/Tokyo", region: REGION,
-    secrets: [BEDS24_WRITE_REFRESH, SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
+    // BEDS24_TOKEN は空室アラートの照合（quoteFor）で使う
+    secrets: [BEDS24_WRITE_REFRESH, BEDS24_TOKEN, SMTP_USER, SMTP_PASS], timeoutSeconds: 300,
     serviceAccount: SA },
   async () => {
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
@@ -999,8 +1000,206 @@ export const beds24CancelWatcher = onSchedule(
     } catch (err) {
       logger.error("cancelWatcher 通知失敗", err);
     }
+
+    // 空室アラートの照合はここに相乗りする（新しいスケジュールを増やさない）。
+    // 既存の不一致検知を巻き込まないよう、必ず後ろで・try/catch の内側で回す。
+    try { await processAvailabilityAlerts(); }
+    catch (err) { logger.error("空室アラートの照合に失敗", err); }
   }
 );
+
+/* ───────────────────────────────────────────────────────────
+   空室アラート（docs/spec_availability_alert_202609.md）
+
+   満室で行き止まりになる人が月188人いる（実測 2026-08-04〜09-02）。
+   代替日の提案は284回出して9回しか選ばれない（3.2%）。在庫は当面増えないので、
+   断るしかない需要をメールのリードとして残す。
+
+   設計上の約束:
+   - 1件につき1通だけ送って終わり。空いた→埋まった→また空いた で繰り返さない
+   - 空室を確保する機能ではない。文面で「先着順」と明記する
+   - 取得するのはメールアドレスと希望条件のみ。氏名・電話は取らない
+   - 通知後または宿泊日経過で削除する（プライバシーポリシー §2 に記載済み）
+   ─────────────────────────────────────────────────────────── */
+
+const ALERTS = "availability_alerts";
+
+/** 通知メールの文面（5言語）。予約を保証しないことを必ず書く。 */
+const ALERT_MAIL: Record<string, {
+  subject: string; heading: string; lead: string;
+  house: string; dates: string; guests: string;
+  cta: string; firstCome: string; unsub: string;
+}> = {
+  ja: { subject: "【yah.homes】ご希望の日程に空きが出ました",
+        heading: "ご希望の日程に空きが出ました", lead: "空室通知をご登録いただいた日程が予約可能になりました。",
+        house: "棟", dates: "日程", guests: "人数", cta: "空室を確認して予約する",
+        firstCome: "先着順のため、他のお客様が先にご予約される場合があります。お早めにご確認ください。",
+        unsub: "この通知の登録を取り消す" },
+  en: { subject: "[yah.homes] Your dates are now available",
+        heading: "Your dates are now available", lead: "The dates you asked us to watch can now be booked.",
+        house: "House", dates: "Dates", guests: "Guests", cta: "Check availability and book",
+        firstCome: "Bookings are first come, first served. Someone else may book these dates before you.",
+        unsub: "Cancel this alert" },
+  ko: { subject: "[yah.homes] 원하시는 날짜에 빈방이 생겼습니다",
+        heading: "원하시는 날짜에 빈방이 생겼습니다", lead: "알림을 등록하신 날짜를 예약하실 수 있게 되었습니다.",
+        house: "동", dates: "날짜", guests: "인원", cta: "빈방 확인하고 예약하기",
+        firstCome: "선착순이므로 다른 고객이 먼저 예약하실 수 있습니다. 서둘러 확인해 주세요.",
+        unsub: "이 알림 등록 취소" },
+  zh: { subject: "【yah.homes】您希望的日期出現空房",
+        heading: "您希望的日期出現空房", lead: "您登錄通知的日期現在可以預訂了。",
+        house: "房源", dates: "日期", guests: "人數", cta: "查看空房並預訂",
+        firstCome: "採先到先得，其他客人可能先行預訂。請儘早確認。",
+        unsub: "取消此通知登錄" },
+  th: { subject: "[yah.homes] วันที่ท่านต้องการว่างแล้ว",
+        heading: "วันที่ท่านต้องการว่างแล้ว", lead: "วันที่ท่านลงทะเบียนแจ้งเตือนสามารถจองได้แล้ว",
+        house: "บ้าน", dates: "วันที่", guests: "ผู้เข้าพัก", cta: "ตรวจสอบและจอง",
+        firstCome: "เป็นระบบใครจองก่อนได้ก่อน ผู้อื่นอาจจองวันดังกล่าวก่อนท่าน กรุณารีบตรวจสอบ",
+        unsub: "ยกเลิกการแจ้งเตือนนี้" },
+};
+
+const alertLang = (l: unknown): string => (typeof l === "string" && l in ALERT_MAIL ? l : "en");
+
+/** 棟の表示名。ラベルが無いスラッグはそのまま出す（落とさない） */
+const propLabel = (slug: string): string =>
+  (BEDS24_PROP_LABEL as Record<string, string>)[slug] ?? slug;
+
+/** 満室画面からの登録を受ける。既存の contact と同型（無認証・レート制限あり）。 */
+export const alertSignup = onRequest(
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
+  async (req, res) => {
+    const origin = corsOrigin(req.headers.origin as string | undefined);
+    if (origin) { res.set("Access-Control-Allow-Origin", origin); res.set("Vary", "Origin"); }
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ ok: false, error: "method_not_allowed" }); return; }
+
+    // 無認証の書き込み口。連投を止める。
+    if (rateLimited(`alert:${clientIp(req)}`, 5, 600000)) {
+      res.set("Retry-After", "600");
+      res.status(429).json({ ok: false, error: "too_many_requests" });
+      return;
+    }
+
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const email = String(b.email ?? "").trim().toLowerCase();
+    const prop = String(b.prop ?? "");
+    const checkin = String(b.checkin ?? "");
+    const checkout = String(b.checkout ?? "");
+    const guests = Number(b.guests ?? 0);
+    const lang = alertLang(b.lang);
+
+    const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 320) {
+      res.status(400).json({ ok: false, error: "invalid_email" }); return;
+    }
+    if (!isDate(checkin) || !isDate(checkout) || checkin >= checkout || checkin < today) {
+      res.status(400).json({ ok: false, error: "invalid_dates" }); return;
+    }
+    if (!(prop in BOOKING_PROP_IDS)) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+    const rules = await bookingRules(prop);
+    if (!rules) { res.status(400).json({ ok: false, error: "invalid_prop" }); return; }
+    if (!Number.isInteger(guests) || guests < 1 || guests > rules.capacity) {
+      res.status(400).json({ ok: false, error: "invalid_guests" }); return;
+    }
+
+    // 同じ人が同じ条件で何度も押しても増やさない（決め打ちのIDで上書きする）
+    const id = `${email}_${prop}_${checkin}_${checkout}_${guests}`.replace(/[^a-zA-Z0-9_.@-]/g, "_");
+    const unsubToken = randomUUID();
+    await db.collection(ALERTS).doc(id).set({
+      email, prop, checkin, checkout, guests, lang,
+      status: "pending", unsubToken,
+      createdAt: FieldValue.serverTimestamp(), notifiedAt: null,
+    }, { merge: true });
+
+    logger.info("空室アラート登録", { prop, checkin, checkout, guests, lang });
+    res.json({ ok: true });
+  },
+);
+
+/** メール内の配信停止リンク。押した時点で登録ごと消す（保持しない）。 */
+export const alertUnsub = onRequest(
+  { region: REGION, maxInstances: MAX_INSTANCES, serviceAccount: SA },
+  async (req, res) => {
+    const token = String(req.query.t ?? "");
+    let done = false;
+    if (token) {
+      const snap = await db.collection(ALERTS).where("unsubToken", "==", token).limit(1).get();
+      if (!snap.empty) { await snap.docs[0].ref.delete(); done = true; }
+    }
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.status(done ? 200 : 404).send(
+      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>yah.homes</title>` +
+      `<body style="font-family:system-ui,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1.2rem;line-height:1.7;color:#111">` +
+      `<p>${done ? "空室通知の登録を取り消しました。" : "この登録は見つかりませんでした（すでに取り消し済みか、期限切れです）。"}</p>` +
+      `<p><a href="${SITE_URL}/">yah.homes</a></p></body>`,
+    );
+  },
+);
+
+/** 毎日9:00の照合。件数は月20件程度の想定なので逐次で足りる。 */
+async function processAvailabilityAlerts(): Promise<void> {
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const snap = await db.collection(ALERTS).where("status", "==", "pending").get();
+  if (snap.empty) { logger.info("空室アラート: 対象なし"); return; }
+
+  let sent = 0, expired = 0;
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: SMTP_USER.value(), pass: SMTP_PASS.value() },
+  });
+
+  for (const d of snap.docs) {
+    const a = d.data() as {
+      email: string; prop: string; checkin: string; checkout: string;
+      guests: number; lang: string; unsubToken: string;
+    };
+    // 宿泊日が過ぎたものは送らない
+    if (a.checkin < today) { await d.ref.set({ status: "expired" }, { merge: true }); expired++; continue; }
+
+    let available = false;
+    try {
+      const q = await quoteFor(a.prop as PropSlug, a.checkin, a.checkout, a.guests);
+      available = q.data.available === true;
+    } catch (err) {
+      logger.warn("空室アラート照会失敗", { id: d.id, err: String(err).slice(0, 120) });
+      continue;   // 次回の実行で拾い直す
+    }
+    if (!available) continue;
+
+    const m = ALERT_MAIL[a.lang] ?? ALERT_MAIL.en;
+    const pre = a.lang === "en" ? "" : `${a.lang}/`;
+    const bookHref = `${SITE_URL}/${pre}book/?prop=${a.prop}&checkin=${a.checkin}&checkout=${a.checkout}&guests=${a.guests}`;
+    const unsubUrl = `https://${REGION}-yah-homes.cloudfunctions.net/alertUnsub?t=${encodeURIComponent(a.unsubToken)}`;
+    try {
+      await transporter.sendMail({
+        from: `"yah.homes" <${SMTP_USER.value()}>`,
+        to: a.email,
+        subject: m.subject,
+        text: `${m.lead}\n\n${m.house}: ${propLabel(a.prop)}\n${m.dates}: ${a.checkin} 〜 ${a.checkout}\n` +
+              `${m.guests}: ${a.guests}\n\n${m.firstCome}\n\n${bookHref}\n\n${m.unsub}: ${unsubUrl}`,
+        html: mailHtml({
+          heading: m.heading,
+          lead: m.lead,
+          rows: [
+            [m.house, esc(propLabel(a.prop))],
+            [m.dates, esc(`${a.checkin} 〜 ${a.checkout}`)],
+            [m.guests, esc(String(a.guests))],
+          ],
+          cta: { label: m.cta, href: bookHref },
+          note: `${m.firstCome}<br><a href="${unsubUrl}">${m.unsub}</a>`,
+        }),
+      });
+      await d.ref.set({ status: "notified", notifiedAt: FieldValue.serverTimestamp() }, { merge: true });
+      sent++;
+    } catch (err) {
+      logger.error("空室アラート送信失敗", { id: d.id, err: String(err).slice(0, 160) });
+    }
+  }
+  logger.info(`空室アラート: ${snap.size}件中 送信${sent}件 / 期限切れ${expired}件`);
+}
 
 // ─── 定型メールのSSoT（/admin/templates が送信文言を支配する） ───
 // 設計は docs/spec_mail_templates_ssot_202608.md。
@@ -2906,6 +3105,8 @@ async function ga4HandoffClicksYesterday(): Promise<Record<string, number> | nul
 }
 
 export { bookingTeitenSync } from "./teitenSync.js";
+/* 不動産DB（landComps）の四半期更新。APIキーが未設定のあいだは静かに終わる（2026-09-03） */
+export { landCompsSync } from "./landCompsSync.js";
 export { ga4TeitenSync } from "./ga4Sync.js";
 export { adsTeitenSync } from "./adsSync.js";
 export { gscSync } from "./gscSync.js";
