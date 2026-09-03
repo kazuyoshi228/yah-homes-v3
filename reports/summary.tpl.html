@@ -1,0 +1,376 @@
+<title>yah.homes_戦略提案 要約</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --bg:#F6F5F2; --paper:#FFFFFF; --ink:#191714; --sub:#66625B; --line:#E2DFD9;
+  --accent:#7A5A22; --accent-soft:#F1EADE;
+  --warn:#8A6A12; --warn-soft:#F6EFDC;
+  --bad:#9E3126;  --bad-soft:#F7E6E3;
+  --good:#31654A; --good-soft:#E4EDE7;
+  --mono-bg:#ECE9E3;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131210; --paper:#1B1917; --ink:#E9E5DE; --sub:#9B948A; --line:#2C2825;
+    --accent:#C9A268; --accent-soft:#251F16;
+    --warn:#D4AE5C; --warn-soft:#251F13;
+    --bad:#DE7568;  --bad-soft:#271815;
+    --good:#6FB491; --good-soft:#132218;
+    --mono-bg:#171512;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131210; --paper:#1B1917; --ink:#E9E5DE; --sub:#9B948A; --line:#2C2825;
+  --accent:#C9A268; --accent-soft:#251F16;
+  --warn:#D4AE5C; --warn-soft:#251F13;
+  --bad:#DE7568;  --bad-soft:#271815;
+  --good:#6FB491; --good-soft:#132218;
+  --mono-bg:#171512;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0; padding:2.6rem 1.2rem 5rem;
+  font-family:"Noto Serif JP",serif; font-size:15px; line-height:1.85; -webkit-font-smoothing:antialiased}
+.doc{max-width:860px; margin:0 auto}
+p{margin:.5rem 0 .9rem}
+strong{font-weight:600}
+em{font-style:normal; background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+
+.cover{border-bottom:3px solid var(--ink); padding-bottom:1.5rem; margin-bottom:1.4rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.67rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 .6rem}
+h1{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:clamp(1.8rem,5vw,2.4rem); line-height:1.35; margin:0 0 .7rem; text-wrap:balance}
+.deck{font-size:1rem; color:var(--sub); margin:0 0 1rem; max-width:38em}
+.meta{display:flex; gap:.5rem; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.meta span{border:1px solid var(--line); border-radius:3px; padding:.22rem .6rem; color:var(--sub)}
+.meta span.k{background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:600}
+
+h2{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.14rem;
+  margin:2.6rem 0 .7rem; padding-top:1.1rem; border-top:1px solid var(--line);
+  display:flex; gap:.7rem; align-items:baseline; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--accent); font-weight:600; flex:none}
+h3{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.94rem; margin:1.5rem 0 .3rem}
+
+.hero{background:var(--paper); border:1px solid var(--line); border-left:5px solid var(--accent);
+  border-radius:0 10px 10px 0; padding:1.4rem 1.5rem; margin:1.2rem 0 1.6rem}
+.hero .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:1.3rem; line-height:1.6; margin:0 0 .5rem}
+.hero p{margin:.3rem 0} .hero p:last-child{margin-bottom:0}
+
+.box{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1rem 1.2rem; margin:1.1rem 0}
+.box.bad{border-left-color:var(--bad)} .box.warn{border-left-color:var(--warn)} .box.good{border-left-color:var(--good)}
+.box .lbl{font-family:"IBM Plex Mono",monospace; font-size:.64rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.35rem}
+.box.bad .lbl{color:var(--bad)} .box.warn .lbl{color:var(--warn)} .box.good .lbl{color:var(--good)}
+.box p{margin:.28rem 0} .box p:last-child{margin-bottom:0}
+.box .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.05rem; line-height:1.65}
+.box ul,.box ol{margin:.4rem 0 .2rem; padding-left:1.2rem}
+
+.tbl{overflow-x:auto; margin:.8rem 0 1.2rem; border:1px solid var(--line); border-radius:8px; background:var(--paper)}
+table{width:100%; border-collapse:collapse; font-family:"Zen Kaku Gothic New",sans-serif; font-size:.81rem}
+th,td{text-align:left; padding:.5rem .75rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.55}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.62rem; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--sub); font-weight:600; background:var(--mono-bg)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dim{color:var(--sub)}
+.g{color:var(--good); font-weight:600}
+.b{color:var(--bad); font-weight:600}
+.w{color:var(--warn); font-weight:600}
+tr.hi td{background:var(--warn-soft)}
+tr.good td{background:var(--good-soft)}
+
+.formula{background:var(--mono-bg); border:1px solid var(--line); border-radius:8px;
+  padding:1rem 1.2rem; margin:.9rem 0 1.1rem; text-align:center;
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:1rem; font-weight:700; line-height:1.9}
+.formula .s{display:block; font-size:.74rem; font-weight:400; color:var(--sub); margin-top:.35rem}
+
+.chapters{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; grid-template-columns:1fr; margin:1rem 0 1.4rem}
+@media(min-width:620px){.chapters{grid-template-columns:1fr 1fr}}
+.ch{background:var(--paper); padding:.9rem 1.05rem; text-decoration:none; color:var(--ink); display:block}
+.ch:hover{background:var(--accent-soft)}
+.ch .k{font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.14em; color:var(--accent); display:block}
+.ch .t{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.92rem; margin:.15rem 0 .2rem}
+.ch .d{font-size:.77rem; color:var(--sub); line-height:1.6}
+
+ul,ol{margin:.4rem 0 .9rem; padding-left:1.25rem}
+li{margin:.25rem 0} li::marker{color:var(--sub)}
+ol.steps{list-style:none; padding-left:0; counter-reset:t}
+ol.steps>li{counter-increment:t; position:relative; padding-left:2.2rem; margin:.7rem 0}
+ol.steps>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.5rem; height:1.5rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.74rem}
+
+footer{margin-top:2.8rem; padding-top:1.2rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.78rem; line-height:1.8}
+footer a{color:var(--accent)}
+</style>
+
+<div class="doc">
+
+<header class="cover">
+  <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 要約</p>
+  <h1>yah.homes<span style="color:var(--sub)">_</span>戦略提案 要約</h1>
+  <p class="deck">第一章から第五章までの結論だけを1枚にまとめた。<em>根拠と検算は各章にある。</em></p>
+  <div class="meta">
+    <span class="k">拡大基調</span><span>2026-09-03</span><span>実績 n=0</span>
+  </div>
+</header>
+
+<div class="hero">
+  <p class="big">拡大基調で進める。</p>
+  <p><strong>理由は「利回りが良いから」ではない。</strong><em>自己資金を1円も使わずに増やせるからである。</em></p>
+</div>
+
+<h2><span class="n">01</span>5章の結論</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>章</th><th>結論</th><th class="num">点</th></tr></thead>
+<tbody>
+<tr><td><strong>第一章</strong><br><span class="dim">いまのままだと、どうなるか</span></td><td><strong>いまの調達のまま、自己資金を使って拡大すれば器は薄まる。</strong><em>台帳と申告書の実額だけで書いた、仮定のない唯一の章</em></td><td class="num dim">—</td></tr>
+<tr class="good"><td><strong>第二章</strong><br><span class="dim">どう買えば、儲かるか</span></td><td><strong>ルートを変えれば 7.55% → 9.51%。自己資金ゼロなら進めてよい</strong></td><td class="num g">74.0</td></tr>
+<tr><td><strong>第三章</strong><br><span class="dim">お金を、どこから借りるか</span></td><td><strong>資金の出し手はすでにいる。</strong>{{family.corpPrincipal}} に対し、いま受け取る利息は年 {{family.annualInterestNow}}（0.90%）</td><td class="num dim">—</td></tr>
+<tr class="good"><td><strong>第四章</strong><br><span class="dim">失敗したら、いくら失うか</span></td><td><strong>失われうるのは建物への投資だけ。</strong>削減が全部空振りしても 13.75%・7.27年で回収</td><td class="num g">78.2</td></tr>
+<tr><td><strong>第五章</strong><br><span class="dim">進めるか、やめるか</span></td><td><strong>拡大基調で進める。止まる線を持ったまま</strong></td><td class="num dim">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="n">02</span>確定モデル（1室）</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>項目</th><th class="num">いま</th><th class="num">確定モデル</th></tr></thead>
+<tbody>
+<tr><td>土地</td><td class="num">{{actual.land}}</td><td class="num">{{model.land}}</td></tr>
+<tr><td>建築</td><td class="num">{{actual.build}}</td><td class="num">{{model.build}}</td></tr>
+<tr><td>家具</td><td class="num">{{actual.furniture}}</td><td class="num">{{model.furniture}}</td></tr>
+<tr class="hi"><td><strong>1室総額</strong></td><td class="num"><strong>{{actual.total}}</strong></td><td class="num"><strong>{{model.total}}</strong></td></tr>
+<tr><td>1室あたりNOI</td><td class="num">{{model.noiPerRoom}}</td><td class="num">{{model.noiPerRoom}}</td></tr>
+<tr class="good"><td><strong>NOI利回り</strong></td><td class="num">7.55%</td><td class="num g"><strong>9.51%</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>資金構成と、年の残り</th><th class="num"></th></tr></thead>
+<tbody>
+<tr><td>銀行（LTV65%・2.25%）</td><td class="num">{{mix.bank}}</td></tr>
+<tr><td>家族マネー（年4%・劣後）</td><td class="num">{{mix.family}}</td></tr>
+<tr class="good"><td><strong>自己資金</strong></td><td class="num g"><strong>¥0</strong></td></tr>
+<tr><td class="dim">NOI − 銀行利息 − 銀行元本 − 家族利息</td><td class="num dim"></td></tr>
+<tr class="good"><td><strong>年の余剰</strong></td><td class="num g"><strong>{{mix.surplus}}</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  NOI <strong>9.51%</strong> − 調達コスト <strong>2.86%</strong> ＝ スプレッド <strong>6.64㌽</strong>
+  <span class="s">器の年率9.5%と比べれば0.01㌽。だがお金の値段と比べれば6.64㌽ある</span>
+</div>
+
+<div class="box good">
+  <span class="lbl">削減が1円もできなくても、回る</span>
+  <p>いまの実額（{{actual.total}}）でも、自己資金ゼロなら年の余剰は <strong>{{mix.surplusActual}}</strong>。<em>「コストを20%下げる」は目標であって、成立条件ではない</em>——<strong>ただし金利2.25%の前提でのこと。</strong></p>
+</div>
+
+<h2><span class="n">03</span>土地の予算は、金利が決める</h2>
+
+<p><strong>NOIは棟ごとに幅7%しかないのに、利回りは 5.74%〜8.45% と2.7㌽開く。</strong><em>建築と家具はどこに建てても同じで、変わるのは土地だけである。</em></p>
+
+<div class="tbl">
+<table>
+<thead><tr><th class="num">銀行金利</th><th class="num">1室あたり土地の上限</th><th class="num">㎡単価（60㎡）</th><th>この水準の地点</th></tr></thead>
+<tbody>
+<tr class="good"><td class="num">2.25%（いま）</td><td class="num g">{{landCap.r225}}</td><td class="num">{{landCap.r225PerSqm}}</td><td>高砂・清川まで</td></tr>
+<tr class="hi"><td class="num">3.15%（長プラ）</td><td class="num w">{{landCap.r315}}</td><td class="num">{{landCap.r315PerSqm}}</td><td>清川まで</td></tr>
+<tr class="hi"><td class="num"><strong>4.15%</strong></td><td class="num b"><strong>{{landCap.r415}}</strong></td><td class="num">¥769,147<span class="dim">（例:概算）</span></td><td><strong>六本松・谷・草香江・千代</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>探すべきエリア（公示地価・令和7年／60㎡）</h3>
+<p>台帳の <code>landComps</code> に公示地価が入っている（{{kouji.year|raw}}年時点）。<strong>金利4.15%でも成立するのは、土地代 {{landCap.r415}} 以下の場所である。</strong></p>
+
+<div class="box good">
+  <span class="lbl">探索の条件</span>
+  <p class="big">中央区の<strong>六本松・草香江・谷</strong>、博多区の<strong>千代・上呉服町</strong>。</p>
+  <p>台帳の注記——<em>「谷は六本松と接している良い場所で、ほぼ六本松で見た方が良い」</em>（2026-08-27 発注者判断）。</p>
+  <p class="dim">→ 地点別の単価と利回りは <a href="https://os.yah.homes/properties">不動産DBカード</a></p>
+</div>
+
+<h2><span class="n">04</span>家族ファンド</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th class="num">いま</th><th class="num">年4%にすると</th></tr></thead>
+<tbody>
+<tr><td>法人に入っている家族の資金</td><td class="num">{{family.corpPrincipal}}</td><td class="num">{{family.corpPrincipal}}</td></tr>
+<tr class="good"><td><strong>出し手が受け取る利息（年）</strong></td><td class="num">{{family.annualInterestNow}}<br><span class="dim">0.90%</span></td><td class="num g"><strong>{{family.annualInterest4}}</strong><br><span class="dim g">4.00%</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box good">
+  <span class="lbl">4%が説明できる理由</span>
+  <p>銀行は<em>抵当権と個人保証を持ち、15年で回収し、優先する。</em>家族は<strong>無担保・無保証・期限なし・劣後。</strong>——条件が違うから金利が違う。劣後ローンの実務水準は3〜5%。</p>
+  <p><strong>この4条件を契約書に明記すること。それが利率の根拠そのものである。</strong></p>
+</div>
+
+<div class="box warn">
+  <span class="lbl">「出資」ではなく「貸付」</span>
+  <p>「出資してもらって4%お返しします」は法的には貸付。<em>出資と呼びながら元本と利回りを約束すると、出資法（預り金の禁止）の論点に触れる。</em></p>
+  <p><strong>そして期限なしで4%は、外部には売れない。</strong>不動産クラウドファンディングは同じ4〜8%で、しかも<em>3か月〜2年で元本が戻る。</em>——外部に出すなら期限を切る必要がある（10年後の借換で返せる。LTVは13.7%まで下がっている）。</p>
+</div>
+
+<h2><span class="n">05</span>止まる線</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>何が</th><th class="num">いまの見込み</th><th class="num">止まる線</th><th class="num">余裕</th></tr></thead>
+<tbody>
+<tr class="good"><td>建築の総額坪単価</td><td class="num">{{build.perTsuboActual}}</td><td class="num w">{{build.perTsuboActual}}</td><td class="num g">35.7%</td></tr>
+<tr class="good"><td>出口の cap</td><td class="num">6.00%</td><td class="num w">9.51%</td><td class="num g">3.51㌽</td></tr>
+<tr class="good"><td>1室あたりNOI</td><td class="num">{{model.noiPerRoom}}</td><td class="num w">{{stop.noi}}</td><td class="num g">24%</td></tr>
+<tr class="hi"><td><strong>銀行金利</strong>（確定モデル）</td><td class="num">2.25%</td><td class="num w">5.80%</td><td class="num g">3.55㌽</td></tr>
+<tr class="hi"><td><strong>銀行金利</strong>（削減ゼロ）</td><td class="num">2.25%</td><td class="num b"><strong>2.80%</strong></td><td class="num b"><strong>0.55㌽</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box bad">
+  <span class="lbl">いちばん危ういのは、自分で決められない変数</span>
+  <p class="big">金利が3%を超えると、<strong>「コスト削減」は目標から条件に変わる。</strong></p>
+  <p><em>銀行3本はすべて変動（短期プライムレート連動）。</em>2030年以降、5棟の実績と納税実績がそろってから<strong>固定への借換</strong>を検討する価値がある——ただし<em>上がってから固定にしても、高い固定を掴むだけである。</em></p>
+</div>
+
+<h2><span class="n">06</span>残る5つの監視項目</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>中身</th><th>いつ分かるか</th></tr></thead>
+<tbody>
+<tr class="hi"><td><strong>1. 銀行金利</strong></td><td>3本とも変動。<strong>3.5%で年の余剰が {{mix.surplusAt350}} まで落ちる</strong></td><td>随時</td></tr>
+<tr class="hi"><td><strong>2. capの実勢</strong></td><td>6.0%は<strong>仲介1件の回答</strong></td><td>複数の仲介に聞けば</td></tr>
+<tr class="hi"><td><strong>3. 役員報酬0円への依存</strong></td><td>台帳が「崩れると2030年代が赤字」と警告。根拠は<em>個人の投資信託の分配金</em>で、それは野村Webローンの担保も兼ねる</td><td>分配の実績を追う</td></tr>
+<tr class="hi"><td><strong>4. 2026年9月の手元</strong></td><td>{{cash.trough}}。<em>追加融資込みでも下限{{cash.floor}} を1か月だけ割る</em></td><td>いま</td></tr>
+<tr class="hi"><td><strong>5. 運営委託先への依存</strong></td><td><strong>1社が抜けた場合の想定が台帳にない。</strong>契約期間・解約条項・代替先が未登録</td><td>契約書を見れば</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="dim">※本稿が当初挙げた懸念のうち、<em>「見積を取らずに決めている」と「拡大は相関リスクを増やす」は撤回した。</em>前者は実務として順序が逆ではなく、後者は<strong>むしろ通貨の偏り（ドル建て99.8%）に対する分散になる。</strong>「元本を返さない設計の累積」は<em>1棟売れば3.9棟分返せる</em>ので解ける。</p>
+
+<h2><span class="n">07</span>次の1手</h2>
+
+<ol class="steps">
+<li><strong>いまいる3人に、年4%を払い始める。</strong>Cの3本を利息のみに切り替える。<em>元本返済が消えるので法人の現金は年 {{family.principalCut}} 楽になる。</em><strong>実績のない条件表は、次の人に見せられない。</strong></li>
+<li><strong>地場工務店1社に、総額で見積を取る。</strong>付帯・設計監理料・消費税まで含めた総額で。<em>建てなくてよい。</em></li>
+<li><strong>収益物件の仲介を、もう1〜2社当たる。</strong>cap 6.0% は1件の回答。<em>7%か9%かで、持つか売るかが逆転する。</em></li>
+<li><strong>運営委託の契約書を台帳に入れる。</strong>契約期間・解約条項・代替先</li>
+<li><strong>税理士に4つまとめて聞く。</strong>①無利息の {{bank.ffg202501.principal}} ②年4%への切替の妥当性 ③個人債務 {{family.personalPrincipal}} を法人へ移す方法 ④相続まで見た形</li>
+<li><strong>固定金利の条件を、複数行に聞く。</strong>福岡銀行はすでに小口 年1.6%固定を提示している相手。<em>佐賀銀行も含めて比べる</em></li>
+</ol>
+
+<h2><span class="n">08</span>器（SPC・GK-TK）</h2>
+
+<div class="box">
+  <span class="lbl">いまは作らない</span>
+  <p><strong>既存4棟を移すと流通税だけで数千万円（例: ¥22,742,749）。</strong>6棟目からSPCで持てば移転コストはゼロだが、<em>新設法人には決算書も取引実績もなく、銀行融資は不利になる。</em>保証を求められるので倒産隔離という利点も消える。</p>
+  <p><strong>GK-TKはさらに先。</strong>不特法を避けるには信託受益権化が要り、<em>GK-TK固有の上乗せだけで年に1棟のNOIの1割ほど（例: ¥700,000）。</em>効くのは外部投資家を10人以上集めるとき——<strong>20室・14.7億円の水準で、年1棟なら15年先。</strong></p>
+  <p><em>合同会社を先に作れば、あとからGK-TKに転換できる。</em>6棟目を決めて、銀行にSPCの条件を聞いてから作れば無駄がない。</p>
+</div>
+
+<h2><span class="n">09</span>30年後（台帳モデルの出力）</h2>
+<p>台帳の資金繰りモデルを30年で走らせると、<strong>3つの節目</strong>がある。</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th class="num">年</th><th>起きること</th></tr></thead>
+<tbody>
+<tr><td class="num">2029</td><td><strong>法人税が始まる</strong>。繰越欠損金 {{tax.lossCarryforward}} を2028年で使いきる</td></tr>
+<tr><td class="num">{{bank.paidOffYear|raw}}</td><td><strong>銀行への返済が終わる</strong>。翌年から支払利息がゼロ</td></tr>
+<tr class="hi"><td class="num">{{tax.depreciationEndYear|raw}}</td><td><strong>減価償却が尽きる</strong>。現金は出ていかないのに法人税が {{tax.depreciationEndDelta}} 増える</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box good">
+  <span class="lbl">資金繰りは詰まらない</span>
+  <p class="big">谷は <strong>{{cash.trough}}</strong>。<em>不足は一度も出ない（<code>shortageAlt: null</code>）。</em></p>
+  <p class="dim">→ 年次の推移は <a href="https://os.yah.homes/cashflow">資金繰りカード</a>（年次タブ）</p>
+</div>
+
+<h2><span class="n">10</span>30年後に精算したら</h2>
+
+<p><strong>台帳の企業価値の式をそのまま使う</strong>（<code>valuationBasis</code>）——</p>
+
+<div class="formula">
+  企業価値 ＝ 収益還元価値（NOI ÷ 還元利回り）＋ 現金 ＋ 投資信託 − 借入残高
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>2056年8月</th><th class="num">金額</th><th>出どころ</th></tr></thead>
+<tbody>
+<tr><td>収益還元価値 <span class="dim">NOI {{exit.noi}} ÷ 6.0%</span></td><td class="num">{{exit.asset}}</td><td class="dim"><code>assumptions/cap-rate</code>。<strong>収益仲介1件の回答</strong></td></tr>
+<tr><td>＋ 現金</td><td class="num">{{exit.cash}}</td><td class="dim"><code>yearly</code> 最終行の期末残高</td></tr>
+<tr><td>＋ 投資信託</td><td class="num">¥18,948,270<span class="dim">（例:概算）</span></td><td class="dim">いま ¥11,180,000 ＋積立 ¥86,650,000 −長期修繕 ¥78,881,730</td></tr>
+<tr class="hi"><td>− 借入残高（家族）</td><td class="num b">−{{exit.loanBalance}}</td><td class="dim b">一慶 {{family.officer}} ＋晴信 {{family.harunobuCorp}}。<strong>返済予定が無い2本</strong></td></tr>
+<tr><td class="dim">− 借入残高（銀行）</td><td class="num dim">¥0</td><td class="dim">2047年に完済</td></tr>
+<tr class="good"><td><strong>＝ 企業価値</strong></td><td class="num g"><strong>¥938,592,578<span class="dim">（例:概算）</span></strong></td><td class="dim">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>実際に売って現金にすると</h3>
+<p>企業価値は「持っている状態の値段」であって手取りではない。<strong>売れば仲介手数料と譲渡益への法人税がかかる。</strong></p>
+
+<div class="box good">
+  <span class="lbl">2050年に全部精算すると</span>
+  <p class="big">手元に残るのは <strong>{{exit.hand}}</strong>（いまの条件）／<strong>{{exit.hand4}}</strong>（家族に年4%）。</p>
+  <p class="dim">→ 明細は<a href="https://claude.ai/code/artifact/86613664-736e-4bec-8981-d5d1c97b214b">第六章</a></p>
+</div>
+
+<h2><span class="n">11</span>各章へ</h2>
+
+<div class="chapters">
+  <a class="ch" href="https://claude.ai/code/artifact/b02c646d-7db6-4f11-9ec6-df3a1d3da4ba">
+    <span class="k">01</span><p class="t">いまのままだと、どうなるか</p>
+    <p class="d">台帳と申告書の実額だけ。仮定を置いていない唯一の章</p></a>
+  <a class="ch" href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">
+    <span class="k">02</span><p class="t">どう買えば、儲かるか</p>
+    <p class="d">見積書の分解・土地の予算・自己資金ゼロ・止まる線（74.0点）</p></a>
+  <a class="ch" href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">
+    <span class="k">03</span><p class="t">お金を、どこから借りるか</p>
+    <p class="d">3つのレイヤー・年4%・資金繰りモデルでの検証</p></a>
+  <a class="ch" href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">
+    <span class="k">04</span><p class="t">失敗したら、いくら失うか</p>
+    <p class="d">失うのは建物のぶんだけ。回収5.74年（78.2点）</p></a>
+  <a class="ch" href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">
+    <span class="k">05</span><p class="t">進めるか、やめるか</p>
+    <p class="d">方針・止まる線・監視項目・ディレクターの結論</p></a>
+</div>
+
+<div class="box bad">
+  <span class="lbl">最後に</span>
+  <p class="big">確定モデルの数字は、<strong>まだ一度も実現していない。</strong></p>
+  <p>土地を80%で買った実績も、建築を坪80万で建てた実績も、家族に4%を払った実績もない。<em>NOI {{model.noiPerRoom}} も、稼働しているのは清川と高砂の2棟だけである。</em></p>
+  <p><strong>拡大基調で進めるという判断は、この事実の上に立っている。</strong>——だから止まる線を置いた。</p>
+</div>
+
+<footer>
+  <p><strong>yah.homes_戦略提案 要約</strong>／ 2026-09-03</p>
+  <p>数字は yah.OS の台帳（Firestore agency DB）、R7.12月期 法人税申告書、六本松の確定図・概算資金計画書・支払台帳に基づき、<strong>資金繰りモデルを実際に走らせた出力</strong>（繰越欠損金 {{tax.lossCarryforward}}・段階税率25%/34%・消費税・修繕積立の扱いを含む）。還元利回り 6.0%（assumptions/cap-rate）。公示地価は令和7年地価公示（福岡市）。<strong>本提案は法務・税務・相続税を検討していない。</strong>実行の前に弁護士・税理士に確認すること。</p>
+</footer>
+
+</div>

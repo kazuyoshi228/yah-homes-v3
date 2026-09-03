@@ -1,0 +1,299 @@
+<title>yah.homes_お金を、どこから借りるか</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --bg:#F2F4F3; --paper:#FFFFFF; --ink:#151B1D; --sub:#5D6A6E; --line:#DCE2E1;
+  --accent:#1F5D68; --accent-soft:#E2EDEE;
+  --warn:#8A6A12; --warn-soft:#F6EFDC;
+  --bad:#9E3126;  --bad-soft:#F7E6E3;
+  --good:#2F6B52; --good-soft:#E4EFE9;
+  --mono-bg:#E8EDEC;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1315; --paper:#161D1F; --ink:#E4EAE9; --sub:#8E9B9F; --line:#26302F;
+    --accent:#6FB6C0; --accent-soft:#122528;
+    --warn:#D4AE5C; --warn-soft:#251F13;
+    --bad:#DE7568;  --bad-soft:#271815;
+    --good:#6FB491; --good-soft:#122419;
+    --mono-bg:#131A1B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1315; --paper:#161D1F; --ink:#E4EAE9; --sub:#8E9B9F; --line:#26302F;
+  --accent:#6FB6C0; --accent-soft:#122528;
+  --warn:#D4AE5C; --warn-soft:#251F13;
+  --bad:#DE7568;  --bad-soft:#271815;
+  --good:#6FB491; --good-soft:#122419;
+  --mono-bg:#131A1B;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0; padding:3rem 1.2rem 6rem;
+  font-family:"Noto Serif JP",serif; font-size:15.5px; line-height:1.95; -webkit-font-smoothing:antialiased}
+.doc{max-width:820px; margin:0 auto}
+p{margin:.6rem 0 1rem}
+strong{font-weight:600}
+em{font-style:normal; background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+
+.chapnav{display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.chapnav a,.chapnav span{display:block; padding:.3rem .7rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; color:var(--sub); background:var(--paper)}
+.chapnav a:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.chapnav .now{background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600}
+
+.cover{border-bottom:3px solid var(--ink); padding-bottom:1.8rem; margin-bottom:1.6rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+h1{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:clamp(1.9rem,5.5vw,2.6rem); line-height:1.35; margin:0 0 .9rem; text-wrap:balance}
+.deck{font-size:1rem; color:var(--sub); margin:0 0 1.2rem; max-width:36em}
+.meta{display:flex; gap:.5rem; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.meta span{border:1px solid var(--line); border-radius:3px; padding:.22rem .6rem; color:var(--sub)}
+.meta span.k{background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600}
+
+.toc{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin:0 0 2.4rem; grid-template-columns:1fr}
+@media(min-width:560px){.toc{grid-template-columns:1fr 1fr}}
+.toc a{display:flex; gap:.7rem; align-items:baseline; background:var(--paper);
+  padding:.62rem .9rem; text-decoration:none; color:var(--ink);
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:.85rem; line-height:1.5}
+.toc a:hover{background:var(--accent-soft); color:var(--accent)}
+.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.toc .i{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--accent); font-weight:600; flex:none}
+h2[id]{scroll-margin-top:1.2rem}
+
+h2{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.24rem;
+  margin:3rem 0 .8rem; padding-top:1.3rem; border-top:1px solid var(--line);
+  display:flex; gap:.8rem; align-items:baseline; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--accent); font-weight:600; flex:none}
+h3{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.98rem; margin:1.7rem 0 .4rem}
+
+.box{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1.1rem 1.3rem; margin:1.3rem 0}
+.box.bad{border-left-color:var(--bad)} .box.warn{border-left-color:var(--warn)} .box.good{border-left-color:var(--good)}
+.box .lbl{font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.4rem}
+.box.bad .lbl{color:var(--bad)} .box.warn .lbl{color:var(--warn)} .box.good .lbl{color:var(--good)}
+.box p{margin:.3rem 0} .box p:last-child{margin-bottom:0}
+.box .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.1rem; line-height:1.7}
+.box ul,.box ol{margin:.5rem 0 .3rem}
+
+.tbl{overflow-x:auto; margin:1rem 0 1.3rem; border:1px solid var(--line); border-radius:8px; background:var(--paper)}
+table{width:100%; border-collapse:collapse; font-family:"Zen Kaku Gothic New",sans-serif; font-size:.82rem}
+th,td{text-align:left; padding:.55rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.6}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sub); font-weight:600; background:var(--mono-bg)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dim{color:var(--sub)}
+.g{color:var(--good); font-weight:600}
+.b{color:var(--bad); font-weight:600}
+.w{color:var(--warn); font-weight:600}
+tr.hi td{background:var(--warn-soft)}
+tr.good td{background:var(--good-soft)}
+
+.formula{background:var(--mono-bg); border:1px solid var(--line); border-radius:8px;
+  padding:1rem 1.2rem; margin:1rem 0 1.2rem; text-align:center;
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:1.02rem; font-weight:700; line-height:2}
+.formula .s{display:block; font-size:.76rem; font-weight:400; color:var(--sub); margin-top:.4rem}
+
+ul,ol{margin:.5rem 0 1rem; padding-left:1.3rem}
+li{margin:.25rem 0} li::marker{color:var(--sub)}
+ol.steps{list-style:none; padding-left:0; counter-reset:t}
+ol.steps>li{counter-increment:t; position:relative; padding-left:2.3rem; margin:.9rem 0}
+ol.steps>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem}
+
+footer{margin-top:3rem; padding-top:1.3rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.79rem; line-height:1.85}
+footer a{color:var(--accent)}
+</style>
+
+<div class="doc">
+
+<nav class="chapnav" aria-label="章の移動">
+  <a href="https://claude.ai/code/artifact/b02c646d-7db6-4f11-9ec6-df3a1d3da4ba">01 いまのままだと、どうなるか</a>
+  <a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">02 どう買えば、儲かるか</a>
+  <span class="now">03 お金を、どこから借りるか</span>
+  <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">04 失敗したら、いくら失うか</a>
+  <a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">05 進めるか、やめるか</a>
+</nav>
+
+<header class="cover">
+  <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 第三章</p>
+  <h1>yah.homes<span style="color:var(--sub)">_</span>お金を、どこから借りるか</h1>
+  <p class="deck">家族から法人に入る資金は <strong>{{family.corpPrincipal}}</strong>。だが実際に受け取っている利息は年 <strong>{{family.annualInterestNow}}</strong> にすぎない。<em>元本返済をやめ、年4%の利息に揃える。</em>——資金繰り表で回るかどうかを検証した。</p>
+  <div class="meta">
+    <span class="k">資金繰り検証済み</span><span>2026-09-03</span><span>法務・税務は未検討</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目次">
+  <a href="#c01"><span class="i">01</span>3つのレイヤー</a>
+  <a href="#c02"><span class="i">02</span>いくら受け取っているか</a>
+  <a href="#c03"><span class="i">03</span>3つの案を資金繰りに載せる</a>
+  <a href="#c04"><span class="i">04</span>1階建て化は、別の操作</a>
+  <a href="#c05"><span class="i">05</span>なぜ4%が説明できるのか</a>
+  <a href="#c06"><span class="i">06</span>「出資」ではなく「貸付」</a>
+  <a href="#c07"><span class="i">07</span>相続の論点</a>
+  <a href="#c08"><span class="i">08</span>段取り</a>
+</nav>
+
+<h2 id="c01"><span class="n">01</span>3つのレイヤー</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>貸し手 → 借り手</th><th class="num">金額</th><th class="num">利率</th><th>条件</th></tr></thead>
+<tbody>
+<tr><td rowspan="3"><strong>A</strong><br><span class="dim">個人間</span></td><td>晴信 → 一慶（個人）</td><td class="num">{{family.harunobuA}}</td><td class="num b">0%</td><td>月¥180,908<span class="dim">（例:概算）</span>×110回</td></tr>
+<tr><td>晴信 → 一慶（個人）</td><td class="num">{{family.harunobuB}}</td><td class="num">2%</td><td>利息のみ</td></tr>
+<tr><td>眞佐子 → 一慶（個人）</td><td class="num">{{family.harunobuB}}</td><td class="num b">0%</td><td>月¥125,000<span class="dim">（例:概算）</span>×240回</td></tr>
+<tr><td rowspan="2"><strong>B</strong><br><span class="dim">法人・既存</span></td><td>一慶 → 法人（役員借入金）</td><td class="num">{{family.officer}}</td><td class="num b">0%</td><td>返済条件の定めなし</td></tr>
+<tr><td>晴信 → 法人</td><td class="num">{{family.harunobuCorp}}</td><td class="num b">0%</td><td>—</td></tr>
+<tr><td rowspan="3"><strong>C</strong><br><span class="dim">法人・新規</span></td><td>ウィズダム有限会社 → 法人</td><td class="num">{{family.harunobuB}}</td><td class="num">2%</td><td>月{{family.monthlyOne}}×240回・2026-05〜</td></tr>
+<tr><td>真佐子 → 法人</td><td class="num">{{family.harunobuB}}</td><td class="num">2%</td><td>月{{family.monthlyOne}}×240回・2026-09〜</td></tr>
+<tr><td>晴信 → 法人</td><td class="num">{{family.harunobuB}}</td><td class="num">2%</td><td>月{{family.monthlyOne}}×240回・2027-02〜</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="dim">A は finance 台帳（発注者申告）。B は R7.12月期 法人税申告書「借入金の内訳」（2025-12-31時点）。C は返済予定表つきで登録済み。<strong>法人に入るのは B＋C ＝ {{family.corpPrincipal}}。</strong></p>
+
+<h2 id="c02"><span class="n">02</span>いくら受け取っているか</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th class="num">元本</th><th class="num">2028年の支払</th><th class="num">うち利息＝実際の収入</th></tr></thead>
+<tbody>
+<tr><td>B（無利息）</td><td class="num">{{exit.loanBalance}}</td><td class="num b">¥0</td><td class="num b">¥0</td></tr>
+<tr><td>C（2%・元利均等）</td><td class="num">{{family.amortizingPrincipal}}</td><td class="num">{{family.annualPayNow}}</td><td class="num">{{family.annualInterestNow}}</td></tr>
+<tr class="hi"><td><strong>計</strong></td><td class="num"><strong>{{family.corpPrincipal}}</strong></td><td class="num">{{family.annualPayNow}}</td><td class="num w"><strong>{{family.annualInterestNow}}</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box bad">
+  <span class="lbl">支払額と収入は違う</span>
+  <p class="big">年 {{family.annualPayNow}} 払っているが、<strong>{{family.annualPrincipalNow}} は元本の返還</strong>である。</p>
+  <p>収入は <strong>{{family.annualInterestNow}}</strong>——元本 {{family.corpPrincipal}} に対して <strong>0.90%</strong>。<em>事業は 9.51% で回る。</em></p>
+</div>
+
+<h2 id="c03"><span class="n">03</span>3つの案を資金繰りに載せる</h2>
+<p>3案を台帳の資金繰りモデルに載せて比べた。<strong>採るのは③（年4%・利息のみ）である。</strong></p>
+
+<div class="box good">
+  <span class="lbl">③ 年4%・利息のみ</span>
+  <p class="big">家族が受け取る利息は 年 <strong>{{family.annualInterestNow}}</strong> → <strong>{{family.annualInterest4}}</strong>。</p>
+  <p><strong>元本返済が消えるので、法人の現金は年 {{family.principalCut}} 楽になる。</strong><em>利息は損金なので、増えた分の約3分の1は法人税が減って戻る。</em></p>
+</div>
+
+<p class="dim">→ 年ごとの比較（いま／4%・期末残高・節税額）は <a href="https://os.yah.homes/familyfund">家族ファンドカード</a>の年次表</p>
+
+<h2 id="c04"><span class="n">04</span>1階建て化は、別の操作</h2>
+<p>個人が家族から借りている <strong>{{family.personalPrincipal}}</strong> を法人へ付け替えるかは、<em>4%への切替とは別の判断である。</em></p>
+
+<div class="box warn">
+  <span class="lbl">未決</span>
+  <p><code>assumptions/family-fund</code> の <code>pending</code>——<strong>「①個人間の貸付を法人へ付け替えるか」。</strong></p>
+  <p>付け替えれば一族の資金 <strong>{{family.totalPrincipal}}</strong> が1つの器に入り、4%の対象も清算の対象も広がる。<em>贈与・相続の論点が絡むので、税理士の確認が要る。</em></p>
+</div>
+
+<p class="dim">→ 借入の明細は <a href="https://os.yah.homes/finance">融資カード</a></p>
+
+<h2 id="c05"><span class="n">05</span>なぜ4%が説明できるのか</h2>
+
+<p>法人の調達金利は 福岡銀行 1.5%／2.25%、日本政策金融公庫 2.8%。<strong>銀行より高い理由が要る。</strong></p>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>銀行</th><th>家族</th></tr></thead>
+<tbody>
+<tr><td>担保</td><td>不動産に抵当権</td><td class="w"><strong>無担保</strong></td></tr>
+<tr><td>保証</td><td>代表者の個人保証</td><td class="w"><strong>無保証</strong></td></tr>
+<tr><td>期限</td><td>15年で回収</td><td class="w"><strong>期限なし</strong></td></tr>
+<tr><td>順位</td><td>優先</td><td class="w"><strong>劣後</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box good">
+  <span class="lbl">答え</span>
+  <p class="big">条件が違うからである。<strong>リスクの高い貸し手が、高い金利を受け取る。</strong></p>
+  <p>劣後ローン・資本性借入金の金利は実務でも <strong>3〜5%</strong>。<em>むしろ2%のままだと「なぜこんな悪条件で貸しているのか」の説明が苦しい。</em></p>
+  <p><strong>この4条件を契約書に明記すること。それが4%の根拠そのものである。</strong>——金融機関から<em>資本性借入金</em>として扱われる可能性も出る（判断は取引行ごと）。</p>
+</div>
+
+<h2 id="c06"><span class="n">06</span>「出資」ではなく「貸付」</h2>
+
+<div class="box bad">
+  <span class="lbl">言葉を正確にしておく</span>
+  <p class="big">「出資してもらって4%お返しします」は、<strong>法的には貸付である。</strong></p>
+  <p>「出資」と呼びながら元本と利回りを約束すると、<em>出資法（預り金の禁止）の論点に触れる。</em></p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>貸付（年4%）</th><th>出資（匿名組合）</th></tr></thead>
+<tbody>
+<tr><td>返済義務</td><td class="g">ある</td><td>ない</td></tr>
+<tr><td>悪い年</td><td class="w">それでも払う</td><td class="g">減額・ゼロもありうる</td></tr>
+<tr><td>良い年</td><td class="w">4%止まり</td><td class="g">上限なし＋出口の分配</td></tr>
+<tr><td>源泉徴収</td><td class="g"><strong>不要</strong></td><td class="w">20.42%を天引きして納付</td></tr>
+<tr><td>規制</td><td class="g">なし</td><td class="w">反復すると金商法・不動産特定共同事業法</td></tr>
+<tr class="good"><td><strong>法人の損金</strong></td><td class="g"><strong>なる</strong></td><td class="g"><strong>なる</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>税はどちらも損金になるので、判断材料から外してよい。</strong>選ぶ基準は<em>確実性と事務の軽さ</em>である。<strong>匿名組合は6棟目で1本だけ試す</strong>——既存は貸付のまま、新しい棟だけ出資で組む。</p>
+
+<h2 id="c07"><span class="n">07</span>相続の論点</h2>
+
+<div class="box warn">
+  <span class="lbl">元本が残るということは、相続財産として残るということ</span>
+  <p>元本を返さなければ、ご両親の財産に貸付債権が計上され続け、<em>毎年の利息が使われなければ積み上がる。</em>1階建て化すれば、ご両親の債権は <strong>¥143,000,000<span class="dim">（例:概算）</span></strong> になる。</p>
+</div>
+
+<h3>確認すべき3点</h3>
+
+<ul>
+<li><strong>一慶氏以外に相続人がいるか。</strong>いるなら債権は分割され、<em>一慶氏が他の相続人に対して債務を負う形</em>になりうる。単独相続なら混同で消滅する</li>
+<li><strong>ご両親の他の財産との合計。</strong>この金額だけでは判断できない</li>
+<li><strong>生前に減らす選択肢。</strong>暦年贈与・相続時精算課税・債権放棄など</li>
+</ul>
+
+<div class="box good">
+  <span class="lbl">利息を払うこと自体は安全側である</span>
+  <p>返済も利息もない貸付が長く続くと、税務上<em>「実質は贈与では」</em>と見られる余地がある。<strong>利息を払っていれば、債務であることが明確になる。</strong></p>
+</div>
+
+<h2 id="c08"><span class="n">08</span>段取り</h2>
+
+<ol class="steps">
+<li><strong>台帳を整える。</strong>申告書から判明した<em>役員借入金 {{family.officer}}</em> と <em>晴信氏からの法人借入 {{family.harunobuCorp}}</em>（B）が finance に入っていない。</li>
+<li><strong>税理士に4つまとめて聞く。</strong>①Aの無利息 {{bank.ffg202501.principal}} ②元本据置＋年4%への切替の妥当性 ③Aを法人へ移す方法（役員借入金との相殺）④相続まで見た形。<em>すべて同じ資金の話なので1回で済む。</em></li>
+<li><strong>まず②（Cのみ4%）を2027年4月に実行する。</strong>現金が楽になり、ご両親の収入も増える。<em>いちばんリスクが小さい。</em></li>
+<li><strong>次に1階建て化を検討する。</strong>法人の現金を痛めずに、ご両親の受取を増やし、一慶氏の個人負担を消す。</li>
+<li><strong>③（全部4%）は2029年以降。</strong>繰越欠損金を使い切り、法人税が発生し始めてからでよい。</li>
+<li><strong>6棟目で、匿名組合を1本だけ試す。</strong>外には広げない。</li>
+</ol>
+
+<div class="box good">
+  <span class="lbl">最初の1手</span>
+  <p class="big">集めることではない。<strong>いま出している人に、どう報いるかを決めることである。</strong></p>
+  <p><em>{{family.corpPrincipal}} に対して年 {{family.annualInterestNow}}。</em>この状態で次の人に声をかけても、<strong>「うまくいったら回る」を証明できない。</strong></p>
+</div>
+
+<footer>
+  <p><strong>yah.homes_お金を、どこから借りるか</strong>（戦略提案 第三章）／ 2026-09-03</p>
+  <p>金額は R7.12月期 法人税申告書「借入金の内訳」、finance 台帳、buildPayments に基づく。<strong>資金繰りの数字は yah.OS の資金繰りモデルを実際に走らせた出力</strong>（2026-09〜2056、繰越欠損金 {{tax.lossCarryforward}}・段階税率25%/34%・消費税・修繕積立の扱いを含む）。事業の数字は<a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">第二章</a>。<strong>本章は法務・税務・相続税を検討していない。</strong></p>
+</footer>
+
+</div>

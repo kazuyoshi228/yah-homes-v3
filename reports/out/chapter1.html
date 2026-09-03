@@ -1,0 +1,372 @@
+<title>yah.homes_いまのままだと、どうなるか</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --bg:#F2F4F6; --paper:#FFFFFF; --ink:#16202B; --sub:#5A6875; --line:#DCE2E8;
+  --accent:#0F6B63; --accent-soft:#E3EFED;
+  --warn:#A8730A; --warn-soft:#F7EFDC;
+  --bad:#B3352C;  --bad-soft:#F8E7E4;
+  --good:#2C6B4F;
+  --mono-bg:#EDF1F4;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1418; --paper:#161E24; --ink:#E7ECF0; --sub:#93A2AE; --line:#26313A;
+    --accent:#4FB3A6; --accent-soft:#132A2A;
+    --warn:#D6A44E; --warn-soft:#2A2418;
+    --bad:#E0736A;  --bad-soft:#2A1917;
+    --good:#6FBF9A;
+    --mono-bg:#111A1F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1418; --paper:#161E24; --ink:#E7ECF0; --sub:#93A2AE; --line:#26313A;
+  --accent:#4FB3A6; --accent-soft:#132A2A;
+  --warn:#D6A44E; --warn-soft:#2A2418;
+  --bad:#E0736A;  --bad-soft:#2A1917;
+  --good:#6FBF9A;
+  --mono-bg:#111A1F;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); margin:0; padding:3rem 1.2rem 6rem;
+  font-family:"Noto Serif JP",serif; font-size:15.5px; line-height:1.95;
+  -webkit-font-smoothing:antialiased;
+}
+.doc{max-width:820px; margin:0 auto}
+p{margin:.6rem 0 1rem}
+strong{font-weight:600}
+em{font-style:normal; background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+
+.cover{border-bottom:3px solid var(--ink); padding-bottom:1.8rem; margin-bottom:2.6rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+h1{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:clamp(1.9rem,5.5vw,2.6rem); line-height:1.35; margin:0 0 .9rem; text-wrap:balance}
+.deck{font-size:1rem; color:var(--sub); margin:0 0 1.2rem; max-width:36em}
+.meta{display:flex; gap:.5rem; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.meta span{border:1px solid var(--line); border-radius:3px; padding:.22rem .6rem; color:var(--sub)}
+.meta span.k{background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:600}
+
+/* 目次。章数が多いので、読む前に全体が見える形にする */
+.toc{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin:0 0 2.4rem;
+  grid-template-columns:1fr}
+@media(min-width:560px){.toc{grid-template-columns:1fr 1fr}}
+.toc a{display:flex; gap:.7rem; align-items:baseline; background:var(--paper);
+  padding:.62rem .9rem; text-decoration:none; color:var(--ink);
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:.85rem; line-height:1.5}
+.toc a:hover{background:var(--accent-soft); color:var(--accent)}
+.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.toc .i{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--accent);
+  font-weight:600; flex:none}
+/* 見出しへ飛んだとき、上端に貼り付かないよう余白を持たせる */
+h2[id]{scroll-margin-top:1.2rem}
+
+h2{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.24rem;
+  margin:3.4rem 0 .9rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  display:flex; gap:.8rem; align-items:baseline; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--accent); font-weight:600; flex:none}
+h3{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.98rem; margin:2rem 0 .4rem}
+
+.verdict{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1.2rem 1.4rem; margin:1.4rem 0}
+.verdict.bad{border-left-color:var(--bad)}
+.verdict.warn{border-left-color:var(--warn)}
+.verdict .lbl{font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.4rem}
+.verdict.bad .lbl{color:var(--bad)}
+.verdict.warn .lbl{color:var(--warn)}
+.verdict p{margin:.3rem 0}
+.verdict p:last-child{margin-bottom:0}
+.verdict .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.1rem; line-height:1.7}
+
+.tbl{overflow-x:auto; margin:1rem 0 1.4rem; border:1px solid var(--line); border-radius:8px; background:var(--paper)}
+table{width:100%; border-collapse:collapse; font-family:"Zen Kaku Gothic New",sans-serif; font-size:.82rem}
+th,td{text-align:left; padding:.58rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.6}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sub); font-weight:600; background:var(--mono-bg)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.bad-t{color:var(--bad); font-weight:600}
+.good-t{color:var(--good); font-weight:600}
+.warn-t{color:var(--warn); font-weight:600}
+.dim{color:var(--sub)}
+tr.hi td{background:var(--warn-soft)}
+
+.stats{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; grid-template-columns:1fr 1fr; margin:1.1rem 0 1.4rem}
+@media(min-width:640px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--paper); padding:.85rem 1rem}
+.stat .k{font-family:"IBM Plex Mono",monospace; font-size:.61rem; letter-spacing:.1em;
+  color:var(--sub); display:block; margin-bottom:.2rem}
+.stat .v{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.02rem;
+  font-variant-numeric:tabular-nums; line-height:1.4}
+.stat .s{font-size:.71rem; color:var(--sub); display:block; line-height:1.55}
+
+ul,ol{margin:.5rem 0 1.1rem; padding-left:1.3rem}
+li{margin:.3rem 0}
+li::marker{color:var(--sub)}
+ol.act{list-style:none; padding-left:0; counter-reset:t}
+ol.act>li{counter-increment:t; position:relative; padding-left:2.3rem; margin:.9rem 0}
+ol.act>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem}
+ol.dont{list-style:none; padding-left:0}
+ol.dont>li{position:relative; padding-left:2.3rem; margin:.9rem 0}
+ol.dont>li::before{content:"×"; position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--bad-soft); color:var(--bad); font-weight:700; font-size:.88rem}
+
+
+.score{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; grid-template-columns:1fr; margin:1.2rem 0}
+@media(min-width:640px){.score{grid-template-columns:repeat(3,1fr)}}
+.sc{background:var(--paper); padding:1.1rem 1.2rem}
+.sc .t{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.9rem; margin:0 0 .3rem}
+.sc .n{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:2.1rem; line-height:1.1; font-variant-numeric:tabular-nums}
+.sc .n span{font-size:.9rem; color:var(--sub); font-weight:500}
+.sc .d{font-size:.76rem; color:var(--sub); line-height:1.6; margin:.4rem 0 0}
+.bar{height:5px; border-radius:3px; background:var(--mono-bg); margin:.5rem 0 0; overflow:hidden}
+.bar i{display:block; height:100%; background:var(--accent)}
+.bar.w i{background:var(--warn)} .bar.b i{background:var(--bad)}
+.total{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--ink);
+  border-radius:0 8px 8px 0; padding:1.2rem 1.4rem; margin:1.4rem 0;
+  display:flex; gap:1.4rem; align-items:center; flex-wrap:wrap}
+.total .n{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:2.6rem; line-height:1}
+.total .n span{font-size:1rem; color:var(--sub)}
+.total p{margin:0; flex:1 1 16rem}
+
+code{font-family:"IBM Plex Mono",monospace; font-size:.84em; background:var(--mono-bg);
+  padding:.06em .4em; border-radius:3px}
+footer{margin-top:3.4rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.79rem; line-height:1.85}
+.chapnav{display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.chapnav a,.chapnav span{display:block; padding:.3rem .7rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; color:var(--sub); background:var(--paper)}
+.chapnav a:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.chapnav .now{background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600}
+
+/* 2026-09-03 改訂で他章と記法を揃えるために追加 */
+.box{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1.2rem 1.4rem; margin:1.4rem 0}
+.box.bad{border-left-color:var(--bad)} .box.warn{border-left-color:var(--warn)} .box.good{border-left-color:var(--good)}
+.box .lbl{font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.4rem}
+.box.bad .lbl{color:var(--bad)} .box.warn .lbl{color:var(--warn)} .box.good .lbl{color:var(--good)}
+.box p{margin:.3rem 0} .box p:last-child{margin-bottom:0}
+.box .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.1rem; line-height:1.7}
+.g{color:var(--good); font-weight:600}
+.b{color:var(--bad); font-weight:600}
+.w{color:var(--warn); font-weight:600}
+tr.good td{background:var(--accent-soft)}
+.formula{background:var(--mono-bg); border:1px solid var(--line); border-radius:8px;
+  padding:1.1rem 1.3rem; margin:1rem 0 1.3rem; text-align:center;
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:1.02rem; font-weight:700; line-height:2}
+.formula .s{display:block; font-size:.76rem; font-weight:400; color:var(--sub); margin-top:.4rem}
+ol.steps{list-style:none; padding-left:0; counter-reset:t}
+ol.steps>li{counter-increment:t; position:relative; padding-left:2.3rem; margin:.9rem 0}
+ol.steps>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem}
+.chapnav{display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.chapnav a,.chapnav span{display:block; padding:.3rem .7rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; color:var(--sub); background:var(--paper)}
+.chapnav a:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.chapnav .now{background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600}
+footer{margin-top:3.4rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.79rem; line-height:1.85}
+footer a{color:var(--accent)}
+</style>
+
+<div class="doc">
+
+<nav class="chapnav" aria-label="章の移動">
+  <span class="now">01 いまのままだと、どうなるか</span>
+  <a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">02 どう買えば、儲かるか</a>
+  <a href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">03 お金を、どこから借りるか</a>
+  <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">04 失敗したら、いくら失うか</a>
+  <a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">05 進めるか、やめるか</a>
+</nav>
+
+<header class="cover">
+  <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 第一章</p>
+  <h1>yah.homes<span style="color:var(--sub)">_</span>いまのままだと、どうなるか</h1>
+  <p class="deck">台帳と法人税申告書の<strong>実額だけ</strong>で書いた。仮定を置いていない唯一の章である。<em>いまの調達のまま、自己資金を使って拡大すれば、器は薄まる。</em>——第二章以降はこの結論の前提を外しにいくが、<strong>この章の数字は動かない。</strong></p>
+  <div class="meta">
+    <span class="k">実額のみ</span><span>2026-09-03 改訂</span><span>仮定なし</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目次">
+  <a href="#c01"><span class="i">01</span>結論</a>
+  <a href="#c02"><span class="i">02</span>現在地</a>
+  <a href="#c03"><span class="i">03</span>この先の絵</a>
+  <a href="#c04"><span class="i">04</span>気をつけるところ</a>
+  <a href="#c05"><span class="i">05</span>やること</a>
+  <a href="#c06"><span class="i">06</span>やらないこと</a>
+  <a href="#c07"><span class="i">07</span>この章の位置づけ</a>
+</nav>
+
+<h2 id="c01"><span class="n">01</span>結論</h2>
+
+<div class="box good">
+  <span class="lbl">この章の結論</span>
+  <p class="big">棟は増やさない。売らない。運営は続ける。</p>
+  <p><strong>ただし、この結論には条件がある</strong>——<em>いまの調達ルートのまま、自己資金を使って拡大するなら。</em></p>
+</div>
+
+<p>いまの調達（土地はふれんず・建築は住友不動産・家具は小売）で6室目を建てると、1室 <strong>¥92,335,412</strong>・NOI利回り <strong>7.55%</strong>。<em>いま回っている水準を下回るので、増やすほど平均が下がる。</em></p>
+
+<div class="box bad">
+  <span class="lbl">2026-09-03 追記</span>
+  <p><strong>この結論は、第二章以降で条件つきで覆された。</strong>調達ルートを変えれば 9.51%、そして<em>家族から年4%で調達できるなら自己資金はゼロになる</em>——<strong>器を薄めずに増やせる。</strong></p>
+  <p class="big">だから本章は<strong>間違っていたのではなく、前提が1つ増えた。</strong></p>
+  <p>詳細は<a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">第五章</a>。</p>
+</div>
+
+<h2 id="c02"><span class="n">02</span>現在地</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th class="num">実額</th><th>出どころ</th></tr></thead>
+<tbody>
+<tr><td>稼働している棟</td><td class="num">2棟（清川・高砂）</td><td>revenue 台帳</td></tr>
+<tr><td>2027年2月までに</td><td class="num">5室</td><td>六本松1・大手門2が竣工</td></tr>
+<tr><td>直近の手取り率</td><td class="num">53.2%</td><td>直近7か月・2棟の実績</td></tr>
+<tr class="good"><td><strong>全社NOI（2028年・5室通年）</strong></td><td class="num g"><strong>¥30,059,742</strong></td><td>資金繰りモデル。会社維持経費 ¥4,800,000 控除後</td></tr>
+<tr><td>1室あたりNOI</td><td class="num">¥6,971,948</td><td>棟別に戻して5室で割った値</td></tr>
+<tr class="hi"><td><strong>借入残高（2028年）</strong></td><td class="num"><strong>¥307,911,164</strong></td><td>銀行3本＋家族5本</td></tr>
+<tr><td>個人の投資信託</td><td class="num">¥172,022,799</td><td>personalAssets（9銘柄）</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box warn">
+  <span class="lbl">2026-09-03 訂正 ── 借入残高が ¥96,031,628 増えた</span>
+  <p>R7.12月期 法人税申告書「借入金の内訳」に載っていた<strong>役員借入金 ¥93,031,628</strong>と<strong>晴信氏からの法人借入 ¥3,000,000</strong>が、台帳に登録されていなかった。</p>
+  <p class="big">その結果、<strong>企業価値を ¥96,031,628 過大に見ていた。</strong></p>
+  <p><em>現金の動きには影響しない</em>（返済条件が定められていないため月々の支出はゼロ）。<strong>変わったのは借入残高と純資産だけである。</strong></p>
+</div>
+
+<h2 id="c03"><span class="n">03</span>この先の絵</h2>
+<p>いまの調達のまま6棟目に進むと何が起きるか。<strong>台帳の資金繰りモデルが30年ぶんを出している。</strong></p>
+
+<div class="box bad">
+  <span class="lbl">器が薄まる</span>
+  <p class="big">1室総額 <strong>¥92,335,412</strong>／NOI利回り <strong>7.55%</strong>。<em>自己資金を使えば、その分だけ手元が減る。</em></p>
+  <p>ルートを変え、自己資金を使わないなら話は変わる——<a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">第二章</a></p>
+</div>
+
+<p class="dim">→ 年次の推移は <a href="https://os.yah.homes/cashflow">資金繰りカード</a>（年次タブ）、企業価値は同カードの企業価値タブ</p>
+
+<h2 id="c04"><span class="n">04</span>気をつけるところ</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>中身</th></tr></thead>
+<tbody>
+<tr class="hi"><td><strong>2027年4月</strong></td><td>大手門 ¥100,000,000 の据置期間が明ける。<em>契約書の記載は「期日に一括返済」のままで、15年分割の書面が追いついていない。</em>破綻の分岐ではなく事務手続きだが、<strong>期日までに銀行と着地を確定させること</strong></td></tr>
+<tr class="hi"><td><strong>役員報酬0円の根拠</strong></td><td>代表個人の投資信託の分配金で生活費と個人債務を賄う前提。<strong>崩れると年 ¥6,545,896<span class="dim">（例:概算）</span> を法人から出す必要が生じ、2030年代が赤字に転じる</strong>（assumptions/officer-comp）</td></tr>
+<tr class="hi"><td><strong>投資信託の二重の役割</strong></td><td>¥172,022,799 が<em>収入源と担保を兼ねている。</em>野村Webローンの担保でもある。<strong>ドル建て・為替ヘッジなしが 99.8%</strong></td></tr>
+<tr><td><strong>個人保証</strong></td><td>銀行3本（計 ¥157,000,000）はすべてプロパー融資で、<strong>信用保証協会の保証はない。代表の個人保証が唯一の裏付け</strong></td></tr>
+<tr><td><strong>2026年9月の手元</strong></td><td>¥3,784,832。<em>追加融資込みでも下限 ¥10,000,000 を1か月だけ割る</em>（大手門の工事代金を払う月）</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="c05"><span class="n">05</span>やること</h2>
+
+<ol class="steps">
+<li><strong>2027年4月の据置明けを、書面で確定させる。</strong>契約書と返済予定表を取り直す</li>
+<li><strong>5室を回す。</strong>六本松2027年2月・大手門2027年4月の稼働を、清川・高砂と同じ水準に乗せる</li>
+<li><strong>団体信用生命保険・経営者保険の加入状況を台帳に入れる。</strong>加入していれば個人保証のリスクは大きく下がる。<em>未登録のまま</em></li>
+<li><strong>運営委託の契約書を台帳に入れる。</strong>契約期間・解約条項・代替先。<em>「運営は外注で回る」が強みだが、その1社が抜けた場合の想定がない</em></li>
+</ol>
+
+<h2 id="c06"><span class="n">06</span>やらないこと</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>理由</th></tr></thead>
+<tbody>
+<tr><td><strong>多角化</strong></td><td>いまの体制で回っているのは、判断がほとんど発生しないから。<em>別の事業を足せば、その前提が消える</em></td></tr>
+<tr><td><strong>他地域への進出</strong></td><td>福岡での土地勘・銀行との関係・運営委託先が、そのまま使えない</td></tr>
+<tr><td><strong>売却</strong></td><td>いま売る理由がない。<em>持ち続けるほど借入が減り、純資産が増える</em></td></tr>
+<tr class="hi"><td><strong>6棟目（いまの調達のまま）</strong></td><td>1室 ¥92,335,412・7.55%。<strong>器を薄める。</strong><br><em>ただし調達ルートを変え、自己資金を使わないなら話は変わる</em>——<a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">第二章</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="c07"><span class="n">07</span>この章の位置づけ</h2>
+
+<div class="box good">
+  <span class="lbl">5章のなかで、この章だけが違う</span>
+  <p class="big">本章は<strong>台帳と法人税申告書の実額だけ</strong>で書いた。<em>仮定を1つも置いていない。</em></p>
+  <p>第二章以降は違う——<strong>土地を80%で買えたら、建築を坪80万で建てられたら、家族が4%で貸してくれたら。</strong>いずれも <em>n=0</em> である。</p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>章</th><th>何に基づくか</th><th>結論</th></tr></thead>
+<tbody>
+<tr class="good"><td><strong>第一章（本章）</strong></td><td class="g"><strong>実額のみ</strong></td><td>いまの調達のままなら、増やさない</td></tr>
+<tr><td>第二章 どう買えば、儲かるか</td><td>見積書＋仮定</td><td>ルートを変えれば 9.51%。自己資金ゼロなら進めてよい（74.0点）</td></tr>
+<tr><td>第三章 お金を、どこから借りるか</td><td>申告書＋資金繰りモデル</td><td>年4%に揃える。現金は回る</td></tr>
+<tr><td>第四章 失敗したら、いくら失うか</td><td>第二章の確定モデル</td><td>失うのは建物のぶんだけ（78.2点）</td></tr>
+<tr><td>第五章 進めるか、やめるか</td><td>4章の統合</td><td>拡大基調で進める。止まる線つき</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box warn">
+  <span class="lbl">読むときの順序</span>
+  <p><strong>本章が土台である。</strong>ここに書いてあるのは、いま実際に起きていること——<em>2棟の稼働実績、申告書の借入、投資信託の残高。</em></p>
+  <p>第二章以降が示すのは<strong>「もしできたら」</strong>の姿である。<em>できるかどうかは、まだ誰も知らない。</em></p>
+  <p class="big">だから第五章に<strong>止まる線</strong>を置いた。</p>
+</div>
+
+
+<h2 id="src"><span class="n">SRC</span>この文書の数字の出どころ</h2>
+<p class="dim">この表と本文の数字は <code>node tools/report-build.mjs</code> が台帳から生成した。
+<strong>テンプレートに金額は書かれていない</strong>（<code>tools/reportcheck.mjs</code> がCIで検査）。</p>
+<div class="tbl"><table>
+<thead><tr><th>キー</th><th class="num">値</th><th>出どころ</th></tr></thead>
+<tbody>
+<tr><td><code>actual.total</code></td><td class="num">¥92,335,412</td><td class="dim">assumptions/target-model｜1室総額の実額</td></tr>
+<tr><td><code>actual.yield</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜実額でのNOI利回り</td></tr>
+<tr><td><code>bank.ffg202603.principal</code></td><td class="num">¥100,000,000</td><td class="dim">finance/loan-ffg-2026-03（株式会社福岡銀行）元本</td></tr>
+<tr><td><code>bank.total</code></td><td class="num">¥157,000,000</td><td class="dim">finance entity=corp の銀行分の元本合計</td></tr>
+<tr><td><code>cash.floor</code></td><td class="num">¥10,000,000</td><td class="dim">settings/cashflow の下限</td></tr>
+<tr><td><code>cash.trough</code></td><td class="num">¥3,784,832</td><td class="dim">rowsAlt の最小残高＝資金繰りの谷（追加融資込み）</td></tr>
+<tr><td><code>debt.2028</code></td><td class="num">¥307,911,164</td><td class="dim">finance entity=corp の 2028年末の残債合計</td></tr>
+<tr><td><code>exit.loanBalance</code></td><td class="num">¥96,031,628</td><td class="dim">cashflow(360).valuation[2050].loanBalance ＝ 出口年の借入残高</td></tr>
+<tr><td><code>exit.noi</code></td><td class="num">¥30,059,742</td><td class="dim">valuation.noi（売上−固定費−光熱費−長期修繕の年割り）</td></tr>
+<tr><td><code>family.harunobuCorp</code></td><td class="num">¥3,000,000</td><td class="dim">finance/loan-harunobu-corp-3m（山田 晴信・0%）返済予定なし</td></tr>
+<tr><td><code>family.officer</code></td><td class="num">¥93,031,628</td><td class="dim">finance/loan-kazuyoshi-officer（山田 一慶・0%）役員借入・返済予定なし</td></tr>
+<tr><td><code>model.noiPerRoom</code></td><td class="num">¥6,971,948</td><td class="dim">assumptions/target-model｜1室あたりNOI</td></tr>
+<tr><td><code>overhead</code></td><td class="num">¥4,800,000</td><td class="dim">cashflow の会社維持経費（年）</td></tr>
+<tr><td><code>personal.toushin</code></td><td class="num">¥172,022,799</td><td class="dim">personalAssets の投資信託 9件の評価額</td></tr>
+</tbody></table></div>
+<p class="dim">生成 2026-09-03 10:27 UTC ／ 基準日 2026-09-03</p>
+<footer>
+  <p><strong>yah.homes_いまのままだと、どうなるか</strong>（戦略提案 第一章）／ 2026-09-02 初版・2026-09-03 改訂</p>
+  <p>
+    <a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">第二章</a> ／
+    <a href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">第三章</a> ／
+    <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">第四章</a> ／
+    <a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">第五章</a>
+  </p>
+  <p>数字は yah.OS の台帳（Firestore agency DB）と R7.12月期 法人税申告書に基づき、<strong>資金繰りモデルを実際に走らせた出力</strong>。還元利回り 6.0%（assumptions/cap-rate）。<strong>2026-09-03 の改訂で、還元利回りを 5.0% → 6.0% に、借入残高に登録漏れの ¥96,031,628 を加えた。</strong></p>
+</footer>
+
+</div>

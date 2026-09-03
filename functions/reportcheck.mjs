@@ -20,13 +20,14 @@ for (const t of tpls) {
 
 /* 定義側は静的に読む（台帳へ接続せずCIで回すため） */
 const def = await readFile("report-values.mjs", "utf8");
-const defined = new Set([...def.matchAll(/put\("([A-Za-z0-9_.]+)"/g)].map((m) => m[1]));
-/* 動的に作るキー。put(`land.${k}.total`) や famPut("family.officer", …) の形 */
-const dynPrefix = [...def.matchAll(/put\(`([A-Za-z0-9_.]+)\.\$\{[^}]+\}\.([A-Za-z0-9_.]+)`/g)]
+/* put(...) / tPut(...) / famPut(...) の第1引数を拾う。テンプレートリテラルも見る */
+const defined = new Set();
+for (const m of def.matchAll(/\b(?:t|fam)?[Pp]ut\(\s*[`"]([A-Za-z0-9_.]+)[`"]/g)) defined.add(m[1]);
+/* put(`land.${k}.total`) のような動的キー。接頭辞＋接尾辞で照合する */
+const dynPrefix = [...def.matchAll(/\b(?:t|fam)?[Pp]ut\(\s*`([A-Za-z0-9_.]*?)\$\{[^}]+\}\.?([A-Za-z0-9_.]*)`/g)]
   .map((m) => ({ head: m[1], tail: m[2] }));
-for (const m of def.matchAll(/famPut\("([A-Za-z0-9_.]+)"/g)) defined.add(m[1]);
 const isDefined = (k) => defined.has(k)
-  || dynPrefix.some((d) => k.startsWith(d.head + ".") && k.endsWith("." + d.tail));
+  || dynPrefix.some((d) => k.startsWith(d.head) && (!d.tail || k.endsWith(d.tail)));
 for (const m of def.matchAll(/put\("([A-Za-z0-9_.]+)"\s*,([^;]*?)\);/gs)) {
   const args = m[2].split(",");
   if (args.length < 2 || !args.slice(1).join(",").trim()) {

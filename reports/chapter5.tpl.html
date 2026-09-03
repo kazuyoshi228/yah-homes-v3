@@ -1,0 +1,379 @@
+<title>yah.homes_進めるか、やめるか</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --bg:#F5F3F0; --paper:#FFFFFF; --ink:#17151A; --sub:#666069; --line:#E1DDE2;
+  --accent:#4A3B6B; --accent-soft:#EBE6F1;
+  --warn:#8A6A12; --warn-soft:#F6EFDC;
+  --bad:#9E3126;  --bad-soft:#F7E6E3;
+  --good:#2F6B52; --good-soft:#E3EFE9;
+  --mono-bg:#EBE8EC;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121016; --paper:#1A171F; --ink:#E9E5EC; --sub:#9A93A1; --line:#2C2733;
+    --accent:#A995D6; --accent-soft:#1F1A2B;
+    --warn:#D4AE5C; --warn-soft:#251F13;
+    --bad:#DE7568;  --bad-soft:#271815;
+    --good:#6FB491; --good-soft:#122419;
+    --mono-bg:#171420;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121016; --paper:#1A171F; --ink:#E9E5EC; --sub:#9A93A1; --line:#2C2733;
+  --accent:#A995D6; --accent-soft:#1F1A2B;
+  --warn:#D4AE5C; --warn-soft:#251F13;
+  --bad:#DE7568;  --bad-soft:#271815;
+  --good:#6FB491; --good-soft:#122419;
+  --mono-bg:#171420;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0; padding:3rem 1.2rem 6rem;
+  font-family:"Noto Serif JP",serif; font-size:15.5px; line-height:1.95; -webkit-font-smoothing:antialiased}
+.doc{max-width:820px; margin:0 auto}
+p{margin:.6rem 0 1rem}
+strong{font-weight:600}
+em{font-style:normal; background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+
+.chapnav{display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.chapnav a,.chapnav span{display:block; padding:.3rem .7rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; color:var(--sub); background:var(--paper)}
+.chapnav a:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.chapnav .now{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chapnav .now{color:#121016}}
+:root[data-theme="dark"] .chapnav .now{color:#121016}
+
+.cover{border-bottom:3px solid var(--ink); padding-bottom:1.8rem; margin-bottom:1.6rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+h1{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:clamp(1.9rem,5.5vw,2.6rem); line-height:1.35; margin:0 0 .9rem; text-wrap:balance}
+.deck{font-size:1rem; color:var(--sub); margin:0 0 1.2rem; max-width:36em}
+.meta{display:flex; gap:.5rem; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.meta span{border:1px solid var(--line); border-radius:3px; padding:.22rem .6rem; color:var(--sub)}
+.meta span.k{background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600}
+
+.toc{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin:0 0 2.4rem; grid-template-columns:1fr}
+@media(min-width:560px){.toc{grid-template-columns:1fr 1fr}}
+.toc a{display:flex; gap:.7rem; align-items:baseline; background:var(--paper);
+  padding:.62rem .9rem; text-decoration:none; color:var(--ink);
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:.85rem; line-height:1.5}
+.toc a:hover{background:var(--accent-soft); color:var(--accent)}
+.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.toc .i{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--accent); font-weight:600; flex:none}
+h2[id]{scroll-margin-top:1.2rem}
+
+h2{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.24rem;
+  margin:3.4rem 0 .9rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  display:flex; gap:.8rem; align-items:baseline; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--accent); font-weight:600; flex:none}
+h3{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.98rem; margin:2rem 0 .4rem}
+
+.box{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1.2rem 1.4rem; margin:1.4rem 0}
+.box.bad{border-left-color:var(--bad)} .box.warn{border-left-color:var(--warn)} .box.good{border-left-color:var(--good)}
+.box .lbl{font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.4rem}
+.box.bad .lbl{color:var(--bad)} .box.warn .lbl{color:var(--warn)} .box.good .lbl{color:var(--good)}
+.box p{margin:.3rem 0} .box p:last-child{margin-bottom:0}
+.box .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.1rem; line-height:1.7}
+.box ul,.box ol{margin:.5rem 0 .3rem}
+
+.tbl{overflow-x:auto; margin:1rem 0 1.4rem; border:1px solid var(--line); border-radius:8px; background:var(--paper)}
+table{width:100%; border-collapse:collapse; font-family:"Zen Kaku Gothic New",sans-serif; font-size:.82rem}
+th,td{text-align:left; padding:.58rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.6}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sub); font-weight:600; background:var(--mono-bg)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dim{color:var(--sub)}
+.g{color:var(--good); font-weight:600}
+.b{color:var(--bad); font-weight:600}
+.w{color:var(--warn); font-weight:600}
+tr.hi td{background:var(--warn-soft)}
+tr.good td{background:var(--good-soft)}
+
+.formula{background:var(--mono-bg); border:1px solid var(--line); border-radius:8px;
+  padding:1.1rem 1.3rem; margin:1rem 0 1.3rem; text-align:center;
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:1.02rem; font-weight:700; line-height:2}
+.formula .s{display:block; font-size:.76rem; font-weight:400; color:var(--sub); margin-top:.4rem}
+
+ul,ol{margin:.5rem 0 1.1rem; padding-left:1.3rem}
+li{margin:.3rem 0} li::marker{color:var(--sub)}
+ol.steps{list-style:none; padding-left:0; counter-reset:t}
+ol.steps>li{counter-increment:t; position:relative; padding-left:2.3rem; margin:1rem 0}
+ol.steps>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem}
+
+footer{margin-top:3.4rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.79rem; line-height:1.85}
+footer a{color:var(--accent)}
+</style>
+
+<div class="doc">
+
+<nav class="chapnav" aria-label="章の移動">
+  <a href="https://claude.ai/code/artifact/b02c646d-7db6-4f11-9ec6-df3a1d3da4ba">01 いまのままだと、どうなるか</a>
+  <a href="https://claude.ai/code/artifact/a1fa1573-787d-4e42-9e2d-77c334575a99">02 どう買えば、儲かるか</a>
+  <a href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">03 お金を、どこから借りるか</a>
+  <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">04 失敗したら、いくら失うか</a>
+  <span class="now">05 進めるか、やめるか</span>
+</nav>
+
+<header class="cover">
+  <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 第五章</p>
+  <h1>yah.homes<span style="color:var(--sub)">_</span>進めるか、やめるか</h1>
+  <p class="deck"><strong>拡大基調で進める。</strong>調達の方法を変え、土地と建築のコストを下げ、家族から年4%で集める。<em>数字の裏付けは、進めながら取る。</em>——第一章の「5室で止める」を、なぜ覆せるのか。そして、どこで止まるのか。</p>
+  <div class="meta">
+    <span class="k">方針: 拡大</span><span>2026-09-03</span><span>資金繰りモデルで検算済み</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目次">
+  <a href="#c01"><span class="i">01</span>方針</a>
+  <a href="#c02"><span class="i">02</span>なぜ第一章と矛盾しないのか</a>
+  <a href="#c03"><span class="i">03</span>自己資金ゼロで増やす</a>
+  <a href="#c04"><span class="i">04</span>止まる線</a>
+  <a href="#c05"><span class="i">05</span>器をどうするか（SPC・GK-TK）</a>
+  <a href="#c06"><span class="i">06</span>残る5つの監視項目</a>
+  <a href="#c07"><span class="i">07</span>ディレクターの結論</a>
+  <a href="#c08"><span class="i">08</span>次の1手</a>
+  <a href="#c09"><span class="i">09</span>数字の一覧</a>
+</nav>
+
+<h2 id="c01"><span class="n">01</span>方針</h2>
+
+<div class="box good">
+  <span class="lbl">決めたこと</span>
+  <p class="big">拡大基調で進める。</p>
+  <ol>
+    <li><strong>資金の調達方法と返済方法を変える</strong> ── 元本据置・年4%・劣後（第三章）</li>
+    <li><strong>土地の取得と建築の方法を変え、コストを20%下げる</strong>（第二章）</li>
+    <li><strong>家族ファンドとして年4%で集める</strong>（第三章）</li>
+  </ol>
+  <p><em>数字の裏付けは、進めながら取る。</em></p>
+</div>
+
+<div class="box warn">
+  <span class="lbl">この順序について</span>
+  <p>本稿は当初「見積を取ってから決めるべき」と書いた。<strong>それは実務を無視していた。</strong></p>
+  <p><em>工務店に見積を頼むには「建てる意思」が要る。冷やかしでは相手も動かない。</em>——<strong>拡大の方向を決めるから、情報が集まる。</strong>順序はこれで正しい。</p>
+  <p>そのかわり、<strong>どこで止まるかを先に決めておく</strong>（第04章）。</p>
+</div>
+
+<h2 id="c02"><span class="n">02</span>なぜ第一章と矛盾しないのか</h2>
+
+<p>第一章は<strong>「5室で止める」</strong>と結論した。理由は<em>6室目が年率9.5%の器を薄めるから。</em></p>
+
+<div class="box good">
+  <span class="lbl">第一章は間違っていない</span>
+  <p class="big">第一章が否定したのは<strong>「いまの調達のまま、自己資金を使って拡大すること」</strong>である。</p>
+  <p>土地をふれんず、建築を住友不動産で買い続けるなら 1室 {{actual.total}}・利回り 7.55%。<em>器を確実に薄める。</em></p>
+  <p><strong>変わったのは2つ。</strong>①調達ルートを変えれば {{model.total}}・9.51% になる ②<strong>家族から年4%で調達できるので、自己資金を1円も使わない</strong></p>
+</div>
+
+<h2 id="c03"><span class="n">03</span>自己資金ゼロで増やす</h2>
+
+<div class="tbl">
+<table>
+<tbody>
+<tr><td>1棟の仕込み</td><td class="num">{{model.total}}</td></tr>
+<tr><td>　銀行（LTV65%・2.25%）</td><td class="num">{{mix.bank}}</td></tr>
+<tr><td>　家族マネー（年4%・劣後）</td><td class="num">{{mix.family}}</td></tr>
+<tr class="good"><td><strong>　自己資金</strong></td><td class="num g"><strong>¥0</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl">
+<table>
+<tbody>
+<tr><td>NOI</td><td class="num">{{model.noiPerRoom}}</td></tr>
+<tr><td>− 銀行の利息</td><td class="num">−{{mix.bankInterestActual}}</td></tr>
+<tr><td>− 銀行の元本（15年）</td><td class="num">−{{mix.bankPrincipalActual}}</td></tr>
+<tr><td>− 家族への利息</td><td class="num">−{{mix.familyInterestActual}}</td></tr>
+<tr class="good"><td><strong>= 年の余剰</strong></td><td class="num g"><strong>{{mix.surplus}}</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  NOI <strong>9.51%</strong> − 調達コスト <strong>2.86%</strong> ＝ スプレッド <strong>6.64㌽</strong>
+  <span class="s">器の9.5%と比べれば0.01㌽。だがお金の値段と比べれば6.64㌽ある</span>
+</div>
+
+<div class="box good">
+  <span class="lbl">比べる相手が変わった</span>
+  <p class="big">自己資金を1円も使わないなら、<strong>既存の株主価値は薄まらない。</strong></p>
+  <p>比べるべきは器の利回りではなく、<em>調達コスト</em>である。この物差しで第二章の採点は <strong>65.2 → 74.0点</strong>。</p>
+  <p><strong>そして最も重い項目が「収益性」から「資金調達」へ移った。</strong>——年4%で {{mix.family}} を集められるかが、すべてを決める。</p>
+</div>
+
+<h2 id="c04"><span class="n">04</span>止まる線</h2>
+
+<p>「進めながら数字を取る」なら、<strong>どこまでなら続け、どこで止まるかを先に決めておく。</strong>基準は<em>自己資金ゼロで年の余剰がプラスかどうか</em>。</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>何が</th><th class="num">いまの見込み</th><th class="num">止まる線</th><th class="num">余裕</th></tr></thead>
+<tbody>
+<tr class="good"><td><strong>建築の総額坪単価</strong></td><td class="num">{{build.perTsuboActual}}<br><span class="dim">（削減なしの実額）</span></td><td class="num w"><strong>{{build.perTsuboActual}}</strong></td><td class="num g">35.7%</td></tr>
+<tr class="good"><td><strong>出口の cap</strong></td><td class="num">6.00%</td><td class="num w"><strong>9.51%</strong></td><td class="num g">3.51㌽</td></tr>
+<tr class="good"><td><strong>1室あたりNOI</strong></td><td class="num">{{model.noiPerRoom}}</td><td class="num w"><strong>{{stop.noi}}</strong></td><td class="num g">24%</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box good">
+  <span class="lbl">削減が1円もできなくても、回る</span>
+  <p class="big">いまの実額（総額坪 {{build.perTsuboActual}}）で建てても、年の余剰は <strong>{{mix.surplusActual}}</strong>。</p>
+  <p><em>「コストを20%下げる」は目標であって、前提ではない。</em>下がればもっと良くなるが、下がらなくても止まらない。</p>
+</div>
+
+<div class="box warn">
+  <span class="lbl">ただし、金利には敏感である</span>
+  <p class="big">銀行金利が 2.25% → 3.5% になると、年の余剰は <strong>{{mix.surplusActual}} → {{mix.surplusAt350}}</strong>。</p>
+  <p><em>3本とも変動金利（短期プライムレート連動）。</em><strong>3つの止まる線より、こちらのほうが先に来る可能性がある。</strong></p>
+</div>
+
+<h2 id="c05"><span class="n">05</span>器をどうするか（SPC・GK-TK）</h2>
+
+<h3>合同会社（SPC）── 作るのは簡単。使いどころが限られる</h3>
+<p><strong>いまは作らない。</strong>既存4棟を移すと流通税（登録免許税・不動産取得税）がかかり、<em>新設法人には決算書も取引実績もないので銀行融資は不利になる。</em>保証を求められるので倒産隔離という利点も消える。</p>
+
+<p>6棟目からSPCで持てば移転コストはゼロ。<strong>合同会社を先に作れば、あとからGK-TKに転換できる。</strong>6棟目を決めて、銀行にSPCの条件を聞いてから作れば無駄がない。</p>
+
+<h2 id="c06"><span class="n">06</span>残る5つの監視項目</h2>
+
+<p>本稿が挙げた懸念のうち、<strong>2つは撤回し、1つは解けた。</strong>残るものを並べる。</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>懸念</th><th>結末</th></tr></thead>
+<tbody>
+<tr><td class="dim">見積を取らずに決めている</td><td class="dim"><strong>撤回</strong> ── 決めないと見積は取れない</td></tr>
+<tr><td class="dim">拡大は相関リスクを増やす</td><td class="dim"><strong>撤回</strong> ── むしろ通貨の偏りに対する分散になる</td></tr>
+<tr><td class="dim">元本を返さない設計の累積</td><td class="dim"><strong>解ける</strong> ── 1棟売れば3.9棟分返せる</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>残るもの</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>中身</th><th>いつ分かるか</th></tr></thead>
+<tbody>
+<tr class="hi"><td><strong>1. 銀行金利</strong></td><td>3本とも変動（短プラ連動）。<strong>3.5%になると年の余剰が {{mix.surplusAt350}} まで落ちる</strong></td><td>随時</td></tr>
+<tr class="hi"><td><strong>2. capの実勢</strong></td><td>6.0%は<strong>仲介1件の回答</strong>。9.51%を超えると含み益が消える</td><td>複数の仲介に聞けば</td></tr>
+<tr class="hi"><td><strong>3. 役員報酬0円への依存</strong></td><td>台帳が「崩れると2030年代が赤字」と警告。根拠は<em>個人の投資信託の分配金</em>で、それは野村Webローンの担保も兼ねる</td><td>分配の実績を追う</td></tr>
+<tr class="hi"><td><strong>4. 2026年9月の手元</strong></td><td>{{cash.trough}}。<strong>追加融資込みでも下限{{cash.floor}} を1か月だけ割る</strong>（大手門の着工金 ¥36,000,000<span class="dim">（例:概算）</span> を払う月）</td><td>いま</td></tr>
+<tr class="hi"><td><strong>5. 運営委託先への依存</strong></td><td>「運営は外注で回る」が強みだが、<strong>その1社が抜けた場合の想定が台帳にない。</strong>契約期間・解約条項・代替先が未登録</td><td>契約書を見れば</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box warn">
+  <span class="lbl">5つとも、拡大を止める理由ではない</span>
+  <p>だが<em>止まる線に近いのは、コストや稼働ではなくここである。</em><strong>1と2は数字で追える。3と5は台帳に無いものを足せば見えるようになる。</strong></p>
+</div>
+
+<h2 id="c07"><span class="n">07</span>ディレクターの結論</h2>
+
+<div class="box good">
+  <span class="lbl">一言でいうと</span>
+  <p class="big">進めてよい。<strong>ただし、進める理由は「利回りが良いから」ではない。</strong></p>
+  <p><em>自己資金を1円も使わずに増やせるからである。</em></p>
+</div>
+
+<h3>この提案書が本当に見つけたもの</h3>
+
+<p>第一章から第四章まで、数字を何度も引き直した。<strong>そのたびに結論が動いたのは、事業が変わったからではなく、測り方が変わったからである。</strong></p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>どう測るか</th><th class="num">答え</th><th>意味</th></tr></thead>
+<tbody>
+<tr><td>器の年率9.5%と比べる</td><td class="num">9.51%</td><td class="b">0.01㌽。判断の根拠にならない</td></tr>
+<tr><td>建物だけで見る</td><td class="num">17.43%</td><td>失うものは建物のぶんだけ</td></tr>
+<tr class="good"><td><strong>調達コストと比べる</strong></td><td class="num g"><strong>6.64㌽</strong></td><td class="g"><strong>自己資金ゼロなら、これが正しい問い</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>同じ事業である。違うのは、何と比べたかだけ。</strong><em>「拡大すべきか」は、答えの前に問いを選ぶ作業だった。</em></p>
+
+<h3>3つの判断</h3>
+
+<div class="box">
+  <span class="lbl">① 拡大する ── ただし「コスト削減が前提」ではない</span>
+  <p>いまの実額（総額坪 {{build.perTsuboActual}}）で建てても、自己資金ゼロなら年 <strong>{{mix.surplusActual}}</strong> 残る。<em>20%削減は目標であって、成立条件ではない。</em></p>
+  <p><strong>だから進める判断は、見積の前に下してよい。</strong>——本稿が当初「順序が逆」と書いたのは誤りだった。</p>
+</div>
+
+<div class="box">
+  <span class="lbl">② 家族ファンドが、拡大の土台である</span>
+  <p>年4%で {{mix.family}} を集められるかが、すべてを決める。<em>利回りでも、コストでもない。</em></p>
+  <p><strong>そして集めるには、いまいる3人に払っている実績が要る。</strong>{{family.corpPrincipal}} に対して年 {{family.annualInterestNow}}（0.90%）——<em>この状態のままでは、4人目に見せる条件表がない。</em></p>
+</div>
+
+<div class="box">
+  <span class="lbl">③ 器（SPC・GK-TK）は、いま作らない</span>
+  <p>合同会社は数万円で作れるが、<strong>新設法人には決算書も取引実績もない。</strong>福岡銀行から年1.6%の条件提示を受けられたのは、ボンファイアの実績があるからである。</p>
+  <p><em>作るのは、6棟目を決めて、銀行の条件を聞いてから。</em>GK-TKへの転換は、そのあとでもできる。</p>
+</div>
+
+<h3>いちばん危ういのは、コストでも稼働でもない</h3>
+
+<div class="box bad">
+  <span class="lbl">金利である</span>
+  <p class="big">銀行3本はすべて変動（短期プライムレート連動）。<strong>2.25% → 3.5% で、年の余剰は {{mix.surplusActual}} → {{mix.surplusAt350}}。</strong></p>
+  <p>建築の止まる線（総額坪 {{build.perTsuboActual}}）にも、capの止まる線（9.51%）にも、まだ大きな余裕がある。<em>だが金利には余裕がない。</em></p>
+  <p><strong>拡大の可否を左右するのは、自分で決められない変数のほうである。</strong></p>
+</div>
+
+<h3>この提案書の限界</h3>
+
+<div class="box warn">
+  <span class="lbl">正直に</span>
+  <p>本稿は<strong>1日で書き、その間に何度も数字を訂正した。</strong>1室NOIは当初の推計から {{model.noiPerRoom}} へ、法人税は一律34%から段階税率へ、還元利回りは5.0%から6.0%へ。<em>いずれも台帳を読み直して見つけた誤りである。</em></p>
+  <p class="big">まだ見つかっていない誤りが、残っていないとは言えない。</p>
+  <p>それでも出せるのは、<strong>すべての数字が台帳から導かれていて、台帳を直せば結論が追随するから</strong>である。<em>この文書は、正しい答えではなく、確かめられる答えを目指した。</em></p>
+</div>
+
+<div class="formula">
+  進める。<strong>止まる線を持ったまま。</strong>
+  <span class="s">建築 総額坪 {{build.perTsuboActual}} ／ cap 9.51% ／ 1室NOI {{stop.noi}} ／ そして金利</span>
+</div>
+
+<h2 id="c08"><span class="n">08</span>次の1手</h2>
+
+<ol class="steps">
+<li><strong>いまいる3人に、年4%を払い始める。</strong>Cの3本（ウィズダム・真佐子・晴信）を利息のみに切り替える。<em>元本返済が消えるので、法人の現金は年 {{family.principalCut}} 楽になる。</em><strong>実績のない条件表は、次の人に見せられない。</strong></li>
+<li><strong>地場工務店1社に、総額で見積を取る。</strong>付帯・設計監理料・消費税まで含めた総額で。<em>建てなくてよい。</em></li>
+<li><strong>収益物件の仲介を、もう1〜2社当たる。</strong>cap 6.0% は1件の回答。<em>7%か9%かで、持つか売るかが逆転する。</em></li>
+<li><strong>運営委託の契約書を台帳に入れる。</strong>契約期間・解約条項・代替先。<em>拡大するほど1社への依存が大きくなる。</em></li>
+<li><strong>税理士に4つまとめて聞く。</strong>①無利息の {{bank.ffg202501.principal}} ②年4%への切替の妥当性 ③個人債務 {{family.personalPrincipal}} を法人へ移す方法 ④相続まで見た形</li>
+<li><strong>6棟目を決めてから、銀行にSPCの条件を聞く。</strong>答えが出てから器を作る</li>
+</ol>
+
+<div class="box good">
+  <span class="lbl">1番が入口である</span>
+  <p class="big">年4%で外から集めるには、<strong>いまいる3人に4%を払っていることが要る。</strong></p>
+  <p><em>{{family.corpPrincipal}} に対して、いま受け取っている利息は年 {{family.annualInterestNow}}（0.90%）。</em>この状態で次の人に声をかけても、<strong>「うまくいったら回る」を証明できない。</strong></p>
+</div>
+</div>
+
+<h2 id="c09"><span class="n">09</span>数字の一覧</h2>
+<p>本稿で使った数字は、すべて yah.OS の台帳から生成している。<strong>この文書に金額は焼き込まれていない</strong>（末尾の「出どころ」表を参照）。</p>
+
+<p class="dim">→ 生の数字は <a href="https://os.yah.homes/cashflow">資金繰りカード</a>・<a href="https://os.yah.homes/familyfund">家族ファンドカード</a>・<a href="https://os.yah.homes/finance">融資カード</a>・<a href="https://os.yah.homes/properties">不動産DBカード</a></p>
+

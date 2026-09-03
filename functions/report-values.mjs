@@ -57,6 +57,7 @@ export async function values(asOf = new Date("2026-09-03"), exitYear = "2050") {
   const aq = items.filter((v) => v.kind === "acquisition");
   const landBook = aq.reduce((s, v) => s + Number(v.amount || 0), 0);
 
+  const rp = r.reservePlan ?? null;
   const brackets = r.tax?.brackets ?? [];
   const capRate = Number(va.capRate ?? 0);
 
@@ -258,6 +259,204 @@ export async function values(asOf = new Date("2026-09-03"), exitYear = "2050") {
     put("tax.depreciationEndDelta", Number(after.tax || 0) - Number(before.tax || 0),
       `同年の法人税 − 前年の法人税（${before.year}→${after.year}）`);
   }
+
+  /* ── 確定モデル（20%削減シナリオ）──────────────────────────────
+     これは【人の判断】であって台帳の実績ではない。SSoT原則では assumptions に置くべきもの。
+     assumptions/target-model があればそれを読む。無ければ下の暫定値を使い、
+     キーの src に「台帳未登録」と明記する——読む人が実績と取り違えないように。
+     2026-09-03 現在、発注者の承認は未取得（見積も未取得）。 */
+  const tmDoc = await db.collection("assumptions").doc("target-model").get();
+  const tm = tmDoc.exists ? tmDoc.data() : null;
+  const TM_FALLBACK = {
+    discount: 0.20,            // 土地・建築・家具を市価の80%で仕込む
+    landList: 46_000_000,      // 六本松の売買代金を市価の基準にする
+    buildActual: 41_335_412,   // 六本松の建築（確定図・概算資金計画書）
+    furnitureActual: 5_000_000,
+    noiPerRoom: 6_971_948,     // 1室あたりNOI
+    ltv: 0.65,                 // 銀行のLTV
+    bankRate: 0.0225,          // いまの短プラ連動（大手門の金利変更006）
+    bankYears: 15,
+  };
+  const T = { ...TM_FALLBACK, ...(tm ?? {}) };
+  const tmSrc = tm
+    ? "assumptions/target-model"
+    : "【台帳未登録・暫定】assumptions/target-model が未作成のため report-values.mjs の暫定値";
+
+  const tPut = (k, v, note) => put(k, v, `${tmSrc}｜${note}`);
+  const landT = Math.round(T.landList * (1 - T.discount));
+  const buildT = Math.round(T.buildActual * (1 - T.discount));
+  const furnT = Math.round(T.furnitureActual * (1 - T.discount));
+  const totalT = landT + buildT + furnT;
+  const totalA = T.landList + T.buildActual + T.furnitureActual;
+
+  tPut("model.discount", T.discount, "仕込みの削減率");
+  tPut("model.land", landT, `土地の目標＝${T.landList.toLocaleString()}×${100 - T.discount * 100}%`);
+  tPut("model.build", buildT, "建築の目標");
+  tPut("model.furniture", furnT, "家具の目標");
+  tPut("model.buildAndFurniture", buildT + furnT, "建築＋家具の目標");
+  tPut("model.total", totalT, "1室総額の目標");
+  tPut("model.noiPerRoom", T.noiPerRoom, "1室あたりNOI");
+  tPut("model.yield", T.noiPerRoom / totalT, "目標のNOI利回り");
+
+  tPut("actual.land", T.landList, "六本松の売買代金");
+  tPut("actual.build", T.buildActual, "六本松の建築（確定図・概算資金計画書）");
+  tPut("actual.furniture", T.furnitureActual, "家具");
+  tPut("actual.buildAndFurniture", T.buildActual + T.furnitureActual, "建築＋家具の実額");
+  tPut("actual.total", totalA, "1室総額の実額");
+  tPut("actual.yield", T.noiPerRoom / totalA, "実額でのNOI利回り");
+
+  /* 自己資金ゼロの資金構成。銀行LTV65%＋家族4%（劣後） */
+  const mix = (cost) => {
+    const bank = Math.round(cost * T.ltv), fam = cost - bank;
+    const bankInt = bank * T.bankRate;
+    const bankPrin = bank / T.bankYears;
+    const famInt = fam * RATE;
+    return { bank, fam, bankInt, bankPrin, famInt,
+             surplus: T.noiPerRoom - bankInt - bankPrin - famInt,
+             cost: (bankInt + famInt) / cost };
+  };
+  const mT = mix(totalT), mA = mix(totalA);
+  tPut("mix.bank", mT.bank, `銀行＝総額×LTV ${T.ltv * 100}%`);
+  tPut("mix.family", mT.fam, "家族マネー＝残り");
+  tPut("mix.surplus", mT.surplus, "NOI −銀行利息 −銀行元本 −家族利息＝年の余剰");
+  tPut("mix.surplusActual", mA.surplus, "同上を実額の原価で計算");
+  tPut("mix.fundingCost", mT.cost, "調達コスト＝(銀行利息＋家族利息)÷総額");
+  tPut("mix.spread", T.noiPerRoom / totalT - mT.cost, "NOI利回り − 調達コスト");
+
+  /* 止まる線。年の余剰がゼロになる水準 */
+  const solve = (f, lo, hi) => { for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2;
+    if (f(m) > 0) lo = m; else hi = m; } return lo; };
+  /* NOIについては解析的に出る（solve は減少関数専用なので使わない） */
+  tPut("stop.noi", mT.bankInt + mT.bankPrin + mT.famInt,
+    "銀行利息＋銀行元本＋家族利息＝これを下回ると年の余剰がゼロ");
+  tPut("stop.noiMargin", 1 - (mT.bankInt + mT.bankPrin + mT.famInt) / T.noiPerRoom,
+    "いまのNOIから、止まる線までの余裕");
+  tPut("stop.bankRate", solve((rt) => T.noiPerRoom - mT.bank * rt - mT.bankPrin - mT.famInt, 0, 0.3),
+    "銀行金利がここまで上がると年の余剰がゼロ（確定モデル）");
+  tPut("stop.bankRateActual", solve((rt) => T.noiPerRoom - mA.bank * rt - mA.bankPrin - mA.famInt, 0, 0.3),
+    "同上を実額の原価で計算（削減なし）");
+  tPut("stop.landBudget", solve((L) => { const c = L + buildT + furnT; const m2 = mix(c);
+    return m2.surplus; }, 0, 200_000_000), "土地代の上限（建築・家具は目標値のまま）");
+  tPut("stop.cap", T.noiPerRoom / totalT, "出口capがここまで上がると売却額が原価と並ぶ");
+
+  /* ── 章で使う台帳の値を、まとめてキー化 ───────────────────── */
+  const yOf = (yy) => r.yearly.find((v) => String(v.year) === String(yy));
+  for (const yy of [2027, 2029, 2035, 2040, 2045, 2048, 2050, 2055]) {
+    const a = yOf(yy); if (!a) continue;
+    put(`y${yy}.closing`, a.closingAfterTax, `cashflow(360).yearly[${yy}].closingAfterTax（納税後）`);
+    put(`y${yy}.tax`, a.tax, `同 tax`);
+    put(`y${yy}.vatPaid`, a.vatPaid, `同 vatPaid（その年に納付した消費税）`);
+    put(`y${yy}.depreciation`, a.depreciation, `同 depreciation`);
+    put(`y${yy}.interest`, a.interest, `同 interest`);
+  }
+  put("cash.now", r.opening, `settings/cashflow の期首残高（${r.openingAt ?? ""}）`);
+  put("cash.trough", (() => { let lo = Infinity;
+    for (const a of r.rowsAlt ?? []) lo = Math.min(lo, Number(a.closing ?? Infinity));
+    return lo === Infinity ? 0 : lo; })(), "rowsAlt の最小残高＝資金繰りの谷（追加融資込み）");
+
+  /* 銀行の借入（章で名前とともに出す） */
+  for (const b of fin.filter((v) => v.entity === "corp" && BANKS.test(String(v.lender || "")))) {
+    const tag = b.id.replace(/^loan-/, "").replace(/-/g, "");
+    put(`bank.${tag}.principal`, Number(b.principal || 0), `finance/${b.id}（${b.lender}）元本`);
+    put(`bank.${tag}.monthly`, Number(b.monthlyPayment || 0), `finance/${b.id} 月々`);
+  }
+  put("bank.total", fin.filter((v) => v.entity === "corp" && BANKS.test(String(v.lender || "")))
+    .reduce((s, v) => s + Number(v.principal || 0), 0), "finance entity=corp の銀行分の元本合計");
+  /* 家族ローンの月々（2%・240回の3本は同額） */
+  const amortOne = famCorp.find((v) => Number(v.totalPayments || 0) > 0);
+  if (amortOne) put("family.monthlyOne", Number(amortOne.monthlyPayment || 0),
+    `finance/${amortOne.id} の月々（2%・240回の3本は同額）`);
+  put("family.principalCut", (() => {
+    let n = 0; for (const L of famCorp) if (Number(L.totalPayments || 0) > 0) {
+      const p = Number(L.principal || 0), mp = Number(L.monthlyPayment || 0);
+      n += mp * 12 - p * (Number(L.rate || 0) / 100); } return n; })(),
+    "4%（利息のみ）に切り替えると消える年間の元本返済");
+
+  /* 公示地価（landComps の最新年・地点別） */
+  const lc = (await db.collection("landComps").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const latest = Math.max(...lc.map((v) => Number(v.year || 0)).filter(Boolean));
+  for (const v of lc.filter((x) => Number(x.year) === latest && Number(x.unitPrice || 0) > 0)) {
+    const tag = String(v.id).replace(/^kouji-/, "").replace(/-\d{4}$/, "");
+    if (!V[`kouji.${tag}`]) put(`kouji.${tag}`, Number(v.unitPrice),
+      `landComps/${v.id}（公示地価 ${latest}年・${v.address ?? ""}）`);
+  }
+  put("kouji.year", String(latest), "landComps に入っている最新の公示年");
+
+  /* 建築の坪単価（総額ベース） */
+  const tsubo = 3.30578;
+  const rop = (await db.collection("construction").get()).docs.map((d) => d.data())
+    .find((v) => /rop|六本松/.test(String(v.site ?? v.label ?? "")) && Number(v.contractTotal || 0) > 0);
+  if (rop?.contractTotal) {
+    put("build.contractTotal", Number(rop.contractTotal), "construction の請負総額（六本松）");
+  }
+  put("build.perTsuboActual", T.buildActual / (Number(rop?.floorArea ?? 0) / tsubo || 33.62),
+    "建築の総額 ÷ 延床坪（延床は確定図）");
+
+  /* 土地代の上限（金利別）。建築・家具は目標値のまま */
+  for (const [tag, rt] of [["225", 0.0225], ["315", 0.0315], ["345", 0.0345], ["415", 0.0415]]) {
+    const cap = solve((L) => { const c = L + buildT + furnT;
+      const bank = c * T.ltv, fam = c - bank;
+      return T.noiPerRoom - bank * rt - bank / T.bankYears - fam * RATE; }, 0, 300_000_000);
+    put(`landCap.r${tag}`, cap, `金利${(rt * 100).toFixed(2)}%で年の余剰がゼロになる土地代の上限`);
+  }
+
+  /* 章に残っていた値のキー化（2026-09-03 第2次） */
+  put("model.ltvPct", `${Math.round(T.ltv * 100)}%`, "assumptions/target-model.ltv");
+  put("overhead", yOf(2050)?.overhead ?? 0, "cashflow の会社維持経費（年）");
+  put("landCap.r415PerSqm", V["landCap.r415"].v / 60, "土地代の上限 ÷ 60㎡");
+
+  /* 個人資産（役員報酬0円の土台） */
+  const pa = (await db.collection("personalAssets").get()).docs.map((d) => d.data());
+  const toushin = pa.filter((v) => /投資信託|toushin|fund/i.test(String(v.kind ?? v.label ?? "")));
+  put("personal.toushin", toushin.reduce((s2, v) => s2 + Number(v.amount ?? v.value ?? 0), 0),
+    `personalAssets の投資信託 ${toushin.length}件の評価額`);
+  put("personal.assetCount", pa.length, "personalAssets の件数");
+
+  /* 借入残高（章で使う年） */
+  const balAt = (end) => fin.filter((v) => v.entity === "corp").reduce((s2, v) => {
+    const p = Number(v.principal || 0), st = v.firstPaymentMonth, n = Number(v.totalPayments || 0),
+      mp = Number(v.monthlyPayment || 0);
+    let bal = p;
+    if (st && n && mp) for (let i = 0; i < n; i++) {
+      const m = ym(st, i); if (m > end) break;
+      const it = bal * (Number(v.rate || 0) / 100) / 12; bal -= mp - it; if (bal <= 1) { bal = 0; break; }
+    }
+    return s2 + Math.max(0, bal);
+  }, 0);
+  put("debt.2028", balAt("2028-12"), "finance entity=corp の 2028年末の残債合計");
+
+  /* 銀行金利が上がったときの年の余剰 */
+  for (const [tag, rt] of [["350", 0.035], ["300", 0.030]]) {
+    put(`mix.surplusAt${tag}`, T.noiPerRoom - mA.bank * rt - mA.bankPrin - mA.famInt,
+      `銀行金利${(rt * 100).toFixed(1)}%のときの年の余剰（実額の原価）`);
+  }
+  /* 資金構成の内訳（実額ベース。章の内訳表で使う） */
+  put("mix.bankInterestActual", mA.bankInt, "実額の原価での銀行利息（年）");
+  put("mix.bankPrincipalActual", mA.bankPrin, "同 銀行元本（15年）");
+  put("mix.familyInterestActual", mA.famInt, "同 家族への利息（年4%）");
+
+  /* いま家族へ払っている額のうち、元本の返還分 */
+  const nowPay = famCorp.reduce((s2, v) => s2 + Number(v.monthlyPayment || 0) * 12, 0);
+  put("family.annualPayNow", nowPay, "finance の月々×12＝いま家族へ払っている年額");
+  put("family.annualPrincipalNow", nowPay - V["family.annualInterestNow"].v,
+    "上の年額 − 利息＝元本の返還分");
+
+  /* 章の残り（2026-09-03 第3次） */
+  const bpTotal = (await db.collection("buildPayments").get()).docs.map((d) => d.data());
+  const otemonStart = bpTotal.filter((v) => v.prop === "otemon" && /着工|中間|引き渡し/.test(String(v.kind)))
+    .reduce((s2, v) => s2 + Number(v.amount || 0), 0);
+  put("build.otemonRemaining", otemonStart, "buildPayments の大手門（着工・中間・引き渡し）の合計");
+  put("model.halfDiff", Math.abs(landT - (buildT + furnT)), "土地と（建築＋家具）の差");
+  put("reserve.perRoomPerMonth", Number(rp?.perRoomPerMonth ?? 0), "assumptions/reserve-plan.perRoomPerMonth");
+  for (const [tag, rt] of [["225", 0.0225], ["315", 0.0315], ["345", 0.0345], ["415", 0.0415]]) {
+    put(`landCap.r${tag}PerSqm`, V[`landCap.r${tag}`].v / 60, `landCap.r${tag} ÷ 60㎡`);
+  }
+  /* 土地だけ80%にした場合の年の余剰（章の比較表） */
+  const landOnly = Math.round(T.landList * (1 - T.discount)) + T.buildActual + T.furnitureActual;
+  const mL = mix(landOnly);
+  put("mix.surplusLandOnly", mL.surplus, "土地だけ20%オフにした場合の年の余剰");
+  put("mix.bankLandOnly", mL.bank, "同 銀行の借入");
+  put("mix.familyLandOnly", mL.fam, "同 家族マネー");
 
   return V;
 }

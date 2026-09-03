@@ -1,0 +1,410 @@
+<title>yah.homes_どう買えば、儲かるか</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --bg:#F4F3F0; --paper:#FFFFFF; --ink:#1E1C18; --sub:#6A645B; --line:#E0DCD4;
+  --accent:#8A4B1E; --accent-soft:#F3E9E0;
+  --warn:#8A6A12; --warn-soft:#F6EFDC;
+  --bad:#9E3126;  --bad-soft:#F7E6E3;
+  --good:#3D6B45; --good-soft:#E6EFE7;
+  --mono-bg:#EDEAE4;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#14120F; --paper:#1C1A16; --ink:#EAE6DE; --sub:#9A9287; --line:#2E2A24;
+    --accent:#D9915E; --accent-soft:#2A1D14;
+    --warn:#D4AE5C; --warn-soft:#251F13;
+    --bad:#DE7568;  --bad-soft:#271815;
+    --good:#79B487; --good-soft:#16251A;
+    --mono-bg:#191712;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14120F; --paper:#1C1A16; --ink:#EAE6DE; --sub:#9A9287; --line:#2E2A24;
+  --accent:#D9915E; --accent-soft:#2A1D14;
+  --warn:#D4AE5C; --warn-soft:#251F13;
+  --bad:#DE7568;  --bad-soft:#271815;
+  --good:#79B487; --good-soft:#16251A;
+  --mono-bg:#191712;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0; padding:3rem 1.2rem 6rem;
+  font-family:"Noto Serif JP",serif; font-size:15.5px; line-height:1.95; -webkit-font-smoothing:antialiased}
+.doc{max-width:820px; margin:0 auto}
+p{margin:.6rem 0 1rem}
+strong{font-weight:600}
+em{font-style:normal; background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.85em; background:var(--mono-bg); padding:.08em .4em; border-radius:3px}
+
+.cover{border-bottom:3px solid var(--ink); padding-bottom:1.8rem; margin-bottom:1.6rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+h1{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700;
+  font-size:clamp(1.9rem,5.5vw,2.6rem); line-height:1.35; margin:0 0 .9rem; text-wrap:balance}
+.deck{font-size:1rem; color:var(--sub); margin:0 0 1.2rem; max-width:36em}
+.meta{display:flex; gap:.5rem; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.meta span{border:1px solid var(--line); border-radius:3px; padding:.22rem .6rem; color:var(--sub)}
+.meta span.k{background:var(--bad-soft); border-color:var(--bad); color:var(--bad); font-weight:600}
+
+.toc{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin:0 0 2.4rem; grid-template-columns:1fr}
+@media(min-width:560px){.toc{grid-template-columns:1fr 1fr}}
+.toc a{display:flex; gap:.7rem; align-items:baseline; background:var(--paper);
+  padding:.62rem .9rem; text-decoration:none; color:var(--ink);
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:.85rem; line-height:1.5}
+.toc a:hover{background:var(--accent-soft); color:var(--accent)}
+.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.toc .i{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--accent); font-weight:600; flex:none}
+h2[id]{scroll-margin-top:1.2rem}
+
+h2{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.24rem;
+  margin:3.4rem 0 .9rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  display:flex; gap:.8rem; align-items:baseline; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--accent); font-weight:600; flex:none}
+h3{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.98rem; margin:2rem 0 .4rem}
+
+.box{background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent);
+  border-radius:0 8px 8px 0; padding:1.2rem 1.4rem; margin:1.4rem 0}
+.box.bad{border-left-color:var(--bad)} .box.warn{border-left-color:var(--warn)} .box.good{border-left-color:var(--good)}
+.box .lbl{font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:.4rem}
+.box.bad .lbl{color:var(--bad)} .box.warn .lbl{color:var(--warn)} .box.good .lbl{color:var(--good)}
+.box p{margin:.3rem 0} .box p:last-child{margin-bottom:0}
+.box .big{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:1.1rem; line-height:1.7}
+
+.tbl{overflow-x:auto; margin:1rem 0 1.4rem; border:1px solid var(--line); border-radius:8px; background:var(--paper)}
+table{width:100%; border-collapse:collapse; font-family:"Zen Kaku Gothic New",sans-serif; font-size:.82rem}
+th,td{text-align:left; padding:.58rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.6}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sub); font-weight:600; background:var(--mono-bg)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dim{color:var(--sub)}
+.g{color:var(--good); font-weight:600}
+.b{color:var(--bad); font-weight:600}
+.w{color:var(--warn); font-weight:600}
+tr.hi td{background:var(--warn-soft)}
+tr.good td{background:var(--good-soft)}
+
+.formula{background:var(--mono-bg); border:1px solid var(--line); border-radius:8px;
+  padding:1.1rem 1.3rem; margin:1rem 0 1.3rem; text-align:center;
+  font-family:"Zen Kaku Gothic New",sans-serif; font-size:1.02rem; font-weight:700; line-height:2}
+.formula .s{display:block; font-size:.76rem; font-weight:400; color:var(--sub); margin-top:.4rem}
+
+ul,ol{margin:.5rem 0 1.1rem; padding-left:1.3rem}
+li{margin:.3rem 0} li::marker{color:var(--sub)}
+ol.steps{list-style:none; padding-left:0; counter-reset:t}
+ol.steps>li{counter-increment:t; position:relative; padding-left:2.3rem; margin:1rem 0}
+ol.steps>li::before{content:counter(t); position:absolute; left:0; top:.05rem;
+  width:1.55rem; height:1.55rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent); font-weight:700;
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem}
+
+.layers{display:grid; gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin:1.2rem 0; grid-template-columns:1fr}
+@media(min-width:660px){.layers{grid-template-columns:repeat(3,1fr)}}
+.lay{background:var(--paper); padding:1rem 1.1rem}
+.lay .u{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.1em; display:block; margin-bottom:.35rem}
+.lay.a .u{color:var(--good)} .lay.b .u{color:var(--warn)} .lay.c .u{color:var(--bad)}
+.lay .t{font-family:"Zen Kaku Gothic New",sans-serif; font-weight:700; font-size:.9rem; margin:0 0 .3rem}
+.lay .d{font-size:.78rem; color:var(--sub); line-height:1.65; margin:0}
+
+footer{margin-top:3.4rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  color:var(--sub); font-size:.79rem; line-height:1.85}
+footer a{color:var(--accent)}
+.chapnav{display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 2rem;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem}
+.chapnav a,.chapnav span{display:block; padding:.3rem .7rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; color:var(--sub); background:var(--paper)}
+.chapnav a:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.chapnav .now{background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600}
+</style>
+
+<div class="doc">
+
+<nav class="chapnav" aria-label="章の移動">
+  <a href="https://claude.ai/code/artifact/b02c646d-7db6-4f11-9ec6-df3a1d3da4ba">01 いまのままだと、どうなるか</a>
+  <span class="now">02 どう買えば、儲かるか</span>
+  <a href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">03 お金を、どこから借りるか</a>
+  <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">04 失敗したら、いくら失うか</a>
+  <a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">05 進めるか、やめるか</a>
+</nav>
+
+<header class="cover">
+  <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 第二章</p>
+  <h1>yah.homes<span style="color:var(--sub)">_</span>どう買えば、儲かるか</h1>
+  <p class="deck">いまの4棟は、土地も建築も家具も<strong>一般顧客のルート</strong>で調達している。見積書を開くと、高く買わされていたのではなく<strong>大手の正価で買っていた</strong>と分かる。<em>下げしろは「ぼったくり分」ではなくルートの差である</em>——ならば、ルートを変えれば取れる。</p>
+  <div class="meta">
+    <span class="k">74.0点</span><span>2026-09-03</span><span>実績 n=0</span><span>台帳・見積書・申告書に基づく</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目次">
+  <a href="#c01"><span class="i">01</span>3つのルートを変える</a>
+  <a href="#c02"><span class="i">02</span>見積書を開く</a>
+  <a href="#c03"><span class="i">03</span>土地の予算を、金利から逆算する</a>
+  <a href="#c04"><span class="i">04</span>家具も同じ構造だった</a>
+  <a href="#c05"><span class="i">05</span>どこまで下がるのか</a>
+  <a href="#c06"><span class="i">06</span>問いを立て直す</a>
+  <a href="#c07"><span class="i">07</span>止まる線</a>
+  <a href="#c08"><span class="i">08</span>採点</a>
+  <a href="#c09"><span class="i">09</span>限界</a>
+</nav>
+
+<h2 id="c01"><span class="n">01</span>3つのルートを変える</h2>
+
+<p>第一章は<strong>「5室で止める」</strong>と結論した。理由は<em>6室目が年率9.5%の器を薄めるから。</em>その前提は、仕込み値が下がれば消える。</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>いまのルート</th><th class="num">六本松の実額</th><th>変える先</th></tr></thead>
+<tbody>
+<tr><td><strong>土地</strong></td><td>ふれんず（一般公開市場）</td><td class="num">¥46,000,000</td><td>宅建業者間の売買</td></tr>
+<tr><td><strong>建築</strong></td><td>住友不動産（大手の小売窓口）</td><td class="num">¥41,335,412</td><td>建築家＋地場工務店</td></tr>
+<tr><td><strong>家具</strong></td><td>村内ファニチャーアクセス（小売）</td><td class="num">¥5,000,000</td><td>メーカー直</td></tr>
+<tr class="hi"><td><strong>1室 計</strong></td><td></td><td class="num"><strong>¥92,335,412</strong></td><td class="num">利回り 7.55%</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="dim">※1室あたりNOI ¥6,971,948（全社NOI ¥30,059,742 に会社維持経費 ¥4,800,000 を戻して5室で割った値。資金繰りモデルの出力と一致）</p>
+
+<h2 id="c02"><span class="n">02</span>見積書を開く</h2>
+<p>六本松の概算資金計画書を費目ごとに分解した。<strong>本体工事は総額の7割で、残り3割は付帯・オプション・諸費用である。</strong></p>
+
+<div class="box warn">
+  <span class="lbl">読み違えやすいところ</span>
+  <p class="big">本体工事の坪単価だけを相場と比べても意味がない。<em>本体工事だけでは家にならない。</em></p>
+  <p><strong>比べるべきは総額の坪単価 ¥1,229,489／坪。</strong>大手ハウスメーカーのいまの相場とほぼ一致する——<em>仕様が高いのではなく、ルートの差である。</em></p>
+</div>
+
+<p class="dim">→ 費目ごとの明細は <a href="https://os.yah.homes/properties">不動産DBカード</a>（六本松・工事）</p>
+
+<h2 id="c03"><span class="n">03</span>土地の予算を、金利から逆算する</h2>
+<div class="box good">
+  <span class="lbl">利回りは、ほぼ土地代だけで決まる</span>
+  <p class="big">建築と家具はどこに建てても同じ。<strong>変わるのは土地だけである。</strong></p>
+</div>
+
+<p><strong>2026年、金利は上がり始めている。</strong>日銀が政策金利を 0.75% → 1.0% へ。短期プライムレートは 2.125% → 2.375%（2026-08-03）、長期プライムレートは 3.15%。<em>大手門の融資も台帳の記録で 2.0% → 2.25% に動いた。</em></p>
+
+<div class="tbl">
+<table>
+<thead><tr><th class="num">銀行金利</th><th class="num">1室あたり土地の上限</th></tr></thead>
+<tbody>
+<tr class="good"><td class="num">2.25%（いま）</td><td class="num g">¥59,820,351</td></tr>
+<tr class="hi"><td class="num">3.15%（長プラ）</td><td class="num w">¥52,535,800</td></tr>
+<tr class="hi"><td class="num">3.45%</td><td class="num w">¥50,345,081</td></tr>
+<tr class="hi"><td class="num"><strong>4.15%</strong></td><td class="num b"><strong>¥45,627,505</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="dim">判定は「自己資金ゼロ（銀行65%＋家族4%）で年の余剰がプラスか」。建築＋家具は目標値 ¥37,068,330</p>
+
+<div class="box bad">
+  <span class="lbl">戦略の言い方が変わる</span>
+  <p class="big">「コストを20%削減する」より、<strong>「土地代 ¥45,627,505 以下の場所を探す」</strong>ほうが正確である。</p>
+  <p><em>高砂の土地を80%で買っても、六本松の定価より高い。</em>——<strong>割引率より、どこを見るかのほうが効く。</strong></p>
+</div>
+
+<h2 id="c04"><span class="n">04</span>家具も同じ構造だった</h2>
+<p>六本松の家具見積を開くと、<strong>メーカー2社で95%</strong>を占めていた——<strong>シモンズ</strong>（ベッド）と<strong>柏木工</strong>（家具）。<em>間に入っているのは小売業者である。</em></p>
+
+<div class="box good">
+  <span class="lbl">土地・建築とまったく同じ構造</span>
+  <p class="big">仕様が高いのではなく、<strong>ルートに小売が挟まっている。</strong></p>
+  <p>メーカーの法人窓口へ直接当たれば 20% は射程に入る。<em>実績がないので初回から通るとは限らないが、聞くだけならコストはかからない。</em></p>
+</div>
+
+<div class="box warn">
+  <span class="lbl">ただし優先順位は3番目</span>
+  <p>家具は1室総額の<strong>5%あまり</strong>にすぎない。<em>20%下げても効くのは総額の1%程度である。</em></p>
+  <p><strong>土地と建築を先にやる。</strong>——家具は「ついでに聞く」で足りる。</p>
+</div>
+
+<p class="dim">→ 見積の明細は <a href='https://os.yah.homes/properties'>不動産DBカード</a>（六本松・家具）</p>
+
+<h2 id="c05"><span class="n">05</span>どこまで下がるのか</h2>
+<p>六本松の確定図と概算資金計画書を費目ごとに分解すると、<strong>削減の余地は「仕様」ではなく「ルート」にあった。</strong></p>
+
+<div class="box good">
+  <span class="lbl">結論</span>
+  <p class="big">建築の実額 <strong>¥41,335,412</strong> を <strong>¥33,068,330</strong> へ。<em>削減率 20%。</em></p>
+  <p><strong>大手ハウスメーカー経由から、建築家＋地場工務店ルートへ変える。</strong>建築家によれば坪80万円は射程圏内——<em>仕様を落とすのではなく、間に入る会社を減らす。</em></p>
+</div>
+
+<p>同じことを土地（業者間で市価の20%オフ）と家具（メーカー直）でも行う。<strong>3ルートすべてで取れれば、1室総額は ¥92,335,412 → ¥73,868,330、NOI利回りは 7.55% → 9.44%。</strong></p>
+
+<p class="dim">→ 費目ごとの明細は <a href="https://os.yah.homes/properties">不動産DBカード</a></p>
+
+<h2 id="c06"><span class="n">06</span>問いを立て直す</h2>
+
+<p>ここまでは<strong>「9.51% が器の年率9.5%を上回るか」</strong>で測ってきた。<em>その比較は、自己資金を使う前提のものである。</em></p>
+
+<div class="box good">
+  <span class="lbl">第三章が示したこと</span>
+  <p class="big">家族から<strong>年4%</strong>で調達できる。無担保・無保証・期限なし・劣後の条件で。</p>
+  <p>ならば1棟の資金構成は、こうなる——<strong>自己資金はゼロである。</strong></p>
+</div>
+
+<div class="tbl">
+<table>
+<tbody>
+<tr><td>仕込み</td><td class="num">¥73,868,330</td></tr>
+<tr><td>　銀行（LTV65%・2.25%）</td><td class="num">¥48,014,415</td></tr>
+<tr><td>　家族マネー（年4%・劣後）</td><td class="num">¥25,853,915</td></tr>
+<tr class="good"><td><strong>　自己資金</strong></td><td class="num g"><strong>¥0</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl">
+<table>
+<tbody>
+<tr><td>NOI</td><td class="num">¥6,971,948</td></tr>
+<tr><td>− 銀行の利息（2.25%）</td><td class="num">−¥1,350,405</td></tr>
+<tr><td>− 銀行の元本（15年）</td><td class="num">−¥4,001,201</td></tr>
+<tr><td>− 家族への利息（4%）</td><td class="num">−¥1,292,696</td></tr>
+<tr class="good"><td><strong>= 年の余剰</strong></td><td class="num g"><strong>¥1,656,506</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  NOI <strong>9.51%</strong> − 調達コスト <strong>2.86%</strong> ＝ スプレッド <strong>6.64㌽</strong>
+  <span class="s">器の9.5%と比べれば0.01㌽。だがお金の値段と比べれば6.64㌽ある</span>
+</div>
+
+<div class="box good">
+  <span class="lbl">比べる相手が変わる</span>
+  <p class="big">自己資金を1円も使わないなら、<strong>既存の株主価値は薄まらない。</strong></p>
+  <p>比べるべきは器の利回りではなく、<em>調達コスト</em>である。<strong>そして最も重い項目が「収益性」から「資金調達」へ移る。</strong></p>
+</div>
+
+<h3>削減が1円もできなくても、成り立つ</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>仕込み値</th><th class="num">銀行65%</th><th class="num">家族35%</th><th class="num">年の余剰<br><span class="dim">銀行2.25%</span></th><th class="num">年の余剰<br><span class="dim">銀行3.50%</span></th></tr></thead>
+<tbody>
+<tr class="good"><td>確定モデル（20%オフ）</td><td class="num">¥48,014,415</td><td class="num">¥25,853,915</td><td class="num g">¥1,656,506</td><td class="num g">¥989,662</td></tr>
+<tr><td>土地80%のみ</td><td class="num">¥54,038,018<span class="dim">（例:概算）</span></td><td class="num">¥29,097,394</td><td class="num g">¥989,662</td><td class="num dim">—</td></tr>
+<tr class="hi"><td><strong>削減ゼロ（いまのまま）</strong></td><td class="num">¥60,018,018<span class="dim">（例:概算）</span></td><td class="num">¥32,317,394</td><td class="num w"><strong>¥327,646</strong></td><td class="num b"><strong>¥-422,580</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>「コストを20%下げる」は目標であって、成立条件ではない。</strong><em>下がればもっと良くなるが、下がらなくても止まらない。</em></p>
+
+<h2 id="c07"><span class="n">07</span>止まる線</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>何が</th><th class="num">いまの見込み</th><th class="num">止まる線</th><th class="num">余裕</th></tr></thead>
+<tbody>
+<tr class="good"><td><strong>建築の総額坪単価</strong></td><td class="num">¥1,229,489</td><td class="num w"><strong>¥1,229,489</strong></td><td class="num g">35.7%</td></tr>
+<tr class="good"><td><strong>出口の cap</strong></td><td class="num">6.00%</td><td class="num w"><strong>9.51%</strong></td><td class="num g">3.51㌽</td></tr>
+<tr class="good"><td><strong>1室あたりNOI</strong></td><td class="num">¥6,971,948</td><td class="num w"><strong>¥5,315,442</strong></td><td class="num g">24%</td></tr>
+<tr class="hi"><td><strong>銀行金利</strong></td><td class="num">2.25%</td><td class="num b"><strong>余裕がない</strong></td><td class="num b">3.5%で余剰 ¥-422,580</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box bad">
+  <span class="lbl">いちばん危ういのは、自分で決められない変数</span>
+  <p class="big">建築にもcapにもNOIにも余裕がある。<strong>金利にはない。</strong></p>
+  <p><em>銀行3本はすべて変動（短期プライムレート連動）。</em></p>
+</div>
+
+<h2 id="c08"><span class="n">08</span>採点</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>観点</th><th class="num">重み</th><th class="num">点</th><th></th></tr></thead>
+<tbody>
+<tr class="good"><td><strong>収益性</strong></td><td class="num">20</td><td class="num g">85</td><td>NOI 9.51% vs 調達コスト 2.86%。自己資金ゼロで年 ¥1,656,506</td></tr>
+<tr><td><strong>実現可能性</strong></td><td class="num">25</td><td class="num">70</td><td>建築家が坪80万を射程圏内と判断。<em>ただし見積ではない</em></td></tr>
+<tr class="hi"><td><strong>資金調達</strong></td><td class="num">15</td><td class="num w">60</td><td><strong>この前提では最重要。</strong>年4%で ¥25,853,915 を集められるかが全て</td></tr>
+<tr><td><strong>体制への負荷</strong></td><td class="num">15</td><td class="num">75</td><td>設計施工分離なら工程も瑕疵も工務店が負う</td></tr>
+<tr class="good"><td><strong>下振れ耐性</strong></td><td class="num">10</td><td class="num g">70</td><td>削減ゼロでも黒字。<em>ただし銀行3.5%で余裕が消える</em></td></tr>
+<tr><td><strong>出口</strong></td><td class="num">10</td><td class="num">75</td><td>含み益 ¥42,852,140<span class="dim">（例:概算）</span>（cap 6.0%）</td></tr>
+<tr class="good"><td><strong>検証コスト</strong></td><td class="num">5</td><td class="num g">95</td><td>問い合わせ3本で主要な不確実性が消える</td></tr>
+<tr class="hi"><td><strong>総合</strong></td><td class="num">100</td><td class="num"><strong>74.0</strong></td><td><strong>進めてよい</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="c09"><span class="n">09</span>限界</h2>
+
+<ul>
+<li><strong>3ルートとも n=0。</strong>業者間で買った実績も、地場で建てた実績も、メーカー直で仕入れた実績もない</li>
+<li><strong>坪80万は建築家の見立てであって、見積ではない。</strong>「何が含まれるか」の確認も済んでいない</li>
+<li><strong>地場工務店の坪単価は業界一般の目安。</strong>同等仕様・同等品質での比較かどうかも未確認</li>
+<li><strong>NOI ¥6,971,948 は5棟の平均。</strong>稼働しているのは清川と高砂の2棟だけで、六本松・大手門は見込み</li>
+<li><strong>還元利回り 6.0% は仲介1件の回答。</strong>鑑定値でも成約実績でもない</li>
+<li><strong>設計監理料 8〜12% は相場の目安。</strong>当社で見積を取っていない</li>
+<li><strong>瑕疵の責任をどう負うかは、まだ設計していない</strong></li>
+</ul>
+
+<div class="box bad">
+  <span class="lbl">この文書の性格</span>
+  <p class="big">第一章は<em>台帳と申告書の実額だけ</em>で書いた。<strong>本章は違う——まだ一度もやっていないことの試算である。</strong></p>
+  <p>それでも進める判断ができるのは、<em>削減が1円もできなくても年 ¥327,646 残るから</em>である。<strong>下振れの余地が、判断を支えている。</strong></p>
+</div>
+
+
+<h2 id="src"><span class="n">SRC</span>この文書の数字の出どころ</h2>
+<p class="dim">この表と本文の数字は <code>node tools/report-build.mjs</code> が台帳から生成した。
+<strong>テンプレートに金額は書かれていない</strong>（<code>tools/reportcheck.mjs</code> がCIで検査）。</p>
+<div class="tbl"><table>
+<thead><tr><th>キー</th><th class="num">値</th><th>出どころ</th></tr></thead>
+<tbody>
+<tr><td><code>actual.build</code></td><td class="num">¥41,335,412</td><td class="dim">assumptions/target-model｜六本松の建築（確定図・概算資金計画書）</td></tr>
+<tr><td><code>actual.furniture</code></td><td class="num">¥5,000,000</td><td class="dim">assumptions/target-model｜家具</td></tr>
+<tr><td><code>actual.land</code></td><td class="num">¥46,000,000</td><td class="dim">assumptions/target-model｜六本松の売買代金</td></tr>
+<tr><td><code>actual.total</code></td><td class="num">¥92,335,412</td><td class="dim">assumptions/target-model｜1室総額の実額</td></tr>
+<tr><td><code>actual.yield</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜実額でのNOI利回り</td></tr>
+<tr><td><code>build.perTsuboActual</code></td><td class="num">¥1,229,489</td><td class="dim">建築の総額 ÷ 延床坪（延床は確定図）</td></tr>
+<tr><td><code>exit.noi</code></td><td class="num">¥30,059,742</td><td class="dim">valuation.noi（売上−固定費−光熱費−長期修繕の年割り）</td></tr>
+<tr><td><code>family.rate</code></td><td class="num">¥0</td><td class="dim">assumptions/family-fund.targetRate（status:proposed・承認は未取得）</td></tr>
+<tr><td><code>landCap.r225</code></td><td class="num">¥59,820,351</td><td class="dim">金利2.25%で年の余剰がゼロになる土地代の上限</td></tr>
+<tr><td><code>landCap.r315</code></td><td class="num">¥52,535,800</td><td class="dim">金利3.15%で年の余剰がゼロになる土地代の上限</td></tr>
+<tr><td><code>landCap.r345</code></td><td class="num">¥50,345,081</td><td class="dim">金利3.45%で年の余剰がゼロになる土地代の上限</td></tr>
+<tr><td><code>landCap.r415</code></td><td class="num">¥45,627,505</td><td class="dim">金利4.15%で年の余剰がゼロになる土地代の上限</td></tr>
+<tr><td><code>mix.bank</code></td><td class="num">¥48,014,415</td><td class="dim">assumptions/target-model｜銀行＝総額×LTV 65%</td></tr>
+<tr><td><code>mix.bankInterestActual</code></td><td class="num">¥1,350,405</td><td class="dim">実額の原価での銀行利息（年）</td></tr>
+<tr><td><code>mix.bankPrincipalActual</code></td><td class="num">¥4,001,201</td><td class="dim">同 銀行元本（15年）</td></tr>
+<tr><td><code>mix.family</code></td><td class="num">¥25,853,915</td><td class="dim">assumptions/target-model｜家族マネー＝残り</td></tr>
+<tr><td><code>mix.familyInterestActual</code></td><td class="num">¥1,292,696</td><td class="dim">同 家族への利息（年4%）</td></tr>
+<tr><td><code>mix.surplus</code></td><td class="num">¥1,656,506</td><td class="dim">assumptions/target-model｜NOI −銀行利息 −銀行元本 −家族利息＝年の余剰</td></tr>
+<tr><td><code>mix.surplusActual</code></td><td class="num">¥327,646</td><td class="dim">assumptions/target-model｜同上を実額の原価で計算</td></tr>
+<tr><td><code>mix.surplusAt350</code></td><td class="num">¥-422,580</td><td class="dim">銀行金利3.5%のときの年の余剰（実額の原価）</td></tr>
+<tr><td><code>mix.surplusLandOnly</code></td><td class="num">¥989,662</td><td class="dim">土地だけ20%オフにした場合の年の余剰</td></tr>
+<tr><td><code>model.build</code></td><td class="num">¥33,068,330</td><td class="dim">assumptions/target-model｜建築の目標</td></tr>
+<tr><td><code>model.buildAndFurniture</code></td><td class="num">¥37,068,330</td><td class="dim">assumptions/target-model｜建築＋家具の目標</td></tr>
+<tr><td><code>model.discount</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜仕込みの削減率</td></tr>
+<tr><td><code>model.ltvPct</code></td><td class="num">65%</td><td class="dim">assumptions/target-model.ltv</td></tr>
+<tr><td><code>model.noiPerRoom</code></td><td class="num">¥6,971,948</td><td class="dim">assumptions/target-model｜1室あたりNOI</td></tr>
+<tr><td><code>model.total</code></td><td class="num">¥73,868,330</td><td class="dim">assumptions/target-model｜1室総額の目標</td></tr>
+<tr><td><code>model.yield</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜目標のNOI利回り</td></tr>
+<tr><td><code>overhead</code></td><td class="num">¥4,800,000</td><td class="dim">cashflow の会社維持経費（年）</td></tr>
+<tr><td><code>stop.noi</code></td><td class="num">¥5,315,442</td><td class="dim">assumptions/target-model｜銀行利息＋銀行元本＋家族利息＝これを下回ると年の余剰がゼロ</td></tr>
+</tbody></table></div>
+<p class="dim">生成 2026-09-03 10:27 UTC ／ 基準日 2026-09-03</p>
+<footer>
+  <p><strong>yah.homes_どう買えば、儲かるか</strong>（戦略提案 第二章）／ 2026-09-03</p>
+  <p>
+    <a href="https://claude.ai/code/artifact/b02c646d-7db6-4f11-9ec6-df3a1d3da4ba">第一章</a> ／
+    <a href="https://claude.ai/code/artifact/2dceafae-84d3-4e3f-b24b-21b7a6ff348f">第三章</a> ／
+    <a href="https://claude.ai/code/artifact/d9b789a8-2afe-4b06-8c9c-53267905d4b8">第四章</a> ／
+    <a href="https://claude.ai/code/artifact/e3f5c068-623e-4033-9539-194c163b0d68">第五章</a>
+  </p>
+  <p>数字は六本松の確定図・概算資金計画書（2026-07-16）・オプション見積書・支払台帳、および yah.OS の台帳（Firestore agency DB）に基づく。カチタスの粗利率は同社 2026年3月期 決算説明資料。<strong>実績 n=0。</strong></p>
+</footer>
+
+</div>
