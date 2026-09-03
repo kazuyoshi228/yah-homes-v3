@@ -118,7 +118,7 @@ footer a{color:var(--accent)}
 <header class="cover">
   <p class="eyebrow">ボンファイア株式会社 ／ 戦略提案 要約</p>
   <h1>yah.homes<span style="color:var(--sub)">_</span>戦略提案 要約</h1>
-  <p class="deck">第一章から第五章までの結論だけを1枚にまとめた。<em>根拠と検算は各章にある。</em></p>
+  <p class="deck">第一章から第六章までの結論だけを1枚にまとめた。<em>根拠と検算は各章にある。</em></p>
   <div class="meta">
     <span class="k">拡大基調</span><span>2026-09-03</span><span>実績 n=0</span>
   </div>
@@ -129,17 +129,18 @@ footer a{color:var(--accent)}
   <p><strong>理由は「利回りが良いから」ではない。</strong><em>自己資金を1円も使わずに増やせるからである。</em></p>
 </div>
 
-<h2><span class="n">01</span>5章の結論</h2>
+<h2><span class="n">01</span>6章の結論</h2>
 
 <div class="tbl">
 <table>
 <thead><tr><th>章</th><th>結論</th><th class="num">点</th></tr></thead>
 <tbody>
 <tr><td><strong>第一章</strong><br><span class="dim">いまのままだと、どうなるか</span></td><td><strong>いまの調達のまま、自己資金を使って拡大すれば器は薄まる。</strong><em>台帳と申告書の実額だけで書いた、仮定のない唯一の章</em></td><td class="num dim">—</td></tr>
-<tr class="good"><td><strong>第二章</strong><br><span class="dim">どう買えば、儲かるか</span></td><td><strong>ルートを変えれば 7.55% → 9.51%。自己資金ゼロなら進めてよい</strong></td><td class="num g">74.0</td></tr>
-<tr><td><strong>第三章</strong><br><span class="dim">お金を、どこから借りるか</span></td><td><strong>資金の出し手はすでにいる。</strong>¥186,031,628 に対し、いま受け取る利息は年 ¥1,693,329（0.90%）</td><td class="num dim">—</td></tr>
-<tr class="good"><td><strong>第四章</strong><br><span class="dim">失敗したら、いくら失うか</span></td><td><strong>失われうるのは建物への投資だけ。</strong>削減が全部空振りしても 13.75%・7.27年で回収</td><td class="num g">78.2</td></tr>
+<tr class="good"><td><strong>第二章</strong><br><span class="dim">どう買えば、儲かるか</span></td><td><strong>ルートを変えれば 7.55% → 9.44%。自己資金ゼロなら進めてよい</strong></td><td class="num g">74.0</td></tr>
+<tr><td><strong>第三章</strong><br><span class="dim">お金を、どこから借りるか</span></td><td><strong>資金の出し手はすでにいる。</strong>¥186,031,628 に対し、いま受け取る利息は年 ¥1,693,329</td><td class="num dim">—</td></tr>
+<tr class="good"><td><strong>第四章</strong><br><span class="dim">失敗したら、いくら失うか</span></td><td><strong>失われうるのは建物への投資だけ。</strong>土地は50年後も残って売れる</td><td class="num g">78.2</td></tr>
 <tr><td><strong>第五章</strong><br><span class="dim">進めるか、やめるか</span></td><td><strong>拡大基調で進める。止まる線を持ったまま</strong></td><td class="num dim">—</td></tr>
+<tr class="good"><td><strong>第六章</strong><br><span class="dim">2050年の清算</span></td><td><strong>自己資金ゼロで始めた事業が、24年後に ¥424,418,699 の現金になる</strong></td><td class="num dim">—</td></tr>
 </tbody>
 </table>
 </div>
@@ -382,6 +383,7 @@ footer a{color:var(--accent)}
 <tr><td><code>actual.furniture</code></td><td class="num">¥5,000,000</td><td class="dim">assumptions/target-model｜家具</td></tr>
 <tr><td><code>actual.land</code></td><td class="num">¥46,000,000</td><td class="dim">assumptions/target-model｜六本松の売買代金</td></tr>
 <tr><td><code>actual.total</code></td><td class="num">¥92,335,412</td><td class="dim">assumptions/target-model｜1室総額の実額</td></tr>
+<tr><td><code>actual.yield</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜実額でのNOI利回り</td></tr>
 <tr><td><code>bank.ffg202501.principal</code></td><td class="num">¥50,000,000</td><td class="dim">finance/loan-ffg-2025-01（株式会社福岡銀行）元本</td></tr>
 <tr><td><code>bank.paidOffYear</code></td><td class="num">2047</td><td class="dim">cashflow(360).yearly で支払利息が最後に立つ年＝銀行の完済年</td></tr>
 <tr><td><code>build.perTsuboActual</code></td><td class="num">¥1,229,489</td><td class="dim">建築の総額 ÷ 延床坪（延床は確定図）</td></tr>
@@ -416,12 +418,19 @@ footer a{color:var(--accent)}
 <tr><td><code>model.land</code></td><td class="num">¥36,800,000</td><td class="dim">assumptions/target-model｜土地の目標＝46,000,000×80%</td></tr>
 <tr><td><code>model.noiPerRoom</code></td><td class="num">¥6,971,948</td><td class="dim">assumptions/target-model｜1室あたりNOI</td></tr>
 <tr><td><code>model.total</code></td><td class="num">¥73,868,330</td><td class="dim">assumptions/target-model｜1室総額の目標</td></tr>
+<tr><td><code>model.yield</code></td><td class="num">¥0</td><td class="dim">assumptions/target-model｜目標のNOI利回り</td></tr>
 <tr><td><code>stop.noi</code></td><td class="num">¥5,315,442</td><td class="dim">assumptions/target-model｜銀行利息＋銀行元本＋家族利息＝これを下回ると年の余剰がゼロ</td></tr>
 <tr><td><code>tax.depreciationEndDelta</code></td><td class="num">¥321,969</td><td class="dim">同年の法人税 − 前年の法人税（2049→2050）</td></tr>
 <tr><td><code>tax.depreciationEndYear</code></td><td class="num">2050</td><td class="dim">減価償却が尽きる年（cashflow の yearly）</td></tr>
 <tr><td><code>tax.lossCarryforward</code></td><td class="num">¥29,228,683</td><td class="dim">assumptions/corporate-tax（申告書の確定値）</td></tr>
+<tr><td><code>copy:ch1.conclusion</code></td><td class="dim">—</td><td class="dim">chapter1.tpl.html の data-copy="ch1.conclusion"</td></tr>
+<tr><td><code>copy:ch2.conclusion</code></td><td class="dim">—</td><td class="dim">chapter2.tpl.html の data-copy="ch2.conclusion"</td></tr>
+<tr><td><code>copy:ch3.conclusion</code></td><td class="dim">—</td><td class="dim">chapter3.tpl.html の data-copy="ch3.conclusion"</td></tr>
+<tr><td><code>copy:ch4.conclusion</code></td><td class="dim">—</td><td class="dim">chapter4.tpl.html の data-copy="ch4.conclusion"</td></tr>
+<tr><td><code>copy:ch5.conclusion</code></td><td class="dim">—</td><td class="dim">chapter5.tpl.html の data-copy="ch5.conclusion"</td></tr>
+<tr><td><code>copy:ch6.conclusion</code></td><td class="dim">—</td><td class="dim">chapter6.tpl.html の data-copy="ch6.conclusion"</td></tr>
 </tbody></table></div>
-<p class="dim">生成 2026-09-03 10:37 UTC ／ 基準日 2026-09-03</p>
+<p class="dim">生成 2026-09-03 11:22 UTC ／ 基準日 2026-09-03</p>
 <footer>
   <p><strong>yah.homes_戦略提案 要約</strong>／ 2026-09-03</p>
   <p>数字は yah.OS の台帳（Firestore agency DB）、R7.12月期 法人税申告書、六本松の確定図・概算資金計画書・支払台帳に基づき、<strong>資金繰りモデルを実際に走らせた出力</strong>（繰越欠損金 ¥29,228,683・段階税率25%/34%・消費税・修繕積立の扱いを含む）。還元利回り 6.0%（assumptions/cap-rate）。公示地価は令和7年地価公示（福岡市）。<strong>本提案は法務・税務・相続税を検討していない。</strong>実行の前に弁護士・税理士に確認すること。</p>
