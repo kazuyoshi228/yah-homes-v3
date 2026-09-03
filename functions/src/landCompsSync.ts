@@ -31,6 +31,27 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) && n !== 0 ? n : null;
 };
 
+/* 地価公示・地価調査（XPT002）はタイル座標で引く。
+   福岡市中央区を覆う範囲を z=13 で4タイルぶん。ズームを上げると細かく取れるが、
+   タイル数が増えるだけで中身は変わらない（1地点は1タイルにしか属さない）。 */
+const WARD_BOUNDS = { north: 33.605, south: 33.560, west: 130.355, east: 130.415 };
+const TILE_ZOOM = 13;
+
+const lonToX = (lon: number, z: number): number => Math.floor(((lon + 180) / 360) * 2 ** z);
+const latToY = (lat: number, z: number): number => {
+  const r = (lat * Math.PI) / 180;
+  return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z);
+};
+
+/** 中央区を覆うタイルの一覧 */
+function wardTiles(z: number): Array<{ x: number; y: number }> {
+  const out: Array<{ x: number; y: number }> = [];
+  const x1 = lonToX(WARD_BOUNDS.west, z), x2 = lonToX(WARD_BOUNDS.east, z);
+  const y1 = latToY(WARD_BOUNDS.north, z), y2 = latToY(WARD_BOUNDS.south, z);
+  for (let x = x1; x <= x2; x += 1) for (let y = y1; y <= y2; y += 1) out.push({ x, y });
+  return out;
+}
+
 /* 申請が済むまでの仮置きに使う語。Secret Manager は空の値を許さないため、
    「未設定」を空文字では表せない。ここに挙げた語が入っているあいだは、取得しない。
    実在のキーと衝突しないよう、意味のある英単語だけを並べる（2026-09-03） */
@@ -123,6 +144,52 @@ export const landCompsSync = onSchedule(
     }
     await flush();
 
-    await log.set({ at: new Date().toISOString(), ok: true, seen, added,
-      note: "取引価格情報（土地）を四半期ぶん取り込んだ。地価公示は年1回なので、年明けの実行で拾う" });
+    /* ② 地価公示・地価調査（鑑定）。年1回の更新なので、1月の実行だけで足りる。
+       公示は3月下旬、地価調査は9月下旬の公表なので、前年ぶんを取りにいく。
+       タイル座標で引く仕様（XPT002）なので、中央区を覆うタイルを回す。 */
+    let apAdded = 0;
+    const month = new Date().getMonth() + 1;
+    if (month === 1 || month === 4) {
+      const year = new Date().getFullYear() - 1;
+      for (const t of wardTiles(TILE_ZOOM)) {
+        const j = await get("/XPT002", {
+          response_format: "geojson", z: String(TILE_ZOOM), x: String(t.x), y: String(t.y),
+          year: String(year),
+        }) as unknown as { features?: Array<{ properties?: Record<string, unknown> }> };
+        for (const f of j.features ?? []) {
+          const p = f.properties ?? {};
+          if (String(p.city_code ?? "") !== CITY) continue;      // タイルは区界と一致しないので絞る
+          const price = num(p.u_current_years_price_ja);
+          const no = String(p.standard_lot_number_ja ?? "");
+          if (!price || !no) continue;
+          /* land_price_type: 0=地価公示 / 1=地価調査。基準日が違い番号も別系統なので必ず分ける */
+          const src = String(p.land_price_type) === "1" ? "chousa" : "kouji";
+          const asOf = src === "chousa" ? `${year}-07-01` : `${year}-01-01`;
+          const id = `${src}-${no}-${src === "chousa" ? `${year}.5` : year}`.replace(/[^\w.\-]/g, "_");
+          batch.set(db.collection("landComps").doc(id), {
+            source: src, kind: "appraisal", pointNo: no, pointId: p.point_id ?? null,
+            district: String(p.place_name_ja ?? "") || district(String(p.location_number_ja ?? "")),
+            address: `${p.ward_town_village_name_ja ?? ""}${p.location_number_ja ?? ""}`,
+            station: p.nearest_station_name_ja ?? null,
+            distM: num(p.u_road_distance_to_nearest_station_name_ja),
+            areaSqm: num(p.u_cadastral_ja),
+            zone: p.use_category_name_ja ?? null,
+            year, asOf, unitPrice: price,
+            changePct: num(p.year_on_year_change_rate),
+            sourceName: src === "kouji" ? "国土交通省 地価公示（標準地）" : "都道府県 地価調査（基準地）",
+            sourceUrl: "https://www.reinfolib.mlit.go.jp/landPrices/",
+            sourceNote: "毎年の鑑定評価。地価公示は1月1日、地価調査は7月1日が基準日で、番号は別系統——混ぜないこと。1地点の評価であり実勢とは乖離しうる。取引価格情報（成約）とは別物",
+            fetchedAt: new Date().toISOString().slice(0, 10),
+          }, { merge: true });
+          apAdded += 1; inBatch += 1;
+          if (inBatch >= 400) await flush();
+        }
+      }
+      await flush();
+    }
+
+    await log.set({ at: new Date().toISOString(), ok: true, seen, added, appraisalAdded: apAdded,
+      note: month === 1 || month === 4
+        ? "取引価格情報（四半期）と、地価公示・地価調査（年1回）の両方を取り込んだ"
+        : "取引価格情報（四半期）を取り込んだ。地価公示・地価調査は年1回なので1月と4月の実行で拾う" });
   });
