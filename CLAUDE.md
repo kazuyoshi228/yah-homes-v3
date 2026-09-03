@@ -165,3 +165,17 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
   クローンし直したら再設定）。**編集したら pull の前に commit（add は担当ファイルだけ・`git add -A` 禁止＝並行スレッドの編集を巻き込まない）** ——dirty なまま pull して
   未コミット編集を失う事故が実際に起きた。未追跡ファイルの衝突は退避してからやり直す
 - yah-os 側の鉄則は yah-os/CLAUDE.md
+
+## 台帳の数字を扱う前に（2026-09-03 発注者承認・design_agency_db_review_20260903.md）
+
+1. **まず `docs/catalog.md` を読む。** どの数字がどのコレクションにあるかの正本。
+   **とくに「ここには無い」の欄**——2026-09-03、AIが「土地の取得原価は台帳にない」と
+   断言した（実際は `items` の `kind="acquisition"` に27件）。カタログはこれを止めるためにある。
+   Firestore の `catalog` コレクションにも同じ内容が入っている（`node functions/catalog-build.mjs --write`）
+2. **金額を出すときは台帳を実走させる。自分でモデルを組み直さない。**
+   資金繰り・30年は `cashflow(months, asOf, withFunding)`。
+   **`yearly.closing` は納税前。年次表が使うのは `closingAfterTax`**（30年で約 ¥261,000,000 ずれる）
+3. **横断的に探すときは BigQuery**（`bq query`・データセット `yah-homes.agency`）。
+   `node -e` を書き始める前にSQLで見る
+4. **提案書に金額を焼き込まない。** `reports/*.tpl.html` は `{{key}}` だけ。
+   値と出どころは `functions/report-values.mjs`（`reportcheck.mjs` がCIで見張る）
