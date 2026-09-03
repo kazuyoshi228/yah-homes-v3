@@ -286,7 +286,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           </ol>
 
           <!-- 認証 -->
-          <section class="co-sec" id="co-auth">
+          <section class="co-sec" id="co-auth" hidden>
             <h2 class="co-sec-title">{C.authTitle}</h2>
             <p class="co-sec-lead">{C.authLead}</p>
             <button type="button" class="co-google" id="co-google">{C.authBtn}</button>
@@ -304,13 +304,13 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           </section>
 
           <!-- お客様情報 -->
-          <section class="co-sec" id="co-details" hidden>
+          <section class="co-sec" id="co-details">
             <h2 class="co-sec-title">{C.detailsTitle}</h2>
             <div class="co-field">
               <label for="cf-name">{C.name}</label>
               <input id="cf-name" type="text" required maxlength="200" />
             </div>
-            <div class="co-field">
+            <div class="co-field" id="co-email-field" hidden>
               <label for="cf-email">{C.email}</label>
               <input id="cf-email" type="email" required maxlength="320" readonly />
             </div>
@@ -344,7 +344,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           </section>
 
           <!-- ハウスルール -->
-          <section class="co-sec" id="co-rules" hidden>
+          <section class="co-sec" id="co-rules">
             <h2 class="co-sec-title">{C.rulesTitle}</h2>
             <ul class="co-rules">
               {C.rules.map((r) => <li>{r}</li>)}
@@ -363,7 +363,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
           </section>
 
           <!-- 最終確認・決済 -->
-          <section class="co-sec co-sec-final" id="co-pay" hidden>
+          <section class="co-sec co-sec-final" id="co-pay">
             <h2 class="co-sec-title">{C.confirmTitle}</h2>
             <div class="co-trust">
               <span id="co-trust-cancel">—</span>
@@ -531,6 +531,8 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
       const addr = $("co-email").value.trim();
       if (!/^\S+@\S+\.\S+$/.test(addr)) { $("co-auth-status").textContent = uiStrings.authEmailFail; return; }
       $("co-email-send").disabled = true;
+      // ページを開き直す方式なので、入力済みの内容を先に退避する（復元は読み込み時）
+      saveForm();
       track("email_link_started", { prop, seconds: elapsed() });
       try {
         await sendSignInLinkToEmail(auth, addr, { url: location.href, handleCodeInApp: true });
@@ -568,16 +570,21 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 
     onAuthStateChanged(auth, (user) => {
       if (!user) return;
+      // 2026-09-03: 認証を最後に回した。お客様情報・宿泊規則は最初から表示しているので、
+      // ここでは「認証欄を畳んで、認証でしか埋まらない項目を入れる」だけにする。
       $("co-auth").hidden = true;
-      ["co-details", "co-rules", "co-pay"].forEach((id) => ($(id).hidden = false));
-      setStep(2);
+      $("co-email-field").hidden = false;
       currentUser = user;
       const provider = user.providerData?.[0]?.providerId === "google.com" ? "google" : "email_link";
       window.gtag?.("event", "login", { method: provider, lang });
       track("auth_completed", { auth_provider: provider, seconds: elapsed() });
-      $("cf-name").value = user.displayName || "";
-      $("cf-email").value = user.email || "";
+      // 氏名は利用者が先に入力している可能性がある。空のときだけアカウント名を入れる。
+      if (!$("cf-name").value.trim()) $("cf-name").value = user.displayName || "";
+      $("cf-email").value = user.email || "";   // readonly。正はアカウント側
       sync();
+      // 「同意して支払いへ」を押した流れで認証したなら、そのまま続きへ戻す。
+      // もう一度押させると、意図を取り直すだけで離脱を増やす。
+      if (pendingProceed) { pendingProceed = false; $("co-pay-btn").click(); }
     });
   });
 
@@ -607,6 +614,44 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
     $(id).addEventListener("change", sync);
   });
 
+  // ── 入力内容の退避と復元（2026-09-03）──
+  // 認証を最後に回したため、メールリンク認証（ページを開き直す方式）だと
+  // 入力済みの氏名・電話が失われる。Googleはポップアップなので影響しない。
+  // sessionStorage ではメールのリンクが別タブで開かれた場合に引き継げないため localStorage を使う。
+  // 同意チェック(cf-rules)は復元しない — 規約への同意は毎回、本人の操作として取る。
+  const FORM_KEY = `yah_checkout_form:${prop}_${checkin}_${checkout}_${guests}`;
+  const FORM_FIELDS = ["cf-name", "cf-phone", "cf-cc", "cf-lead", "cf-arrival"];
+  const FORM_TTL_MS = 24 * 3600000;
+  function saveForm() {
+    try {
+      const v = {};
+      FORM_FIELDS.forEach((id) => { const el = $(id); if (el) v[id] = el.value; });
+      localStorage.setItem(FORM_KEY, JSON.stringify({ savedAt: Date.now(), v }));
+    } catch { /* プライベートモード等。保存できなくても予約自体は続けられる */ }
+  }
+  function restoreForm() {
+    try {
+      const raw = localStorage.getItem(FORM_KEY);
+      if (!raw) return;
+      const o = JSON.parse(raw);
+      if (!o || !o.v || Date.now() - Number(o.savedAt || 0) > FORM_TTL_MS) { localStorage.removeItem(FORM_KEY); return; }
+      FORM_FIELDS.forEach((id) => { const el = $(id); if (el && o.v[id]) el.value = o.v[id]; });
+      sync();
+    } catch { localStorage.removeItem(FORM_KEY); }
+  }
+  const clearForm = () => { try { localStorage.removeItem(FORM_KEY); } catch {} };
+  restoreForm();
+
+  // フォームに触れたかどうか。決済画面に来ただけで去った人と、埋めたのに止めた人を分ける。
+  let formStarted = false;
+  ["cf-name", "cf-phone", "cf-lead", "cf-arrival", "cf-rules"].forEach((id) => {
+    $(id)?.addEventListener("input", () => {
+      if (formStarted) return;
+      formStarted = true;
+      track("checkout_form_started", { prop, seconds: elapsed() });
+    });
+  });
+
   async function loadStripe() {
     if (window.Stripe) return window.Stripe(STRIPE_PK);
     await new Promise((resolve, reject) => {
@@ -621,6 +666,8 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
 
   // 決済まで到達せずに離脱した場合を記録（保留時間の把握・v4 §10）
   let reachedPayment = false;
+  // 「同意して支払いへ」を押した時点で未認証だった＝認証後に続きへ戻す
+  let pendingProceed = false;
   window.addEventListener("pagehide", () => {
     if (!reachedPayment && clientSecret) {
       track("booking_draft_abandoned", { prop, seconds: elapsed() });
@@ -630,6 +677,18 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
   $("co-pay-btn").addEventListener("click", async () => {
     const btn = $("co-pay-btn");
     btn.disabled = true;
+
+    // 未認証ならここで認証を出す。予約作成(bookCreate)はIDトークン必須なので、
+    // 認証なしで先へ進むことはない（サーバー側の必須性は変えていない）。
+    if (!currentUser) {
+      $("co-auth").hidden = false;
+      pendingProceed = true;
+      track("auth_prompted", { prop, seconds: elapsed() });
+      $("co-auth").scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.disabled = false;
+      sync();
+      return;
+    }
 
     // 2回目以降のクリック=決済確定
     if (clientSecret && elements) {
@@ -689,6 +748,7 @@ const agreeParts = C.rulesAgree.split(/(\{terms\}|\{privacy\})/);
         }),
       });
       const j = await r.json();
+      if (j.ok && j.clientSecret) clearForm();   // ここまで来れば退避は不要
       if (!j.ok || !j.clientSecret) {
         track("inventory_revalidated", {
           success: false, price_changed: false, availability_changed: j.error === "unavailable",
