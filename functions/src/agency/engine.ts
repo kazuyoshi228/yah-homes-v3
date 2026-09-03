@@ -14,6 +14,46 @@ import { enrichSchedules } from "./schedules.js";
 
 export const agencyDb = () => getFirestore("agency");
 
+/* ── 書き込みの入口（2026-09-03 発注者承認・design_agency_db_review_20260903.md C案）──
+ *
+ * なぜ: 53コレクションのうち updatedBy が完備しているのは construction だけだった。
+ * 「誰が入れた数字か」がほぼ残っていない。AIが台帳へ書く頻度が上がるほど、
+ * 人が確認した数字とAIが置いた数字を後から区別できないことのコストが上がる。
+ *
+ * 書き込みはすべてここを通す。writecheck.mjs がCIで直接の .set()/.update() を止める。
+ */
+export type Actor = { by: string; kind: "human" | "ai" | "job" };
+
+/** 台帳へ書く。updatedAt / updatedBy / updatedByKind を必ず添える */
+export async function ledgerSet(
+  col: string, id: string, data: Record<string, unknown>,
+  actor: Actor, opts: { merge?: boolean } = {},
+) {
+  const ref = agencyDb().collection(col).doc(id);
+  const stamped = {
+    ...data,
+    updatedAt: new Date().toISOString(),
+    updatedBy: actor.by,
+    updatedByKind: actor.kind,
+  };
+  if (opts.merge) await ref.set(stamped, { merge: true });
+  else await ref.set(stamped);
+  return ref;
+}
+
+/** 判断（assumptions など）を書く。status を必ず求める——
+ *  「決定なのか検討中なのか」が読めないと、AIが検討中の値を確定として使う
+ *  （2026-09-03、cap-rate 6.0%＝収益仲介1件の回答を、確定した数字として扱った） */
+export type JudgementStatus = "confirmed" | "proposed" | "provisional";
+export async function ledgerJudgement(
+  col: string, id: string, data: Record<string, unknown>,
+  status: JudgementStatus, actor: Actor, source: string,
+) {
+  if (!source) throw new Error(`${col}/${id}: source が空です（何に基づく判断かを書く）`);
+  return ledgerSet(col, id, { ...data, status, source }, actor, { merge: true });
+}
+
+
 const JST = "Asia/Tokyo";
 /** JSTの「今」を {y, m} で返す（月の判定は必ずJSTで行う） */
 export function nowJst(d = new Date()): { y: number; m: number; day: number } {

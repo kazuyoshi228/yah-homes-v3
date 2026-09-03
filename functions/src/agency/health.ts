@@ -308,6 +308,20 @@ export async function healthSummary() {
   add("財務", "前提: management-fee", asm.has("management-fee"), "");
   add("物件", "前提: lifecycle", asm.has("lifecycle"), "");
 
+  /* 判断に status があるか（2026-09-03 発注者承認・design_agency_db_review C案）。
+     「決定なのか検討中なのか」が読めないと、検討中の値を確定として使ってしまう——
+     2026-09-03、cap-rate 6.0%（収益仲介1件の回答）を確定した数字として扱った */
+  const noStatus = asmSnap.docs.filter((d) => !d.data().status).map((d) => d.id);
+  add("財務", "判断の status", noStatus.length === 0,
+    noStatus.length
+      ? `${noStatus.length}/${asmSnap.size}件に status が無い（confirmed / proposed / provisional）: ${noStatus.slice(0, 6).join(", ")}${noStatus.length > 6 ? " ほか" : ""}`
+      : `全${asmSnap.size}件に status あり`);
+  const proposed = asmSnap.docs.filter((d) => d.data().status === "proposed").map((d) => d.id);
+  if (proposed.length) {
+    add("財務", "承認待ちの判断", true,
+      `${proposed.join(", ")} は proposed（発注者の承認は未取得）。確定した数字として使わないこと`);
+  }
+
   const summary = { ok: checks.filter((c) => c.ok).length,
     warn: checks.filter((c) => !c.ok).length, total: checks.length, at: now.toISOString() };
   return { checks, summary, overrides };

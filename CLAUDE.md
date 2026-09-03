@@ -177,5 +177,11 @@ yah.homes（福岡の一棟貸し・ヴィラ／宿泊ブランドサイト＋�
    **`yearly.closing` は納税前。年次表が使うのは `closingAfterTax`**（30年で約 ¥261,000,000 ずれる）
 3. **横断的に探すときは BigQuery**（`bq query`・データセット `yah-homes.agency`）。
    `node -e` を書き始める前にSQLで見る
-4. **提案書に金額を焼き込まない。** `reports/*.tpl.html` は `{{key}}` だけ。
+4. **台帳へ書くときは `ledgerSet` / `ledgerJudgement`（engine.ts）を通す。**
+   `updatedAt` / `updatedBy` / `updatedByKind`（human・ai・job）が自動で入る。
+   判断（assumptions など）は `status` と `source` が必須——
+   **`confirmed`（決定）／ `provisional`（暫定・確認待ち）／ `proposed`（承認未取得）**。
+   2026-09-03、`cap-rate` 6.0%（収益仲介1件の回答）を確定した数字として扱った。
+   直接の `.set()` は `writecheck.mjs` がラチェットで見張る（実査 58箇所から減らす）
+5. **提案書に金額を焼き込まない。** `reports/*.tpl.html` は `{{key}}` だけ。
    値と出どころは `functions/report-values.mjs`（`reportcheck.mjs` がCIで見張る）

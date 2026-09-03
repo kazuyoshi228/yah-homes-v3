@@ -32,6 +32,8 @@ jobs:
                                  # 2026-09-03に30年後の清算額を1日で6回訂正したため
           node catalogcheck.mjs  # どの数字がどこにあるかのカタログに漏れがないか。
                                  # 2026-09-03に「土地の取得原価は台帳にない」と誤断したため
+          node writecheck.mjs    # 台帳への書き込みが ledgerSet を通っているか（ラチェット）。
+                                 # updatedBy が完備しているのが1コレクションだけだったため
       - name: ビルドSHAを焼き込む（デプロイ後の照合用・QA②）
         working-directory: functions
         run: |
