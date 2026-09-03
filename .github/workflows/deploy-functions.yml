@@ -28,6 +28,8 @@ jobs:
           npm test    # 金額計算のテスト（loanState・facts合計・期日判定）。落ちたらデプロイしない
           node derivecheck.mjs   # 導出値（NOI・DSCR・利回り・担保余力）が derive.ts の外で
                                  # 書き直されていないか。2026-09-02にNOIが4か所で食い違ったため
+          node reportcheck.mjs   # 提案書テンプレートに金額が焼き込まれていないか。
+                                 # 2026-09-03に30年後の清算額を1日で6回訂正したため
       - name: ビルドSHAを焼き込む（デプロイ後の照合用・QA②）
         working-directory: functions
         run: |
