@@ -17,7 +17,22 @@ for (const c of Object.keys(CATALOG)) {
   const f = new Map();
   for (const d of s.docs) for (const k of Object.keys(d.data())) f.set(k, (f.get(k) ?? 0) + 1);
   live[c] = { count: s.size,
-    fields: [...f].filter(([, n]) => n / Math.max(1, s.size) >= 0.5).map(([k]) => k).sort() };
+    fields: [...f].filter(([, n]) => n / Math.max(1, s.size) >= 0.5).map(([k]) => k).sort(),
+    allFields: new Map(f) };   /* 実在チェック用。埋まりが低い列も拾う */
+}
+
+/* カタログの amountField が実在するか。書き間違いは静かに効くので、生成時に落とす
+   （2026-09-03、revenue.amount と personalDistributions.amount が実在せず、ここで見つかった） */
+const wrongAmount = [];
+for (const [id, c] of Object.entries(CATALOG)) {
+  if (!c.amountField) continue;
+  if (live[id].count > 0 && !live[id].allFields.has(c.amountField)) {
+    wrongAmount.push(`${id}.${c.amountField}`);
+  }
+}
+if (wrongAmount.length) {
+  console.error("✗ カタログの amountField が台帳に実在しません: " + wrongAmount.join(", "));
+  process.exit(1);
 }
 
 /* 台帳に無いコレクションを見つける（カタログの取りこぼし） */
@@ -44,11 +59,20 @@ const INDEX = [
 ];
 for (const [q, a] of INDEX) md.push(`| ${q} | ${a} |`);
 md.push("");
+md.push("## 金額を横断で足す — `v_money`", "");
+md.push("金額のフィールド名は15通りある（`amount` / `total` / `value` / `cost` / `principal` / `contractTotal` / `listPrice` / `premiumPerYear` / `balance` / `unitPrice` / `annual` …）。", "");
+md.push("**名前を知らなくても足せるように、VIEW を1本通してある**（元の列名は変えていない）。", "");
+md.push("```sql", "-- 棟ごとの取得原価", "SELECT prop, SUM(yen) FROM `yah-homes.agency.v_money`", "WHERE src = 'items' AND kind = 'acquisition' GROUP BY prop", "```", "");
+md.push("> ⚠️ **単純に全部足さない。** `items` は支出、`finance` は借入の元本、`landComps` は㎡単価、`cash` は残高——意味が違う。`src` で必ず切る。", "");
+md.push("定義は `functions/money-view.mjs` が `catalog-def.mjs` から生成する。`tools/bq-sync.sh` が毎回作り直す。", "");
 md.push("## コレクション", "");
 for (const [id, c] of Object.entries(CATALOG)) {
   const L = live[id] ?? { count: 0, fields: [] };
   md.push(`### \`${id}\` — ${c.label}`, "");
-  md.push(`**${L.count}件**${c.amountField ? ` ／ 金額の列: \`${c.amountField}\`` : " ／ 金額なし"}`, "");
+  const fillN = c.amountField ? (L.allFields?.get(c.amountField) ?? 0) : 0;
+  const fillNote = c.amountField && L.count > 0 && fillN / L.count < 0.5
+    ? `（**${fillN}/${L.count}件しか埋まっていない**）` : "";
+  md.push(`**${L.count}件**${c.amountField ? ` ／ 金額の列: \`${c.amountField}\`${fillNote}` : " ／ 金額なし"}`, "");
   for (const h of c.holds ?? []) md.push(`- ${h}`);
   if (c.notHere) md.push("", `> **ここには無い**: ${c.notHere}`);
   if (c.caution) md.push("", `> ⚠️ ${c.caution}`);

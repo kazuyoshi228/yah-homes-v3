@@ -42,5 +42,8 @@ if [ "${1:-}" != "--verify" ]; then
   done
 fi
 
-echo "== 3. 件数の突き合わせ（Firestore ↔ BigQuery）"
+echo "== 3. VIEW を作り直す（列が増減しても追随させる）"
+(cd functions && node money-view.mjs --apply) | sed 's/^/   /'
+
+echo "== 4. 件数の突き合わせ（Firestore ↔ BigQuery）"
 exec node functions/bq-verify-counts.mjs $COLS

@@ -20,6 +20,22 @@
 | 公示地価 | `landComps` の `unitPrice` |
 | 還元利回り・税率・NOIの定義 | `assumptions`（`status` を必ず見る） |
 
+## 金額を横断で足す — `v_money`
+
+金額のフィールド名は15通りある（`amount` / `total` / `value` / `cost` / `principal` / `contractTotal` / `listPrice` / `premiumPerYear` / `balance` / `unitPrice` / `annual` …）。
+
+**名前を知らなくても足せるように、VIEW を1本通してある**（元の列名は変えていない）。
+
+```sql
+-- 棟ごとの取得原価
+SELECT prop, SUM(yen) FROM `yah-homes.agency.v_money`
+WHERE src = 'items' AND kind = 'acquisition' GROUP BY prop
+```
+
+> ⚠️ **単純に全部足さない。** `items` は支出、`finance` は借入の元本、`landComps` は㎡単価、`cash` は残高——意味が違う。`src` で必ず切る。
+
+定義は `functions/money-view.mjs` が `catalog-def.mjs` から生成する。`tools/bq-sync.sh` が毎回作り直す。
+
 ## コレクション
 
 ### `items` — 物件ごとの支出明細（領収証・請求書の単位）
@@ -146,9 +162,9 @@
 
 ### `personalDistributions` — 代表個人の分配金（投資信託）
 
-**6件** ／ 金額の列: `amount`
+**6件** ／ 金額の列: `annual`
 
-- 分配の実績
+- 銘柄ごとの年間分配 annual
 
 > **ここには無い**: 法人の収入ではない。役員報酬0円の土台になっている個人の収入
 
@@ -158,9 +174,11 @@
 
 ### `revenue` — 宿泊の売上（月次・棟別）
 
-**25件** ／ 金額の列: `amount`
+**25件** ／ 金額の列: `payout`
 
-- 月ごとの手取り売上
+- 売上 revenue と手取り payout
+- OTA手数料・清掃・宿泊税・管理料の内訳
+- 稼働 occ・ADR・組数
 
 > **ここには無い**: 経費は無い（utilities / recurringCosts / taxes / insurance を見る）
 
@@ -206,7 +224,7 @@
 
 ### `construction` — 工事の契約と図面
 
-**14件** ／ 金額の列: `contractTotal`
+**14件** ／ 金額の列: `contractTotal`（**1/14件しか埋まっていない**）
 
 - 請負総額 contractTotal
 - 工期
@@ -283,7 +301,7 @@
 
 ### `equipment` — 設備の台帳（更新計画のもと）
 
-**198件** ／ 金額の列: `amount`
+**198件** ／ 金額の列: `amount`（**87/198件しか埋まっていない**）
 
 - 設備ごとの取得と更新予定
 
@@ -381,4 +399,4 @@
 
 ---
 
-<sub>生成 2026-09-03 11:41 UTC ／ 対象 25コレクション（台帳全体は 52）</sub>
+<sub>生成 2026-09-03 11:59 UTC ／ 対象 25コレクション（台帳全体は 53）</sub>
