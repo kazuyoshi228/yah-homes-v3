@@ -12,7 +12,8 @@ import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
 
 export type BsLine = { label: string; amount: number; note?: string; docPath?: string;
-  related?: string; lenderKind?: "bank" | "family" };
+  related?: string; lenderKind?: "bank" | "family";
+  basis?: AmountBasis; principal?: number; asOf?: string };
 
 /* 貸し手が金融機関か家族かで分ける（2026-09-04 発注者指示）。
    同じ「負債」でも性格がまったく違う——銀行は返済期限と担保があり、
@@ -42,9 +43,33 @@ export type BsSide = { entity: "corp" | "personal"; label: string;
 export function liabilityAmount(
   d: { conditionsUnknown?: boolean; amountReported?: number; principal?: number },
   derivedBalance: number | null): number {
+  return liabilityAmountWithBasis(d, derivedBalance).amount;
+}
+
+/** 額と一緒に【その額が何なのか】を返す（設計メモ⑧・2026-09-04）。
+ *
+ *  同じ列に3種類の意味の数字が並んでいた:
+ *    derived  … 返済表から導いた、その時点の残高
+ *    principal… 当初元本（まだ返済が始まっていない等で残高を導けない）
+ *    reported … 申告額（返済条件が未登録）
+ *
+ *  2026-09-04、同条件の3本のうちウィズダムだけ ¥29,591,920 と出ていて
+ *  「30,000,000のはずだが、いつ変わったのか」という疑問が出た。
+ *  正解は「返済が2026-05に始まっているので残高を引き直した値」——
+ *  台帳は正しく、画面が意味を伝えていなかった。分岐は元からここにあり、
+ *  返していなかっただけなので、返すようにする。 */
+export type AmountBasis = "derived" | "principal" | "reported";
+export function liabilityAmountWithBasis(
+  d: { conditionsUnknown?: boolean; amountReported?: number; principal?: number },
+  derivedBalance: number | null): { amount: number; basis: AmountBasis } {
   /* 申告額が 0/未設定 なら当初額に落とす（?? だと 0 をそのまま採ってしまう） */
-  if (d.conditionsUnknown) return Number(d.amountReported || d.principal || 0);
-  return derivedBalance ?? Number(d.principal ?? 0);
+  if (d.conditionsUnknown) {
+    const rep = Number(d.amountReported || 0);
+    return rep ? { amount: rep, basis: "reported" }
+      : { amount: Number(d.principal || 0), basis: "principal" };
+  }
+  if (derivedBalance != null) return { amount: derivedBalance, basis: "derived" };
+  return { amount: Number(d.principal ?? 0), basis: "principal" };
 }
 
 export async function balanceSheet(asOf = new Date()) {
@@ -91,7 +116,7 @@ export async function balanceSheet(asOf = new Date()) {
     if (!d.conditionsUnknown) {
       try { derived = loanState({ id: doc.id, ...d } as unknown as Loan, asOf).balance; } catch { derived = null; }
     }
-    const amount = liabilityAmount(d as never, derived);
+    const { amount, basis } = liabilityAmountWithBasis(d as never, derived);
     if (!amount) continue;
     /* 明細の1行に返済のしかたを添える。条件が未登録でも、分かっている範囲は出す
        （毎月返済額・利息のみ、など。2026-08-31 発注者から条件が届いたため） */
@@ -103,6 +128,8 @@ export async function balanceSheet(asOf = new Date()) {
     sides[entity].liabilities.push({
       label: String(d.tabLabel ?? nameOf(d.lenderId, d.lender) ?? doc.id),
       amount, note,
+      /* この額が何なのか。画面はこれを見て「残高」「当初元本」「申告額」を添える */
+      basis, principal: num(d.principal), asOf: asOf.toISOString().slice(0, 10),
       docPath: `finance/${doc.id}`,
       lenderKind: isBank(d.lenderId, d.lender) ? "bank" : "family",
       ...(doc.id === OFFICER_LOAN_ID || RELATED_TO_OFFICER_LOAN.has(doc.id)

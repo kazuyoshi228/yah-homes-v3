@@ -12,7 +12,7 @@ import { aggregateFacts, type Fact } from "./facts.js";
 import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
 import { parseTimeName, yoy } from "./tourism.js";
-import { liabilityAmount } from "./bs.js";
+import { liabilityAmount, liabilityAmountWithBasis } from "./bs.js";
 import { projectCashflow, nextMonth, firstShortage, belowFloor } from "./cashflow.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
@@ -382,4 +382,23 @@ test("資金繰り: 部屋数が増えた月から固定費と光熱費が比例
   assert.equal(rows[2].detail.fixed, 250000);
   assert.equal(rows[2].detail.utilities, 175000);
   assert.equal(rows[2].outgo, 425000);             // 増えたぶんは出金の合計にも効く
+});
+
+/* 金額の意味（設計メモ⑧・2026-09-04）。同じ列に3種類の意味が並ぶのが混乱の元だった——
+   ウィズダムだけ残高、真佐子・晴信は当初元本、一慶は申告額。額と一緒に basis を返す */
+test("金額の意味: 残高／当初元本／申告額を取り違えない", () => {
+  /* 返済が始まっていて残高を導けた → derived（ウィズダムのケース） */
+  assert.deepEqual(liabilityAmountWithBasis({ principal: 30000000 }, 29591920),
+    { amount: 29591920, basis: "derived" });
+  /* 返済がまだ始まっていない → 当初元本（真佐子・晴信のケース） */
+  assert.deepEqual(liabilityAmountWithBasis({ principal: 30000000 }, null),
+    { amount: 30000000, basis: "principal" });
+  /* 条件が未登録 → 申告額（一慶の役員借入のケース） */
+  assert.deepEqual(liabilityAmountWithBasis({ conditionsUnknown: true, amountReported: 93031628 }, null),
+    { amount: 93031628, basis: "reported" });
+  /* 条件未登録だが申告額が無い → 当初元本に落とす（0 を採らない） */
+  assert.deepEqual(liabilityAmountWithBasis({ conditionsUnknown: true, amountReported: 0, principal: 3000000 }, 999),
+    { amount: 3000000, basis: "principal" });
+  /* 従来の liabilityAmount と食い違わない */
+  assert.equal(liabilityAmount({ principal: 30000000 }, 29591920), 29591920);
 });
