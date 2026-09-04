@@ -304,3 +304,41 @@ export function portfolioYear(loans: Array<Parameters<typeof loanYear>[0]>,
   return { now, nowInt, plan: planPay, planInt, delta: planPay - now,
     deltaInt: planInt - nowInt, balanceNow: balNow, balancePlan: balPlan };
 }
+
+/** 個人の借入の返済表（月次）。personal.js から移設（SSoT総点検②・2026-09-04）。
+    無利息・毎月定額の前提で、元本を月額で割り切るだけ。開始月・当初元本・月額の
+    3つから毎回引き直す——表そのものは保存しない。
+    発注者提供の返済表と1円まで一致することを確認済み（2026-09-02・移設時に再検証） */
+export function simpleSchedule(l: {
+  principal?: number; monthlyPayment?: number; startMonth?: string;
+}): { rows: Array<{ ym: string; pay: number; balance: number }>;
+     months: number; end: string; total: number } | null {
+  const principal = Number(l.principal ?? 0), pay = Number(l.monthlyPayment ?? 0);
+  const start = String(l.startMonth ?? "");
+  if (!principal || !pay || !/^\d{4}-\d{2}$/.test(start)) return null;
+  const [sy, sm] = start.split("-").map(Number);
+  const rows = [{ ym: start, pay: 0, balance: principal }];
+  let bal = principal, i = 0;
+  while (bal > 0 && i < 600) {
+    i += 1;
+    const d = new Date(Date.UTC(sy, sm - 1 + i, 1));
+    const amount = Math.min(pay, bal);
+    bal -= amount;
+    rows.push({ ym: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+      pay: amount, balance: bal });
+  }
+  return { rows, months: i, end: rows[rows.length - 1].ym,
+    total: rows.reduce((a, r) => a + r.pay, 0) };
+}
+
+/** 利息のみの借入の、毎月の利息。元本が減らないので返済表は引けない。
+    金利未登録は 0（推測で埋めない）。利息が元本に組み入れられる借入は現金支出ゼロ */
+export function interestOnlyMonthly(l: {
+  repayment?: string; interestCapitalized?: boolean;
+  principal?: number; amountReported?: number; rate?: number;
+}, fallbackRate = 0): number {
+  if (l.repayment !== "interest-only" || l.interestCapitalized) return 0;
+  const p = Number(l.principal ?? l.amountReported ?? 0);
+  const r = Number(l.rate ?? fallbackRate ?? 0);
+  return Math.round(p * (r > 1 ? r / 100 : r) / 12);
+}

@@ -6,7 +6,7 @@
  */
 import { getStorage } from "firebase-admin/storage";
 import { agencyDb } from "../engine.js";
-import { loanSummary, portfolioYear } from "../finance.js";
+import { loanSummary, portfolioYear, simpleSchedule, interestOnlyMonthly } from "../finance.js";
 import { balanceSheet } from "../bs.js";
 import { cashflow } from "../cashflow.js";
 import { revenueSummary } from "../revenue.js";
@@ -80,7 +80,11 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, owner: "山田 一慶",
             assets: as.docs.map(m).sort((x, y) => Number(y.value ?? 0) - Number(x.value ?? 0)),
             distributions: ds.docs.map(m).sort((x, y) => Number(y.annual ?? 0) - Number(x.annual ?? 0)),
-            loans: fin2.docs.map(m),
+            /* 返済表と毎月の利息はサーバで引く（SSoT総点検②）。カードは描くだけ */
+            loans: fin2.docs.map(m).map((l) => ({ ...l,
+              schedule: simpleSchedule(l as never),
+              monthlyInterest: interestOnlyMonthly(l as never,
+                Number((nwl.data() as { rate?: number } | undefined)?.rate ?? 0)) })),
             adjustments: bsAdj.docs.map(m),
             income: inc.exists ? { id: inc.id, ...(inc.data() as Record<string, unknown>) } : null,
             /* 証券担保ローンの条件（金利・掛目・強制売却の基準）。正本は商品概要PDF */
