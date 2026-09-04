@@ -441,3 +441,16 @@
 | ④ | 手取り配当 gross×(1−taxRate) がカードに3回 | サーバの dividends: {gross, taxRate, net} に集約。数字不変を確認 |
 
 これで**カードの中の財務モデルはゼロ**（modelcheck が45ファイルで確認）。
+
+### 残件の消化（2026-09-04・発注者指示「全部進めて」）
+
+| 残件 | 対処 |
+|---|---|
+| os.css への移設 | §5.5「共通部品」をガイドライン1.9.0に制定し、.scenario-sw / th.has-term を os.css へ。os-core のJS注入を廃止 |
+| designcheck の注記基準 | 実測に追随（bs.html 2→1・bs.js 1→0・familyfund 5→4） |
+| 語の一斉書き換え | familyfund / personal の見出しを正式名へ（元本→当初元本・残債→残高・月々→毎月の返済・年の利息→支払利息・負債総額→負債合計 ほか） |
+| ツールチップ展開 | personal.js に適用（th() に num クラス対応を追加）。適用済みは familyfund・finance・personal の3枚 |
+| items.vendor の名寄せ | purchaseVendors マスタ6件・items 175件に vendorId。確実な塊だけ（Amazon 4表記→1・コーナン3→1・ヨドバシ3→1）。法人格が違いうるもの・同一人物か未確認のものは寄せていない |
+| familyFundPlan 廃止 | plans（配列）に一本化。カードは plans[0] |
+
+**未消化はゼロ。** 今後の拡張点: 複数シナリオの選択UI・残る6カードへのツールチップ展開。
