@@ -263,13 +263,10 @@ export async function balanceSheet(asOf = new Date()) {
     };
   }
   const plans = scenarios.map(applyScenario).filter(Boolean);
-  /* familyFundPlan は当面のあいだ残す（カードが参照している）。
-     複数シナリオを並べるようになったら plans に一本化して消す */
-  const familyFundPlan = plans[0] ?? null;
 
   return {
     asOf: asOf.toISOString().slice(0, 10),
-    relatedParty, familyFundPlan, plans,
+    relatedParty, plans,
     /* シナリオの一覧（画面の選択肢）。中身は plans に入っている */
     scenarios: scenarios.map((x) => ({ id: x.id, label: x.label ?? x.id, status: x.status ?? "proposed" })),
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
