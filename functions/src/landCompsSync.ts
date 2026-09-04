@@ -107,7 +107,13 @@ export const landCompsSync = onSchedule(
       const u = new URL(BASE + path);
       Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
       const r = await fetch(u, { headers: { "Ocp-Apim-Subscription-Key": key } });
-      if (!r.ok) throw new Error(`${path} ${r.status}`);
+      if (!r.ok) {
+        /* 応答の中身まで残す。パスが違うのか、キーの権限が足りないのか、
+           パラメータが悪いのかは、本文を見ないと切り分けられない（2026-09-04）。
+           キーそのものは絶対に出さない——URLにも本文にも含まれない作りにしてある。 */
+        const body = await r.text().catch(() => "");
+        throw new Error(`${path} ${r.status} ${body.slice(0, 300)}`);
+      }
       return r.json() as Promise<{ data?: Array<Record<string, unknown>> }>;
     };
 
