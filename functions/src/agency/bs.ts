@@ -57,6 +57,8 @@ export async function balanceSheet(asOf = new Date()) {
     db.collection("personalAssets").get(),
     db.collection("buildPayments").get(),
   ]);
+  /* 家族ファンドの整理案（assumptions/family-fund の postPlan）。人の判断なので台帳が正本 */
+  const ffSnap = await db.collection("assumptions").doc("family-fund").get();
 
   const num = (v: unknown) => Number(v ?? 0) || 0;
 
@@ -181,9 +183,40 @@ export async function balanceSheet(asOf = new Date()) {
       + "ここは資金の流れを示す別レイヤー。",
   } : null;
 
+  /* ---- 家族ファンド「整理後」（案・未実行） ----
+     一慶を中継する役員借入1本を、家族からの直接の借入3本に置き換えた姿。
+     **実在の残高ではない**（status: proposed）。実在の負債は上の sides が正本で、
+     こちらは合計を別に持つ——画面で現状と並べて比べるためだけの、もう1つの射影。
+     金額は assumptions/family-fund.postPlan（人の判断）から取る。コードに焼き込まない */
+  const pp = (ffSnap.data() ?? {}).postPlan as
+    { label?: string; note?: string; status?: string; replacesDocPath?: string;
+      lines?: Array<{ lender?: string; amount?: number }> } | undefined;
+  let familyFundPlan = null;
+  if (pp?.lines?.length) {
+    const replaces = String(pp.replacesDocPath ?? "");
+    const replaced = sides.corp.liabilities.find((l) => l.docPath === replaces) ?? null;
+    /* 置き換える1本を抜いた残り＋案の3本。ここに入らない借入（銀行・他の家族ファンド）はそのまま */
+    const kept = sides.corp.liabilities.filter((l) => l.docPath !== replaces);
+    const planLines: BsLine[] = pp.lines.map((x) => ({
+      label: String(x.lender ?? ""), amount: num(x.amount), note: "整理後の案",
+      docPath: "assumptions/family-fund", lenderKind: "family" as const,
+    }));
+    const planTotal = planLines.reduce((a, x) => a + x.amount, 0);
+    const liabilityTotal = kept.reduce((a, x) => a + x.amount, 0) + planTotal;
+    familyFundPlan = {
+      label: String(pp.label ?? "家族ファンド 整理後（案）"),
+      note: String(pp.note ?? ""), status: String(pp.status ?? "proposed"),
+      lines: planLines, planTotal,
+      replaced,                     // 消える1本（役員借入）。画面で「何が無くなるか」を出すため
+      keptFamily: kept.filter((l) => l.lenderKind !== "bank"),
+      familyTotal: kept.filter((l) => l.lenderKind !== "bank").reduce((a, x) => a + x.amount, 0) + planTotal,
+      liabilityTotal, equity: assetTotal - liabilityTotal,
+    };
+  }
+
   return {
     asOf: asOf.toISOString().slice(0, 10),
-    relatedParty,
+    relatedParty, familyFundPlan,
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
     unbookedLiabilities,
     unbookedLiabilityTotal: unbookedLiabilities.reduce((a, x) => a + x.amount, 0),
