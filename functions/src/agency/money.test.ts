@@ -13,6 +13,7 @@ import { judgeProbe, summarizeProbes, PROBES } from "./aicheck.js";
 import { parseSchemaMd, parseFieldCell } from "./schemaparse.js";
 import { parseTimeName, yoy } from "./tourism.js";
 import { liabilityAmount, liabilityAmountWithBasis } from "./bs.js";
+import { loanYear, loanBalanceAtYearEnd } from "./finance.js";
 import { projectCashflow, nextMonth, firstShortage, belowFloor } from "./cashflow.js";
 import { aggregateAiWeek } from "./weekly.js";
 import { DOCUMENTED } from "./schemadoc.js";
@@ -401,4 +402,17 @@ test("金額の意味: 残高／当初元本／申告額を取り違えない", 
     { amount: 3000000, basis: "principal" });
   /* 従来の liabilityAmount と食い違わない */
   assert.equal(liabilityAmount({ principal: 30000000 }, 29591920), 29591920);
+});
+
+/* 返済表の最終回は残高＋利息だけ払う（総点検 2026-09-04）。
+   これを無視すると実在の返済表（¥30,000,000・年2%・240回・毎月¥151,765・最終回¥151,621）より
+   総返済額が144円多くなる。3本の実契約と1円まで一致することを検証 */
+test("返済表: 最終回の端数調整で契約書の総額と1円まで一致する", () => {
+  const L = { principal: 30000000, rate: 2, firstPaymentMonth: "2026-05",
+    totalPayments: 240, monthlyPayment: 151765 };
+  let pay = 0, interest = 0;
+  for (let y = 2026; y <= 2046; y++) { const r = loanYear(L, y); pay += r.pay; interest += r.interest; }
+  assert.equal(pay, 36423456);          // 契約書の総返済額（151,765×239＋151,621）
+  assert.equal(interest, 6423456);      // 契約書の利息合計
+  assert.equal(loanBalanceAtYearEnd(L, 2046), 0);   // 完済年の年末残高はゼロ
 });

@@ -235,8 +235,13 @@ export function loanYear(loan: {
   for (let i = 0; i < n; i++) {
     const m = ymAdd(start, i);
     const it = Math.floor((bal * (Number(loan.rate || 0) / 100)) / 12);
-    if (m.slice(0, 4) === String(year)) { pay += mp; interest += it; }
-    bal -= mp - it;
+    /* 最終回は残高＋利息だけ払う（元利均等の端数調整）。
+       2026-09-04 総点検: これを無視して全回同額で数えると、実在の返済表
+       （最終回 ¥151,621）より 144円 多くなる——保存されていた総返済額のほうが正しかった */
+    const thisPay = Math.min(mp, bal + it);
+    if (m.slice(0, 4) === String(year)) { pay += thisPay; interest += it; }
+    bal -= thisPay - it;
+    if (bal <= 0) break;
     if (m.slice(0, 4) > String(year)) break;
   }
   return { pay, interest };
@@ -256,7 +261,9 @@ export function loanBalanceAtYearEnd(loan: {
   for (let i = 0; i < n; i++) {
     const m = ymAdd(start, i);
     if (m.slice(0, 4) > String(year)) break;
-    b -= mp - Math.floor((b * (Number(loan.rate || 0) / 100)) / 12);
+    const it = Math.floor((b * (Number(loan.rate || 0) / 100)) / 12);
+    b -= Math.min(mp, b + it) - it;      /* 最終回の端数調整（loanYear と同じ規則） */
+    if (b <= 0) break;
   }
   return Math.max(0, b);
 }
