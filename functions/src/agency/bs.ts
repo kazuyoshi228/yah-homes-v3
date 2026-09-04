@@ -17,6 +17,8 @@ export type BsLine = { label: string; amount: number; note?: string; docPath?: s
 /* 貸し手が金融機関か家族かで分ける（2026-09-04 発注者指示）。
    同じ「負債」でも性格がまったく違う——銀行は返済期限と担保があり、
    家族は条件を相談で決められる。画面では別の塊として見せる */
+/* 銀行かどうか。**本来は people.kind が持つ属性**で、この正規表現は名前からの推測。
+   people にマスタがあればそちらを優先し、無い借入だけこの正規表現に落とす（設計メモ⑤・2026-09-04） */
 const BANK_LENDER = /銀行|公庫|信用金庫|信用組合|金庫|證券|証券/;
 
 /* 山田一慶が法人へ貸し付けている役員借入（loan-kazuyoshi-officer）の原資になっている、
@@ -57,6 +59,19 @@ export async function balanceSheet(asOf = new Date()) {
     db.collection("personalAssets").get(),
     db.collection("buildPayments").get(),
   ]);
+  /* 人物・法人マスタ（people・設計メモ⑤）。表示名と「銀行かどうか」の正本。
+     台帳が lenderId を持っていればマスタを引く。持っていない借入は従来どおり文字列で扱う
+     （移行の途中でも画面が壊れないように。設計メモ⑤の順序4より前に後方互換を外さない） */
+  const peopleSnap = await db.collection("people").get();
+  const people = new Map(peopleSnap.docs.map((d) => [d.id, d.data() as
+    { displayName?: string; kind?: string }]));
+  const nameOf = (id: unknown, fallback: unknown) =>
+    (typeof id === "string" && people.get(id)?.displayName) || String(fallback ?? "");
+  const isBank = (id: unknown, lender: unknown) => {
+    const k = typeof id === "string" ? people.get(id)?.kind : undefined;
+    return k ? k === "bank" : BANK_LENDER.test(String(lender ?? ""));
+  };
+
   /* シナリオ（scenarios）。人の判断なので台帳が正本。
      2026-09-04、assumptions の中の postPlan という隠し部屋から独立させた（設計メモ①）——
      1本しか持てず、上書きすると前の案が消えていたため */
@@ -86,10 +101,10 @@ export async function balanceSheet(asOf = new Date()) {
     const note = [d.conditionsUnknown ? "条件一部未登録（申告額）" : String(d.repayment ?? ""), how]
       .filter(Boolean).join("・");
     sides[entity].liabilities.push({
-      label: String(d.tabLabel ?? d.lender ?? doc.id),
+      label: String(d.tabLabel ?? nameOf(d.lenderId, d.lender) ?? doc.id),
       amount, note,
       docPath: `finance/${doc.id}`,
-      lenderKind: BANK_LENDER.test(String(d.lender ?? "")) ? "bank" : "family",
+      lenderKind: isBank(d.lenderId, d.lender) ? "bank" : "family",
       ...(doc.id === OFFICER_LOAN_ID || RELATED_TO_OFFICER_LOAN.has(doc.id)
         ? { related: "officer-loan" } : {}),
     });

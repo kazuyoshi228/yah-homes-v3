@@ -140,6 +140,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, years, plan, count: fam.length });
           return true;
         }
+        case "people": {                                      // 人物・法人マスタ（設計メモ⑤・2026-09-04）
+          /* 表示名と「銀行かどうか」の正本。台帳は lenderId 等でここを参照する。
+             表示名を直せば全カードが一斉に直る */
+          res.json({ ok: true, rows: await all("people") });
+          return true;
+        }
         case "scenarios": {                                   // シナリオ一覧（案の正本・2026-09-04）
           /* 実在の台帳（finance / assumptions）とは別。overrides に前提の差分だけを持つ。
              当てた結果は ?action=bs の plans に入る——ここは一覧と中身だけ */
