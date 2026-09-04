@@ -11,7 +11,21 @@
 import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
 
-export type BsLine = { label: string; amount: number; note?: string; docPath?: string };
+export type BsLine = { label: string; amount: number; note?: string; docPath?: string; related?: string };
+
+/* 山田一慶が法人へ貸し付けている役員借入（loan-kazuyoshi-officer）の原資になっている、
+   一慶が個人で家族から借りている3本（2026-09-04 発注者指摘）。
+   これらを「負債（法人＋個人）」に平たく並べると、法人→一慶の借入と
+   一慶→家族の借入が別々の行に見え、資金の流れが読めない——実態は
+   「家族 → 一慶（個人） → 法人」という1本の流れの、2つの区間である。
+   金額は一致しない（一慶が個人の手元資金も混ぜて貸しているため）。
+   assumptions/family-fund の pending「①個人間の貸付を法人へ付け替えるか」が
+   解消されるまでは、実在する別々の負債として両方に残し、右のカードで
+   「関連している」ことだけを示す。 */
+const RELATED_TO_OFFICER_LOAN = new Set([
+  "loan-kazuyoshi-harunobu-a", "loan-kazuyoshi-harunobu-b", "loan-kazuyoshi-masako",
+]);
+const OFFICER_LOAN_ID = "loan-kazuyoshi-officer";
 export type BsSide = { entity: "corp" | "personal"; label: string;
   liabilities: BsLine[]; liabilityTotal: number; conditionsUnknown: number };
 
@@ -65,6 +79,8 @@ export async function balanceSheet(asOf = new Date()) {
       label: String(d.tabLabel ?? d.lender ?? doc.id),
       amount, note,
       docPath: `finance/${doc.id}`,
+      ...(doc.id === OFFICER_LOAN_ID || RELATED_TO_OFFICER_LOAN.has(doc.id)
+        ? { related: "officer-loan" } : {}),
     });
     sides[entity].liabilityTotal += amount;
     if (d.conditionsUnknown) sides[entity].conditionsUnknown++;
@@ -142,8 +158,25 @@ export async function balanceSheet(asOf = new Date()) {
   const personalAssets: BsLine[] = adj.filter((x) => x.group === "personal" && !x.excluded);
   const excludedAssets = adj.filter((x) => x.excluded);
 
+  /* 関連当事者間の貸借（右カード用・2026-09-04）。
+     資産・負債の合計計算には影響しない——表示のための別レイヤー */
+  const officerLoan = sides.corp.liabilities.find((l) => l.docPath === `finance/${OFFICER_LOAN_ID}`) ?? null;
+  const personalFunding = sides.personal.liabilities.filter((l) => l.related === "officer-loan");
+  const personalFundingTotal = personalFunding.reduce((a, x) => a + x.amount, 0);
+  const relatedParty = officerLoan ? {
+    label: "山田 一慶 ⇄ ボンファイア株式会社",
+    officerLoan,                          // 法人→一慶（役員借入）
+    personalFunding, personalFundingTotal, // 一慶→家族（個人の借入。原資の一部）
+    diff: officerLoan.amount - personalFundingTotal,
+    note: "一慶の役員借入の原資は、家族からの個人の借入で一部まかなわれている。"
+      + "金額は一致しない（一慶の手元資金も混ざるため）。"
+      + "資産・負債の合計はこれまでどおり両方を別々の実在する負債として数える——"
+      + "ここは資金の流れを示す別レイヤー。",
+  } : null;
+
   return {
     asOf: asOf.toISOString().slice(0, 10),
+    relatedParty,
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
     unbookedLiabilities,
     unbookedLiabilityTotal: unbookedLiabilities.reduce((a, x) => a + x.amount, 0),
