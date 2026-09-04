@@ -56,6 +56,33 @@ export async function healthSummary() {
         : `${Math.round(hours / 24)}日前から止まっている（${sync.syncedAt.slice(0, 16)}）。古い数字が返る`);
   }
 
+  /* 未確定（pending）を自動で拾う（設計メモ⑦・2026-09-04）。
+     これまで pending は日本語の文章だったので、ここに1件も出てこなかった——
+     「何が未確定なのか」を機械が集計できず、健全性の判定に入っていなかった。
+     いまは配列。field が埋まっていたら【自動で閉じたものとして扱う】——
+     人が丸数字を消し忘れても、台帳が埋まった時点で消える */
+  const PENDING_CARDS: Record<string, string> = {
+    finance: "finance", assumptions: "cashflow", scenarios: "bs",
+  };
+  for (const col of ["finance", "assumptions", "scenarios"]) {
+    const snap = await db.collection(col).get();
+    for (const doc of snap.docs) {
+      const d = doc.data() as Record<string, unknown>;
+      const items = Array.isArray(d.pending) ? d.pending as Array<Record<string, unknown>> : [];
+      if (!items.length) continue;
+      const open = items.filter((x) => {
+        if (String(x.status ?? "open") !== "open") return false;
+        const f = x.field;                       /* そのフィールドが埋まれば解消 */
+        return !(typeof f === "string" && f && d[f] != null && d[f] !== "");
+      });
+      if (!open.length) continue;
+      const blocks = [...new Set(open.map((x) => String(x.blocks ?? "")).filter(Boolean))];
+      add(PENDING_CARDS[col] ?? col, `未確定: ${col}/${doc.id}`, false,
+        `${open.map((x) => String(x.label ?? x.id ?? "")).join("／")}`
+        + (blocks.length ? `（導出できないもの: ${blocks.join("・")}）` : ""));
+    }
+  }
+
   const ovDoc = await db.collection("settings").doc("dots").get();
   const overrides = (ovDoc.data()?.cards ?? {}) as Record<string, { state: string; by: string; at: string }>;
 
