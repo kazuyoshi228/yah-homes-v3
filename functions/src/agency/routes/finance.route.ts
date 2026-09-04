@@ -118,6 +118,15 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, ...(await balanceSheet()) });
           return true;
         }
+        case "terms": {                                       // 用語マスタ（語の意味の正本・2026-09-04）
+          /* 数字は持たない。label が正式名、aka が画面に出ている表記のゆれ。
+             カードは見出しの説明（ツールチップ）にこれを使う */
+          const rows = await all("terms");
+          res.json({ ok: true, rows: rows.sort((a, b) =>
+            String(a.group ?? "").localeCompare(String(b.group ?? ""))
+            || String(a.label ?? "").localeCompare(String(b.label ?? ""))) });
+          return true;
+        }
         case "fixedCosts": {                                  // 税金・保険・積立（毎年決まって出ていくもの）
           const [tax, ins, res_, asm, propDocs] = await Promise.all([
             all("taxes"), all("insurance"), all("reserves"), all("assumptions"), all("properties")]);
