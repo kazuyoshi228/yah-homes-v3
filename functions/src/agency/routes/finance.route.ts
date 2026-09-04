@@ -118,6 +118,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           res.json({ ok: true, ...(await balanceSheet()) });
           return true;
         }
+        case "scenarios": {                                   // シナリオ一覧（案の正本・2026-09-04）
+          /* 実在の台帳（finance / assumptions）とは別。overrides に前提の差分だけを持つ。
+             当てた結果は ?action=bs の plans に入る——ここは一覧と中身だけ */
+          res.json({ ok: true, rows: await all("scenarios") });
+          return true;
+        }
         case "terms": {                                       // 用語マスタ（語の意味の正本・2026-09-04）
           /* 数字は持たない。label が正式名、aka が画面に出ている表記のゆれ。
              カードは見出しの説明（ツールチップ）にこれを使う */

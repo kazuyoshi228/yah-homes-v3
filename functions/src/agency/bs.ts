@@ -57,8 +57,10 @@ export async function balanceSheet(asOf = new Date()) {
     db.collection("personalAssets").get(),
     db.collection("buildPayments").get(),
   ]);
-  /* 家族ファンドの整理案（assumptions/family-fund の postPlan）。人の判断なので台帳が正本 */
-  const ffSnap = await db.collection("assumptions").doc("family-fund").get();
+  /* シナリオ（scenarios）。人の判断なので台帳が正本。
+     2026-09-04、assumptions の中の postPlan という隠し部屋から独立させた（設計メモ①）——
+     1本しか持てず、上書きすると前の案が消えていたため */
+  const scSnap = await db.collection("scenarios").get();
 
   const num = (v: unknown) => Number(v ?? 0) || 0;
 
@@ -183,40 +185,51 @@ export async function balanceSheet(asOf = new Date()) {
       + "ここは資金の流れを示す別レイヤー。",
   } : null;
 
-  /* ---- 家族ファンド「整理後」（案・未実行） ----
-     一慶を中継する役員借入1本を、家族からの直接の借入3本に置き換えた姿。
-     **実在の残高ではない**（status: proposed）。実在の負債は上の sides が正本で、
-     こちらは合計を別に持つ——画面で現状と並べて比べるためだけの、もう1つの射影。
-     金額は assumptions/family-fund.postPlan（人の判断）から取る。コードに焼き込まない */
-  const pp = (ffSnap.data() ?? {}).postPlan as
-    { label?: string; note?: string; status?: string; replacesDocPath?: string;
-      lines?: Array<{ lender?: string; amount?: number }> } | undefined;
-  let familyFundPlan = null;
-  if (pp?.lines?.length) {
-    const replaces = String(pp.replacesDocPath ?? "");
+  /* ---- シナリオ（案・未実行）を当てた姿 ----
+     実在の残高ではない。実在の負債は上の sides が正本で、こちらは合計を別に持つ——
+     画面で現状と並べて比べるための、もう1つの射影。
+     金額は scenarios の overrides（人の判断）から取る。コードに焼き込まない。
+     いまサポートする override は replaceLoan（借入1本を複数本に置き換える）だけ。
+     新しい種類を足すときは、ここに分岐を1つ増やす */
+  type ScenarioRow = { id: string; label?: string; status?: string; note?: string;
+    overrides?: { replaceLoan?: { docPath?: string; lines?: Array<{ lender?: string; amount?: number }> } } };
+  const scenarios: ScenarioRow[] = scSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }));
+
+  function applyScenario(sc: ScenarioRow) {
+    const rl = sc.overrides?.replaceLoan;
+    if (!rl?.lines?.length) return null;
+    const replaces = String(rl.docPath ?? "");
     const replaced = sides.corp.liabilities.find((l) => l.docPath === replaces) ?? null;
-    /* 置き換える1本を抜いた残り＋案の3本。ここに入らない借入（銀行・他の家族ファンド）はそのまま */
+    /* 置き換える1本を抜いた残り＋案の行。ここに入らない借入（銀行・他の家族ファンド）はそのまま */
     const kept = sides.corp.liabilities.filter((l) => l.docPath !== replaces);
-    const planLines: BsLine[] = pp.lines.map((x) => ({
+    const planLines: BsLine[] = rl.lines.map((x) => ({
       label: String(x.lender ?? ""), amount: num(x.amount), note: "整理後の案",
-      docPath: "assumptions/family-fund", lenderKind: "family" as const,
+      docPath: `scenarios/${sc.id}`, lenderKind: "family" as const,
     }));
     const planTotal = planLines.reduce((a, x) => a + x.amount, 0);
+    const keptFamily = kept.filter((l) => l.lenderKind !== "bank");
     const liabilityTotal = kept.reduce((a, x) => a + x.amount, 0) + planTotal;
-    familyFundPlan = {
-      label: String(pp.label ?? "家族ファンド 整理後（案）"),
-      note: String(pp.note ?? ""), status: String(pp.status ?? "proposed"),
+    return {
+      id: sc.id,
+      label: String(sc.label ?? "整理後（案）"),
+      note: String(sc.note ?? ""), status: String(sc.status ?? "proposed"),
       lines: planLines, planTotal,
-      replaced,                     // 消える1本（役員借入）。画面で「何が無くなるか」を出すため
-      keptFamily: kept.filter((l) => l.lenderKind !== "bank"),
-      familyTotal: kept.filter((l) => l.lenderKind !== "bank").reduce((a, x) => a + x.amount, 0) + planTotal,
+      replaced,                     // 消える1本。画面で「何が無くなるか」を出すため
+      keptFamily,
+      familyTotal: keptFamily.reduce((a, x) => a + x.amount, 0) + planTotal,
       liabilityTotal, equity: assetTotal - liabilityTotal,
     };
   }
+  const plans = scenarios.map(applyScenario).filter(Boolean);
+  /* familyFundPlan は当面のあいだ残す（カードが参照している）。
+     複数シナリオを並べるようになったら plans に一本化して消す */
+  const familyFundPlan = plans[0] ?? null;
 
   return {
     asOf: asOf.toISOString().slice(0, 10),
-    relatedParty, familyFundPlan,
+    relatedParty, familyFundPlan, plans,
+    /* シナリオの一覧（画面の選択肢）。中身は plans に入っている */
+    scenarios: scenarios.map((x) => ({ id: x.id, label: x.label ?? x.id, status: x.status ?? "proposed" })),
     unbooked, unbookedTotal: unbooked.reduce((a, x) => a + x.amount, 0),
     unbookedLiabilities,
     unbookedLiabilityTotal: unbookedLiabilities.reduce((a, x) => a + x.amount, 0),
