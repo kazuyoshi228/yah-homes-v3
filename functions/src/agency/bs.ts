@@ -11,7 +11,13 @@
 import { agencyDb } from "./engine.js";
 import { loanState, type Loan } from "./finance.js";
 
-export type BsLine = { label: string; amount: number; note?: string; docPath?: string; related?: string };
+export type BsLine = { label: string; amount: number; note?: string; docPath?: string;
+  related?: string; lenderKind?: "bank" | "family" };
+
+/* 貸し手が金融機関か家族かで分ける（2026-09-04 発注者指示）。
+   同じ「負債」でも性格がまったく違う——銀行は返済期限と担保があり、
+   家族は条件を相談で決められる。画面では別の塊として見せる */
+const BANK_LENDER = /銀行|公庫|信用金庫|信用組合|金庫|證券|証券/;
 
 /* 山田一慶が法人へ貸し付けている役員借入（loan-kazuyoshi-officer）の原資になっている、
    一慶が個人で家族から借りている3本（2026-09-04 発注者指摘）。
@@ -79,6 +85,7 @@ export async function balanceSheet(asOf = new Date()) {
       label: String(d.tabLabel ?? d.lender ?? doc.id),
       amount, note,
       docPath: `finance/${doc.id}`,
+      lenderKind: BANK_LENDER.test(String(d.lender ?? "")) ? "bank" : "family",
       ...(doc.id === OFFICER_LOAN_ID || RELATED_TO_OFFICER_LOAN.has(doc.id)
         ? { related: "officer-loan" } : {}),
     });
@@ -164,11 +171,11 @@ export async function balanceSheet(asOf = new Date()) {
   const personalFunding = sides.personal.liabilities.filter((l) => l.related === "officer-loan");
   const personalFundingTotal = personalFunding.reduce((a, x) => a + x.amount, 0);
   const relatedParty = officerLoan ? {
-    label: "山田 一慶 ⇄ ボンファイア株式会社",
+    label: "山田 一慶 → ボンファイア株式会社",
     officerLoan,                          // 法人→一慶（役員借入）
     personalFunding, personalFundingTotal, // 一慶→家族（個人の借入。原資の一部）
     diff: officerLoan.amount - personalFundingTotal,
-    note: "一慶の役員借入の原資は、家族からの個人の借入で一部まかなわれている。"
+    note: "一慶が法人に貸している役員借入の原資は、家族からの個人の借入で一部まかなわれている。"
       + "金額は一致しない（一慶の手元資金も混ざるため）。"
       + "資産・負債の合計はこれまでどおり両方を別々の実在する負債として数える——"
       + "ここは資金の流れを示す別レイヤー。",
