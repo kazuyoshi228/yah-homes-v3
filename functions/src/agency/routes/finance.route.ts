@@ -77,7 +77,12 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
           ]);
           const m = (d: FirebaseFirestore.QueryDocumentSnapshot): Record<string, unknown> =>
             ({ id: d.id, ...(d.data() as Record<string, unknown>) });
+          /* 手取り配当（SSoT総点検④）。gross×(1−taxRate) がカードに3回書かれていた——
+             式はサーバで1回。税率の正本は assumptions/personal-income */
+          const divGross = ds.docs.reduce((a, d3) => a + Number(d3.data().annual ?? 0), 0);
+          const taxRate = Number((inc.data() as { taxRate?: number } | undefined)?.taxRate ?? 0);
           res.json({ ok: true, owner: "山田 一慶",
+            dividends: { gross: divGross, taxRate, net: Math.round(divGross * (1 - taxRate)) },
             assets: as.docs.map(m).sort((x, y) => Number(y.value ?? 0) - Number(x.value ?? 0)),
             distributions: ds.docs.map(m).sort((x, y) => Number(y.annual ?? 0) - Number(x.annual ?? 0)),
             /* 返済表と毎月の利息はサーバで引く（SSoT総点検②）。カードは描くだけ */
