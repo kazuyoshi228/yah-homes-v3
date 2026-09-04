@@ -24,20 +24,60 @@ export const agencyDb = () => getFirestore("agency");
  */
 export type Actor = { by: string; kind: "human" | "ai" | "job" };
 
-/** 台帳へ書く。updatedAt / updatedBy / updatedByKind を必ず添える */
+/* 変更履歴を残すコレクション（2026-09-04 発注者指示）。
+   これまで updatedAt / updatedBy はあったが【前の値が消えていた】。
+   2026-09-04、AIが assumptions/family-fund.postPlan の金額を1日で4回上書きし、
+   誰がいつ何から何に変えたのかが復元できなくなった。金額を扱う台帳としては欠陥。
+   対象は金額・係数・人の判断を持つものだけ——ログ・定点・キャッシュは対象外
+   （量が多く、履歴の価値もない）。 */
+const HISTORY_COLS = new Set([
+  "finance", "assumptions", "scenarios", "bsAdjustments", "items", "equipment",
+  "properties", "taxes", "insurance", "reserves", "personalAssets", "cash", "terms", "people",
+]);
+
+/** 変わったフィールドだけを before/after で返す（ドキュメント全体をコピーしない） */
+function diffFields(before: Record<string, unknown> | undefined, after: Record<string, unknown>) {
+  const b: Record<string, unknown> = {}, a: Record<string, unknown> = {};
+  for (const k of Object.keys(after)) {
+    if (k === "updatedAt" || k === "updatedBy" || k === "updatedByKind") continue;
+    const bv = before?.[k];
+    if (JSON.stringify(bv) === JSON.stringify(after[k])) continue;
+    if (bv !== undefined) b[k] = bv;
+    a[k] = after[k];
+  }
+  return { before: b, after: a };
+}
+
+/** 台帳へ書く。updatedAt / updatedBy / updatedByKind を必ず添え、変更履歴を残す */
 export async function ledgerSet(
   col: string, id: string, data: Record<string, unknown>,
-  actor: Actor, opts: { merge?: boolean } = {},
+  actor: Actor, opts: { merge?: boolean; note?: string } = {},
 ) {
-  const ref = agencyDb().collection(col).doc(id);
-  const stamped = {
-    ...data,
-    updatedAt: new Date().toISOString(),
-    updatedBy: actor.by,
-    updatedByKind: actor.kind,
-  };
-  if (opts.merge) await ref.set(stamped, { merge: true });
-  else await ref.set(stamped);
+  const db = agencyDb();
+  const ref = db.collection(col).doc(id);
+  const at = new Date().toISOString();
+  const stamped = { ...data, updatedAt: at, updatedBy: actor.by, updatedByKind: actor.kind };
+
+  if (!HISTORY_COLS.has(col)) {
+    if (opts.merge) await ref.set(stamped, { merge: true });
+    else await ref.set(stamped);
+    return ref;
+  }
+  /* 本体と履歴は【同じトランザクション】で書く。片方だけ残ると履歴が信用できなくなる */
+  await db.runTransaction(async (tx) => {
+    const cur = await tx.get(ref);
+    const before = cur.exists ? (cur.data() as Record<string, unknown>) : undefined;
+    const d = diffFields(before, stamped);
+    if (opts.merge) tx.set(ref, stamped, { merge: true });
+    else tx.set(ref, stamped);
+    /* 中身が何も変わっていないなら履歴を残さない（同じ値の書き直しでログが膨らむ） */
+    if (Object.keys(d.after).length === 0) return;
+    tx.set(ref.collection("history").doc(at), {
+      at, by: actor.by, byKind: actor.kind,
+      action: cur.exists ? "update" : "create",
+      ...d, ...(opts.note ? { note: opts.note } : {}),
+    });
+  });
   return ref;
 }
 
