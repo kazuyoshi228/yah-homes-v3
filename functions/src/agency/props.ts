@@ -60,10 +60,21 @@ export async function propertySummary() {
   const eqSnap = await db.collection("equipment").where("kind", "==", "equipment").get();
   /* 明細の正本。備品・工事・取得費用は items（1行=1ドキュメント・idx順） */
   const itemsSnap = await db.collection("items").get();
+  /* 購買先マスタ（purchaseVendors・SSoT総点検⑤・2026-09-04）。
+     vendor はカード明細の文字列そのまま（AMAZON.CO.JP / Amazon / AMAZONPAY…）で、
+     仕入先別の集計が割れていた。vendorId があればマスタの表示名に正規化する。
+     元の明細文字列は vendorRaw として残す（一次事実は消さない） */
+  const pvSnap = await db.collection("purchaseVendors").get();
+  const pv = new Map(pvSnap.docs.map((x) => [x.id, String(x.data().displayName ?? x.id)]));
   const itemsOf = (prop: string, kind: string): Array<Record<string, unknown>> => itemsSnap.docs
     .filter((x) => x.data().prop === prop && x.data().kind === kind)
     .sort((a, b) => Number(a.data().idx ?? 0) - Number(b.data().idx ?? 0))
-    .map((x) => ({ id: x.id, ...(x.data() as object) } as Record<string, unknown>));
+    .map((x) => {
+      const d = { id: x.id, ...(x.data() as object) } as Record<string, unknown>;
+      const canon = typeof d.vendorId === "string" ? pv.get(d.vendorId) : undefined;
+      if (canon && canon !== d.vendor) { d.vendorRaw = d.vendor; d.vendor = canon; }
+      return d;
+    });
   const capDoc = await db.collection("assumptions").doc("cap-rate").get();
   const capRate = Number(capDoc.data()?.value ?? CAP_RATE_FALLBACK);
 
