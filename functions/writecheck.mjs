@@ -8,11 +8,14 @@
 import { readFile, readdir } from "node:fs/promises";
 
 /* 実査値（2026-09-03・計58箇所/17ファイル）。直したら下げてコミットする。
-   多いのは portal.ts（14）と engine.ts（7）——engine の7件は ledgerSet 自身と
-   キュー・ロックの操作なので、台帳の一次事実とは性格が違う。移行はそこを最後に回す */
+   多いのは portal.ts（14）と engine.ts（10）——engine の分は ledgerSet 自身と
+   キュー・ロックの操作なので、台帳の一次事実とは性格が違う。移行はそこを最後に回す。
+   2026-09-04: engine.ts を 7 → 10 に上げた。変更履歴（設計メモ⑥）を残すために
+   ledgerSet の中でトランザクション書き込みが3箇所増えたため——
+   これは ledgerSet【自身の実装】であって、検査が止めたい「ledgerSet を通さない書き込み」ではない */
 const BASELINE = {
   "ai.ts": 2, "aicheck.ts": 1, "alerts.ts": 3, "bs.ts": 1, "dispatcher.ts": 5,
-  "engine.ts": 7, "functions.ts": 5, "health.ts": 3, "inbox.ts": 3, "intake.ts": 6,
+  "engine.ts": 10, "functions.ts": 5, "health.ts": 3, "inbox.ts": 3, "intake.ts": 6,
   "lifecycle.ts": 3, "monthly.ts": 1, "portal.ts": 14, "props.ts": 1,
   "schedules.ts": 1, "tourism.ts": 1, "weekly.ts": 1,
 };
