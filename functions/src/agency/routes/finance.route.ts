@@ -6,7 +6,7 @@
  */
 import { getStorage } from "firebase-admin/storage";
 import { agencyDb } from "../engine.js";
-import { loanSummary } from "../finance.js";
+import { loanSummary, portfolioYear } from "../finance.js";
 import { balanceSheet } from "../bs.js";
 import { cashflow } from "../cashflow.js";
 import { revenueSummary } from "../revenue.js";
@@ -116,6 +116,28 @@ export async function handle(action: string, req: any, res: any, ctx: Ctx): Prom
         }
         case "bs": {                                           // BS（貸借対照表）— 主体別の負債＋法人の資産
           res.json({ ok: true, ...(await balanceSheet()) });
+          return true;
+        }
+        case "loanYears": {                                   // 借入の年次モデル（設計メモ③・2026-09-04）
+          /* 元利均等の計算をサーバの1本（finance.ts）に集約した。カードは呼ぶだけ。
+             家族ファンド分（銀行以外）を年ごとに束ねて返す。銀行分はモデル側の数字から引く */
+          const [loans, asm, scs] = await Promise.all([
+            all("finance"), all("assumptions"), all("scenarios")]);
+          const BANK = /銀行|公庫|信用金庫|信用組合|金庫|證券|証券/;
+          const fam = loans.filter((l) => String(l.kind ?? "") === "loan"
+            && String(l.entity ?? "corp") === "corp"
+            && !BANK.test(String(l.lender ?? "")));
+          const ff = asm.find((a) => a.id === "family-fund") ?? {};
+          /* 利率と切替月はシナリオの override があればそれを、無ければ assumptions を使う */
+          const sc = scs.find((x) => (x.overrides as { familyRate?: unknown })?.familyRate) ?? null;
+          const fr = (sc?.overrides as { familyRate?: { rate?: number; switchMonth?: string } })?.familyRate;
+          const plan = { rate: Number(fr?.rate ?? ff.targetRate ?? 0),
+            switchMonth: String(fr?.switchMonth ?? ff.switchMonth ?? "9999-12") };
+          const from = Number(req.query.from ?? new Date().getFullYear());
+          const to = Number(req.query.to ?? from + 30);
+          const years: Record<string, ReturnType<typeof portfolioYear>> = {};
+          for (let y = from; y <= to; y++) years[String(y)] = portfolioYear(fam as never, y, plan);
+          res.json({ ok: true, years, plan, count: fam.length });
           return true;
         }
         case "scenarios": {                                   // シナリオ一覧（案の正本・2026-09-04）

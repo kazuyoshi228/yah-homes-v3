@@ -203,3 +203,97 @@ export async function loanSummary(asOf = new Date()) {
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
+
+/* ===== 借入の年次モデル（2026-09-04・設計メモ③で集約） ==========================
+   これまで同じ元利均等の計算が3箇所にあった——ここの loanState、bs.ts の
+   liabilityAmount、そして **カードのHTMLの中**（familyfund.html の famYear）。
+   3つ目が特に悪く、サーバのテストに載らないうえ、カードが増えるたび4箇所目が生まれる。
+   ここに寄せて、カードは呼ぶだけにする。テストは money.test.ts に集約。
+   ※純関数として書く（Firestoreを見ない）——テストしやすさのため             */
+
+export type YearMoney = { pay: number; interest: number };
+
+const ymAdd = (ym: string, k: number) => {
+  const [a, b] = String(ym).split("-").map(Number);
+  const t = a * 12 + (b - 1) + k;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`;
+};
+
+/** 1本の借入が、その年に払う額と、そのうち利息の分。
+    返済表を頭から引き直す（貸主と同じ手順・利息は円未満切り捨て）。
+    利息を分けて持つのは【損金になるのは利息だけ】だから——元本の返済は経費にならない。 */
+export function loanYear(loan: {
+  principal?: number; rate?: number; firstPaymentMonth?: string;
+  totalPayments?: number; monthlyPayment?: number;
+}, year: number | string): YearMoney {
+  const p = Number(loan.principal || 0);
+  const start = loan.firstPaymentMonth ?? null;
+  const n = Number(loan.totalPayments || 0);
+  const mp = Number(loan.monthlyPayment || 0);
+  if (!start || !n) return { pay: 0, interest: 0 };
+  let bal = p, pay = 0, interest = 0;
+  for (let i = 0; i < n; i++) {
+    const m = ymAdd(start, i);
+    const it = Math.floor((bal * (Number(loan.rate || 0) / 100)) / 12);
+    if (m.slice(0, 4) === String(year)) { pay += mp; interest += it; }
+    bal -= mp - it;
+    if (m.slice(0, 4) > String(year)) break;
+  }
+  return { pay, interest };
+}
+
+/** 1本の借入の、その年の【年末残高】。返済表が無い借入は減らないものとして当初元本を返す。 */
+export function loanBalanceAtYearEnd(loan: {
+  principal?: number; rate?: number; firstPaymentMonth?: string;
+  totalPayments?: number; monthlyPayment?: number;
+}, year: number | string): number {
+  const p = Number(loan.principal || 0);
+  const start = loan.firstPaymentMonth ?? null;
+  const n = Number(loan.totalPayments || 0);
+  const mp = Number(loan.monthlyPayment || 0);
+  if (!start || !n) return p;
+  let b = p;
+  for (let i = 0; i < n; i++) {
+    const m = ymAdd(start, i);
+    if (m.slice(0, 4) > String(year)) break;
+    b -= mp - Math.floor((b * (Number(loan.rate || 0) / 100)) / 12);
+  }
+  return Math.max(0, b);
+}
+
+/** 利息のみに切り替えた場合の、その年の支払（＝全額が利息）。
+    切替は max(実行月, 切替月) から——まだ入っていないお金に利息は付かない。 */
+export function loanYearInterestOnly(loan: {
+  principal?: number; rate?: number; firstPaymentMonth?: string;
+  totalPayments?: number; monthlyPayment?: number;
+}, year: number | string, rate: number, switchMonth: string): YearMoney {
+  const p = Number(loan.principal || 0);
+  const start = loan.firstPaymentMonth ?? null;
+  const n = Number(loan.totalPayments || 0);
+  const mp = Number(loan.monthlyPayment || 0);
+  let pay = 0, interest = 0;
+  for (let i = 0; i < 12; i++) {
+    const m = `${year}-${String(i + 1).padStart(2, "0")}`;
+    const running = start ? (m >= start && (!n || m < ymAdd(start, n))) : false;
+    const inHand = start ? m >= start : true;   /* 条件不明の借入はすでに入っている */
+    if (m >= switchMonth && inHand) { pay += (p * rate) / 12; interest += (p * rate) / 12; }
+    else if (running) { pay += mp; interest += Math.floor((p * (Number(loan.rate || 0) / 100)) / 12); }
+  }
+  return { pay, interest };
+}
+
+/** 複数本をまとめた、その年の姿。カードはこれを呼ぶだけにする。 */
+export function portfolioYear(loans: Array<Parameters<typeof loanYear>[0]>,
+  year: number | string, plan: { rate: number; switchMonth: string }) {
+  let now = 0, nowInt = 0, planPay = 0, planInt = 0, balNow = 0, balPlan = 0;
+  for (const L of loans) {
+    const a = loanYear(L, year);
+    const b = loanYearInterestOnly(L, year, plan.rate, plan.switchMonth);
+    now += a.pay; nowInt += a.interest;
+    planPay += b.pay; planInt += b.interest;
+    balNow += loanBalanceAtYearEnd(L, year);
+    balPlan += Number(L.principal || 0);        /* 利息のみ＝元本は据え置き */
+  }
+  return { now, nowInt, plan: planPay, planInt, delta: planPay - now,
+    deltaInt: planInt - nowInt, balanceNow: balNow, balancePlan: balPlan };
+}
