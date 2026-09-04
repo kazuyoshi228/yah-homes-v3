@@ -70,8 +70,10 @@ function isRealKey(v: string | undefined): boolean {
   return !PLACEHOLDERS.includes(k.toLowerCase());
 }
 
-/** いま取り込むべき四半期。公表は2四半期ほど遅れるので、余裕をみて4期ぶん見る */
-function recentQuarters(now: Date, back = 4): string[] {
+/** いま取り込むべき四半期。公表は2四半期ほど遅れるので、8期（2年）ぶん遡る。
+    まだ公表されていない四半期は404「検索結果がありません」が返るが、空として扱う。
+    すでに入っている行は同じIDに当たるので、何度取っても増えない（merge） */
+function recentQuarters(now: Date, back = 8): string[] {
   const out: string[] = [];
   let y = now.getFullYear();
   let q = Math.floor(now.getMonth() / 3) + 1;
@@ -108,10 +110,13 @@ export const landCompsSync = onSchedule(
       Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
       const r = await fetch(u, { headers: { "Ocp-Apim-Subscription-Key": key } });
       if (!r.ok) {
-        /* 応答の中身まで残す。パスが違うのか、キーの権限が足りないのか、
-           パラメータが悪いのかは、本文を見ないと切り分けられない（2026-09-04）。
-           キーそのものは絶対に出さない——URLにも本文にも含まれない作りにしてある。 */
         const body = await r.text().catch(() => "");
+        /* このAPIは【該当データが無いときも404を返す】（2026-09-04 実測）。
+           取引価格の公表は2四半期ほど遅れるので、直近の四半期は必ず「無い」。
+           それを異常として落とすと、毎回失敗する。空として扱う。 */
+        if (r.status === 404 && body.includes("検索結果がありません")) return { data: [] };
+        /* それ以外の失敗は本文まで残す。パスが違うのか、キーの権限か、パラメータかを
+           切り分けるため。キーはURLにも本文にも含まれない作りなので、出しても漏れない */
         throw new Error(`${path} ${r.status} ${body.slice(0, 300)}`);
       }
       return r.json() as Promise<{ data?: Array<Record<string, unknown>> }>;
