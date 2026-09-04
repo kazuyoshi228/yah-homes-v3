@@ -419,3 +419,25 @@
 ①③⑥ はサーバ・データ設計 → 共有部スレッド。
 ④ の見た目 → デザインスレッド（`os.css` と正本のガイドライン）。
 ⑤⑦⑧ は本番データの移行を含むので、着手前に発注者の再承認が要る。
+
+---
+
+## SSoT総点検（2026-09-04・発注者指示「全部総点検！」）
+
+財務カテゴリー9カード（財務・資金繰り・BS・決算書・家族ファンド・個人の財務・
+融資の返済・費用・事業承継）と台帳8コレクションを機械照合した。
+
+### 守られていたもの
+- 保存の規律: 集計値の保存はほぼ無し。`items/equipment.splitTotal` は按分の検算用の
+  伝票額（一次事実）で違反ではない。`cash.total` は口座別残高と併存（許容）
+- サーバの導出: derivecheck が NOI・DSCR 等を derive.ts に閉じ込めており違反なし
+
+### 見つけて直したもの
+| # | 発見 | 対処 |
+|---|---|---|
+| ① | finance 3件の totalRepayment が引き直しと144円ズレ。**ズレていたのはモデルの方**（最終回の端数調整を無視） | loanYear/loanBalanceAtYearEnd に min(mp, bal+it) を実装。実契約と1円一致の回帰テスト追加。そのうえで導出できる totalRepayment/totalInterest を台帳から削除（history に before/after を残した） |
+| ② | personal.js に返済モデル（schedule/monthlyInterest 約40行）が残存 | finance.ts の simpleSchedule/interestOnlyMonthly へ移設。4本の完全一致を確認して差し替え |
+| ③ | derivecheck はサーバの .ts しか見ない——カードは検査の穴 | yah-os に modelcheck.mjs を新設・CIに組込（月利計算・残高ループ・返済表の引き直しをゼロ基準で禁止） |
+| ④ | 手取り配当 gross×(1−taxRate) がカードに3回 | サーバの dividends: {gross, taxRate, net} に集約。数字不変を確認 |
+
+これで**カードの中の財務モデルはゼロ**（modelcheck が45ファイルで確認）。
