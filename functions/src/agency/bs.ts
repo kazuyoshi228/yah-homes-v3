@@ -245,7 +245,9 @@ export async function balanceSheet(asOf = new Date()) {
     /* 置き換える1本を抜いた残り＋案の行。ここに入らない借入（銀行・他の家族ファンド）はそのまま */
     const kept = sides.corp.liabilities.filter((l) => l.docPath !== replaces);
     const planLines: BsLine[] = rl.lines.map((x) => ({
-      label: String(x.lender ?? ""), amount: num(x.amount), note: "整理後の案",
+      /* note は付けない。パネル自体に「整理後（案）・未実行」のタグがあり、
+         行ごとに繰り返すのは冗長（2026-09-06 発注者指摘） */
+      label: String(x.lender ?? ""), amount: num(x.amount),
       docPath: `scenarios/${sc.id}`, lenderKind: "family" as const,
     }));
     const planTotal = planLines.reduce((a, x) => a + x.amount, 0);
