@@ -77,9 +77,12 @@ export async function healthSummary() {
       });
       if (!open.length) continue;
       const blocks = [...new Set(open.map((x) => String(x.blocks ?? "")).filter(Boolean))];
-      add(PENDING_CARDS[col] ?? col, `未確定: ${col}/${doc.id}`, false,
-        `${open.map((x) => String(x.label ?? x.id ?? "")).join("／")}`
-        + (blocks.length ? `（導出できないもの: ${blocks.join("・")}）` : ""));
+      /* chronic＝台帳の長期の宿題。今日ボードには出さない（ヘルスとドットだけ）。
+         2026-09-06 発注者指摘——毎日並ぶと、本当に今日やる警告が埋もれる */
+      checks.push({ card: PENDING_CARDS[col] ?? col, name: `未確定: ${col}/${doc.id}`, ok: false,
+        detail: `${open.map((x) => String(x.label ?? x.id ?? "")).join("／")}`
+          + (blocks.length ? `（導出できないもの: ${blocks.join("・")}）` : ""),
+        chronic: true } as HealthCheck & { chronic: boolean });
     }
   }
 
